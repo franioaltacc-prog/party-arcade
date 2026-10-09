@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Memory Flip · Party Arcade</title>
+  <meta name="theme-color" content="#0b0920">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .solo-wrap { width: min(720px, 100%); margin: 0 auto; }
+    .bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+    .stat-pill { padding: 8px 14px; border-radius: 14px; background: var(--panel); border: 1px solid var(--border); font-weight: 700; font-variant-numeric: tabular-nums; }
+    .cards { display: grid; gap: 10px; perspective: 900px; }
+    .card { aspect-ratio: 3 / 4; position: relative; cursor: pointer; border: 0; padding: 0; background: none; transform-style: preserve-3d; transition: transform .4s cubic-bezier(.3,1.3,.5,1); }
+    .card.up, .card.done { transform: rotateY(180deg); }
+    .card .face { position: absolute; inset: 0; border-radius: 16px; backface-visibility: hidden; -webkit-backface-visibility: hidden; display: grid; place-items: center; }
+    .card .back { background: linear-gradient(135deg, var(--purple), var(--pink)); box-shadow: inset 0 -5px 0 rgba(0,0,0,.25); border: 2px solid rgba(255,255,255,.25); }
+    .card .back::after { content: "?"; font-family: var(--font-display); font-size: clamp(1.2rem, 4vw, 2rem); color: rgba(255,255,255,.55); }
+    .card .front { transform: rotateY(180deg); background: #fff; font-size: clamp(1.6rem, 6vw, 3rem); box-shadow: inset 0 -5px 0 rgba(0,0,0,.12); }
+    .card.done .front { background: #dcfce7; box-shadow: 0 0 0 3px var(--green), 0 0 20px rgba(34,197,94,.5); }
+    .card.miss { animation: shake .4s; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="solo-wrap">
+      <div class="bar">
+        <div class="seg" id="sizes"></div>
+        <span class="grow"></span>
+        <span class="stat-pill">🔁 <span id="moves">0</span></span>
+        <span class="stat-pill">⏱ <span id="time">0</span>s</span>
+        <button class="btn btn-pink btn-sm" id="restart">New</button>
+      </div>
+      <div class="cards" id="cards"></div>
+      <p class="muted small" style="text-align:center;margin-top:14px" id="best"></p>
+    </div>
+  </main>
+  <script src="/js/core.js"></script>
+  <script>
+  (() => {
+    const { $, h, fill, UI, Sfx, store, Net } = PA;
+    UI.topbar({ title: 'Memory Flip', emoji: '🃏' });
+    Net.connect();
+    const EMOJI = ['🐶', '🐱', '🦊', '🐼', '🐸', '🦄', '🐙', '🦖', '🍕', '🍩', '🍉', '🌮', '🚀', '⚽', '🎸', '🎈', '💎', '🌈', '🔥', '⭐', '👻', '🤖', '👽', '🎃'];
+    const SIZES = [['easy', 'Easy', 4, 3], ['normal', 'Normal', 4, 4], ['hard', 'Hard', 6, 4], ['expert', 'Expert', 6, 6]];
+    let size = store.get('memory_size', 'normal');
+    let first = null, lock = false, moves = 0, found = 0, total = 0, t0 = 0, timer = null;
+
+    function renderSizes() {
+      fill($('#sizes'), SIZES.map(([k, l]) => h('button', { class: k === size ? 'on' : '', onclick: () => { size = k; store.set('memory_size', k); renderSizes(); deal(); } }, l)));
+      const b = store.get('memory_best', {})[size];
+      $('#best').textContent = b ? `🏆 Best on this size: ${b.moves} moves · ${b.time}s` : 'Find all the pairs in as few moves as you can!';
+    }
+
+    function deal() {
+      const [, , cols, rows] = SIZES.find((s) => s[0] === size);
+      total = (cols * rows) / 2;
+      const picks = [...EMOJI].sort(() => Math.random() - 0.5).slice(0, total);
+      const deck = [...picks, ...picks].sort(() => Math.random() - 0.5);
+      first = null; lock = false; moves = 0; found = 0; t0 = 0;
+      clearInterval(timer);
+      $('#moves').textContent = 0; $('#time').textContent = 0;
+      const grid = $('#cards');
+      grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+      grid.style.maxWidth = cols === 6 && rows === 6 ? '560px' : '';
+      grid.style.margin = '0 auto';
+      fill(grid, deck.map((e) => h('button', { class: 'card', 'data-e': e, 'aria-label': 'Card', onclick: (ev) => flip(ev.currentTarget) }, h('div', { class: 'face back' }), h('div', { class: 'face front' }, e))));
+      renderSizes();
+    }
+
+    function flip(card) {
+      if (lock || card === first || card.classList.contains('done') || card.classList.contains('up')) return;
+      if (!t0) { t0 = performance.now(); timer = setInterval(() => { $('#time').textContent = Math.floor((performance.now() - t0) / 1000); }, 250); }
+      card.classList.add('up');
+      Sfx.play('click');
+      if (!first) { first = card; return; }
+      moves++;
+      $('#moves').textContent = moves;
+      const a = first, b = card;
+      first = null;
+      if (a.dataset.e === b.dataset.e) {
+        setTimeout(() => { a.classList.add('done'); b.classList.add('done'); Sfx.play('coin'); }, 250);
+        found++;
+        if (found === total) setTimeout(win, 600);
+      } else {
+        lock = true;
+        setTimeout(() => { a.classList.add('miss'); b.classList.add('miss'); Sfx.play('wrong'); }, 450);
+        setTimeout(() => { a.classList.remove('up', 'miss'); b.classList.remove('up', 'miss'); lock = false; }, 950);
+      }
+    }
+
+    function win() {
+      clearInterval(timer);
+      const time = Math.floor((performance.now() - t0) / 1000);
+      const bests = store.get('memory_best', {});
+      const prev = bests[size];
+      const isBest = !prev || moves < prev.moves || (moves === prev.moves && time < prev.time);
+      if (isBest) { bests[size] = { moves, time }; store.set('memory_best', bests); }
+      UI.confetti(); Sfx.play('win');
+      const close = UI.modal(h('div', { style: { textAlign: 'center' } },
+        h('div', { style: { fontSize: '3rem' } }, isBest ? '🏆' : '🎉'),
+        h('h2', {}, isBest ? 'New best!' : 'All pairs found!'),
+        h('p', { class: 'muted' }, `${moves} moves · ${time} seconds`),
+        h('button', { class: 'btn btn-pink btn-lg', style: { marginTop: '16px' }, onclick: () => { close(); deal(); } }, '🔁 Play again')));
+      renderSizes();
+    }
+
+    $('#restart').addEventListener('click', deal);
+    deal();
+  })();
+  </script>
+</body>
+</html>

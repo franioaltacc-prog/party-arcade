@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>2048 · Party Arcade</title>
+  <meta name="theme-color" content="#0b0920">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .solo-wrap { width: min(500px, 100%); margin: 0 auto; }
+    .score-strip { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
+    .score-box { flex: 1; text-align: center; padding: 8px; border-radius: 16px; background: var(--panel); border: 1px solid var(--border); position: relative; }
+    .score-box .l { font-size: .72rem; color: var(--muted); font-weight: 700; letter-spacing: .08em; }
+    .score-box .v { font-family: var(--font-display); font-size: 1.5rem; }
+    .plus { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); font-weight: 700; color: var(--lime); animation: float-up .8s ease-out forwards; pointer-events: none; }
+    @keyframes float-up { to { transform: translate(-50%, -34px); opacity: 0; } }
+    .grid2048 { --gap: 3%; position: relative; aspect-ratio: 1; border-radius: 22px; padding: var(--gap); background: rgba(0,0,0,.35); border: 1px solid var(--border-strong); box-shadow: var(--shadow); touch-action: none; user-select: none; -webkit-user-select: none; }
+    .slot, .tile { position: absolute; width: calc((100% - 5 * var(--gap)) / 4); height: calc((100% - 5 * var(--gap)) / 4); border-radius: 14px; }
+    .slot { background: rgba(255,255,255,.05); }
+    .tile { display: grid; place-items: center; font-family: var(--font-display); color: #fff; transition: left .11s ease-in-out, top .11s ease-in-out; z-index: 1; box-shadow: inset 0 -5px 0 rgba(0,0,0,.2); }
+    .tile.new { animation: appear .18s ease-out .08s backwards; }
+    .tile.merged { animation: merge .22s ease-out; z-index: 2; }
+    @keyframes appear { from { transform: scale(0); } }
+    @keyframes merge { 50% { transform: scale(1.18); } }
+    .over2048 { position: absolute; inset: 0; z-index: 5; border-radius: 22px; display: grid; place-items: center; text-align: center; background: rgba(11,9,32,.78); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+    .over2048 h2 { font-family: var(--font-display); font-weight: 400; font-size: 2.4rem; margin-bottom: 8px; }
+    .tip { text-align: center; color: var(--muted); margin-top: 14px; font-size: .92rem; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="solo-wrap">
+      <div class="score-strip">
+        <div class="score-box"><div class="l">SCORE</div><div class="v" id="score">0</div></div>
+        <div class="score-box"><div class="l">BEST</div><div class="v" id="best">0</div></div>
+        <button class="btn btn-ghost" id="undo" title="Undo one move">↩️</button>
+        <button class="btn btn-pink" id="new">New</button>
+      </div>
+      <div class="grid2048" id="grid"></div>
+      <p class="tip">Arrow keys / WASD or swipe. Merge matching tiles to reach <b>2048</b>!</p>
+    </div>
+  </main>
+  <script src="/js/core.js"></script>
+  <script>
+  (() => {
+    const { $, h, fill, UI, Sfx, store, Net } = PA;
+    UI.topbar({ title: '2048', emoji: '🔢' });
+    Net.connect();
+    const COLORS = { 2: ['#3b2f6b', '#e9e3ff'], 4: ['#4c3a8f', '#fff'], 8: ['#f97316', '#fff'], 16: ['#ef4444', '#fff'], 32: ['#ec4899', '#fff'], 64: ['#d946ef', '#fff'], 128: ['#8b5cf6', '#fff'], 256: ['#3b82f6', '#fff'], 512: ['#06b6d4', '#fff'], 1024: ['#10b981', '#fff'], 2048: ['#facc15', '#2b1d00'] };
+    const grid = $('#grid');
+    let tiles = [], score = 0, best = store.get('2048_best', 0), nextId = 1, won = false, history = null, busy = false;
+    $('#best').textContent = best;
+
+    const posStyle = (r, c) => ({ left: `calc(var(--gap) + ${c} * ((100% - 5 * var(--gap)) / 4 + var(--gap)))`, top: `calc(var(--gap) + ${r} * ((100% - 5 * var(--gap)) / 4 + var(--gap)))` });
+    function slots() { const out = []; for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) out.push(h('div', { class: 'slot', style: posStyle(r, c) })); return out; }
+
+    function render() {
+      const els = new Map([...grid.querySelectorAll('.tile')].map((e) => [Number(e.dataset.id), e]));
+      for (const t of tiles) {
+        let el = els.get(t.id);
+        const [bg, fg] = COLORS[t.v] || ['#111', '#fff'];
+        const size = t.v >= 1024 ? 'clamp(1rem, 5vw, 1.7rem)' : t.v >= 128 ? 'clamp(1.2rem, 6vw, 2rem)' : 'clamp(1.4rem, 7vw, 2.5rem)';
+        if (!el) { el = h('div', { class: 'tile new', 'data-id': t.id }); grid.append(el); }
+        Object.assign(el.style, posStyle(t.r, t.c), { background: bg, color: fg, fontSize: size, boxShadow: t.v >= 128 ? `inset 0 -5px 0 rgba(0,0,0,.2), 0 0 ${Math.min(30, t.v / 40)}px ${bg}` : '' });
+        el.textContent = t.v;
+        if (t.merged) { el.classList.remove('merged'); void el.offsetWidth; el.classList.add('merged'); }
+        els.delete(t.id);
+      }
+      els.forEach((el) => el.remove());
+      $('#score').textContent = score;
+    }
+
+    function addRandom() {
+      const free = [];
+      for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) if (!tiles.some((t) => t.r === r && t.c === c)) free.push([r, c]);
+      if (!free.length) return;
+      const [r, c] = free[Math.floor(Math.random() * free.length)];
+      tiles.push({ id: nextId++, r, c, v: Math.random() < 0.9 ? 2 : 4 });
+    }
+
+    function reset() {
+      fill(grid, slots());
+      tiles = []; score = 0; won = false; history = null;
+      addRandom(); addRandom(); render();
+    }
+
+    function move(dr, dc) {
+      if (busy || grid.querySelector('.over2048')) return;
+      const snapshot = { tiles: tiles.map((t) => ({ ...t, merged: false })), score };
+      tiles.forEach((t) => { t.merged = false; });
+      const at = (r, c) => tiles.find((t) => t.r === r && t.c === c && !t.dead);
+      const order = [0, 1, 2, 3];
+      const rows = dr === 1 ? [...order].reverse() : order;
+      const cols = dc === 1 ? [...order].reverse() : order;
+      let moved = false, gained = 0;
+      for (const r of rows) for (const c of cols) {
+        const t = at(r, c);
+        if (!t) continue;
+        let nr = r, nc = c;
+        while (true) {
+          const tr = nr + dr, tc = nc + dc;
+          if (tr < 0 || tr > 3 || tc < 0 || tc > 3) break;
+          const other = at(tr, tc);
+          if (!other) { nr = tr; nc = tc; continue; }
+          if (other.v === t.v && !other.merged && !t.merged) { other.v *= 2; other.merged = true; t.dead = true; t.r = tr; t.c = tc; gained += other.v; moved = true; if (other.v === 2048 && !won) { won = true; setTimeout(winScreen, 300); } }
+          break;
+        }
+        if (!t.dead && (nr !== r || nc !== c)) { t.r = nr; t.c = nc; moved = true; }
+      }
+      if (!moved) return;
+      history = snapshot;
+      score += gained;
+      if (gained) { Sfx.play('pop'); const plus = h('div', { class: 'plus' }, `+${gained}`); $('#score').parentNode.append(plus); setTimeout(() => plus.remove(), 800); }
+      else Sfx.play('swoosh');
+      // render movement first (dead tiles slide into the merge target), then remove them
+      render();
+      busy = true;
+      setTimeout(() => {
+        tiles = tiles.filter((t) => !t.dead);
+        addRandom();
+        render();
+        busy = false;
+        if (score > best) { best = score; store.set('2048_best', best); $('#best').textContent = best; }
+        if (!canMove()) setTimeout(loseScreen, 250);
+      }, 115);
+    }
+
+    function canMove() {
+      if (tiles.length < 16) return true;
+      for (const t of tiles) for (const [dr, dc] of [[0, 1], [1, 0]]) { const o = tiles.find((x) => x.r === t.r + dr && x.c === t.c + dc); if (o && o.v === t.v) return true; }
+      return false;
+    }
+    function overlay(...kids) { grid.append(h('div', { class: 'over2048' }, h('div', {}, ...kids))); }
+    function winScreen() { UI.confetti(); Sfx.play('win'); overlay(h('h2', { class: 'gradient-text' }, '2048!'), h('p', { class: 'muted' }, 'You did it! Keep going for a bigger score?'), h('div', { class: 'row', style: { justifyContent: 'center', marginTop: '14px' } }, h('button', { class: 'btn btn-lime', onclick: () => grid.querySelector('.over2048').remove() }, 'Keep going'), h('button', { class: 'btn btn-ghost', onclick: reset }, 'New game'))); }
+    function loseScreen() { Sfx.play('lose'); overlay(h('h2', {}, 'No moves!'), h('p', { class: 'muted' }, `Final score: ${score}`), h('button', { class: 'btn btn-pink btn-lg', style: { marginTop: '14px' }, onclick: reset }, '🔁 Try again')); }
+
+    const keys = { ArrowUp: [-1, 0], KeyW: [-1, 0], ArrowDown: [1, 0], KeyS: [1, 0], ArrowLeft: [0, -1], KeyA: [0, -1], ArrowRight: [0, 1], KeyD: [0, 1] };
+    addEventListener('keydown', (e) => { if (keys[e.code] && e.target.tagName !== 'INPUT') { e.preventDefault(); move(...keys[e.code]); } });
+    let start = null;
+    grid.addEventListener('pointerdown', (e) => { start = { x: e.clientX, y: e.clientY }; });
+    grid.addEventListener('pointerup', (e) => {
+      if (!start) return;
+      const dx = e.clientX - start.x, dy = e.clientY - start.y;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) > 25) { if (Math.abs(dx) > Math.abs(dy)) move(0, Math.sign(dx)); else move(Math.sign(dy), 0); }
+      start = null;
+    });
+    $('#new').addEventListener('click', () => { reset(); Sfx.play('click'); });
+    $('#undo').addEventListener('click', () => {
+      if (!history || busy) return;
+      tiles = history.tiles; score = history.score; history = null;
+      const ov = grid.querySelector('.over2048'); if (ov) ov.remove();
+      fill(grid, slots()); render(); Sfx.play('click');
+    });
+    reset();
+  })();
+  </script>
+</body>
+</html>

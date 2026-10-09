@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Family Life · Party Arcade</title>
+  <meta name="theme-color" content="#0b0920">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    /* ---------- lobby ---------- */
+    .lobby-grid { display: grid; gap: 16px; }
+    .fam-card { border-radius: 20px; padding: 16px; background: linear-gradient(150deg, rgba(34,197,94,.22), rgba(14,116,144,.22)); border: 1px solid rgba(34,197,94,.35); }
+    .fam-card h3 { font-family: var(--font-display); font-weight: 400; font-size: 1.4rem; margin-bottom: 4px; }
+    .parents { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+    .parent { flex: 1; min-width: 140px; padding: 10px 12px; border-radius: 14px; background: rgba(0,0,0,.2); font-size: .9rem; }
+    .parent b { display: block; font-size: 1rem; }
+    .char-form { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; }
+    .char-list { display: grid; gap: 7px; }
+    .char-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 14px; background: rgba(255,255,255,.04); }
+    .char-row .rd { margin-left: auto; font-size: .85rem; font-weight: 700; }
+    .rules { display: grid; gap: 6px; }
+    .rule-row { display: flex; align-items: center; gap: 8px; justify-content: space-between; padding: 6px 8px; border-radius: 12px; background: rgba(255,255,255,.035); font-size: .9rem; flex-wrap: wrap; }
+    .rule-row .seg button { padding: 5px 9px; font-size: .8rem; }
+    .label-h { font-size: .74rem; font-weight: 700; color: var(--muted); letter-spacing: .07em; text-transform: uppercase; margin: 4px 0 6px; }
+    .set-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+    @media (max-width: 640px) { .set-grid { grid-template-columns: 1fr; } }
+
+    /* ---------- results ---------- */
+    .awards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 18px; }
+    .award { text-align: center; padding: 12px 8px; border-radius: 18px; background: linear-gradient(160deg, rgba(250,204,21,.18), rgba(255,79,216,.12)); border: 1px solid rgba(250,204,21,.35); animation: pop-in .4s backwards; }
+    .award .ae { font-size: 2rem; }
+    .award .at { font-weight: 700; font-size: .78rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+    .award .an { font-family: var(--font-display); font-size: 1.15rem; margin: 2px 0; }
+    .award .av { font-size: .8rem; color: var(--muted); }
+    .story { margin-bottom: 10px; border-radius: 18px; background: rgba(255,255,255,.05); padding: 12px 14px; }
+    .story summary { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; cursor: pointer; list-style: none; }
+    .story summary::-webkit-details-marker { display: none; }
+    .story .rk { font-size: 1.5rem; }
+    .story .pts { font-family: var(--font-display); font-size: 1.3rem; color: var(--yellow); }
+    .story-body { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 12px; }
+    .story-log { max-height: 240px; overflow-y: auto; font-size: .85rem; display: grid; gap: 4px; }
+    .story-log div { padding: 5px 8px; border-radius: 8px; background: rgba(0,0,0,.2); }
+    .breakdown div { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dashed var(--border); font-size: .9rem; }
+    @media (max-width: 640px) { .story-body { grid-template-columns: 1fr; } }
+
+    /* ---------- play layout ---------- */
+    .fam-grid { display: grid; grid-template-columns: minmax(0, 1fr) 370px; gap: 16px; align-items: start; }
+    .fam-grid > * { min-width: 0; }
+    .me-head { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; margin-bottom: 14px; }
+    .me-emoji { width: 72px; height: 72px; border-radius: 22px; display: grid; place-items: center; font-size: 2.5rem; background: linear-gradient(145deg, rgba(34,197,94,.35), rgba(14,116,144,.35)); border: 1px solid var(--border-strong); }
+    .me-name { font-size: 1.3rem; font-weight: 700; line-height: 1.1; }
+    .me-sub { color: var(--muted); font-size: .88rem; margin-top: 3px; }
+    .me-age { text-align: right; }
+    .me-age .n { font-family: var(--font-display); font-size: 2.2rem; line-height: 1; }
+    .me-age .y { font-size: .8rem; color: var(--muted); font-weight: 700; }
+    .stat-row { display: grid; grid-template-columns: repeat(4, 1fr) auto; gap: 12px; align-items: end; }
+    .stat .lbl { display: flex; justify-content: space-between; font-size: .75rem; font-weight: 700; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .04em; }
+    .stat .lbl b { color: var(--text); font-size: .85rem; }
+    .bar { height: 11px; border-radius: 99px; background: rgba(255,255,255,.08); overflow: hidden; }
+    .bar > i { display: block; height: 100%; border-radius: 99px; transition: width .7s cubic-bezier(.2,1,.3,1), background .3s; }
+    .bar.sm { height: 6px; }
+    .money-box { padding: 7px 12px; border-radius: 14px; background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.3); text-align: right; white-space: nowrap; }
+    .money-box .l { font-size: .7rem; color: var(--muted); font-weight: 700; }
+    .money-box .v { font-family: var(--font-display); font-size: 1.05rem; }
+    .money-box .v.neg { color: var(--red); }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+    .chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--border); font-size: .8rem; font-weight: 600; }
+    @media (max-width: 760px) { .stat-row { grid-template-columns: 1fr 1fr; } .money-box { grid-column: 1 / -1; text-align: left; } }
+
+    .req { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 18px; margin-bottom: 12px; flex-wrap: wrap;
+      background: rgba(34,211,238,.14); border: 1px solid rgba(34,211,238,.45); animation: pop-in .3s cubic-bezier(.2,1.4,.4,1); }
+    .event-card { border-radius: 22px; padding: 16px; margin-bottom: 12px; background: linear-gradient(160deg, rgba(139,92,246,.35), rgba(255,79,216,.2)); border: 2px solid rgba(255,79,216,.5); box-shadow: 0 0 40px -12px rgba(255,79,216,.6); animation: pop-in .35s cubic-bezier(.2,1.4,.4,1); }
+    .event-card .q { font-size: 1.15rem; font-weight: 700; margin-bottom: 10px; }
+    .event-card .choices { display: grid; gap: 8px; }
+    .event-card .choices .btn { justify-content: flex-start; white-space: normal; text-align: left; }
+    .vote-banner { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 16px; margin-bottom: 12px; background: rgba(250,204,21,.13); border: 1px solid rgba(250,204,21,.45); font-weight: 600; cursor: pointer; }
+
+    .log { height: 330px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 6px; }
+    .log .age-h { align-self: center; margin: 8px 0 2px; padding: 3px 12px; border-radius: 999px; background: var(--panel-2); font-weight: 700; font-size: .78rem; color: var(--muted); }
+    .log .lentry { padding: 8px 12px; border-radius: 14px; background: rgba(255,255,255,.045); font-size: .93rem; overflow-wrap: anywhere; animation: fade-in .3s; }
+    .log .lentry.new { background: rgba(250,204,21,.12); }
+
+    .act-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 14px 0 10px; }
+    .act-tabs button { border: 1px solid var(--border); background: var(--panel); border-radius: 12px; padding: 7px 11px; cursor: pointer; font-weight: 700; font-size: .85rem; color: var(--muted); }
+    .act-tabs button.on { background: var(--purple); color: #fff; border-color: transparent; }
+    .act-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 7px; min-height: 52px; }
+    .act { display: flex; align-items: center; gap: 8px; padding: 10px; border-radius: 14px; border: 1px solid var(--border); background: rgba(255,255,255,.05); cursor: pointer; text-align: left; font-weight: 600; font-size: .87rem; line-height: 1.15; transition: transform .1s, background .15s; color: var(--text); }
+    .act:hover:not(:disabled) { background: rgba(255,255,255,.1); transform: translateY(-1px); }
+    .act:disabled { opacity: .4; cursor: not-allowed; }
+    .act .e { font-size: 1.3rem; }
+    .act.group { flex-direction: column; align-items: flex-start; gap: 4px; }
+    .act.group .why { font-size: .75rem; color: var(--muted); font-weight: 500; }
+    .age-row { display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+    .age-btn { flex: 1; font-size: 1.35rem; padding: 18px; min-width: 200px; }
+    .energy { display: inline-flex; gap: 4px; align-items: center; font-weight: 700; font-size: .85rem; color: var(--muted); }
+    .energy i { width: 14px; height: 14px; border-radius: 4px; background: var(--yellow); box-shadow: 0 0 8px rgba(250,204,21,.6); display: inline-block; }
+    .energy i.used { background: rgba(255,255,255,.12); box-shadow: none; }
+
+    /* ---------- side ---------- */
+    .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+    .tabs button { flex: 1; border: 1px solid var(--border); background: var(--panel); border-radius: 12px; padding: 8px 6px; cursor: pointer; font-weight: 700; font-size: .85rem; color: var(--muted); position: relative; white-space: nowrap; }
+    .tabs button.on { background: var(--purple); color: #fff; border-color: transparent; }
+    .tabs .dotn { position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; background: var(--pink); color: #fff; font-size: .7rem; display: none; place-items: center; }
+    .tabs .dotn.on { display: grid; }
+    .side-body { max-height: 720px; overflow-y: auto; padding-right: 4px; }
+    .sib { border-radius: 18px; padding: 12px; background: rgba(255,255,255,.05); margin-bottom: 10px; border: 1px solid transparent; }
+    .sib.me { border-color: rgba(250,204,21,.4); }
+    .sib.dead { opacity: .6; }
+    .sib-head { display: flex; gap: 10px; align-items: center; }
+    .sib-emoji { font-size: 1.9rem; width: 40px; text-align: center; }
+    .sib-name { font-weight: 700; }
+    .sib-sub { font-size: .78rem; color: var(--muted); }
+    .mini { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; font-size: .7rem; color: var(--muted); }
+    .rel { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: .8rem; font-weight: 600; }
+    .rel .bar { flex: 1; }
+    .sib-acts { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+    .sib-acts button { border: 1px solid var(--border); background: rgba(255,255,255,.06); border-radius: 10px; padding: 5px 8px; cursor: pointer; font-size: .78rem; font-weight: 600; color: var(--text); }
+    .sib-acts button:hover:not(:disabled) { background: rgba(255,255,255,.14); }
+    .sib-acts button:disabled { opacity: .4; cursor: not-allowed; }
+    .famlog-item { display: flex; gap: 8px; padding: 7px 4px; border-bottom: 1px solid var(--border); font-size: .88rem; animation: fade-in .3s; }
+    .famlog-item .yr { color: var(--faint); font-size: .74rem; flex: none; padding-top: 2px; min-width: 34px; }
+    #side-chat { height: 560px; }
+
+    /* ---------- vote modal ---------- */
+    .vote-box h2 { margin-bottom: 6px; }
+    .vote-rule { display: inline-block; margin-bottom: 10px; }
+    .possible { margin: 10px 0 12px; padding: 10px 14px; border-radius: 14px; background: rgba(0,0,0,.22); font-size: .92rem; }
+    .possible div { padding: 2px 0; }
+    .voters { display: grid; gap: 6px; margin: 12px 0; }
+    .voter { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 12px; background: rgba(255,255,255,.05); font-weight: 600; }
+    .voter .st { margin-left: auto; }
+    .vtimer { height: 8px; border-radius: 99px; background: rgba(255,255,255,.08); overflow: hidden; margin: 10px 0 14px; }
+    .vtimer i { display: block; height: 100%; background: linear-gradient(90deg, var(--yellow), var(--orange)); border-radius: 99px; transition: width .25s linear; }
+    .vote-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    .dead-card { text-align: center; padding: 18px 8px; }
+    .dead-card .stone { font-size: 3.6rem; }
+    .job { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,.05); margin-bottom: 7px; }
+    .job .je { font-size: 1.6rem; }
+    .job.no { opacity: .55; }
+    .delta { padding: 2px 8px; border-radius: 99px; font-size: .8rem; font-weight: 700; background: rgba(34,197,94,.25); }
+    .delta.neg { background: rgba(244,63,94,.3); }
+    .result-pop { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-top: 6px; }
+
+    @media (max-width: 1040px) { .fam-grid { grid-template-columns: 1fr; } .side-body { max-height: none; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div id="entry"></div>
+
+    <section id="room" class="hidden room-layout">
+      <div class="col">
+        <div class="panel" id="room-code"></div>
+        <div class="panel" id="room-players"></div>
+      </div>
+      <div class="panel room-main" id="room-main"></div>
+      <div class="panel chat-panel" id="room-chat"></div>
+    </section>
+
+    <section id="play" class="hidden fam-grid">
+      <div class="panel" id="main"></div>
+      <div class="panel">
+        <div class="tabs" id="tabs">
+          <button data-tab="sibs" class="on">👫 Family</button>
+          <button data-tab="log">📜 Family Log<span class="dotn" id="log-dot"></span></button>
+          <button data-tab="chat">💬 Chat<span class="dotn" id="chat-dot"></span></button>
+        </div>
+        <div class="side-body" id="tab-sibs"></div>
+        <div class="side-body hidden" id="tab-log"></div>
+        <div class="hidden" id="tab-chat"><div id="side-chat"></div></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/js/core.js"></script>
+  <script src="/js/lobby.js"></script>
+  <script src="/js/games/life.js"></script>
+</body>
+</html>

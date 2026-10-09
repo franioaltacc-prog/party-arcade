@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spin the Wheel · Party Arcade</title>
+  <meta name="theme-color" content="#0b0920">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .wheel-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+    .wheel-box { position: relative; width: min(560px, 100%); aspect-ratio: 1; margin: 0 auto; }
+    .wheel-box canvas { width: 100%; height: 100%; display: block; filter: drop-shadow(0 20px 40px rgba(0,0,0,.5)); }
+    .pointer { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 22px solid transparent; border-right: 22px solid transparent; border-top: 44px solid #fff; filter: drop-shadow(0 4px 6px rgba(0,0,0,.5)); z-index: 2; }
+    .hub-btn { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 22%; aspect-ratio: 1; border-radius: 50%; border: 6px solid #fff; background: radial-gradient(circle at 35% 30%, #fff, #e5e7eb); font-family: var(--font-display); font-size: clamp(.9rem, 2.6vw, 1.4rem); color: #1e1b4b; cursor: pointer; box-shadow: 0 8px 20px rgba(0,0,0,.4); }
+    .hub-btn:active { transform: translate(-50%, -50%) scale(.95); }
+    textarea.input { min-height: 220px; resize: vertical; font-family: var(--font); line-height: 1.6; }
+    .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .winner { font-family: var(--font-display); font-size: clamp(1.8rem, 6vw, 3rem); margin: 10px 0; overflow-wrap: anywhere; }
+    @media (max-width: 860px) { .wheel-layout { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="wheel-layout">
+      <div>
+        <div class="wheel-box"><div class="pointer"></div><canvas id="cv" width="1000" height="1000"></canvas><button class="hub-btn" id="spin">SPIN</button></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">✏️ Options <span class="count" id="count"></span></div>
+        <div class="presets" id="presets"></div>
+        <textarea class="input" id="opts" spellcheck="false" placeholder="One option per line"></textarea>
+        <p class="tiny faint" style="margin-top:8px">One option per line · up to 24</p>
+        <div class="row" style="margin-top:12px"><button class="btn btn-ghost btn-sm" id="shuffle">🔀 Shuffle</button><button class="btn btn-pink btn-sm grow" id="spin2">🎡 Spin!</button></div>
+      </div>
+    </div>
+  </main>
+  <script src="/js/core.js"></script>
+  <script>
+  (() => {
+    const { $, h, fill, UI, Sfx, store, Net } = PA;
+    UI.topbar({ title: 'Spin the Wheel', emoji: '🎡' });
+    Net.connect();
+    const PRESETS = {
+      '🍕 What to eat': ['Pizza', 'Tacos', 'Sushi', 'Burgers', 'Pasta', 'Ramen', 'Pancakes', 'Salad 🥲'],
+      '🎮 What to play': ['Neon Dash', 'Family Life', 'Doodle Guess', 'Party Blitz', 'Connect 4', 'Snake', '2048', 'Memory Flip'],
+      '👆 Who goes first': ['Me', 'You', 'The tallest', 'The youngest', 'Whoever spoke last', 'Rock paper scissors!'],
+      '✅ Yes / No': ['YES', 'NO', 'Maybe', 'Ask again', 'Definitely', 'No way'],
+      '😈 Dares': ['Sing a song', 'Do 10 push-ups', 'Talk like a pirate', 'Dance for 10 seconds', 'Tell a joke', 'Do your best animal impression', 'Speak in rhymes', 'Freeze for 20 seconds'],
+    };
+    const COLORS = ['#f43f5e', '#f97316', '#facc15', '#84cc16', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef', '#ec4899'];
+    const cv = $('#cv'), ctx = cv.getContext('2d');
+    const ta = $('#opts');
+    let angle = 0, spinning = false;
+    ta.value = store.get('wheel_opts', PRESETS['🍕 What to eat'].join('\n'));
+    const options = () => ta.value.split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 24);
+
+    function draw() {
+      const opts = options();
+      $('#count').textContent = `${opts.length} options`;
+      const n = Math.max(1, opts.length), R = 480, cx = 500, cy = 500, slice = (Math.PI * 2) / n;
+      ctx.clearRect(0, 0, 1000, 1000);
+      for (let i = 0; i < n; i++) {
+        const a0 = angle + i * slice - Math.PI / 2;
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R, a0, a0 + slice); ctx.closePath();
+        ctx.fillStyle = COLORS[i % COLORS.length] === COLORS[0] && i === n - 1 && n > 1 ? COLORS[5] : COLORS[i % COLORS.length];
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 4; ctx.stroke();
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate(a0 + slice / 2);
+        ctx.fillStyle = '#fff'; ctx.font = `700 ${Math.max(22, Math.min(46, 360 / n + 14))}px Fredoka, sans-serif`;
+        ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 6;
+        const label = opts[i] || 'Add options!';
+        ctx.fillText(label.length > 18 ? label.slice(0, 17) + '…' : label, R - 30, 0);
+        ctx.restore();
+      }
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.lineWidth = 16; ctx.strokeStyle = '#fff'; ctx.stroke();
+      for (let i = 0; i < n; i++) { const a = angle + i * slice - Math.PI / 2; ctx.beginPath(); ctx.arc(cx + Math.cos(a) * (R - 2), cy + Math.sin(a) * (R - 2), 9, 0, Math.PI * 2); ctx.fillStyle = '#fde047'; ctx.fill(); }
+    }
+
+    function spin() {
+      const opts = options();
+      if (spinning) return;
+      if (opts.length < 2) { UI.toast('Add at least 2 options ✏️', 'bad'); return; }
+      spinning = true;
+      Sfx.ac();
+      const start = angle, extra = Math.PI * 2 * (5 + Math.random() * 3) + Math.random() * Math.PI * 2;
+      const dur = 4200 + Math.random() * 1200, t0 = performance.now();
+      const n = opts.length, slice = (Math.PI * 2) / n;
+      let lastTick = Math.floor(start / slice);
+      const step = (now) => {
+        const t = Math.min(1, (now - t0) / dur);
+        const ease = 1 - Math.pow(1 - t, 4);
+        angle = start + extra * ease;
+        const tick = Math.floor(angle / slice);
+        if (tick !== lastTick) { lastTick = tick; Sfx.play('tick'); }
+        draw();
+        if (t < 1) requestAnimationFrame(step); else done();
+      };
+      requestAnimationFrame(step);
+    }
+    function done() {
+      spinning = false;
+      const opts = options(), n = opts.length, slice = (Math.PI * 2) / n;
+      const norm = ((-angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+      const idx = Math.floor(norm / slice) % n;
+      const winner = opts[idx];
+      Sfx.play('win'); UI.confetti();
+      const close = UI.modal(h('div', { style: { textAlign: 'center' } },
+        h('div', { style: { fontSize: '3rem' } }, '🎉'), h('p', { class: 'muted' }, 'The wheel has spoken:'),
+        h('div', { class: 'winner gradient-text' }, winner),
+        h('div', { class: 'row', style: { justifyContent: 'center', marginTop: '14px', flexWrap: 'wrap' } },
+          h('button', { class: 'btn btn-pink', onclick: () => { close(); spin(); } }, '🎡 Spin again'),
+          h('button', { class: 'btn btn-ghost', onclick: () => { const list = options(); list.splice(idx, 1); ta.value = list.join('\n'); save(); close(); } }, '🗑️ Remove it'))));
+    }
+    function save() { store.set('wheel_opts', ta.value); draw(); }
+
+    fill($('#presets'), Object.entries(PRESETS).map(([name, list]) => h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { ta.value = list.join('\n'); save(); Sfx.play('click'); } }, name)));
+    ta.addEventListener('input', save);
+    $('#spin').addEventListener('click', spin);
+    $('#spin2').addEventListener('click', spin);
+    $('#shuffle').addEventListener('click', () => { ta.value = options().sort(() => Math.random() - 0.5).join('\n'); save(); });
+    draw();
+  })();
+  </script>
+</body>
+</html>

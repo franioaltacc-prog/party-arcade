@@ -1,0 +1,20 @@
+{
+  "first_m": ["Liam", "Noah", "Oliver", "Elijah", "James", "Lucas", "Mateo", "Leo", "Kai", "Ethan", "Jack", "Max", "Oscar", "Hugo", "Felix", "Theo", "Kuba", "Antek", "Marco", "Diego", "Kenji", "Arjun", "Omar", "Finn", "Milo", "Jonas", "Rafael", "Tomek"],
+  "first_f": ["Olivia", "Emma", "Ava", "Mia", "Luna", "Zoe", "Lily", "Nora", "Ella", "Chloe", "Maya", "Aria", "Ivy", "Hana", "Zara", "Lena", "Ola", "Zosia", "Sofia", "Amara", "Priya", "Yuki", "Isla", "Ruby", "Nina", "Julia", "Alba", "Kasia"],
+  "last": ["Smith", "Garcia", "Kowalski", "Nowak", "Tanaka", "Kim", "Rossi", "Müller", "Silva", "Johnson", "Brown", "Lopez", "Novak", "Dubois", "Haddad", "Okafor", "Patel", "Nguyen", "Jensen", "Costa", "Moreau", "Andersson", "Sato", "Rivera", "Wiśniewski", "O'Brien"],
+  "places": ["🇺🇸 Chicago, USA", "🇬🇧 London, UK", "🇯🇵 Tokyo, Japan", "🇵🇱 Kraków, Poland", "🇧🇷 Rio de Janeiro, Brazil", "🇨🇦 Toronto, Canada", "🇦🇺 Sydney, Australia", "🇫🇷 Paris, France", "🇩🇪 Berlin, Germany", "🇮🇹 Rome, Italy", "🇲🇽 Mexico City, Mexico", "🇰🇷 Seoul, South Korea", "🇮🇳 Mumbai, India", "🇪🇸 Madrid, Spain", "🇸🇪 Stockholm, Sweden", "🇳🇬 Lagos, Nigeria", "🇳🇱 Amsterdam, Netherlands", "🇮🇪 Dublin, Ireland"],
+  "parent_jobs": [["Teacher", 52000], ["Nurse", 70000], ["Mechanic", 46000], ["Accountant", 68000], ["Chef", 48000], ["Software Engineer", 115000], ["Bus Driver", 42000], ["Dentist", 160000], ["Shop Owner", 60000], ["Police Officer", 56000], ["Artist", 30000], ["Electrician", 58000], ["Pilot", 140000], ["Farmer", 38000]],
+  "pets": [["🐶", "dog"], ["🐱", "cat"], ["🐹", "hamster"], ["🐰", "bunny"], ["🦜", "parrot"], ["🐢", "turtle"], ["🐠", "goldfish"]],
+  "pet_names": ["Biscuit", "Noodle", "Pickles", "Waffles", "Mochi", "Pepper", "Sprinkles", "Nugget", "Ziggy", "Taco", "Bean", "Pixel", "Meatball", "Sir Fluffington"],
+  "majors": {
+    "cs": ["Computer Science", "💻", 45],
+    "medicine": ["Medicine", "🩺", 65],
+    "law": ["Law", "⚖️", 55],
+    "business": ["Business", "📈", 0],
+    "engineering": ["Engineering", "🛠️", 55],
+    "arts": ["Arts", "🎨", 0]
+  },
+  "death_old": ["old age", "a heart attack", "pneumonia", "a peaceful sleep 😴", "a stroke"],
+  "death_sick": ["a serious illness", "heart failure", "a mystery disease"],
+  "death_weird": ["a falling coconut 🥥", "laughing too hard 😂", "a rogue vending machine 🥤", "a selfie gone wrong 🤳", "a llama stampede 🦙"]
+}

@@ -1,0 +1,42 @@
+{
+  "_help": "Things you do TO another sibling. cond is checked on you, target_cond on the pair (t_age, t_money... are the target's stats; rel = your relationship; owes = how much you owe them). consent: true sends a popup the target can accept/decline (then 'accept'/'decline' apply). Otherwise 'outcomes' are rolled right away. self/target = effects. rel = relationship change. transfer moves {amount} of money. log = Family Log line.",
+  "actions": [
+    {"id": "hangout", "emoji": "🤝", "label": "Hang out", "consent": true, "cond": "age >= 3", "target_cond": "t_age >= 3",
+     "ask": "{self} wants to hang out with you!",
+     "pick": {"activity": ["played video games 🎮", "went bowling 🎳", "got ice cream 🍦", "watched a movie 🍿", "built a blanket fort 🏰", "had a water balloon fight 💦", "went to the arcade 🕹️", "baked a very questionable cake 🎂"]},
+     "accept": {"self": {"happy": [3, 6]}, "target": {"happy": [3, 6]}, "rel": [7, 12], "count": "hangouts",
+                "self_text": "You and {target} {activity}!", "target_text": "You and {self} {activity}!", "log": "🤝 {self} and {target} {activity}"},
+     "decline": {"self": {"happy": [-3, -1]}, "rel": -3,
+                 "self_text": "{target} didn't want to hang out. 😔", "target_text": "You told {self} you're busy."}},
+    {"id": "teach", "emoji": "🧑‍🏫", "label": "Help with homework", "consent": true, "cond": "age >= 10 and smarts >= 40", "target_cond": "t_age >= 6 and t_age <= 22 and t_age < age",
+     "ask": "{self} offered to help you study!",
+     "accept": {"self": {"karma": 2, "smarts": 1}, "target": {"smarts": [3, 6]}, "rel": [5, 9],
+                "self_text": "You helped {target} study. They're getting smarter! 🧠", "target_text": "{self} helped you study. Brain upgrade! 🧠", "log": "🧑‍🏫 {self} helped {target} with homework"},
+     "decline": {"rel": -1, "self_text": "{target} said they're fine on their own. 🙄", "target_text": "You told {self} you don't need help."}},
+    {"id": "argue", "emoji": "😤", "label": "Argue with", "cond": "age >= 4",
+     "pick": {"topic": ["who gets the front seat 🚗", "the last slice of pizza 🍕", "whose turn it is to do the dishes 🍽️", "who Mom loves more 👩", "the TV remote 📺", "pineapple on pizza 🍍", "who broke the vase 🏺"]},
+     "outcomes": [
+       {"w": "50 + smarts / 2", "self": {"happy": [2, 5]}, "target": {"happy": [-4, -2]}, "rel": [-8, -4], "count": "arguments", "chaos": 1,
+        "self_text": "You WON the argument with {target} about {topic}. 😤", "target_text": "😤 {self} argued with you about {topic}... and won.", "log": "😤 {self} and {target} argued about {topic}. {self} won."},
+       {"w": "50 + t_smarts / 2", "self": {"happy": [-4, -2]}, "target": {"happy": [2, 5]}, "rel": [-8, -4], "count": "arguments", "chaos": 1,
+        "self_text": "You lost the argument with {target} about {topic}. 😩", "target_text": "😤 {self} picked a fight with you about {topic}. You won! 😎", "log": "😤 {self} and {target} argued about {topic}. {target} won."}]},
+    {"id": "prank", "emoji": "😜", "label": "Prank", "cond": "age >= 5 and jail == 0",
+     "pick": {"prank": ["filled their room with balloons 🎈", "put a fake spider in their shoe 🕷️", "swapped the sugar with salt 🧂", "glued googly eyes on everything they own 👀", "put plastic wrap on the toilet 🚽", "changed their phone language to Klingon 🖖", "hid a whoopee cushion under their chair 💨"]},
+     "outcomes": [
+       {"w": 0.75, "self": {"happy": [4, 7]}, "target": {"happy": [-5, -2]}, "rel": [-7, -3], "count": "pranks", "chaos": 1,
+        "self_text": "You {prank}. {target} is fuming! 😂", "target_text": "😜 {self} pranked you — they {prank}!", "log": "😜 {self} pranked {target}: {prank}"},
+       {"w": 0.25, "self": {"happy": -3}, "target": {"happy": 4}, "rel": -2, "count": "pranks", "chaos": 1,
+        "self_text": "Your prank backfired spectacularly. {target} saw it coming. 🤦", "target_text": "{self} tried to prank you and failed. LOL. 😎", "log": "🤦 {self}'s prank on {target} backfired!"}]},
+    {"id": "gift", "emoji": "🎁", "label": "Give money to", "cond": "money >= 50", "amount": "max(50, int(money * 0.1))", "works_when_silent": true,
+     "outcomes": [{"transfer": "self_to_target", "self": {"karma": 3, "happy": 2}, "target": {"happy": [4, 7]}, "rel": [8, 14], "count": "gifts",
+                   "self_text": "You gave {target} {amount}. How generous! 🎁", "target_text": "🎁 {self} gave you {amount}!", "log": "🎁 {self} gave {target} {amount}"}]},
+    {"id": "borrow", "emoji": "🙏", "label": "Borrow money from", "consent": true, "cond": "age >= 10", "target_cond": "t_money >= 100", "amount": "choose",
+     "ask": "{self} wants to borrow {amount} from you.",
+     "accept": {"transfer": "target_to_self", "debt": true, "rel": 3,
+                "self_text": "{target} lent you {amount}. Don't forget to pay it back! 💸", "target_text": "You lent {self} {amount}.", "log": "🙏 {target} lent {self} {amount}"},
+     "decline": {"rel": -4, "self": {"happy": -3}, "self_text": "{target} said no to lending you money. 😒", "target_text": "You refused to lend {self} money."}},
+    {"id": "payback", "emoji": "💸", "label": "Pay back", "cond": "true", "target_cond": "owes > 0 and money >= owes", "amount": "owes",
+     "outcomes": [{"transfer": "self_to_target", "clear_debt": true, "rel": 6, "self": {"karma": 3},
+                   "self_text": "You paid {target} back {amount}. Debt free! ✅", "target_text": "💸 {self} paid you back {amount}.", "log": "💸 {self} paid back {target} ({amount})"}]}
+  ]
+}

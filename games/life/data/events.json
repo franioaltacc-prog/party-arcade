@@ -1,0 +1,3026 @@
+{
+ "_help": "Random yearly events for ONE sibling. ages=[min,max]. cond = expression (see README). sib = twin|older|younger|any picks a sibling you can mention as {sib}. Each choice has outcomes; w = weight (number or expression like 'smarts' or '100 - looks'). fx = effects. 'scripted': true events only happen when the game triggers them.",
+ "events": [
+  {
+   "id": "first_word",
+   "ages": [
+    1,
+    2
+   ],
+   "weight": 4,
+   "once": true,
+   "text": "👶 You're about to say your very first word!",
+   "choices": [
+    {
+     "label": "“Mama!” / “Dada!”",
+     "outcomes": [
+      {
+       "text": "Your parents cried happy tears. 🥹",
+       "fx": {
+        "happy": [
+         3,
+         6
+        ],
+        "rel_parents": 5
+       }
+      }
+     ]
+    },
+    {
+     "label": "“PIZZA!” 🍕",
+     "outcomes": [
+      {
+       "text": "Everyone laughed. A legend is born.",
+       "fx": {
+        "happy": [
+         5,
+         9
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "label": "Say your sibling's name",
+     "cond": "siblings > 0",
+     "outcomes": [
+      {
+       "text": "You said “{sib}”! {sib} is SO proud. 🥰",
+       "fx": {
+        "happy": 4,
+        "sib_rel": 10
+       }
+      }
+     ]
+    }
+   ],
+   "sib": "any"
+  },
+  {
+   "id": "stairs",
+   "ages": [
+    1,
+    4
+   ],
+   "text": "🪜 You discovered the stairs. They look like an adventure!",
+   "choices": [
+    {
+     "label": "Climb them!",
+     "outcomes": [
+      {
+       "w": 0.7,
+       "text": "You climbed like a champion! 🏔️",
+       "fx": {
+        "happy": [
+         3,
+         6
+        ],
+        "sport": 2
+       }
+      },
+      {
+       "w": 0.3,
+       "text": "You tumbled down. Ouch! 🤕",
+       "fx": {
+        "health": [
+         -8,
+         -4
+        ],
+        "happy": [
+         -4,
+         -2
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "label": "Nah, play with blocks",
+     "outcomes": [
+      {
+       "text": "Smart baby. You built a tiny tower. 🧱",
+       "fx": {
+        "smarts": [
+         2,
+         4
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "veggies",
+   "ages": [
+    2,
+    7
+   ],
+   "text": "🥦 Your parents put broccoli on your plate.",
+   "choices": [
+    {
+     "label": "Eat it like a hero",
+     "outcomes": [
+      {
+       "text": "Strong bones! Your parents are proud. 💪",
+       "fx": {
+        "health": [
+         3,
+         6
+        ],
+        "happy": [
+         -2,
+         0
+        ],
+        "rel_parents": 2
+       }
+      }
+     ]
+    },
+    {
+     "label": "Throw it at {sib}",
+     "cond": "siblings > 0",
+     "outcomes": [
+      {
+       "w": 0.5,
+       "text": "Direct hit! {sib} threw mashed potatoes back. FOOD FIGHT! 🥔",
+       "fx": {
+        "happy": [
+         4,
+         8
+        ],
+        "sib_rel": 3,
+        "rel_parents": -4,
+        "chaos": 1
+       }
+      },
+      {
+       "w": 0.5,
+       "text": "{sib} cried and you got sent to your room. 😤",
+       "fx": {
+        "happy": -4,
+        "sib_rel": -5,
+        "rel_parents": -3
+       }
+      }
+     ]
+    },
+    {
+     "label": "Hide it in your pocket",
+     "outcomes": [
+      {
+       "text": "Sneaky. You'll find it again next week. 🤢",
+       "fx": {
+        "smarts": [
+         1,
+         3
+        ],
+        "happy": 1
+       }
+      }
+     ]
+    }
+   ],
+   "sib": "any"
+  },
+  {
+   "id": "crayons",
+   "ages": [
+    2,
+    6
+   ],
+   "text": "🖍️ You found crayons... and a big, empty white wall.",
+   "choices": [
+    {
+     "label": "Draw a masterpiece on the wall",
+     "outcomes": [
+      {
+       "w": 0.4,
+       "text": "Mom took a photo of it. Art! 🖼️",
+       "fx": {
+        "happy": [
+         5,
+         8
+        ]
+       }
+      },
+      {
+       "w": 0.6,
+       "text": "Your parents were NOT impressed. 😠",
+       "fx": {
+        "happy": [
+         -5,
+         -2
+        ],
+        "rel_parents": -4,
+        "chaos": 1
+       }
+      }
+     ]
+    },
+    {
+     "label": "Draw on paper like a pro",
+     "outcomes": [
+      {
+       "text": "A beautiful drawing of a purple dog. 🐕",
+       "fx": {
+        "smarts": [
+         1,
+         3
+        ],
+        "happy": [
+         2,
+         4
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "label": "Blame it on {sib}",
+     "cond": "siblings > 0",
+     "outcomes": [
+      {
+       "w": "40 + smarts / 3",
+       "text": "It worked! {sib} got in trouble instead. 😈",
+       "fx": {
+        "happy": 4,
+        "sib_rel": -8,
+        "karma": -4,
+        "chaos": 1
+       }
+      },
+      {
+       "w": 50,
+       "text": "Nobody believed you. You have crayon on your face. 🖍️",
+       "fx": {
+        "happy": -4,
+        "rel_parents": -3
+       }
+      }
+     ]
+    }
+   ],
+   "sib": "any"
+  },
+  {
+   "id": "bully",
+   "ages": [
+    6,
+    15
+   ],
+   "text": "😠 A kid at school keeps bullying you.",
+   "choices": [
+    {
+     "label": "Tell a teacher",
+     "outcomes": [
+      {
+       "w": 0.7,
+       "text": "The teacher stepped in. The bullying stopped! 🙌",
+       "fx": {
+        "happy": [
+         3,
+         6
+        ],
+        "karma": 3
+       }
+      },
+      {
+       "w": 0.3,
+       "text": "They called you a snitch... 😒",
+       "fx": {
+        "happy": [
+         -5,
+         -2
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "label": "Get {sib} to back you up",
+     "cond": "siblings > 0 and sib_age >= age",
+     "outcomes": [
+      {
+       "w": "sib_rel",
+       "text": "{sib} showed up and the bully ran off. Sibling power! 💪",
+       "fx": {
+        "happy": [
+         6,
+         10
+        ],
+        "sib_rel": 8
+       }
+      },
+      {
+       "w": 40,
+       "text": "{sib} said “handle it yourself.” Thanks a lot. 😑",
+       "fx": {
+        "happy": -4,
+        "sib_rel": -6
+       }
+      }
+     ]
+    },
+    {
+     "label": "Stand up to them",
+     "outcomes": [
+      {
+       "w": "35 + sport / 2",
+       "text": "You stood your ground. They backed off! 💪",
+       "fx": {
+        "happy": [
+         6,
+         10
+        ],
+        "sport": 2
+       }
+      },
+      {
+       "w": 50,
+       "text": "You lost the scuffle and got a black eye. 🤕",
+       "fx": {
+        "health": [
+         -8,
+         -4
+        ],
+        "happy": [
+         -6,
+         -3
+        ]
+       }
+      }
+     ]
+    }
+   ],
+   "sib": "any"
+  },
+  {
+   "id": "test",
+   "ages": [
+    7,
+    17
+   ],
+   "text": "📝 There's a huge test tomorrow.",
+   "choices": [
+    {
+     "label": "Study all night",
+     "outcomes": [
+      {
+       "text": "You aced it! A+ 🌟",
+       "fx": {
+        "smarts": [
+         3,
+         5
+        ],
+        "health": [
+         -3,
+         -1
+        ],
+        "happy": 2
+       }
+      }
+     ]
+    },
+    {
+     "label": "Copy off a friend",
+     "outcomes": [
+      {
+       "w": 0.6,
+       "text": "You got away with it... this time. 😬",
+       "fx": {
+        "karma": -5,
+        "happy": 1
+       }
+      },
+      {
+       "w": 0.4,
+       "text": "CAUGHT! Zero points and a call home. 📞",
+       "fx": {
+        "happy": [
+         -8,
+         -5
+        ],
+        "karma": -6,
+        "rel_parents": -4
+       }
+      }
+     ]
+    },
+    {
+     "label": "Wing it",
+     "outcomes": [
+      {
+       "w": "smarts",
+       "text": "You aced it without studying. Big brain. 😎",
+       "fx": {
+        "happy": [
+         4,
+         7
+        ]
+       }
+      },
+      {
+       "w": "100 - smarts",
+       "text": "You failed. Oops. 📉",
+       "fx": {
+        "happy": [
+         -6,
+         -3
+        ],
+        "smarts": -1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "science_fair",
+   "ages": [
+    8,
+    15
+   ],
+   "text": "🔬 The school science fair is coming up!",
+   "choices": [
+    {
+     "label": "Build a baking soda volcano 🌋",
+     "outcomes": [
+      {
+       "w": 0.5,
+       "text": "Your volcano erupted perfectly. 1st place! 🥇",
+       "fx": {
+        "smarts": [
+         3,
+         5
+        ],
+        "happy": [
+         5,
+         8
+        ]
+       }
+      },
+      {
+       "w": 0.5,
+       "text": "It exploded on the judge. Honorable mention? 😅",
+       "fx": {
+        "smarts": 2,
+        "happy": -2
+       }
+      }
+     ]
+    },
+    {
+     "label": "Build a robot 🤖",
+     "outcomes": [
+      {
+       "w": "smarts",
+       "text": "Your robot worked! The crowd went wild! 🏆",
+       "fx": {
+        "smarts": [
+         5,
+         8
+        ],
+        "happy": [
+         6,
+         10
+        ],
+        "fame": 2
+       }
+      },
+      {
+       "w": "110 - smarts",
+       "text": "The robot caught fire. Small fire. Mostly fine. 🔥",
+       "fx": {
+        "happy": [
+         -4,
+         -2
+        ],
+        "smarts": 2
+       }
+      }
+     ]
+    },
+    {
+     "label": "Team up with {sib}",
+     "cond": "siblings > 0",
+     "outcomes": [
+      {
+       "text": "You and {sib} built a hamster-powered lamp. 2nd place! 🐹💡",
+       "fx": {
+        "smarts": 3,
+        "happy": 4,
+        "sib_rel": 7,
+        "sib_fx": {
+         "smarts": 2
+        }
+       }
+      }
+     ]
+    }
+   ],
+   "sib": "any"
+  },
+  {
+   "id": "wallet",
+   "ages": [
+    6,
+    90
+   ],
+   "text": "👛 You found a wallet with $200 inside!",
+   "choices": [
+    {
+     "label": "Return it to the owner",
+     "outcomes": [
+      {
+       "w": 0.7,
+       "text": "The owner was so grateful! Good karma. 😇",
+       "fx": {
+        "karma": 10,
+        "happy": [
+         3,
+         5
+        ]
+       }
+      },
+      {
+       "w": 0.3,
+       "text": "The owner gave you a $50 reward! 💵",
+       "fx": {
+        "karma": 10,
+        "money": 50,
+        "happy": 5
+       }
+      }
+     ]
+    },
+    {
+     "label": "Keep the cash",
+     "outcomes": [
+      {
+       "w": 0.8,
+       "text": "Cha-ching. But you feel a little guilty. 😬",
+       "fx": {
+        "money": 200,
+        "karma": -10
+       }
+      },
+      {
+       "w": 0.2,
+       "text": "The owner saw you. Awkward. 🫣",
+       "fx": {
+        "happy": [
+         -6,
+         -3
+        ],
+        "karma": -8
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "talent_show",
+   "ages": [
+    8,
+    17
+   ],
+   "text": "🎤 The school talent show is this Friday!",
+   "choices": [
+    {
+     "label": "Sing a song",
+     "outcomes": [
+      {
+       "w": "20 + music",
+       "text": "Standing ovation! You're a star! 🌟",
+       "fx": {
+        "happy": [
+         6,
+         10
+        ],
+        "fame": 3,
+        "music": 4
+       }
+      },
+      {
+       "w": "80 - music / 2",
+       "text": "Your voice cracked on the high note. 😬",
+       "fx": {
+        "happy": [
+         -5,
+         -2
+        ],
+        "music": 2
+       }
+      }
+     ]
+    },
+    {
+     "label": "Do a duet with {sib}",
+     "cond": "siblings > 0 and sib_age >= 6",
+     "outcomes": [
+      {
+       "w": 0.6,
+       "text": "The sibling duo brought the house down! 🎶",
+       "fx": {
+        "happy": 8,
+        "sib_rel": 8,
+        "fame": 2,
+        "sib_fx": {
+         "happy": 6
+        }
+       }
+      },
+      {
+       "w": 0.4,
+       "text": "You both forgot the words and just laughed on stage. 😂",
+       "fx": {
+        "happy": 2,
+        "sib_rel": 5
+       }
+      }
+     ]
+    },
+    {
+     "label": "Stay in the audience",
+     "outcomes": [
+      {
+       "text": "You clapped really hard. Supportive! 👏",
+       "fx": {
+        "happy": 1
+       }
+      }
+     ]
+    }
+   ],
+   "sib": "any"
+  },
+  {
+   "id": "new_kid",
+   "ages": [
+    6,
+    16
+   ],
+   "text": "🥺 A new kid is sitting alone at lunch.",
+   "choices": [
+    {
+     "label": "Sit with them",
+     "outcomes": [
+      {
+       "text": "You made a new best friend! 🤗",
+       "fx": {
+        "happy": [
+         5,
+         8
+        ],
+        "karma": 6
+       }
+      }
+     ]
+    },
+    {
+     "label": "Ignore them",
+     "outcomes": [
+      {
+       "text": "You kept eating your sandwich. 🥪",
+       "fx": {
+        "karma": -3
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "snow_day",
+   "ages": [
+    5,
+    15
+   ],
+   "text": "❄️ SNOW DAY! School is cancelled!",
+   "choices": [
+    {
+     "label": "Build a giant snowman ⛄",
+     "outcomes": [
+      {
+       "text": "Your snowman is taller than your dad. 🏆",
+       "fx": {
+        "happy": [
+         5,
+         8
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "label": "Snowball ambush on {sib}",
+     "cond": "siblings > 0",
+     "outcomes": [
+      {
+       "w": 0.6,
+       "text": "Perfect hit! Epic snowball war with {sib}! ❄️",
+       "fx": {
+        "happy": [
+         6,
+         9
+        ],
+        "sib_rel": 4,
+        "sport": 2
+       }
+      },
+      {
+       "w": 0.4,
+       "text": "{sib} had a snowball fort ready. You got DESTROYED. 🥶",
+       "fx": {
+        "happy": 2,
+        "health": -2,
+        "sib_rel": 3
+       }
+      }
+     ]
+    },
+    {
+     "label": "Stay in and play games",
+     "outcomes": [
+      {
+       "text": "Hot cocoa and games. Perfect day. ☕",
+       "fx": {
+        "happy": [
+         3,
+         5
+        ]
+       }
+      }
+     ]
+    }
+   ],
+   "sib": "any"
+  },
+  {
+   "id": "lemonade",
+   "ages": [
+    6,
+    13
+   ],
+   "text": "🍋 You want to make some money this summer.",
+   "choices": [
+    {
+     "label": "Open a lemonade stand",
+     "outcomes": [
+      {
+       "w": 0.6,
+       "text": "Business is booming! You made $60. 🍋",
+       "fx": {
+        "money": 60,
+        "happy": 4,
+        "smarts": 2
+       }
+      },
+      {
+       "w": 0.4,
+       "text": "It rained all week. You drank all the lemonade. 🌧️",
+       "fx": {
+        "happy": -2
+       }
+      }
+     ]
+    },
+    {
+     "label": "Mow lawns",
+     "outcomes": [
+      {
+       "text": "Hard work pays! You earned $90. 🌱",
+       "fx": {
+        "money": 90,
+        "health": 2
+       }
+      }
+     ]
+    },
+    {
+     "label": "Nah, summer is for fun",
+     "outcomes": [
+      {
+       "text": "Best. Summer. Ever. ☀️",
+       "fx": {
+        "happy": [
+         5,
+         8
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "crush",
+   "ages": [
+    13,
+    17
+   ],
+   "cond": "not has_partner",
+   "text": "💕 You have a huge crush on someone in your class.",
+   "choices": [
+    {
+     "label": "Ask them out",
+     "outcomes": [
+      {
+       "w": "looks",
+       "text": "They said YES! 💘",
+       "fx": {
+        "happy": [
+         8,
+         12
+        ],
+        "partner": "new"
+       }
+      },
+      {
+       "w": "110 - looks",
+       "text": "They said they 'just want to be friends'. 💔",
+       "fx": {
+        "happy": [
+         -8,
+         -4
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "label": "Ask {sib} for advice",
+     "cond": "siblings > 0",
+     "outcomes": [
+      {
+       "w": "sib_rel",
+       "text": "{sib} gave great advice. You're going on a date! 💘",
+       "fx": {
+        "happy": 8,
+        "partner": "new",
+        "sib_rel": 5
+       }
+      },
+      {
+       "w": 50,
+       "text": "{sib} told the whole family. Mortifying. 😳",
+       "fx": {
+        "happy": -6,
+        "sib_rel": -8
+       }
+      }
+     ]
+    },
+    {
+     "label": "Keep it to yourself",
+     "outcomes": [
+      {
+       "text": "Your secret is safe. 🤐",
+       "fx": {
+        "happy": -1
+       }
+      }
+     ]
+    }
+   ],
+   "sib": "any"
+  },
+  {
+   "id": "curfew",
+   "ages": [
+    13,
+    17
+   ],
+   "cond": "living_home and parents_alive > 0",
+   "text": "⏰ Your parents set a 9 PM curfew.",
+   "choices": [
+    {
+     "label": "Accept it",
+     "outcomes": [
+      {
+       "text": "Your parents appreciate it. 👍",
+       "fx": {
+        "rel_parents": 4
+       }
+      }
+     ]
+    },
+    {
+     "label": "Sneak out anyway 🌙",
+     "outcomes": [
+      {
+       "w": 0.6,
+       "text": "Best night ever and nobody noticed. 😎",
+       "fx": {
+        "happy": [
+         5,
+         8
+        ],
+        "chaos": 1
+       }
+      },
+      {
+       "w": 0.4,
+       "text": "Busted climbing back through the window! Grounded. 🚫",
+       "fx": {
+        "happy": -6,
+        "rel_parents": -8,
+        "chaos": 1
+       }
+      }
+     ]
+    },
+    {
+     "label": "Negotiate for 10 PM",
+     "outcomes": [
+      {
+       "w": "smarts",
+       "text": "Your argument was so good they agreed! 🧠",
+       "fx": {
+        "happy": 4,
+        "smarts": 1
+       }
+      },
+      {
+       "w": 60,
+       "text": "Nice try. Still 9 PM. 😑",
+       "fx": {
+        "happy": -1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "driving",
+   "ages": [
+    16,
+    17
+   ],
+   "once": true,
+   "cond": "jail == 0",
+   "text": "🚗 It's driving test day!",
+   "choices": [
+    {
+     "label": "Drive carefully",
+     "outcomes": [
+      {
+       "w": 0.75,
+       "text": "You passed! Freedom! 🛣️",
+       "fx": {
+        "happy": [
+         6,
+         9
+        ],
+        "ach": "🚗 Licensed driver"
+       }
+      },
+      {
+       "w": 0.25,
+       "text": "You failed parallel parking. Try again next year. 😩",
+       "fx": {
+        "happy": -4
+       }
+      }
+     ]
+    },
+    {
+     "label": "Show off a little",
+     "outcomes": [
+      {
+       "w": 0.35,
+       "text": "Somehow, you passed. The examiner looks pale. 😰",
+       "fx": {
+        "happy": 7,
+        "ach": "🚗 Licensed driver"
+       }
+      },
+      {
+       "w": 0.65,
+       "text": "Instant fail. You drove over a cone. 🚧",
+       "fx": {
+        "happy": -6
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "viral",
+   "ages": [
+    13,
+    40
+   ],
+   "cond": "jail == 0",
+   "text": "📱 One of your videos is starting to get lots of views!",
+   "choices": [
+    {
+     "label": "Post more videos!",
+     "outcomes": [
+      {
+       "w": 0.3,
+       "text": "IT WENT VIRAL! Millions of views! 🚀",
+       "fx": {
+        "fame": [
+         15,
+         25
+        ],
+        "happy": 8,
+        "log": "📱 {first} went viral online!"
+       }
+      },
+      {
+       "w": 0.7,
+       "text": "A few more fans. Nice! 📈",
+       "fx": {
+        "fame": [
+         3,
+         7
+        ],
+        "happy": 3
+       }
+      }
+     ]
+    },
+    {
+     "label": "Make a video with {sib}",
+     "cond": "siblings > 0",
+     "outcomes": [
+      {
+       "w": 0.4,
+       "text": "The sibling prank video went viral! 🚀",
+       "fx": {
+        "fame": [
+         12,
+         20
+        ],
+        "happy": 8,
+        "sib_rel": 6,
+        "sib_fx": {
+         "fame": [
+          8,
+          15
+         ]
+        },
+        "log": "📱 {first} and {sib} went viral together!"
+       }
+      },
+      {
+       "w": 0.6,
+       "text": "You argued about the edit for 3 hours. 37 views. 😤",
+       "fx": {
+        "sib_rel": -3,
+        "fame": 2
+       }
+      }
+     ]
+    },
+    {
+     "label": "Delete the app and touch grass",
+     "outcomes": [
+      {
+       "text": "Peaceful. Your brain feels fresh. 🌿",
+       "fx": {
+        "happy": 4,
+        "smarts": 2
+       }
+      }
+     ]
+    }
+   ],
+   "sib": "any"
+  },
+  {
+   "id": "twin_mixup",
+   "ages": [
+    4,
+    40
+   ],
+   "sib": "twin",
+   "text": "🤔 People keep mixing you up with your twin {sib}!",
+   "choices": [
+    {
+     "label": "Play along and prank everyone 😜",
+     "outcomes": [
+      {
+       "text": "You and {sib} confused the whole school. Legendary. 🎭",
+       "fx": {
+        "happy": [
+         5,
+         8
+        ],
+        "sib_rel": 5,
+        "chaos": 1
+       }
+      }
+     ]
+    },
+    {
+     "label": "Get a totally different haircut 💇",
+     "outcomes": [
+      {
+       "w": 0.6,
+       "text": "New look, new you! Nobody mixes you up now. ✨",
+       "fx": {
+        "looks": [
+         2,
+         5
+        ],
+        "happy": 3
+       }
+      },
+      {
+       "w": 0.4,
+       "text": "...{sib} got the exact same haircut the next day. 🙃",
+       "fx": {
+        "happy": 1,
+        "sib_rel": 2
+       }
+      }
+     ]
+    },
+    {
+     "label": "Wear a giant name tag 🏷️",
+     "outcomes": [
+      {
+       "text": "Practical. Slightly embarrassing. 😅",
+       "fx": {
+        "happy": -1,
+        "smarts": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "twin_telepathy",
+   "ages": [
+    5,
+    70
+   ],
+   "sib": "twin",
+   "text": "🔮 You and {sib} said the exact same sentence at the same time. Twin telepathy?!",
+   "choices": [
+    {
+     "label": "Test it with a card game 🃏",
+     "outcomes": [
+      {
+       "w": 0.3,
+       "text": "You guessed 9 out of 10 of {sib}'s cards. Spooky! 👻",
+       "fx": {
+        "happy": 6,
+        "fame": 2,
+        "sib_rel": 6,
+        "log": "🔮 {first} and {sib} proved twin telepathy is real (probably)."
+       }
+      },
+      {
+       "w": 0.7,
+       "text": "You guessed 1 out of 10. So much for telepathy. 😂",
+       "fx": {
+        "happy": 3,
+        "sib_rel": 3
+       }
+      }
+     ]
+    },
+    {
+     "label": "Yell “JINX!” 🤐",
+     "outcomes": [
+      {
+       "text": "{sib} can't talk until someone says their name. Victory. 😏",
+       "fx": {
+        "happy": 3,
+        "sib_rel": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "twin_swap",
+   "ages": [
+    10,
+    17
+   ],
+   "sib": "twin",
+   "cond": "jail == 0",
+   "text": "🎭 {sib} has a huge test and you're better at that subject... swap places for the day?",
+   "choices": [
+    {
+     "label": "Swap places! 🔄",
+     "outcomes": [
+      {
+       "w": "smarts",
+       "text": "Nobody noticed! {sib} got an A and owes you BIG. 😎",
+       "fx": {
+        "happy": 5,
+        "sib_rel": 8,
+        "karma": -3,
+        "chaos": 1,
+        "sib_fx": {
+         "happy": 6
+        }
+       }
+      },
+      {
+       "w": 45,
+       "text": "The teacher noticed your different shoes. You BOTH got detention! 🚫",
+       "fx": {
+        "happy": -6,
+        "sib_rel": -2,
+        "rel_parents": -5,
+        "chaos": 1,
+        "sib_fx": {
+         "happy": -6
+        }
+       }
+      }
+     ]
+    },
+    {
+     "label": "No way, that's cheating 😇",
+     "outcomes": [
+      {
+       "text": "You helped {sib} study instead. Respect. 📚",
+       "fx": {
+        "karma": 4,
+        "sib_rel": 2,
+        "sib_fx": {
+         "smarts": 2
+        }
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "twin_birthday",
+   "ages": [
+    3,
+    90
+   ],
+   "sib": "twin",
+   "text": "🎂 It's your and {sib}'s birthday! Who blows out the candles first?",
+   "choices": [
+    {
+     "label": "Me, obviously 🕯️",
+     "outcomes": [
+      {
+       "text": "You blew them ALL out. {sib} is fuming. 😤",
+       "fx": {
+        "happy": 4,
+        "sib_rel": -4
+       }
+      }
+     ]
+    },
+    {
+     "label": "Let {sib} go first 💕",
+     "outcomes": [
+      {
+       "text": "So sweet. {sib} saved you the biggest slice. 🍰",
+       "fx": {
+        "karma": 3,
+        "sib_rel": 5,
+        "happy": 2
+       }
+      }
+     ]
+    },
+    {
+     "label": "Blow at the same time 🌬️",
+     "outcomes": [
+      {
+       "text": "Perfectly in sync. Twin power! ✨",
+       "fx": {
+        "happy": 3,
+        "sib_rel": 3
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "twin_pain",
+   "ages": [
+    8,
+    90
+   ],
+   "sib": "twin",
+   "text": "🤕 {sib} hurt their arm... and weirdly, YOUR arm hurts too.",
+   "choices": [
+    {
+     "label": "Visit them at the hospital 🏥",
+     "outcomes": [
+      {
+       "text": "You signed {sib}'s cast with a terrible drawing. 🖍️",
+       "fx": {
+        "sib_rel": 6,
+        "happy": 2
+       }
+      }
+     ]
+    },
+    {
+     "label": "Blame the twin curse 🧿",
+     "outcomes": [
+      {
+       "text": "You spent the day dramatically holding your arm. 🎭",
+       "fx": {
+        "happy": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "babysit",
+   "ages": [
+    11,
+    25
+   ],
+   "sib": "younger",
+   "cond": "sib_age <= 9 and parents_alive > 0 and jail == 0",
+   "text": "👶 Mom and Dad went out for the night. You're babysitting {sib}!",
+   "choices": [
+    {
+     "label": "Be the fun babysitter 🎉",
+     "outcomes": [
+      {
+       "w": 0.7,
+       "text": "You built a giant pillow fort with {sib}! 🏰",
+       "fx": {
+        "happy": 5,
+        "sib_rel": 8,
+        "sib_fx": {
+         "happy": 6
+        }
+       }
+      },
+      {
+       "w": 0.3,
+       "text": "{sib} drew on the walls while you were on your phone. 😱",
+       "fx": {
+        "happy": -4,
+        "rel_parents": -5,
+        "sib_rel": 2
+       }
+      }
+     ]
+    },
+    {
+     "label": "Strict mode: bedtime at 8 😤",
+     "outcomes": [
+      {
+       "text": "{sib} thinks you're the worst. Your parents think you're the best. 😇",
+       "fx": {
+        "sib_rel": -4,
+        "rel_parents": 5,
+        "karma": 2
+       }
+      }
+     ]
+    },
+    {
+     "label": "Bribe them with candy 🍬",
+     "outcomes": [
+      {
+       "text": "{sib} was bouncing off the walls until midnight. 🍭",
+       "fx": {
+        "money": -10,
+        "sib_rel": 5,
+        "sib_fx": {
+         "health": -1,
+         "happy": 5
+        }
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "compared",
+   "ages": [
+    6,
+    35
+   ],
+   "sib": "any",
+   "cond": "parents_alive > 0",
+   "text": "😒 Your mom asked: “Why can't you be more like {sib}?”",
+   "choices": [
+    {
+     "label": "Try harder 📈",
+     "outcomes": [
+      {
+       "text": "You worked twice as hard this year. 💪",
+       "fx": {
+        "smarts": 3,
+        "happy": -3,
+        "rel_parents": 2
+       }
+      }
+     ]
+    },
+    {
+     "label": "Get mad at {sib} 😤",
+     "outcomes": [
+      {
+       "text": "It's not {sib}'s fault, but you're still annoyed. 🙄",
+       "fx": {
+        "sib_rel": -8,
+        "happy": 1
+       }
+      }
+     ]
+    },
+    {
+     "label": "Talk to Mom about it 🗣️",
+     "outcomes": [
+      {
+       "w": 0.7,
+       "text": "She apologized. “You're amazing in your own way.” 🥹",
+       "fx": {
+        "rel_mom": 6,
+        "happy": 5
+       }
+      },
+      {
+       "w": 0.3,
+       "text": "It turned into an argument. 😩",
+       "fx": {
+        "rel_mom": -4,
+        "happy": -3
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "hand_me_downs",
+   "ages": [
+    5,
+    16
+   ],
+   "sib": "older",
+   "text": "👕 You got {sib}'s old clothes. Again.",
+   "choices": [
+    {
+     "label": "Rock the vintage look 😎",
+     "outcomes": [
+      {
+       "text": "Honestly? It's a vibe. ✨",
+       "fx": {
+        "looks": 1,
+        "happy": 2
+       }
+      }
+     ]
+    },
+    {
+     "label": "Complain loudly 📢",
+     "outcomes": [
+      {
+       "text": "Your parents sighed and said “next year.” 🙄",
+       "fx": {
+        "happy": -2,
+        "rel_parents": -2
+       }
+      }
+     ]
+    },
+    {
+     "label": "Customize them ✂️",
+     "outcomes": [
+      {
+       "text": "You turned them into something cool. Designer in training! 🎨",
+       "fx": {
+        "looks": 3,
+        "smarts": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "shared_room",
+   "ages": [
+    5,
+    17
+   ],
+   "sib": "any",
+   "cond": "living_home and sib_age < 18",
+   "text": "🛏️ You have to share a bedroom with {sib}.",
+   "choices": [
+    {
+     "label": "Draw a line down the middle ✏️",
+     "outcomes": [
+      {
+       "text": "A cold war has begun. 🧊",
+       "fx": {
+        "sib_rel": -4,
+        "happy": 1
+       }
+      }
+     ]
+    },
+    {
+     "label": "Build a bunk-bed fort together 🏰",
+     "outcomes": [
+      {
+       "text": "Best room in the house! 🌟",
+       "fx": {
+        "sib_rel": 7,
+        "happy": 4,
+        "sib_fx": {
+         "happy": 4
+        }
+       }
+      }
+     ]
+    },
+    {
+     "label": "Move into the closet 🚪",
+     "outcomes": [
+      {
+       "text": "It's small. But it's YOURS. 📦",
+       "fx": {
+        "happy": -1,
+        "smarts": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "homework_help",
+   "ages": [
+    10,
+    40
+   ],
+   "sib": "younger",
+   "cond": "sib_age >= 6 and sib_age <= 17",
+   "text": "📚 {sib} is struggling with their homework.",
+   "choices": [
+    {
+     "label": "Help them out 🤓",
+     "outcomes": [
+      {
+       "text": "{sib} finally gets fractions. Teacher mode unlocked! 🍎",
+       "fx": {
+        "sib_rel": 7,
+        "karma": 2,
+        "smarts": 1,
+        "sib_fx": {
+         "smarts": 3
+        }
+       }
+      }
+     ]
+    },
+    {
+     "label": "Do it for them 😅",
+     "outcomes": [
+      {
+       "text": "{sib} got an A. They learned nothing. 🤷",
+       "fx": {
+        "sib_rel": 3,
+        "karma": -1,
+        "sib_fx": {
+         "smarts": -1
+        }
+       }
+      }
+     ]
+    },
+    {
+     "label": "“Not my problem.”",
+     "outcomes": [
+      {
+       "text": "{sib} stomped off. 😤",
+       "fx": {
+        "sib_rel": -5
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tag_along",
+   "ages": [
+    12,
+    19
+   ],
+   "sib": "younger",
+   "cond": "sib_age >= 6",
+   "text": "🙄 {sib} wants to tag along with you and your friends.",
+   "choices": [
+    {
+     "label": "Bring them! 🤗",
+     "outcomes": [
+      {
+       "text": "Your friends think {sib} is hilarious. 😂",
+       "fx": {
+        "sib_rel": 8,
+        "happy": 1,
+        "sib_fx": {
+         "happy": 5
+        }
+       }
+      }
+     ]
+    },
+    {
+     "label": "Ditch them 🏃",
+     "outcomes": [
+      {
+       "text": "{sib} watched you leave from the window. Oof. 🥺",
+       "fx": {
+        "sib_rel": -8,
+        "happy": 2
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "secret",
+   "ages": [
+    12,
+    70
+   ],
+   "sib": "any",
+   "text": "🤫 {sib} told you a HUGE secret.",
+   "choices": [
+    {
+     "label": "Keep it forever 🔐",
+     "outcomes": [
+      {
+       "text": "{sib} knows they can trust you. 💕",
+       "fx": {
+        "sib_rel": 7,
+        "karma": 3
+       }
+      }
+     ]
+    },
+    {
+     "label": "Tell Mom 😬",
+     "cond": "parents_alive > 0",
+     "outcomes": [
+      {
+       "text": "{sib} found out you told. Betrayal! 🗡️",
+       "fx": {
+        "sib_rel": -12,
+        "rel_parents": 3
+       }
+      }
+     ]
+    },
+    {
+     "label": "Post it online 📱",
+     "outcomes": [
+      {
+       "text": "It got 2 million views. {sib} may never forgive you. 💀",
+       "fx": {
+        "sib_rel": -18,
+        "fame": 3,
+        "chaos": 2,
+        "log": "📱 {first} leaked {sib}'s secret online. Family drama!"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sib_call",
+   "ages": [
+    25,
+    95
+   ],
+   "sib": "any",
+   "text": "📞 {sib} called just to say hi.",
+   "choices": [
+    {
+     "label": "Talk for hours ☎️",
+     "outcomes": [
+      {
+       "text": "You laughed about childhood stories until midnight. 🥹",
+       "fx": {
+        "sib_rel": 6,
+        "happy": 4
+       }
+      }
+     ]
+    },
+    {
+     "label": "Let it go to voicemail 📵",
+     "outcomes": [
+      {
+       "text": "You'll call back. Probably. 😬",
+       "fx": {
+        "sib_rel": -3
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "roommate",
+   "ages": [
+    18,
+    26
+   ],
+   "cond": "not living_home",
+   "text": "🍕 Your roommate keeps eating your food.",
+   "choices": [
+    {
+     "label": "Confront them",
+     "outcomes": [
+      {
+       "w": 0.6,
+       "text": "They apologized and bought you pizza. 🍕",
+       "fx": {
+        "happy": 5
+       }
+      },
+      {
+       "w": 0.4,
+       "text": "Now it's awkward in the apartment. 😑",
+       "fx": {
+        "happy": -4
+       }
+      }
+     ]
+    },
+    {
+     "label": "Eat THEIR food",
+     "outcomes": [
+      {
+       "text": "Revenge is delicious. 😋",
+       "fx": {
+        "happy": 4,
+        "karma": -2
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "crypto",
+   "ages": [
+    20,
+    75
+   ],
+   "cond": "money >= 5000",
+   "text": "🕴️ A guy in a shiny suit offers you a 'can't-lose' crypto deal for $5,000.",
+   "choices": [
+    {
+     "label": "Invest $5,000",
+     "outcomes": [
+      {
+       "w": 0.2,
+       "text": "The coin mooned! You turned $5k into $20k! 🚀",
+       "fx": {
+        "money": 15000,
+        "happy": 10
+       }
+      },
+      {
+       "w": 0.8,
+       "text": "The coin was called ScamCoin. It's gone. 📉",
+       "fx": {
+        "money": -5000,
+        "happy": -8
+       }
+      }
+     ]
+    },
+    {
+     "label": "Walk away",
+     "outcomes": [
+      {
+       "text": "Smart move. That guy was sus. 🧠",
+       "fx": {
+        "smarts": 2
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "coworker",
+   "ages": [
+    18,
+    70
+   ],
+   "cond": "has_job",
+   "text": "😤 A coworker took credit for YOUR work in a big meeting.",
+   "choices": [
+    {
+     "label": "Call them out",
+     "outcomes": [
+      {
+       "w": 0.55,
+       "text": "Your boss saw the truth. Respect! 🙌",
+       "fx": {
+        "happy": 6,
+        "perf": 20
+       }
+      },
+      {
+       "w": 0.45,
+       "text": "It turned into drama. Everyone's annoyed. 😬",
+       "fx": {
+        "happy": -5
+       }
+      }
+     ]
+    },
+    {
+     "label": "Let it slide",
+     "outcomes": [
+      {
+       "text": "You're the bigger person. Also a bit sad. 😔",
+       "fx": {
+        "happy": -3,
+        "karma": 3
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "raise",
+   "ages": [
+    18,
+    70
+   ],
+   "cond": "has_job and not star_job",
+   "text": "💵 You think you deserve a raise.",
+   "choices": [
+    {
+     "label": "Ask politely",
+     "outcomes": [
+      {
+       "w": 0.45,
+       "text": "Your boss agreed! +10% salary! 🎉",
+       "fx": {
+        "raise": 0.1,
+        "happy": 6
+       }
+      },
+      {
+       "w": 0.55,
+       "text": "'Maybe next year.' 😑",
+       "fx": {
+        "happy": -3
+       }
+      }
+     ]
+    },
+    {
+     "label": "Demand a BIG raise",
+     "outcomes": [
+      {
+       "w": 0.25,
+       "text": "They caved! +25% salary! 🤑",
+       "fx": {
+        "raise": 0.25,
+        "happy": 10
+       }
+      },
+      {
+       "w": 0.45,
+       "text": "Denied. Awkward silence. 😶",
+       "fx": {
+        "happy": -5
+       }
+      },
+      {
+       "w": 0.3,
+       "text": "You got fired for being rude. 🫠",
+       "fx": {
+        "fire": true,
+        "happy": -12
+       }
+      }
+     ]
+    },
+    {
+     "label": "Stay quiet",
+     "outcomes": [
+      {
+       "text": "Maybe next year. 🤷",
+       "fx": {
+        "happy": -1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "shelter",
+   "ages": [
+    12,
+    80
+   ],
+   "cond": "pets < 3",
+   "text": "🐕 A shelter puppy is staring at you with huge eyes.",
+   "choices": [
+    {
+     "label": "Adopt it!",
+     "outcomes": [
+      {
+       "text": "Welcome home, little buddy! 🐾",
+       "fx": {
+        "happy": [
+         8,
+         12
+        ],
+        "pet": true
+       }
+      }
+     ]
+    },
+    {
+     "label": "Not today",
+     "outcomes": [
+      {
+       "text": "You'll think about those eyes forever. 🥺",
+       "fx": {
+        "happy": -2
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "mugger",
+   "ages": [
+    18,
+    85
+   ],
+   "cond": "jail == 0",
+   "text": "🦹 Someone tries to mug you in a dark alley!",
+   "choices": [
+    {
+     "label": "Hand over your wallet",
+     "outcomes": [
+      {
+       "text": "You lost $200 but you're safe. 😮‍💨",
+       "fx": {
+        "money": -200,
+        "happy": -4
+       }
+      }
+     ]
+    },
+    {
+     "label": "Fight back",
+     "outcomes": [
+      {
+       "w": "sport + health / 2",
+       "text": "You fought them off like an action hero! 🥋",
+       "fx": {
+        "happy": 8,
+        "fame": 2,
+        "log": "🥋 {first} fought off a mugger!"
+       }
+      },
+      {
+       "w": 60,
+       "text": "You lost the fight. Ouch. 🤕",
+       "fx": {
+        "health": [
+         -15,
+         -8
+        ],
+        "money": -200
+       }
+      }
+     ]
+    },
+    {
+     "label": "Run away",
+     "outcomes": [
+      {
+       "w": "health",
+       "text": "You escaped! Cardio pays off! 🏃",
+       "fx": {
+        "happy": 3,
+        "health": 1
+       }
+      },
+      {
+       "w": 40,
+       "text": "You tripped. They got your wallet AND your dignity. 😩",
+       "fx": {
+        "money": -200,
+        "health": -4
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "ufo",
+   "ages": [
+    15,
+    95
+   ],
+   "weight": 0.6,
+   "text": "🛸 You see strange lights in the sky above your house...",
+   "choices": [
+    {
+     "label": "Investigate",
+     "outcomes": [
+      {
+       "w": 0.08,
+       "text": "You were ABDUCTED by aliens! They returned you a week later. 👽",
+       "fx": {
+        "fame": 20,
+        "happy": 5,
+        "ach": "👽 Alien abductee",
+        "log": "👽 {first} claims they were abducted by aliens!"
+       }
+      },
+      {
+       "w": 0.92,
+       "text": "It was a drone. Disappointing. 🙄",
+       "fx": {
+        "happy": -1
+       }
+      }
+     ]
+    },
+    {
+     "label": "Wake up {sib}",
+     "cond": "siblings > 0",
+     "outcomes": [
+      {
+       "text": "You and {sib} watched it all night. Best night ever. 🌌",
+       "fx": {
+        "happy": 4,
+        "sib_rel": 5
+       }
+      }
+     ]
+    },
+    {
+     "label": "Go back to sleep",
+     "outcomes": [
+      {
+       "text": "Zzz... 😴",
+       "fx": {
+        "health": 1
+       }
+      }
+     ]
+    }
+   ],
+   "sib": "any"
+  },
+  {
+   "id": "gym_crush",
+   "ages": [
+    18,
+    55
+   ],
+   "cond": "not has_partner and jail == 0",
+   "text": "😍 Someone cute keeps smiling at you at the gym.",
+   "choices": [
+    {
+     "label": "Ask them out",
+     "outcomes": [
+      {
+       "w": "looks",
+       "text": "They said yes! You're dating now. 💞",
+       "fx": {
+        "happy": 10,
+        "partner": "new"
+       }
+      },
+      {
+       "w": "100 - looks",
+       "text": "They were smiling at someone behind you. 💀",
+       "fx": {
+        "happy": -6
+       }
+      }
+     ]
+    },
+    {
+     "label": "Keep lifting",
+     "outcomes": [
+      {
+       "text": "Gains over dates. 💪",
+       "fx": {
+        "health": 3,
+        "looks": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "partner_fight",
+   "ages": [
+    18,
+    90
+   ],
+   "cond": "has_partner",
+   "text": "😠 You and {partner} had a big argument.",
+   "choices": [
+    {
+     "label": "Apologize",
+     "outcomes": [
+      {
+       "text": "You made up. Love wins. 💕",
+       "fx": {
+        "happy": 4
+       }
+      }
+     ]
+    },
+    {
+     "label": "Ask {sib} what to do",
+     "cond": "siblings > 0",
+     "outcomes": [
+      {
+       "text": "{sib} gave you surprisingly good advice. 🧠",
+       "fx": {
+        "happy": 3,
+        "sib_rel": 5
+       }
+      }
+     ]
+    },
+    {
+     "label": "Break up",
+     "outcomes": [
+      {
+       "text": "It's over. 💔",
+       "fx": {
+        "happy": -10,
+        "breakup": true
+       }
+      }
+     ]
+    }
+   ],
+   "sib": "any"
+  },
+  {
+   "id": "kid_trouble",
+   "ages": [
+    25,
+    90
+   ],
+   "cond": "kids > 0",
+   "text": "🏫 Your kid {kid} got in trouble at school.",
+   "choices": [
+    {
+     "label": "Ground them",
+     "outcomes": [
+      {
+       "text": "{kid} is mad but learned a lesson. 🚫",
+       "fx": {
+        "karma": 2,
+        "happy": -2
+       }
+      }
+     ]
+    },
+    {
+     "label": "Laugh it off",
+     "outcomes": [
+      {
+       "text": "{kid} thinks you're the coolest parent. 😎",
+       "fx": {
+        "happy": 4,
+        "karma": -2
+       }
+      }
+     ]
+    },
+    {
+     "label": "Call Aunt/Uncle {sib} for help",
+     "cond": "siblings > 0",
+     "outcomes": [
+      {
+       "text": "{sib} took {kid} for ice cream and fixed everything. 🍦",
+       "fx": {
+        "happy": 5,
+        "sib_rel": 6
+       }
+      }
+     ]
+    }
+   ],
+   "sib": "any"
+  },
+  {
+   "id": "midlife",
+   "ages": [
+    40,
+    55
+   ],
+   "cond": "money >= 40000",
+   "text": "🏍️ MIDLIFE CRISIS! You suddenly really want...",
+   "choices": [
+    {
+     "label": "A sports car ($40,000)",
+     "outcomes": [
+      {
+       "text": "VROOM! You feel 20 again. 🏎️",
+       "fx": {
+        "money": -40000,
+        "happy": 15,
+        "asset": [
+         "car",
+         "🏎️ Sports car",
+         40000
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "label": "A tattoo",
+     "outcomes": [
+      {
+       "w": 0.6,
+       "text": "It looks sick. 🔥",
+       "fx": {
+        "happy": 6,
+        "looks": 2
+       }
+      },
+      {
+       "w": 0.4,
+       "text": "It was supposed to say 'Courage'. It says 'Cabbage'. 🥬",
+       "fx": {
+        "happy": -3,
+        "looks": -2
+       }
+      }
+     ]
+    },
+    {
+     "label": "To learn the electric guitar",
+     "outcomes": [
+      {
+       "text": "Your neighbors are 'thrilled'. 🎸",
+       "fx": {
+        "happy": 5,
+        "music": 10
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "reality_tv",
+   "ages": [
+    18,
+    60
+   ],
+   "weight": 0.5,
+   "cond": "jail == 0",
+   "text": "📺 A reality TV show wants you as a contestant!",
+   "choices": [
+    {
+     "label": "Join the show",
+     "outcomes": [
+      {
+       "w": 0.5,
+       "text": "You were the fan favorite! 🌟",
+       "fx": {
+        "fame": [
+         15,
+         25
+        ],
+        "happy": 8,
+        "money": 10000,
+        "log": "📺 {first} became a reality TV star!"
+       }
+      },
+      {
+       "w": 0.5,
+       "text": "You got edited as the villain. 😈",
+       "fx": {
+        "fame": [
+         10,
+         15
+        ],
+        "happy": -6,
+        "chaos": 1
+       }
+      }
+     ]
+    },
+    {
+     "label": "Decline",
+     "outcomes": [
+      {
+       "text": "You value your privacy. 🔒",
+       "fx": {
+        "karma": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "marathon",
+   "ages": [
+    18,
+    75
+   ],
+   "cond": "jail == 0",
+   "text": "🏃 Your city is hosting a marathon.",
+   "choices": [
+    {
+     "label": "Run it!",
+     "outcomes": [
+      {
+       "w": "health",
+       "text": "You crossed the finish line! 🏅",
+       "fx": {
+        "health": 5,
+        "happy": 8,
+        "ach": "🏃 Marathon finisher"
+       }
+      },
+      {
+       "w": 50,
+       "text": "You stopped at mile 3 for a hot dog. 🌭",
+       "fx": {
+        "happy": 1
+       }
+      }
+     ]
+    },
+    {
+     "label": "Run it with {sib}",
+     "cond": "siblings > 0 and sib_age >= 18",
+     "outcomes": [
+      {
+       "text": "You and {sib} crossed the finish line holding hands. 🥹",
+       "fx": {
+        "health": 4,
+        "happy": 8,
+        "sib_rel": 8,
+        "ach": "🏃 Marathon finisher"
+       }
+      }
+     ]
+    },
+    {
+     "label": "Cheer from the sidelines",
+     "outcomes": [
+      {
+       "text": "You made a great sign. 📣",
+       "fx": {
+        "happy": 2
+       }
+      }
+     ]
+    }
+   ],
+   "sib": "any"
+  },
+  {
+   "id": "hotdog",
+   "ages": [
+    18,
+    70
+   ],
+   "cond": "jail == 0",
+   "text": "🌭 There's a hot dog eating contest with a $1,000 prize!",
+   "choices": [
+    {
+     "label": "Enter the contest",
+     "outcomes": [
+      {
+       "w": 0.25,
+       "text": "YOU WON! 23 hot dogs! Champion! 🏆",
+       "fx": {
+        "money": 1000,
+        "fame": 4,
+        "health": -4,
+        "log": "🌭 {first} won the hot dog eating contest!"
+       }
+      },
+      {
+       "w": 0.75,
+       "text": "You ate 4 and had to lie down. 🤢",
+       "fx": {
+        "health": -4,
+        "happy": -1
+       }
+      }
+     ]
+    },
+    {
+     "label": "Just watch",
+     "outcomes": [
+      {
+       "text": "Truly a spectacle. 🍿",
+       "fx": {
+        "happy": 2
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "treasure",
+   "ages": [
+    10,
+    85
+   ],
+   "weight": 0.5,
+   "text": "📡 Your metal detector beeps like crazy at the beach!",
+   "choices": [
+    {
+     "label": "Dig!",
+     "outcomes": [
+      {
+       "w": 0.15,
+       "text": "PIRATE GOLD! It's worth $80,000! 🏴‍☠️",
+       "fx": {
+        "money": 80000,
+        "happy": 12,
+        "ach": "🏴‍☠️ Treasure hunter",
+        "log": "🏴‍☠️ {first} found real pirate treasure!"
+       }
+      },
+      {
+       "w": 0.85,
+       "text": "A bottle cap. Again. 🧢",
+       "fx": {
+        "happy": -1
+       }
+      }
+     ]
+    },
+    {
+     "label": "Ignore it",
+     "outcomes": [
+      {
+       "text": "Probably nothing. ...Probably. 🤔",
+       "fx": {}
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "health_scare",
+   "ages": [
+    45,
+    110
+   ],
+   "text": "😮‍💨 You've been feeling really tired lately.",
+   "choices": [
+    {
+     "label": "See a doctor ($500)",
+     "outcomes": [
+      {
+       "text": "Good thing you went! You're on the mend. 🩺",
+       "fx": {
+        "money": -500,
+        "health": [
+         6,
+         10
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "label": "Ignore it",
+     "outcomes": [
+      {
+       "w": 0.5,
+       "text": "It went away on its own. Phew. 😌",
+       "fx": {}
+      },
+      {
+       "w": 0.5,
+       "text": "It got worse. Much worse. 🤒",
+       "fx": {
+        "health": [
+         -18,
+         -10
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "grandkids",
+   "ages": [
+    55,
+    110
+   ],
+   "cond": "kids > 0",
+   "text": "👶 Your grandkids are visiting for the weekend!",
+   "choices": [
+    {
+     "label": "Bake cookies together",
+     "outcomes": [
+      {
+       "text": "Flour everywhere. Worth it. 🍪",
+       "fx": {
+        "happy": 8
+       }
+      }
+     ]
+    },
+    {
+     "label": "Tell embarrassing stories about {sib}",
+     "cond": "siblings > 0",
+     "outcomes": [
+      {
+       "text": "The grandkids now call {sib} 'Captain Pants'. 😂",
+       "fx": {
+        "happy": 7,
+        "sib_rel": -2
+       }
+      }
+     ]
+    },
+    {
+     "label": "Give them money",
+     "outcomes": [
+      {
+       "text": "You're officially the favorite grandparent. 💵",
+       "fx": {
+        "money": -200,
+        "happy": 7,
+        "karma": 3
+       }
+      }
+     ]
+    }
+   ],
+   "sib": "any"
+  },
+  {
+   "id": "hobby",
+   "ages": [
+    65,
+    110
+   ],
+   "text": "🧓 You're looking for a new hobby.",
+   "choices": [
+    {
+     "label": "Gardening",
+     "outcomes": [
+      {
+       "text": "Your tomatoes are award-winning. 🍅",
+       "fx": {
+        "happy": 6,
+        "health": 2
+       }
+      }
+     ]
+    },
+    {
+     "label": "Competitive bingo",
+     "outcomes": [
+      {
+       "w": 0.4,
+       "text": "BINGO! You won $500! 🎱",
+       "fx": {
+        "money": 500,
+        "happy": 7
+       }
+      },
+      {
+       "w": 0.6,
+       "text": "Margaret won again. You WILL beat her. 😤",
+       "fx": {
+        "happy": 2
+       }
+      }
+     ]
+    },
+    {
+     "label": "Skydiving",
+     "outcomes": [
+      {
+       "w": 0.85,
+       "text": "WOOOO! Best day ever! 🪂",
+       "fx": {
+        "happy": 12,
+        "fame": 2,
+        "log": "🪂 {first} went skydiving at age {age}!"
+       }
+      },
+      {
+       "w": 0.15,
+       "text": "Rough landing. Your hip is not happy. 🤕",
+       "fx": {
+        "health": -12
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "scam_call",
+   "ages": [
+    60,
+    110
+   ],
+   "text": "📞 A caller says you WON a free cruise! They just need your bank info...",
+   "choices": [
+    {
+     "label": "Give them your bank info",
+     "outcomes": [
+      {
+       "text": "It was a scam. They drained $5,000. 😭",
+       "fx": {
+        "money": -5000,
+        "happy": -10
+       }
+      }
+     ]
+    },
+    {
+     "label": "Hang up",
+     "outcomes": [
+      {
+       "text": "Nice try, scammer. 😎",
+       "fx": {
+        "smarts": 2,
+        "happy": 2
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "grad",
+   "scripted": true,
+   "text": "🎓 You graduated from high school! What's next?",
+   "choices": [
+    {
+     "label": "Go to university 🏫",
+     "outcomes": [
+      {
+       "text": "Time to pick a major!",
+       "fx": {
+        "next": "major"
+       }
+      }
+     ]
+    },
+    {
+     "label": "Start working 💼",
+     "outcomes": [
+      {
+       "text": "Time to hustle! Check the 🔍 Job board.",
+       "fx": {
+        "happy": 2
+       }
+      }
+     ]
+    },
+    {
+     "label": "Take a gap year 🎒",
+     "outcomes": [
+      {
+       "text": "You backpacked across the world! 🌍",
+       "fx": {
+        "happy": [
+         8,
+         12
+        ],
+        "health": 3,
+        "money": -1000
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "major",
+   "scripted": true,
+   "text": "📚 Pick your university major (4 years, $12k/year in tuition):",
+   "choices": [
+    {
+     "label": "💻 Computer Science",
+     "outcomes": [
+      {
+       "text": "You enrolled in Computer Science!",
+       "fx": {
+        "uni": "cs"
+       }
+      }
+     ]
+    },
+    {
+     "label": "🩺 Medicine",
+     "outcomes": [
+      {
+       "text": "You enrolled in Medicine!",
+       "fx": {
+        "uni": "medicine"
+       }
+      }
+     ]
+    },
+    {
+     "label": "⚖️ Law",
+     "outcomes": [
+      {
+       "text": "You enrolled in Law!",
+       "fx": {
+        "uni": "law"
+       }
+      }
+     ]
+    },
+    {
+     "label": "📈 Business",
+     "outcomes": [
+      {
+       "text": "You enrolled in Business!",
+       "fx": {
+        "uni": "business"
+       }
+      }
+     ]
+    },
+    {
+     "label": "🛠️ Engineering",
+     "outcomes": [
+      {
+       "text": "You enrolled in Engineering!",
+       "fx": {
+        "uni": "engineering"
+       }
+      }
+     ]
+    },
+    {
+     "label": "🎨 Arts",
+     "outcomes": [
+      {
+       "text": "You enrolled in Arts!",
+       "fx": {
+        "uni": "arts"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "make_up",
+   "scripted": true,
+   "text": "🕊️ It's been years since you and {sib} last spoke. {sib} sent you a message: “Can we talk?”",
+   "choices": [
+    {
+     "label": "Make up 🤝",
+     "outcomes": [
+      {
+       "text": "You hugged it out. Siblings again! 💕",
+       "fx": {
+        "sib_rel": 35,
+        "happy": 8,
+        "unsilence": true,
+        "log": "🕊️ {first} and {sib} finally made up after years of silence!"
+       }
+      }
+     ]
+    },
+    {
+     "label": "Ignore it 🧊",
+     "outcomes": [
+      {
+       "text": "The silence continues... 🥶",
+       "fx": {
+        "happy": -2
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "happenings": [
+  {
+   "ages": [
+    1,
+    120
+   ],
+   "weight": 3,
+   "text": "🤧 You caught the flu.",
+   "fx": {
+    "health": [
+     -7,
+     -3
+    ]
+   }
+  },
+  {
+   "ages": [
+    10,
+    16
+   ],
+   "weight": 2,
+   "text": "📏 Growth spurt! You shot up like a beanstalk.",
+   "fx": {
+    "looks": [
+     2,
+     6
+    ],
+    "health": 2
+   }
+  },
+  {
+   "ages": [
+    12,
+    17
+   ],
+   "weight": 2,
+   "text": "😖 A giant pimple appeared right before picture day.",
+   "fx": {
+    "looks": [
+     -4,
+     -2
+    ],
+    "happy": [
+     -3,
+     -1
+    ]
+   }
+  },
+  {
+   "ages": [
+    4,
+    12
+   ],
+   "weight": 2,
+   "text": "🎈 Your birthday party was epic!",
+   "fx": {
+    "happy": [
+     4,
+     8
+    ]
+   }
+  },
+  {
+   "ages": [
+    5,
+    90
+   ],
+   "weight": 2,
+   "text": "💵 You found $20 on the sidewalk!",
+   "fx": {
+    "money": 20,
+    "happy": 2
+   }
+  },
+  {
+   "ages": [
+    18,
+    80
+   ],
+   "weight": 1,
+   "text": "📱 You dropped your phone in the toilet.",
+   "fx": {
+    "money": -300,
+    "happy": [
+     -4,
+     -2
+    ]
+   }
+  },
+  {
+   "ages": [
+    5,
+    80
+   ],
+   "weight": 1,
+   "text": "🦴 You broke your arm doing something silly.",
+   "fx": {
+    "health": [
+     -12,
+     -6
+    ],
+    "happy": [
+     -4,
+     -2
+    ]
+   }
+  },
+  {
+   "ages": [
+    18,
+    95
+   ],
+   "weight": 1,
+   "text": "🎟️ You won a raffle!",
+   "fx": {
+    "money": [
+     100,
+     800
+    ],
+    "happy": 3
+   }
+  },
+  {
+   "ages": [
+    45,
+    120
+   ],
+   "weight": 3,
+   "text": "🧓 Your back hurts for no reason at all.",
+   "fx": {
+    "health": [
+     -5,
+     -2
+    ]
+   }
+  },
+  {
+   "ages": [
+    40,
+    120
+   ],
+   "weight": 2,
+   "text": "🪞 You noticed a new wrinkle.",
+   "fx": {
+    "looks": [
+     -4,
+     -1
+    ]
+   }
+  },
+  {
+   "ages": [
+    8,
+    100
+   ],
+   "weight": 1,
+   "text": "🌈 You saw a double rainbow. Life is good.",
+   "fx": {
+    "happy": [
+     3,
+     6
+    ]
+   }
+  },
+  {
+   "ages": [
+    13,
+    40
+   ],
+   "weight": 1,
+   "text": "🎤 You sang karaoke and absolutely crushed it.",
+   "fx": {
+    "happy": 4,
+    "music": 3
+   }
+  }
+ ]
+}

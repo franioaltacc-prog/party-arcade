@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Neon Dash · Party Arcade</title>
+  <meta name="theme-color" content="#0b0920">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .settings-grid { display: grid; gap: 16px; }
+    .setting-label { font-weight: 700; font-size: .85rem; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 6px; }
+    .start-area { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+    .results-box { margin-bottom: 18px; }
+    .results-box .table td:first-child { width: 44px; font-size: 1.3rem; }
+    .medal { font-size: 1.3rem; }
+
+    #play { position: relative; }
+    .dash-top { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+    .hud-stat { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 12px; background: var(--panel); border: 1px solid var(--border); font-weight: 700; font-variant-numeric: tabular-nums; }
+    .track { position: relative; flex: 1; min-width: 180px; height: 34px; border-radius: 999px; background: rgba(0,0,0,.35); border: 1px solid var(--border); }
+    .track .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: linear-gradient(90deg, rgba(255,79,216,.35), rgba(34,211,238,.35)); }
+    .track .flag { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 1rem; }
+    .track .runner { position: absolute; top: 50%; transform: translate(-50%, -50%); transition: left .15s linear; z-index: 1; }
+    .track .runner .avatar { width: 26px; height: 26px; font-size: .85rem; }
+    .track .runner.me { z-index: 2; }
+    .track .runner.me .avatar { box-shadow: 0 0 0 3px #fff, 0 0 14px #fff; }
+    .stage { position: relative; width: 100%; height: clamp(240px, 52vw, 68vh); border-radius: 22px; overflow: hidden; border: 1px solid var(--border-strong); box-shadow: var(--shadow); touch-action: none; user-select: none; -webkit-user-select: none; cursor: pointer; }
+    .stage canvas { width: 100%; height: 100%; display: block; }
+    .banner {
+      position: absolute; left: 50%; top: 14%; transform: translateX(-50%); padding: 12px 22px; border-radius: 18px; text-align: center;
+      background: rgba(11, 9, 32, .78); border: 1px solid var(--border-strong); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      font-weight: 700; font-size: 1.15rem; pointer-events: none; animation: pop-in .3s cubic-bezier(.2,1.4,.4,1); max-width: 90%;
+    }
+    .banner .big { font-family: var(--font-display); font-size: 2rem; display: block; }
+    .dash-bottom { display: flex; gap: 12px; justify-content: space-between; align-items: center; margin-top: 10px; flex-wrap: wrap; color: var(--muted); font-size: .92rem; }
+    .standings { display: flex; gap: 8px; flex-wrap: wrap; }
+    .standings .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border-radius: 999px; background: var(--panel); border: 1px solid var(--border); font-weight: 600; font-size: .85rem; }
+    .solo-card { width: min(560px, 100%); margin: 26px auto; }
+    .best-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: .92rem; }
+    .result-big { font-family: var(--font-display); font-size: 2.6rem; text-align: center; margin: 6px 0; }
+    .spectate { text-align: center; padding: 18px; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div id="entry"></div>
+
+    <section id="solo" class="hidden">
+      <div class="panel solo-card">
+        <div class="row between" style="margin-bottom:10px"><h2>🟦 Practice mode</h2><button class="btn btn-ghost btn-sm" id="solo-back">← Back</button></div>
+        <p class="muted" style="margin-bottom:16px">Every run is a brand-new random level. Beat your best times!</p>
+        <div class="settings-grid">
+          <div><div class="setting-label">Difficulty</div><div class="seg" id="solo-diff"></div></div>
+          <div><div class="setting-label">Length</div><div class="seg" id="solo-len"></div></div>
+          <label class="switch"><input type="checkbox" id="solo-cp" checked> Checkpoints (respawn closer when you crash)</label>
+        </div>
+        <button class="btn btn-pink btn-lg btn-block" id="solo-go" style="margin-top:20px">▶ Play</button>
+        <div style="margin-top:18px"><div class="setting-label">🏆 Your best times</div><div id="solo-best"></div></div>
+      </div>
+    </section>
+
+    <section id="room" class="hidden room-layout">
+      <div class="col">
+        <div class="panel" id="room-code"></div>
+        <div class="panel" id="room-players"></div>
+      </div>
+      <div class="panel room-main" id="room-main"></div>
+      <div class="panel chat-panel" id="room-chat"></div>
+    </section>
+
+    <section id="play" class="hidden">
+      <div class="dash-top">
+        <span class="hud-stat" title="Time">⏱ <span id="hud-time">0.00</span></span>
+        <span class="hud-stat" title="Attempts">💀 <span id="hud-att">1</span></span>
+        <div class="track" id="track"><div class="fill" id="track-fill"></div><span class="flag">🏁</span></div>
+        <button class="icon-btn" id="btn-music" title="Music on/off">🎵</button>
+        <button class="icon-btn" id="btn-quit" title="Quit">✕</button>
+      </div>
+      <div class="stage" id="stage"><canvas id="cv"></canvas><div id="banner" class="banner hidden"></div></div>
+      <div class="dash-bottom">
+        <span>Jump: <span class="kbd">Space</span> <span class="kbd">↑</span> click or tap. <b>Hold</b> to keep jumping. Yellow rings = tap in the air!</span>
+        <div class="standings" id="standings"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/js/core.js"></script>
+  <script src="/js/lobby.js"></script>
+  <script src="/js/games/dash.js"></script>
+</body>
+</html>

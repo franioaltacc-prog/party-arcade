@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Party Arcade</title>
+  <meta name="description" content="Free browser games to play with your friends: Neon Dash races, Family Life, Doodle Guess, Party Blitz, Connect 4 and more.">
+  <meta name="theme-color" content="#0b0920">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .hero { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 24px; align-items: center; padding: 28px 0 34px; }
+    .hero h1 { font-size: clamp(2.2rem, 5.6vw, 4.2rem); line-height: 1.02; margin: 14px 0 14px; }
+    .hero .lead { font-size: 1.2rem; color: var(--muted); max-width: 520px; }
+    .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 24px; align-items: center; }
+    .join-code { display: flex; gap: 8px; }
+    .join-code .input { width: 150px; }
+    .hero-stats { display: flex; gap: 26px; margin-top: 26px; flex-wrap: wrap; }
+    .hero-stats b { display: block; font-family: var(--font-display); font-weight: 400; font-size: 1.9rem; line-height: 1; }
+    .hero-stats span { color: var(--muted); font-size: 0.9rem; }
+    .hero-stats > div:nth-child(1) b { color: var(--lime); }
+    .hero-stats > div:nth-child(2) b { color: var(--cyan); }
+    .hero-stats > div:nth-child(3) b { color: var(--pink); }
+
+    .hero-art { position: relative; aspect-ratio: 1; max-width: 440px; width: 100%; justify-self: center; }
+    .hero-art .core {
+      position: absolute; inset: 22%; border-radius: 50%; display: grid; place-items: center; font-size: clamp(4rem, 10vw, 7rem);
+      background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.35), transparent 50%), conic-gradient(from 0deg, var(--pink), var(--purple), var(--cyan), var(--lime), var(--yellow), var(--pink));
+      box-shadow: 0 0 80px rgba(255, 79, 216, .45), inset 0 -12px 0 rgba(0,0,0,.2);
+      animation: spin-slow 18s linear infinite;
+    }
+    .hero-art .core span { animation: spin-slow 18s linear infinite reverse; display: inline-block; filter: drop-shadow(0 8px 10px rgba(0,0,0,.4)); }
+    @keyframes spin-slow { to { transform: rotate(360deg); } }
+    .bubble {
+      position: absolute; width: 22%; aspect-ratio: 1; border-radius: 28%; display: grid; place-items: center; font-size: clamp(1.6rem, 4vw, 2.6rem);
+      background: rgba(255,255,255,.08); border: 1px solid var(--border-strong); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      box-shadow: var(--shadow); animation: bob 4s ease-in-out infinite; text-decoration: none !important;
+      transition: transform .2s;
+    }
+    .bubble:hover { transform: scale(1.15) rotate(-6deg); }
+    .bubble:nth-child(2) { top: 0; left: 8%; animation-delay: -.6s; }
+    .bubble:nth-child(3) { top: 4%; right: 6%; animation-delay: -1.4s; }
+    .bubble:nth-child(4) { top: 40%; right: -4%; animation-delay: -2.1s; }
+    .bubble:nth-child(5) { bottom: 2%; right: 14%; animation-delay: -.9s; }
+    .bubble:nth-child(6) { bottom: 0; left: 12%; animation-delay: -2.8s; }
+    .bubble:nth-child(7) { top: 40%; left: -5%; animation-delay: -3.3s; }
+
+    .hub-grid { display: grid; grid-template-columns: 1fr 340px; gap: 22px; align-items: start; }
+    .hub-main { display: flex; flex-direction: column; gap: 34px; min-width: 0; }
+    .hub-side { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 80px; }
+    .section-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+    .section-head h2 { font-size: 1.6rem; }
+    .section-head p { color: var(--muted); }
+
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+    .game-card {
+      display: flex; flex-direction: column; border-radius: 24px; overflow: hidden; color: var(--text);
+      background: var(--panel); border: 1px solid var(--border); text-decoration: none !important;
+      transition: transform .18s cubic-bezier(.2,1.4,.4,1), box-shadow .2s, border-color .2s;
+      position: relative;
+    }
+    .game-card:hover { transform: translateY(-6px) rotate(-0.6deg); box-shadow: 0 22px 40px -18px var(--glow, rgba(255,79,216,.6)); border-color: var(--border-strong); }
+    .game-card:active { transform: translateY(-2px) scale(.99); }
+    .game-card .thumb { position: relative; aspect-ratio: 5 / 3; overflow: hidden; }
+    .game-card .thumb svg { width: 100%; height: 100%; display: block; transition: transform .4s; }
+    .game-card:hover .thumb svg { transform: scale(1.06); }
+    .game-card .thumb .badge { position: absolute; top: 10px; left: 10px; backdrop-filter: blur(6px); }
+    .game-card .thumb .live { position: absolute; top: 10px; right: 10px; padding: 3px 9px; border-radius: 999px; font-size: .75rem; font-weight: 700; background: rgba(0,0,0,.55); display: none; align-items: center; gap: 6px; }
+    .game-card .thumb .live.on { display: inline-flex; }
+    .game-card .info { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+    .game-card h3 { font-size: 1.25rem; display: flex; align-items: center; gap: 8px; }
+    .game-card p { color: var(--muted); font-size: .93rem; }
+    .game-card .meta { margin-top: auto; padding-top: 8px; display: flex; gap: 10px; color: var(--faint); font-size: .82rem; font-weight: 600; }
+    .game-card.feature { grid-column: span 2; }
+    .game-card.feature .thumb { aspect-ratio: 5 / 2.2; }
+    @media (max-width: 620px) { .game-card.feature { grid-column: auto; } .game-card.feature .thumb { aspect-ratio: 5 / 3; } }
+
+    .room-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 14px; background: rgba(255,255,255,.04); }
+    .room-item + .room-item { margin-top: 8px; }
+    .room-item .ri-emoji { font-size: 1.4rem; width: 34px; text-align: center; }
+    .room-item .ri-title { font-weight: 700; font-size: .95rem; }
+    .room-item .ri-sub { font-size: .8rem; color: var(--muted); }
+    .empty { text-align: center; color: var(--muted); padding: 14px 6px; font-size: .92rem; }
+    #lobby-chat { height: 420px; }
+
+    @media (max-width: 1020px) {
+      .hub-grid { grid-template-columns: 1fr; }
+      .hub-side { position: static; display: grid; grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 760px) {
+      .hero { grid-template-columns: 1fr; padding-top: 12px; }
+      .hero-art { max-width: 300px; order: -1; }
+      .hub-side { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div>
+        <span class="badge new">✨ New · play online with friends</span>
+        <h1 class="display">Games with your friends.<br><span class="gradient-text">Right now.</span></h1>
+        <p class="lead">No downloads. No sign-ups. Create a room, send your friends the code, and start playing in seconds.</p>
+        <div class="hero-actions">
+          <button id="surprise" class="btn btn-pink btn-lg">🎲 Surprise me</button>
+          <form id="join-form" class="join-code" autocomplete="off">
+            <input id="join-code" class="input code" maxlength="4" placeholder="CODE" aria-label="Room code">
+            <button class="btn btn-yellow btn-lg" type="submit">Join</button>
+          </form>
+        </div>
+        <div class="hero-stats">
+          <div><b id="stat-online">–</b><span>online now</span></div>
+          <div><b id="stat-rooms">0</b><span>open rooms</span></div>
+          <div><b id="stat-games">11</b><span>games &amp; toys</span></div>
+        </div>
+      </div>
+      <div class="hero-art" aria-hidden="true">
+        <div class="core"><span>🕹️</span></div>
+        <a class="bubble" href="/games/dash" tabindex="-1">🟪</a>
+        <a class="bubble" href="/games/life" tabindex="-1">🏡</a>
+        <a class="bubble" href="/games/doodle" tabindex="-1">🎨</a>
+        <a class="bubble" href="/games/blitz" tabindex="-1">⚡</a>
+        <a class="bubble" href="/games/snake" tabindex="-1">🐍</a>
+        <a class="bubble" href="/games/connect4" tabindex="-1">🔴</a>
+      </div>
+    </section>
+
+    <div class="hub-grid">
+      <div class="hub-main">
+        <section>
+          <div class="section-head"><h2>🌐 Play online</h2><p>Make a room, share the code, play together.</p></div>
+          <div class="cards" id="cards-online"></div>
+        </section>
+        <section>
+          <div class="section-head"><h2>🕹️ Solo arcade</h2><p>Beat your own high scores.</p></div>
+          <div class="cards" id="cards-solo"></div>
+        </section>
+        <section>
+          <div class="section-head"><h2>🎉 Fun stuff</h2><p>Little toys for big decisions.</p></div>
+          <div class="cards" id="cards-fun"></div>
+        </section>
+      </div>
+      <aside class="hub-side">
+        <div class="panel" id="rooms-panel"></div>
+        <div class="panel" id="lobby-chat"></div>
+      </aside>
+    </div>
+  </main>
+  <footer class="footer">🕹️ Party Arcade · made for playing with friends · runs on your own computer</footer>
+
+  <script src="/js/core.js"></script>
+  <script src="/js/lobby.js"></script>
+  <script src="/js/hub.js"></script>
+</body>
+</html>

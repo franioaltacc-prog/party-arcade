@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Party Blitz · Party Arcade</title>
+  <meta name="theme-color" content="#0b0920">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .blitz-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+    .blitz-grid > * { min-width: 0; }
+    .stage-top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .stage-top .rn { font-weight: 700; color: var(--muted); white-space: nowrap; }
+    .stage-top .tbar { flex: 1; height: 10px; border-radius: 99px; background: rgba(255,255,255,.08); overflow: hidden; }
+    .stage-top .tbar i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, var(--yellow), var(--orange)); border-radius: 99px; }
+    .arena { position: relative; min-height: 440px; border-radius: 24px; display: grid; place-items: center; padding: 22px; text-align: center; overflow: hidden;
+      background: radial-gradient(circle at 50% 0%, rgba(250,204,21,.18), transparent 60%), rgba(0,0,0,.25); border: 1px solid var(--border-strong); user-select: none; -webkit-user-select: none; }
+    .title-card .emoji { font-size: 4.5rem; animation: bob 1.6s ease-in-out infinite; display: inline-block; }
+    .title-card h2 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.8rem, 5vw, 3rem); margin: 10px 0; }
+    .title-card p { color: var(--muted); font-size: 1.15rem; }
+    .reaction { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--font-display); font-size: clamp(2rem, 6vw, 3.6rem); cursor: pointer; transition: background .05s; }
+    .reaction.wait { background: #be123c; }
+    .reaction.go { background: #16a34a; }
+    .reaction.done { background: #334155; font-size: 2rem; }
+    .mash-btn { width: min(260px, 70vw); aspect-ratio: 1; border-radius: 50%; border: 0; cursor: pointer; font-family: var(--font-display); font-size: 2.4rem; color: #fff;
+      background: radial-gradient(circle at 35% 30%, #fda4af, #e11d48 60%); box-shadow: 0 12px 0 #881337, 0 20px 40px -10px #e11d48; transition: transform .05s; touch-action: manipulation; }
+    .mash-btn:active { transform: translateY(8px) scale(.98); box-shadow: 0 4px 0 #881337; }
+    .mash-count { font-family: var(--font-display); font-size: 3rem; margin-bottom: 10px; }
+    .q-big { font-family: var(--font-display); font-size: clamp(2.4rem, 8vw, 4.4rem); margin-bottom: 22px; }
+    .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: min(520px, 100%); }
+    .opts .btn { font-size: 1.5rem; padding: 18px; }
+    .emoji-board { display: grid; gap: 4px; width: min(520px, 100%); }
+    .emoji-board button { aspect-ratio: 1; border: 0; background: rgba(255,255,255,.06); border-radius: 10px; font-size: clamp(1.1rem, 3.6vw, 1.9rem); cursor: pointer; padding: 0; }
+    .emoji-board button:hover { background: rgba(255,255,255,.14); }
+    .stroop { font-family: var(--font-display); font-size: clamp(3rem, 10vw, 5.5rem); margin-bottom: 26px; -webkit-text-stroke: 2px rgba(0,0,0,.35); }
+    .simon { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: min(320px, 80vw); }
+    .simon button { aspect-ratio: 1; border: 0; border-radius: 22px; cursor: pointer; opacity: .45; transition: opacity .1s, transform .1s; }
+    .simon button.lit { opacity: 1; transform: scale(1.05); box-shadow: 0 0 40px currentColor; }
+    .locked { font-size: 1.3rem; color: var(--muted); }
+    .locked b { display: block; font-family: var(--font-display); font-size: 2rem; color: var(--text); margin-bottom: 8px; }
+    .res-list { width: min(480px, 100%); text-align: left; }
+    .res-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 14px; background: rgba(255,255,255,.05); margin-bottom: 7px; animation: pop-in .3s backwards; }
+    .res-row.bad { opacity: .55; }
+    .res-row .pts { margin-left: auto; font-weight: 700; color: var(--lime); }
+    .sb-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 14px; background: rgba(255,255,255,.04); margin-bottom: 7px; transition: transform .3s; }
+    .sb-row .pts { margin-left: auto; font-family: var(--font-display); font-size: 1.1rem; }
+    .sb-row.me { border: 1px solid rgba(250,204,21,.4); }
+    #play-chat { height: 300px; margin-top: 16px; }
+    @media (max-width: 860px) { .blitz-grid { grid-template-columns: 1fr; } .arena { min-height: 380px; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div id="entry"></div>
+    <section id="room" class="hidden room-layout">
+      <div class="col">
+        <div class="panel" id="room-code"></div>
+        <div class="panel" id="room-players"></div>
+      </div>
+      <div class="panel room-main" id="room-main"></div>
+      <div class="panel chat-panel" id="room-chat"></div>
+    </section>
+    <section id="play" class="hidden blitz-grid">
+      <div class="panel">
+        <div class="stage-top"><span class="rn" id="rn">Get ready!</span><div class="tbar"><i id="tbar"></i></div></div>
+        <div class="arena" id="arena"></div>
+      </div>
+      <div>
+        <div class="panel"><div class="panel-title">🏆 Scoreboard</div><div id="sb"></div></div>
+        <div class="panel" id="play-chat"></div>
+      </div>
+    </section>
+  </main>
+  <script src="/js/core.js"></script>
+  <script src="/js/lobby.js"></script>
+  <script src="/js/games/blitz.js"></script>
+</body>
+</html>

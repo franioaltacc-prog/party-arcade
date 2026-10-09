@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Connect 4 · Party Arcade</title>
+  <meta name="theme-color" content="#0b0920">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .versus { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
+    .seat { display: flex; align-items: center; gap: 10px; padding: 8px 14px 8px 8px; border-radius: 18px; background: rgba(255,255,255,.05); border: 2px solid transparent; transition: border-color .2s, box-shadow .2s; min-width: 0; }
+    .seat.turn { border-color: var(--c); box-shadow: 0 0 22px -4px var(--c); }
+    .seat .disc { width: 22px; height: 22px; border-radius: 50%; background: var(--c); box-shadow: inset 0 -3px 0 rgba(0,0,0,.25); flex: none; }
+    .seat .nm { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+    .seat .sc { font-family: var(--font-display); font-size: 1.2rem; }
+    .vs { font-family: var(--font-display); color: var(--muted); }
+    .status { text-align: center; font-weight: 700; font-size: 1.15rem; margin-bottom: 14px; min-height: 1.6em; }
+    .board-wrap { width: min(560px, 100%); margin: 0 auto; }
+    .board { position: relative; display: grid; grid-template-columns: repeat(7, 1fr); gap: clamp(4px, 1.2vw, 10px); padding: clamp(8px, 2vw, 16px); border-radius: 22px;
+      background: linear-gradient(180deg, #2563eb, #1d4ed8); box-shadow: inset 0 -8px 0 rgba(0,0,0,.25), 0 20px 40px -18px rgba(37,99,235,.9); }
+    .c4col { display: flex; flex-direction: column; gap: clamp(4px, 1.2vw, 10px); border-radius: 14px; cursor: pointer; padding: 6px 0; position: relative; }
+    .c4col:hover.can { background: rgba(255,255,255,.08); }
+    .cell { aspect-ratio: 1; border-radius: 50%; background: #0b0920; box-shadow: inset 0 4px 8px rgba(0,0,0,.6); position: relative; overflow: visible; }
+    .cell .pc { position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 -5px 0 rgba(0,0,0,.25), inset 0 4px 6px rgba(255,255,255,.35); }
+    .cell .pc.p1 { background: #f43f5e; }
+    .cell .pc.p2 { background: #facc15; }
+    .cell .pc.drop { animation: drop var(--dur, .4s) cubic-bezier(.5,0,.75,0) forwards, settle .25s var(--dur, .4s) ease-out; }
+    .cell .pc.win { animation: winpulse .8s ease-in-out infinite alternate; }
+    @keyframes drop { from { transform: translateY(var(--from)); } to { transform: translateY(0); } }
+    @keyframes settle { 0% { transform: translateY(0); } 40% { transform: translateY(-12%); } 100% { transform: translateY(0); } }
+    @keyframes winpulse { to { box-shadow: 0 0 0 4px #fff, 0 0 26px #fff; transform: scale(.92); } }
+    .ghost { position: absolute; top: -6%; left: 50%; width: 80%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; opacity: 0; transition: opacity .15s; pointer-events: none; }
+    .c4col.can:hover .ghost { opacity: .6; }
+    .after { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div id="entry"></div>
+    <section id="room" class="hidden room-layout">
+      <div class="col">
+        <div class="panel" id="room-code"></div>
+        <div class="panel" id="room-players"></div>
+      </div>
+      <div class="panel room-main">
+        <div class="versus" id="versus"></div>
+        <div class="status" id="status"></div>
+        <div class="board-wrap"><div class="board" id="board"></div></div>
+        <div class="after" id="after"></div>
+      </div>
+      <div class="panel chat-panel" id="room-chat"></div>
+    </section>
+  </main>
+  <script src="/js/core.js"></script>
+  <script src="/js/lobby.js"></script>
+  <script src="/js/games/connect4.js"></script>
+</body>
+</html>

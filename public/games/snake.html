@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Neon Snake · Party Arcade</title>
+  <meta name="theme-color" content="#0b0920">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .solo-wrap { width: min(620px, 100%); margin: 0 auto; }
+    .score-strip { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
+    .score-box { flex: 1; text-align: center; padding: 8px; border-radius: 16px; background: var(--panel); border: 1px solid var(--border); }
+    .score-box .l { font-size: .72rem; color: var(--muted); font-weight: 700; letter-spacing: .08em; }
+    .score-box .v { font-family: var(--font-display); font-size: 1.5rem; }
+    .snake-stage { position: relative; aspect-ratio: 1; border-radius: 24px; overflow: hidden; border: 1px solid var(--border-strong); box-shadow: var(--shadow); touch-action: none; background: #050414; }
+    .snake-stage canvas { width: 100%; height: 100%; display: block; }
+    .ov { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; background: rgba(5,4,20,.72); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); padding: 20px; }
+    .ov h2 { font-family: var(--font-display); font-weight: 400; font-size: clamp(2rem, 7vw, 3rem); margin-bottom: 8px; }
+    .dpad { display: grid; grid-template-columns: repeat(3, 64px); grid-template-rows: repeat(2, 56px); gap: 8px; justify-content: center; margin-top: 16px; }
+    .dpad button { font-size: 1.4rem; }
+    .dpad .up { grid-column: 2; }
+    .dpad .left { grid-column: 1; grid-row: 2; }
+    .dpad .down { grid-column: 2; grid-row: 2; }
+    .dpad .right { grid-column: 3; grid-row: 2; }
+    @media (hover: hover) and (pointer: fine) { .dpad { display: none; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="solo-wrap">
+      <div class="score-strip">
+        <div class="score-box"><div class="l">SCORE</div><div class="v" id="score">0</div></div>
+        <div class="score-box"><div class="l">BEST</div><div class="v" id="best">0</div></div>
+        <button class="btn btn-ghost" id="pause">⏸</button>
+      </div>
+      <div class="snake-stage" id="stage">
+        <canvas id="cv"></canvas>
+        <div class="ov" id="ov"><div><h2 class="gradient-text">NEON SNAKE</h2><p class="muted">Arrow keys / WASD or swipe. Eat 🍎, grow, don’t crash!<br>⭐ Golden apples are worth 5 but vanish fast.</p><button class="btn btn-lime btn-lg" id="go" style="margin-top:16px">▶ Play</button></div></div>
+      </div>
+      <div class="dpad">
+        <button class="btn btn-ghost up" data-d="0,-1">⬆️</button>
+        <button class="btn btn-ghost left" data-d="-1,0">⬅️</button>
+        <button class="btn btn-ghost down" data-d="0,1">⬇️</button>
+        <button class="btn btn-ghost right" data-d="1,0">➡️</button>
+      </div>
+    </div>
+  </main>
+  <script src="/js/core.js"></script>
+  <script>
+  (() => {
+    const { $, $$, h, fill, UI, Sfx, store, Net, Profile } = PA;
+    UI.topbar({ title: 'Neon Snake', emoji: '🐍' });
+    Net.connect();
+    const N = 21;
+    const cv = $('#cv');
+    const ctx = cv.getContext('2d');
+    let snake, dir, queue, apple, gold, score, best = store.get('snake_best', 0), speed, timer = null, paused = false, alive = false, particles = [];
+    $('#best').textContent = best;
+
+    function resize() { const r = cv.getBoundingClientRect(); const d = Math.min(2, devicePixelRatio || 1); cv.width = r.width * d; cv.height = r.height * d; draw(); }
+    new ResizeObserver(resize).observe(cv);
+
+    function freeCell() {
+      while (true) {
+        const c = { x: Math.floor(Math.random() * N), y: Math.floor(Math.random() * N) };
+        if (!snake.some((s) => s.x === c.x && s.y === c.y) && !(apple && apple.x === c.x && apple.y === c.y)) return c;
+      }
+    }
+    function start() {
+      snake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
+      dir = { x: 1, y: 0 }; queue = []; score = 0; speed = 130; gold = null; apple = null; particles = [];
+      apple = freeCell();
+      alive = true; paused = false;
+      $('#score').textContent = 0;
+      $('#ov').classList.add('hidden');
+      Sfx.play('go');
+      schedule();
+    }
+    function schedule() { clearTimeout(timer); timer = setTimeout(tick, speed); }
+    function turn(dx, dy) {
+      const last = queue.length ? queue[queue.length - 1] : dir;
+      if ((dx === -last.x && dy === -last.y) || (dx === last.x && dy === last.y)) return;
+      if (queue.length < 3) queue.push({ x: dx, y: dy });
+    }
+    function burst(x, y, color) { for (let i = 0; i < 14; i++) { const a = Math.random() * Math.PI * 2; particles.push({ x: x + 0.5, y: y + 0.5, vx: Math.cos(a) * 0.15, vy: Math.sin(a) * 0.15, life: 1, color }); } }
+    function tick() {
+      if (!alive || paused) return;
+      if (queue.length) dir = queue.shift();
+      const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+      if (head.x < 0 || head.y < 0 || head.x >= N || head.y >= N || snake.some((s, i) => i < snake.length - 1 && s.x === head.x && s.y === head.y)) return die();
+      snake.unshift(head);
+      let ate = false;
+      if (head.x === apple.x && head.y === apple.y) { score += 1; ate = true; burst(head.x, head.y, '#f43f5e'); apple = freeCell(); Sfx.play('coin'); speed = Math.max(58, speed - 3); if (!gold && Math.random() < 0.18) gold = { ...freeCell(), ttl: 45 }; }
+      else if (gold && head.x === gold.x && head.y === gold.y) { score += 5; ate = true; burst(head.x, head.y, '#facc15'); gold = null; Sfx.play('win'); }
+      if (!ate) snake.pop();
+      if (gold && --gold.ttl <= 0) gold = null;
+      $('#score').textContent = score;
+      draw();
+      schedule();
+    }
+    function die() {
+      alive = false;
+      Sfx.play('boom');
+      $('#stage').classList.add('shake'); setTimeout(() => $('#stage').classList.remove('shake'), 400);
+      const isBest = score > best;
+      if (isBest) { best = score; store.set('snake_best', best); $('#best').textContent = best; UI.confetti(); }
+      fill($('#ov'), h('div', {}, h('h2', {}, isBest ? '🏆 NEW BEST!' : 'GAME OVER'), h('p', { class: 'muted' }, `You scored ${score}. Length ${snake.length}.`), h('button', { class: 'btn btn-lime btn-lg', style: { marginTop: '16px' }, onclick: start }, '🔁 Play again')));
+      $('#ov').classList.remove('hidden');
+    }
+    function draw() {
+      if (!snake) return;
+      const W = cv.width, C = W / N;
+      ctx.fillStyle = '#050414'; ctx.fillRect(0, 0, W, W);
+      ctx.strokeStyle = 'rgba(255,255,255,0.035)';
+      for (let i = 0; i <= N; i++) { ctx.beginPath(); ctx.moveTo(i * C, 0); ctx.lineTo(i * C, W); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, i * C); ctx.lineTo(W, i * C); ctx.stroke(); }
+      ctx.font = `${C * 0.85}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('🍎', apple.x * C + C / 2, apple.y * C + C / 2 + C * 0.05);
+      if (gold) { ctx.globalAlpha = gold.ttl < 12 ? (gold.ttl % 2 ? 0.4 : 1) : 1; ctx.fillText('⭐', gold.x * C + C / 2, gold.y * C + C / 2); ctx.globalAlpha = 1; }
+      const color = Profile.get().color;
+      snake.forEach((s, i) => {
+        const t = 1 - i / (snake.length + 4);
+        ctx.shadowColor = color; ctx.shadowBlur = i === 0 ? 18 : 8;
+        ctx.globalAlpha = 0.45 + t * 0.55;
+        ctx.fillStyle = i === 0 ? '#ffffff' : color;
+        const pad = i === 0 ? C * 0.06 : C * 0.12;
+        ctx.beginPath(); ctx.roundRect(s.x * C + pad, s.y * C + pad, C - pad * 2, C - pad * 2, C * 0.25); ctx.fill();
+      });
+      ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+      const hd = snake[0];
+      ctx.fillStyle = '#111';
+      const ex = dir.x, ey = dir.y;
+      [[-1], [1]].forEach(([s]) => { ctx.beginPath(); ctx.arc(hd.x * C + C / 2 + ex * C * 0.18 + ey * s * C * 0.18, hd.y * C + C / 2 + ey * C * 0.18 + ex * s * C * 0.18, C * 0.08, 0, Math.PI * 2); ctx.fill(); });
+      particles.forEach((p) => { p.x += p.vx; p.y += p.vy; p.life -= 0.06; ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = p.color; ctx.fillRect(p.x * C - 3, p.y * C - 3, 6, 6); });
+      particles = particles.filter((p) => p.life > 0); ctx.globalAlpha = 1;
+    }
+    (function anim() { if (particles.length) draw(); requestAnimationFrame(anim); })();
+
+    const keys = { ArrowUp: [0, -1], KeyW: [0, -1], ArrowDown: [0, 1], KeyS: [0, 1], ArrowLeft: [-1, 0], KeyA: [-1, 0], ArrowRight: [1, 0], KeyD: [1, 0] };
+    addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT') return;
+      if (keys[e.code]) { e.preventDefault(); if (alive) turn(...keys[e.code]); }
+      else if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); if (!alive) start(); else togglePause(); }
+    });
+    $$('.dpad button').forEach((b) => b.addEventListener('pointerdown', (e) => { e.preventDefault(); const [x, y] = b.dataset.d.split(',').map(Number); turn(x, y); }));
+    let touch = null;
+    $('#stage').addEventListener('pointerdown', (e) => { touch = { x: e.clientX, y: e.clientY }; });
+    $('#stage').addEventListener('pointerup', (e) => {
+      if (!touch) return;
+      const dx = e.clientX - touch.x, dy = e.clientY - touch.y;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) > 24) { if (Math.abs(dx) > Math.abs(dy)) turn(Math.sign(dx), 0); else turn(0, Math.sign(dy)); }
+      touch = null;
+    });
+    function togglePause() {
+      if (!alive) return;
+      paused = !paused;
+      $('#pause').textContent = paused ? '▶' : '⏸';
+      if (paused) { fill($('#ov'), h('div', {}, h('h2', {}, 'PAUSED'), h('p', { class: 'muted' }, 'Press Space or ▶ to continue'))); $('#ov').classList.remove('hidden'); }
+      else { $('#ov').classList.add('hidden'); schedule(); }
+    }
+    $('#pause').addEventListener('click', togglePause);
+    $('#go').addEventListener('click', start);
+    snake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }]; dir = { x: 1, y: 0 }; apple = { x: 15, y: 10 };
+    resize();
+  })();
+  </script>
+</body>
+</html>

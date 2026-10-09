@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Doodle Guess · Party Arcade</title>
+  <meta name="theme-color" content="#0b0920">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .doodle-grid { display: grid; grid-template-columns: 230px minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+    .doodle-grid > * { min-width: 0; }
+    .wordbar { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; flex-wrap: wrap; }
+    .wordbar .round { font-weight: 700; color: var(--muted); white-space: nowrap; }
+    .wordbar .hint { flex: 1; text-align: center; font-family: var(--font-display); font-size: clamp(1.2rem, 3vw, 1.9rem); letter-spacing: .18em; min-width: 0; overflow-wrap: anywhere; }
+    .wordbar .clock { font-family: var(--font-display); font-size: 1.4rem; min-width: 64px; text-align: center; padding: 6px 10px; border-radius: 14px; background: var(--panel-2); }
+    .wordbar .clock.low { background: rgba(244,63,94,.3); color: #ffd1da; }
+    .canvas-wrap { position: relative; border-radius: 18px; overflow: hidden; background: #fff; box-shadow: var(--shadow); aspect-ratio: 4 / 3; touch-action: none; }
+    .canvas-wrap canvas { width: 100%; height: 100%; display: block; }
+    .canvas-wrap.can-draw { cursor: crosshair; }
+    .canvas-overlay { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(11,9,32,.82); color: var(--text); text-align: center; padding: 20px; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+    .canvas-overlay .big { font-family: var(--font-display); font-size: clamp(1.6rem, 4vw, 2.6rem); }
+    .tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; }
+    .swatches { display: flex; flex-wrap: wrap; gap: 5px; }
+    .swatches button { width: 28px; height: 28px; border-radius: 8px; border: 2px solid rgba(255,255,255,.2); cursor: pointer; }
+    .swatches button.on { border-color: #fff; transform: scale(1.15); box-shadow: 0 0 0 2px var(--pink); }
+    .sizes button { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--border); background: var(--panel); cursor: pointer; display: grid; place-items: center; }
+    .sizes button.on { background: var(--purple); }
+    .sizes button i { display: block; border-radius: 50%; background: #fff; }
+    .score-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 14px; background: rgba(255,255,255,.04); margin-bottom: 7px; }
+    .score-row.drawer { background: rgba(250,204,21,.12); }
+    .score-row.got { background: rgba(34,197,94,.15); }
+    .score-row .pts { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+    #play-chat { height: 560px; }
+    .word-choice { display: grid; gap: 10px; margin-top: 16px; }
+    @media (max-width: 1100px) { .doodle-grid { grid-template-columns: minmax(0, 1fr) 300px; } .doodle-grid .scores { grid-column: 1 / -1; order: 3; } }
+    @media (max-width: 760px) { .doodle-grid { grid-template-columns: 1fr; } #play-chat { height: 340px; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div id="entry"></div>
+    <section id="room" class="hidden room-layout">
+      <div class="col">
+        <div class="panel" id="room-code"></div>
+        <div class="panel" id="room-players"></div>
+      </div>
+      <div class="panel room-main" id="room-main"></div>
+      <div class="panel chat-panel" id="room-chat"></div>
+    </section>
+    <section id="play" class="hidden doodle-grid">
+      <aside class="panel scores"><div class="panel-title">🏆 Scores</div><div id="scores"></div></aside>
+      <div class="panel">
+        <div class="wordbar"><span class="round" id="round"></span><span class="hint" id="hint"></span><span class="clock" id="clock">--</span></div>
+        <div class="canvas-wrap" id="canvas-wrap"><canvas id="board" width="1000" height="750"></canvas><div class="canvas-overlay hidden" id="overlay"></div></div>
+        <div class="tools hidden" id="tools">
+          <div class="swatches" id="swatches"></div>
+          <div class="row sizes" id="sizes"></div>
+          <button class="btn btn-ghost btn-sm" id="t-eraser">🧽 Eraser</button>
+          <button class="btn btn-ghost btn-sm" id="t-undo">↩️ Undo</button>
+          <button class="btn btn-red btn-sm" id="t-clear">🗑️ Clear</button>
+        </div>
+      </div>
+      <div class="panel" id="play-chat"></div>
+    </section>
+  </main>
+  <script src="/js/core.js"></script>
+  <script src="/js/lobby.js"></script>
+  <script src="/js/games/doodle.js"></script>
+</body>
+</html>
