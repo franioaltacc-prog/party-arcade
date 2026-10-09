@@ -10,11 +10,14 @@ Open http://localhost:8000. Friends on the same Wi-Fi use the "Friends on Wi-Fi"
 There's nothing to install: the server uses only Python's standard library (3.9+).
 
 ## Put it online (play with friends anywhere)
-**Render:** New → Web Service → connect your GitHub repo → Root directory `party-arcade`, Runtime *Python*,
-Build command: *(leave empty)*, Start command `python3 server.py`. Render sets `PORT` for you.
-**Railway:** New Project → Deploy from GitHub → set the root directory to `party-arcade` and the start command to `python3 server.py`.
-Both give you a public `https://…` link — WebSockets work automatically over `wss://`.
-Game state lives in memory, so a redeploy or restart resets open rooms (that's fine — matches are short).
+**Render (free):** upload this folder to a GitHub repo, then on render.com: New → Web Service → connect the repo and set
+- Language: Python 3 · Branch: main · Root Directory: *(leave empty)*
+- Build command: `pip install -r requirements.txt` · Start command: `python3 server.py` · Instance type: Free
+
+Render sets `PORT` for you and gives you a public `https://….onrender.com` link (WebSockets work over `wss://`).
+On the free plan the site sleeps after 15 minutes with no visitors and takes about a minute to wake up.
+Game state lives in memory, so a restart or redeploy resets open rooms.
+To update the site, upload the changed files to GitHub — Render redeploys automatically.
 
 ## Games
 - **Online:** Neon Dash (mini Geometry Dash race), Family Life (multiplayer BitLife with siblings), Doodle Guess, Party Blitz, Connect 4

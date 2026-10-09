@@ -10,14 +10,17 @@ import time
 
 from ..base import Game, num as clean_num
 from . import engine
-from .engine import (EXTRA, LEVELS, PLAIN_LETS, STATS, Family, Sibling, check, evaluate, fmt, money_str,
-                     num, pick_weighted)
+from .engine import (EXTRA, LEVELS, PLAIN_LETS, SEASONS, STATS, Family, Sibling, check, evaluate, fmt, jail_str,
+                     money_str, num, pick_weighted)
 
 START_YEAR = 2026
 VOTE_TIMEOUTS = (15, 30, 60, 90)
 REQUEST_TTL = 40
 DESTINATIONS = ["Hawaii 🌺", "Paris 🗼", "Tokyo 🗾", "Disney World 🏰", "the Grand Canyon 🏜️", "Bali 🏝️",
                 "Iceland 🧊", "Rome 🍝", "a theme park 🎢", "the beach 🏖️"]
+HEIST_ROLES = [("🧠 Mastermind", "smarts"), ("💻 Hacker", "smarts"), ("🚗 Getaway driver", "sport"),
+               ("💪 Muscle", "health"), ("🎭 Distraction", "looks")]
+SCALED = {"health", "happy", "smarts", "looks", "fame", "music", "sport", "perf"}
 BUSINESSES = ["{last} Bros Burgers 🍔", "{last} & Co. Tech 💻", "Sibling Slime Shop 🟢", "{last} Family Bakery 🥐",
               "The {last} Escape Room 🔐", "{last} Pet Hotel 🐶", "Double Trouble Coffee ☕"]
 
@@ -66,7 +69,8 @@ class Life(Game):
     def __init__(self, room):
         super().__init__(room)
         self.settings = {"familyType": "siblings", "gapMode": "random", "gap": 2, "voteTimeout": 30,
-                         "offline": "skip", "rules": {g["id"]: g.get("rule", "majority") for g in D["group"]}}
+                         "offline": "skip", "pace": "quarter",
+                         "rules": {g["id"]: g.get("rule", "majority") for g in D["group"]}}
         self.family = Family(D["names"])
         self.chars = {}
         self.reset_play()
@@ -81,12 +85,21 @@ class Life(Game):
         self.requests = {}
         self.req_seq = 0
         self.year = START_YEAR
+        self.q = 1
+        self.t = 0
         self.ranking = None
         self.awards = None
         self.cooldown = {}
 
     def listed(self):
         return self.phase in ("lobby", "over")
+
+    @property
+    def quarterly(self):
+        return self.settings.get("pace", "quarter") == "quarter"
+
+    def when(self, year=None, q=None):
+        return f"{SEASONS[q or self.q]} {year or self.year}"
 
     # ------------------------------------------------------------------ helpers
     def alive(self):
@@ -124,7 +137,7 @@ class Life(Game):
             m.send("g:notify", text=text)
 
     def flog(self, text):
-        self.family.log.append({"year": self.year, "text": text})
+        self.family.log.append({"year": self.year, "q": self.q, "text": text})
         del self.family.log[:-150]
 
     def announce(self, text):
@@ -171,7 +184,7 @@ class Life(Game):
         pets.append({"emoji": emoji, "kind": kind, "name": random.choice(D["names"]["pet_names"]), "born": born})
 
     def send_to_jail(self, s, years):
-        s.jail += years
+        s.jail += years * 4
         s.jail_total += years
         if s.job:
             s.add_log(f"🚪 You lost your job as a {s.job['title']}.")
@@ -198,7 +211,7 @@ class Life(Game):
             "is_youngest": all(o.age > s.age for o in others), "mom_alive": f.mom["alive"], "dad_alive": f.dad["alive"],
             "parents_alive": len(parents), "rel_mom": s.rel_mom, "rel_dad": s.rel_dad,
             "rel_parents_avg": sum(rels) / len(rels) if rels else 50, "family_money": f.money,
-            "has_event": bool(s.event), "year": self.year,
+            "has_event": bool(s.event), "year": self.year, "quarter": self.q,
         }
         for k in STATS + EXTRA:
             e[k] = getattr(s, k)
@@ -213,7 +226,7 @@ class Life(Game):
         for k in STATS + EXTRA:
             e["t_" + k] = getattr(t, k)
         p = self.pair(s, t)
-        e.update(t_age=t.age, t_money=t.money, rel=p["rel"], silent=p["silent"], twins=s.age == t.age,
+        e.update(t_age=t.age, t_money=t.money, t_jail=t.jail, rel=p["rel"], silent=p["silent"], twins=s.age == t.age,
                  owes=self.debts.get((s.cid, t.cid), 0), t_owes=self.debts.get((t.cid, s.cid), 0))
         return e
 
@@ -241,7 +254,7 @@ class Life(Game):
                 "mom_alive": f.mom["alive"], "dad_alive": f.dad["alive"], "family_money": f.money,
                 "family_pets": len(f.pets), "pet_age": max((self.year - p["born"] for p in f.pets), default=0),
                 "inheritance": f.inheritance, "old_parent": bool(self.old_parent()),
-                "oldest_parent_age": max((p["age"] for p in parents), default=0), "year": self.year,
+                "oldest_parent_age": max((p["age"] for p in parents), default=0), "year": self.year, "quarter": self.q,
                 "at_home": sum(1 for s in al if s.living == "home")}
 
     def fctx(self, involved=None):
@@ -259,8 +272,9 @@ class Life(Game):
                 "names": join_names(s.first for s in (involved if involved is not None else self.alive())), "amount": ""}
 
     # ------------------------------------------------------------------ effects
-    def apply_fx(self, s, fx, sib=None, env=None):
-        """Apply a dict of effects to sibling s. Returns extra sentences to show."""
+    def apply_fx(self, s, fx, sib=None, env=None, scale=1.0):
+        """Apply a dict of effects to sibling s. Returns extra sentences to show.
+        `scale` shrinks stat gains (used for solo actions in quarter mode)."""
         if not fx or not s.alive:
             return []
         env = env if env is not None else self.env(s, sib)
@@ -268,7 +282,10 @@ class Life(Game):
         nxt = None
         for k, v in fx.items():
             if k in STATS or k in EXTRA:
-                s.add(k, num(v, env))
+                d = num(v, env)
+                if scale != 1.0 and k in SCALED and d:
+                    d = int(round(d * scale)) or (1 if d > 0 else -1)
+                s.add(k, d)
             elif k == "money":
                 s.money += num(v, env)
             elif k in ("rel_mom", "rel_dad", "rel_parents"):
@@ -279,7 +296,7 @@ class Life(Game):
                     s.rel_dad = clamp(s.rel_dad + d)
             elif k == "perf":
                 if s.job:
-                    s.job["perf"] += num(v, env)
+                    s.job["perf"] += int(round(num(v, env) * scale))
             elif k == "raise":
                 if s.job:
                     s.job["salary"] = int(s.job["salary"] * (1 + float(evaluate(v, env))))
@@ -337,6 +354,8 @@ class Life(Game):
                     self.send_to_jail(s, n)
                 elif n < 0:
                     s.jail = max(0, s.jail + n)
+            elif k == "jail_q":
+                s.jail = max(0, s.jail + num(v, env))
             elif k == "jail_set":
                 s.jail = max(0, num(v, env))
             elif k == "living":
@@ -430,6 +449,8 @@ class Life(Game):
         lo, hi = ev.get("ages", [0, 200])
         if not lo <= s.age <= hi:
             return False
+        if ev.get("seasons") and self.quarterly and self.q not in ev["seasons"]:
+            return False
         if ev["id"] in s.seen and (ev.get("once") or s.age - s.seen[ev["id"]] < 6):
             return False
         return True
@@ -437,7 +458,7 @@ class Life(Game):
     def pick_event(self, s):
         if s.age == 18 and s.jail == 0 and "grad" not in s.seen:
             return self.make_event(D["events_by_id"]["grad"], s, forced=True)
-        if s.age == 0 or s.jail or random.random() > 0.55:
+        if s.age == 0 or s.jail or random.random() > (0.32 if self.quarterly else 0.55):
             return None
         pool = [e for e in D["events"] if self.event_ok(e, s)]
         for _ in range(6):
@@ -523,10 +544,12 @@ class Life(Game):
                 s["voteTimeout"] = msg["voteTimeout"]
             if msg.get("offline") in ("skip", "abstain"):
                 s["offline"] = msg["offline"]
+            if msg.get("pace") in ("quarter", "year"):
+                s["pace"] = msg["pace"]
             rules = msg.get("rules")
             if isinstance(rules, dict):
                 for k, v in rules.items():
-                    if k in s["rules"] and v in ("unanimous", "majority"):
+                    if k in s["rules"] and v in ("unanimous", "majority", "optin"):
                         s["rules"][k] = v
             self.push()
         elif t == "reroll" and host:
@@ -622,8 +645,10 @@ class Life(Game):
             twins = [o for o in sibs if o is not s and o.age == s.age]
             if twins:
                 s.add_log(f"👯 You have a twin: {join_names(o.first for o in twins)}!")
+        for s in sibs:
+            s.q = 1
         self.phase = "playing"
-        self.begin_year()
+        self.begin_turn()
 
     # ------------------------------------------------------------------ actions
     def do_action(self, m, s, msg):
@@ -651,7 +676,7 @@ class Life(Game):
             out = pick_weighted(spec.get("outcomes", []), env)
             if not out:
                 return
-            extra = self.apply_fx(s, out.get("fx", {}), None, env)
+            extra = self.apply_fx(s, out.get("fx", {}), None, env, scale=0.6 if self.quarterly else 1.0)
             ctx = self.ctx(s)
             ctx.update({k: (str(v) if k in PLAIN_LETS else money_str(v)) for k, v in lets.items()})
             text, used = " ".join([fmt(out.get("text", ""), ctx)] + extra), True
@@ -787,8 +812,11 @@ class Life(Game):
         if r.get("clear_debt"):
             self.debts.pop((s.cid, t.cid), None)
         env_s = self.sib_env(s, t)
+        env_s["amount"] = amount
+        env_t = self.sib_env(t, s)
+        env_t["amount"] = amount
         self.apply_fx(s, r.get("self"), t, env_s)
-        self.apply_fx(t, r.get("target"), s, self.sib_env(t, s))
+        self.apply_fx(t, r.get("target"), s, env_t)
         if "rel" in r:
             self.bond(s, t, num(r["rel"], env_s))
         if r.get("count"):
@@ -851,10 +879,10 @@ class Life(Game):
         if not check(spec.get("cond"), self.fenv()):
             return False, "Not possible right now.", []
         last = self.family.cooldowns.get(spec["id"])
-        cd = spec.get("cooldown", 0)
-        if last is not None and cd and self.year - last < cd:
-            left = cd - (self.year - last)
-            return False, f"Done recently — wait {left} more year{'s' if left != 1 else ''}.", []
+        cd = spec.get("cooldown", 0) * 4
+        if last is not None and cd and self.t - last < cd:
+            left = cd - (self.t - last)
+            return False, f"Done recently — wait {jail_str(left)}.", []
         involved = [x for x in self.alive() if check(spec.get("who"), self.env(x))]
         if s not in involved:
             return False, "You can't join this one.", involved
@@ -873,8 +901,14 @@ class Life(Game):
         kind = msg.get("kind")
         if kind == "age":
             voters = self.alive()
-            title, desc, possible, rule, action = f"⏩ Age up to {self.year + 1}?", \
-                "Everyone ages one year at the same time. Done with your actions?", [], "unanimous", None
+            if self.quarterly:
+                nq, ny = (1, self.year + 1) if self.q == 4 else (self.q + 1, self.year)
+                title = f"⏩ On to {self.when(ny, nq)}?"
+                desc = ("🎆 It's New Year — everyone gets a year older!" if nq == 1 else "Time moves forward one season.") + \
+                    " Done with your actions?"
+            else:
+                title, desc = f"⏩ Age up to {self.year + 1}?", "Everyone ages one year at the same time. Done with your actions?"
+            possible, rule, action, need = [], "unanimous", None, 1
         elif kind == "group":
             spec = D["group_map"].get(msg.get("action"))
             if not spec:
@@ -887,6 +921,7 @@ class Life(Game):
             title, desc = f"{spec['emoji']} {spec['title']}", fmt(spec.get("description", ""), c)
             possible = [fmt(p, c) for p in spec.get("possible", [])]
             rule, action = self.settings["rules"].get(spec["id"], spec.get("rule", "majority")), spec["id"]
+            need = spec.get("min", 1)
         else:
             return
         votes, listed = {s.cid: "yes"}, []
@@ -898,7 +933,7 @@ class Life(Game):
             listed.append(v.cid)
         self.vote_seq += 1
         self.vote = {"id": self.vote_seq, "kind": kind, "action": action, "title": title, "desc": desc,
-                     "possible": possible, "rule": rule, "starter": s.cid, "voters": listed, "votes": votes,
+                     "possible": possible, "rule": rule, "need": need, "starter": s.cid, "voters": listed, "votes": votes,
                      "deadline": now + self.settings["voteTimeout"]}
         self.vote_timer = self.room.later(self.settings["voteTimeout"], self.vote_timeout, self.vote_seq)
         if not self.tally():
@@ -927,7 +962,13 @@ class Life(Game):
         abstain = sum(1 for c in v["voters"] if v["votes"].get(c) == "abstain")
         pending = total - yes - no - abstain
         res = None
-        if v["rule"] == "unanimous":
+        if v["rule"] == "optin":
+            need = v.get("need", 1)
+            if yes + pending < need:
+                res = False
+            elif pending == 0 or final:
+                res = yes >= need
+        elif v["rule"] == "unanimous":
             if no:
                 res = False
             elif pending == 0:
@@ -954,14 +995,18 @@ class Life(Game):
         if passed:
             self.broadcast("vote_result", id=v["id"], passed=True, title=v["title"])
             if v["kind"] == "age":
-                self.end_year()
+                self.end_turn()
             else:
-                self.run_group(D["group_map"][v["action"]], [self.sibs[c] for c in v["voters"] if self.sibs[c].alive])
+                crew = [self.sibs[c] for c in v["voters"] if self.sibs[c].alive and (v["rule"] != "optin" or v["votes"].get(c) == "yes")]
+                self.run_group(D["group_map"][v["action"]], crew, v["starter"])
             self.push()
             return
         no_names = [self.sibs[c].first for c in v["voters"] if v["votes"].get(c) == "no"]
         pending = [self.sibs[c].first for c in v["voters"] if c not in v["votes"]]
-        if no_names:
+        if v["rule"] == "optin":
+            yes_n = sum(1 for c in v["voters"] if v["votes"].get(c) == "yes")
+            reason = f"🙅 Only {yes_n} joined — needed {v.get('need', 1)}."
+        elif no_names:
             reason = f"❌ {join_names(no_names)} voted no."
         else:
             reason = "⏰ Time ran out" + (f" — {join_names(pending)} didn't vote." if pending else ".")
@@ -976,11 +1021,13 @@ class Life(Game):
                 self.rel_all(self.alive(), -4)
         self.push()
 
-    def run_group(self, spec, involved):
-        self.family.cooldowns[spec["id"]] = self.year
+    def run_group(self, spec, involved, starter=None):
+        self.family.cooldowns[spec["id"]] = self.t
         c = self.fctx(involved)
         handler = spec.get("handler")
-        if handler == "business":
+        if handler == "heist":
+            text = self.g_heist(spec, involved, c, starter)
+        elif handler == "business":
             text = self.g_business(involved, c)
         elif handler == "care_home":
             text = self.g_care_home(involved, c)
@@ -1002,6 +1049,76 @@ class Life(Game):
         for s in involved:
             s.add_log(text)
         self.announce(text)
+
+    def g_heist(self, spec, crew, c, starter_cid):
+        h = spec.get("heist", {})
+        name = h.get("name", "target")
+        crew = list(crew)
+        if not crew:
+            return f"🦹 Nobody showed up for the {name} heist."
+        roles, pool = {}, list(crew)
+        starter = self.sibs.get(starter_cid)
+        if starter in pool:
+            roles[starter.cid] = HEIST_ROLES[0]
+            pool.remove(starter)
+        for role in HEIST_ROLES[1 if roles else 0:]:
+            if not pool:
+                break
+            best = max(pool, key=lambda x: getattr(x, role[1]))
+            roles[best.cid] = role
+            pool.remove(best)
+        role_line = ", ".join(f"{roles[x.cid][0]} {x.first}" for x in crew)
+        skill = sum(getattr(x, roles[x.cid][1]) for x in crew) / len(crew)
+        heat = sum(x.heat for x in crew) / len(crew)
+        pairs = [(a, b) for i, a in enumerate(crew) for b in crew[i + 1:]]
+        trust = sum(self.rel(a, b) for a, b in pairs) / len(pairs) if pairs else 60
+        odds = 0.3 + (skill - h.get("difficulty", 50)) / 100 + 0.06 * (len(crew) - 1) - heat / 250 + (trust - 50) / 400
+        odds = max(0.08, min(0.9, odds))
+        lo, hi = h.get("loot", [10000, 50000])
+        for x in crew:
+            x.counters["crimes"] = x.counters.get("crimes", 0) + 1
+            x.counters["chaos"] += 3
+            x.add("karma", -12)
+            x.add("heat", h.get("heat", 30))
+        roll = random.random()
+        names = join_names(x.first for x in crew)
+        if roll < odds:
+            loot = random.randint(lo, hi)
+            share = loot // len(crew)
+            for x in crew:
+                x.money += share
+                x.add("fame", h.get("fame", 5))
+                x.add("happy", 10)
+                x.achieve("🦹 Heist crew")
+                if loot >= 1_000_000:
+                    x.achieve("💎 The Big Score")
+            self.rel_all(crew, 8)
+            return f"💰 HEIST SUCCESS! {names} hit the {name} and got away with {money_str(loot)} — {money_str(share)} each! ({role_line})"
+        if roll < odds + 0.15:
+            loot = random.randint(lo, hi) // 3
+            share = loot // len(crew)
+            hurt = random.choice(crew)
+            for x in crew:
+                x.money += share
+                x.add("heat", 15)
+            hurt.add("health", -15)
+            return (f"😬 The {name} heist got messy. {names} escaped with only {money_str(loot)} ({money_str(share)} each), "
+                    f"and {hurt.first} got hurt on the way out. ({role_line})")
+        years = random.randint(*h.get("jail", [1, 3]))
+        snitch = None
+        if len(crew) > 1 and trust < 45 and random.random() < 0.6:
+            snitch = min(crew, key=lambda x: sum(self.rel(x, o) for o in crew if o is not x))
+        for x in crew:
+            self.send_to_jail(x, 1 if x is snitch else years)
+            x.add("happy", -10)
+        if snitch:
+            for o in crew:
+                if o is not snitch:
+                    self.bond(snitch, o, -40)
+        text = f"🚔 BUSTED! The {name} heist went wrong — {names} got {years} year{'s' if years != 1 else ''} in jail."
+        if snitch:
+            text += f" 🐀 {snitch.first} snitched on the crew and only got 1 year!"
+        return text + f" ({role_line})"
 
     def g_business(self, involved, c):
         stakes = {s.cid: max(0, int(s.money * 0.25)) for s in involved}
@@ -1054,30 +1171,72 @@ class Life(Game):
         return f"📜 The inheritance of {money_str(total)} was split equally — {money_str(share)} each! 💰"
 
     # ------------------------------------------------------------------ years
-    def begin_year(self):
+    def begin_turn(self):
         for s in self.alive():
-            s.energy = 2 if s.age < 5 else 3
+            s.energy = (2 if self.quarterly else 3) if s.age >= 5 else 2
             s.done = set()
             if not s.event:
                 s.event = self.pick_event(s)
-        self.broadcast("year", year=self.year)
+        self.broadcast("year", year=self.year, q=self.q)
         self.push()
 
-    def end_year(self):
+    def end_turn(self):
         for rid in list(self.requests):
             self.expire_request(rid, push=False)
-        self.year += 1
         for s in list(self.alive()):
             if s.event:
                 self.resolve_event(s, random.randrange(len(s.event["choices"])))
-            self.age_up(s)
-        if self.check_over():
-            return
-        self.parents_age()
-        self.family_year()
+        for _ in range(1 if self.quarterly else 4):
+            self.next_quarter()
+            if self.check_over():
+                return
         self.family_event()
-        self.pair_year()
-        self.begin_year()
+        self.begin_turn()
+
+    def next_quarter(self):
+        self.t += 1
+        self.q += 1
+        new_year = self.q > 4
+        if new_year:
+            self.q = 1
+            self.year += 1
+        for s in list(self.alive()):
+            s.q = self.q
+            self.quarter_up(s)
+            if new_year and s.alive:
+                self.age_up(s)
+        if new_year and self.alive():
+            self.parents_age()
+            self.family_year()
+            self.pair_year()
+
+    def quarter_up(self, s):
+        """Things that happen every season: pay, rent, jail time, heat cooling down."""
+        a = s.age
+        if s.job and s.jail == 0:
+            s.money += int(s.job["salary"] * 0.75 / 4)
+        if a >= 18 and s.jail == 0:
+            rent = {"home": 3000, "own": 14000, "together": 8000}.get(s.living, 8000)
+            s.money -= (rent + 3000 * len([k for k in s.kids if a - k["born"] < 18])) // 4
+        if s.retired:
+            s.money += s.pension // 4
+        if s.heat:
+            s.add("heat", -3)
+        if s.jail > 0:
+            s.jail -= 1
+            s.add("happy", -1)
+            if s.jail == 0:
+                s.add_log("🔓 You were released from jail! Freedom!")
+                self.flog(f"🔓 {s.first} was released from jail.")
+        if random.random() < (0.08 if self.quarterly else 0):
+            self.happening(s)
+
+    def happening(self, s):
+        pool = [x for x in D["happenings"] if x["ages"][0] <= s.age <= x["ages"][1]]
+        if pool:
+            h = random.choices(pool, weights=[x.get("weight", 1) for x in pool])[0]
+            self.apply_fx(s, h.get("fx"))
+            s.add_log(h["text"])
 
     def age_up(self, s):
         s.age += 1
@@ -1128,26 +1287,13 @@ class Life(Game):
                 s.job = None
                 s.add("happy", -random.randint(8, 12))
             else:
-                s.money += int(s.job["salary"] * 0.75)
                 s.job["perf"] -= 5
 
-        if a >= 18 and s.jail == 0:
-            rent = {"home": 3000, "own": 14000, "together": 8000}.get(s.living, 8000)
-            s.money -= rent + 3000 * len([k for k in s.kids if a - k["born"] < 18])
-        if s.retired:
-            s.money += s.pension
         if s.money < 0:
             s.money = int(s.money * 1.05)
             s.add("happy", -random.randint(1, 3))
         for asset in s.assets:
             asset["value"] = int(asset["value"] * (0.9 if asset["kind"] == "car" else 1.03))
-
-        if s.jail > 0:
-            s.jail -= 1
-            s.add("happy", -random.randint(2, 4))
-            if s.jail == 0:
-                s.add_log("🔓 You were released from jail! Freedom!")
-                self.flog(f"🔓 {s.first} was released from jail.")
 
         if s.partner:
             s.partner["years"] = s.partner.get("years", 0) + 1
@@ -1178,12 +1324,9 @@ class Life(Game):
         if not (s.job and D["jobs"].get(s.job["key"], {}).get("star")) and s.fame > 0:
             s.fame -= 1
 
-        if random.random() < 0.3:
-            pool = [x for x in D["happenings"] if x["ages"][0] <= a <= x["ages"][1]]
-            if pool:
-                h = random.choices(pool, weights=[x.get("weight", 1) for x in pool])[0]
-                self.apply_fx(s, h.get("fx"))
-                s.add_log(h["text"])
+        if not self.quarterly and random.random() < 0.3:
+            self.happening(s)
+        s.add_log(f"🎂 Happy birthday! You're {a} now.")
 
         if s.worth() >= 1_000_000 and s.achieve("💰 Millionaire"):
             self.flog(f"💰 {s.first} became a MILLIONAIRE!")
@@ -1262,16 +1405,18 @@ class Life(Game):
             f.inheritance = 0
 
     def family_event(self):
-        if random.random() > D["family_chance"]:
+        chance = D["family_chance"] * (0.4 if self.quarterly else 1)
+        if random.random() > chance:
             return
         fe = self.fenv()
         pool = [e for e in D["family_events"]
                 if not (e.get("once") and e["id"] in self.family.seen)
-                and self.year - self.family.seen.get(e["id"], -99) >= 4 and check(e.get("cond"), fe)]
+                and self.t - self.family.seen.get(e["id"], -999) >= 4 * e.get("every", 4) and check(e.get("cond"), fe)
+                and not (e.get("seasons") and self.quarterly and self.q not in e["seasons"])]
         if not pool:
             return
         ev = random.choices(pool, weights=[e.get("weight", 1) for e in pool])[0]
-        self.family.seen[ev["id"]] = self.year
+        self.family.seen[ev["id"]] = self.t
         c = self.fctx()
         text_ctx_pet = dict(c)
         if ev.get("family"):
@@ -1436,7 +1581,7 @@ class Life(Game):
              "color": m.color if m else x.color, "online": self.online(x), "first": x.first, "gender": x.gender,
              "emoji": x.emoji(), "age": x.age, "alive": x.alive, "cause": x.cause, "status": x.status(D["majors"]),
              "stats": {k: getattr(x, k) for k in STATS}, "money": x.money, "worth": x.worth(), "living": x.living,
-             "married": bool(x.partner and x.partner["married"]), "jail": x.jail, "me": viewer is x}
+             "married": bool(x.partner and x.partner["married"]), "jail": x.jail, "heat": x.heat, "me": viewer is x}
         if viewer and viewer is not x:
             pr = self.pair(viewer, x)
             p.update(rel=pr["rel"], best=pr["best"], silent=pr["silent"], twin=viewer.age == x.age,
@@ -1464,8 +1609,8 @@ class Life(Game):
             for g in D["group"]:
                 ok, why, inv = self.group_check(g, s)
                 groups.append({"id": g["id"], "emoji": g["emoji"], "title": g["title"], "ok": ok, "why": why,
-                               "rule": self.settings["rules"].get(g["id"], g.get("rule")),
-                               "involved": [x.first for x in inv]})
+                               "rule": self.settings["rules"].get(g["id"], g.get("rule")), "min": g.get("min", 1),
+                               "crime": bool(g.get("crime")), "involved": [x.first for x in inv]})
         reqs = [{"id": r["id"], "kind": r["kind"], "emoji": r["emoji"], "text": r["text"], "from": r["from"]}
                 for r in self.requests.values() if r["to"] == s.cid]
         outgoing = [{"id": r["id"], "kind": r["kind"], "to": r["to"]} for r in self.requests.values() if r["from"] == s.cid]
@@ -1473,13 +1618,13 @@ class Life(Game):
             "cid": s.cid, "name": self.full(s), "first": s.first, "gender": s.gender, "place": self.family.place,
             "emoji": s.emoji(), "age": s.age, "alive": s.alive, "cause": s.cause, "status": s.status(D["majors"]),
             "stats": {k: getattr(s, k) for k in STATS}, "skills": {"music": s.music, "sport": s.sport},
-            "fame": s.fame, "money": s.money, "worth": s.worth(), "living": s.living,
+            "fame": s.fame, "heat": s.heat, "money": s.money, "worth": s.worth(), "living": s.living,
             "job": dict(s.job) if s.job else None,
             "uni": {"major": D["majors"][s.uni["major"]][0], "years": s.uni["years"]} if s.uni else None,
             "degrees": [D["majors"][d][0] for d in s.degrees], "jail": s.jail, "retired": s.retired,
             "partner": dict(s.partner) if s.partner else None, "kids": [k["name"] for k in s.kids], "pets": s.pets,
             "assets": s.assets, "achievements": s.achievements, "log": s.log[-140:], "energy": s.energy,
-            "maxEnergy": 2 if s.age < 5 else 3, "actions": actions, "jobs": jobs, "groups": groups,
+            "maxEnergy": (2 if self.quarterly else 3) if s.age >= 5 else 2, "actions": actions, "jobs": jobs, "groups": groups,
             "event": {"text": s.event["text"], "choices": s.event["labels"]} if s.event else None,
             "requests": reqs, "outgoing": outgoing, "relMom": s.rel_mom, "relDad": s.rel_dad,
             "counters": s.counters, "score": s.score,
@@ -1489,12 +1634,12 @@ class Life(Game):
         v = self.vote
         if not v:
             return None
-        return {k: v[k] for k in ("id", "kind", "action", "title", "desc", "possible", "rule", "starter", "voters", "votes")} | \
+        return {k: v.get(k) for k in ("id", "kind", "action", "title", "desc", "possible", "rule", "need", "starter", "voters", "votes")} | \
             {"remaining": max(0, round(v["deadline"] - time.time(), 1)), "timeout": self.settings["voteTimeout"]}
 
     def state_for(self, m):
         st = {"phase": self.phase, "settings": self.settings, "chars": self.chars,
-              "groupInfo": [{"id": g["id"], "emoji": g["emoji"], "title": g["title"]} for g in D["group"]]}
+              "groupInfo": [{"id": g["id"], "emoji": g["emoji"], "title": g["title"], "crime": bool(g.get("crime"))} for g in D["group"]]}
         if self.phase in ("lobby", "over"):
             st["family"] = self.family.public()
             if self.phase == "over":
@@ -1502,7 +1647,7 @@ class Life(Game):
                           familyLog=getattr(self, "family_log_final", []))
             return st
         s = self.sib_of(m.uid) if m else None
-        st.update(year=self.year, family=self.family.public(),
+        st.update(year=self.year, q=self.q, season=SEASONS[self.q], quarterly=self.quarterly, family=self.family.public(),
                   siblings=[self.sib_public(x, s) for x in sorted(self.sibs.values(), key=lambda x: (-x.age, x.cid))],
                   familyLog=self.family.log[-120:], vote=self.vote_public(), me=self.me(s) if s else None,
                   orphans=[x.cid for x in self.sibs.values() if x.alive and not self.online(x)] if not s else [])

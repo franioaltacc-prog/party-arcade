@@ -14,8 +14,12 @@
   const prevBars = {};
 
   const STATS = [['health', '❤️', 'Health', '#22c55e'], ['happy', '😊', 'Happy', '#facc15'], ['smarts', '🧠', 'Smarts', '#3b82f6'], ['looks', '✨', 'Looks', '#ec4899']];
-  const ACT_TABS = [['activities', '🎯 Activities'], ['school', '🏫 School'], ['career', '💼 Career'], ['family', '🏠 Home'], ['love', '💞 Love'], ['money', '💰 Money'], ['risky', '😈 Risky'], ['jail', '🔒 Jail'], ['group', '🗳️ Together']];
-  const SIB_LABELS = { hangout: '🤝 Hang out', teach: '🧑‍🏫 Help study', argue: '😤 Argue', prank: '😜 Prank', gift: '🎁 Gift money', borrow: '🙏 Borrow', payback: '💸 Pay back' };
+  const ACT_TABS = [['activities', '🎯 Activities'], ['school', '🏫 School'], ['career', '💼 Career'], ['family', '🏠 Home'], ['love', '💞 Love'], ['money', '💰 Money'], ['risky', '🦹 Crime'], ['jail', '🔒 Jail'], ['group', '🗳️ Together']];
+  const SIB_LABELS = { hangout: '🤝 Hang out', teach: '🧑‍🏫 Help study', argue: '😤 Argue', prank: '😜 Prank', gift: '🎁 Gift money', borrow: '🙏 Borrow', payback: '💸 Pay back', bail: '🔓 Bail out', snitch: '🐀 Snitch' };
+  const SEASONS = { 1: '❄️ Winter', 2: '🌸 Spring', 3: '☀️ Summer', 4: '🍂 Fall' };
+  const RULES = { unanimous: 'Everyone must agree', majority: 'Majority wins', optin: 'Opt-in' };
+  let autoYes = PA.store.get('life_autoyes', false);
+  let autoVoted = null;
   const LIVING = { home: '🏠 Lives at home', own: '🔑 Own place', together: '🏡 Lives with siblings' };
 
   const sib = (cid) => (S.siblings || []).find((x) => x.cid === cid);
@@ -90,16 +94,17 @@
         st.familyType === 'siblings' ? h('div', {}, h('div', { class: 'label-h' }, 'Age gaps'),
           h('div', { class: 'row wrap', style: { gap: '6px' } }, seg('gapMode', [['random', '🎲 Random 1–5'], ['fixed', '📏 Fixed']]),
             st.gapMode === 'fixed' ? h('div', { class: 'seg' }, [1, 2, 3, 4, 5].map((g) => h('button', { class: st.gap === g ? 'on' : '', disabled: !host, onclick: () => send({ gap: g }) }, `${g}y`))) : null)) : h('div'),
+        h('div', {}, h('div', { class: 'label-h' }, 'Pace'), seg('pace', [['quarter', '🍂 Seasons (4 turns a year)'], ['year', '📅 Full years']])),
         h('div', {}, h('div', { class: 'label-h' }, 'Vote timeout'), seg('voteTimeout', [[15, '15s'], [30, '30s'], [60, '60s'], [90, '90s']])),
         h('div', {}, h('div', { class: 'label-h' }, 'If someone disconnects'), seg('offline', [['skip', '⏭️ Skip them'], ['abstain', '🤷 Abstain']]))),
       h('details', { style: { marginTop: '12px' } },
         h('summary', { class: 'bold', style: { cursor: 'pointer' } }, '🗳️ Vote rules for group actions'),
         h('div', { class: 'rules', style: { marginTop: '8px' } }, S.groupInfo.map((g) => h('div', { class: 'rule-row' },
           h('span', {}, `${g.emoji} ${g.title}`),
-          h('div', { class: 'seg' }, [['unanimous', 'Everyone'], ['majority', 'Majority']].map(([v, l]) => h('button', {
+          h('div', { class: 'seg' }, [['unanimous', 'Everyone'], ['majority', 'Majority'], ['optin', 'Opt-in']].map(([v, l]) => h('button', {
             class: (st.rules || {})[g.id] === v ? 'on' : '', disabled: !host, onclick: () => send({ rules: { [g.id]: v } }),
           }, l))))),
-        h('p', { class: 'tiny faint', style: { marginTop: '6px' } }, 'Aging up always needs everyone to vote yes.'))));
+        h('p', { class: 'tiny faint', style: { marginTop: '6px' } }, 'Opt-in = only the siblings who vote yes take part (heists use this). Aging up always needs everyone to vote yes.'))));
 
     const online = Room.players.filter((p) => p.online);
     const allReady = online.every((p) => (S.chars[p.id] || {}).ready);
@@ -164,6 +169,7 @@
     renderAge(m);
     renderSide();
     updateVote();
+    maybeAutoVote();
   }
 
   function renderHead(m) {
@@ -190,11 +196,12 @@
       h('div', { class: 'me-head' },
         h('div', { class: 'me-emoji' }, m.emoji),
         h('div', { style: { minWidth: 0 } }, h('div', { class: 'me-name' }, m.name), h('div', { class: 'me-sub' }, `${m.status} · ${m.place}`)),
-        h('div', { class: 'me-age' }, h('div', { class: 'y' }, `AGE · ${S.year}`), h('div', { class: 'n' }, m.age))),
+        h('div', { class: 'me-age' }, h('div', { class: 'y' }, `AGE · ${S.quarterly ? (SEASONS[S.q] || '') + ' ' : ''}${S.year}`), h('div', { class: 'n' }, m.age))),
       h('div', { class: 'stat-row' },
         ...STATS.map(([k, e, l, c]) => h('div', { class: 'stat' }, h('div', { class: 'lbl' }, h('span', {}, `${e} ${l}`), h('b', {}, m.stats[k])), bar(k, m.stats[k], c))),
         h('div', { class: 'money-box' }, h('div', { class: 'l' }, '💰 MONEY'), h('div', { class: 'v' + (m.money < 0 ? ' neg' : '') }, fmtMoney(m.money)))),
       h('div', { class: 'chips' }, chips.map((c) => h('span', { class: 'chip' }, c)), m.fame ? h('span', { class: 'chip' }, `⭐ Fame ${m.fame}`) : null,
+        m.heat ? h('span', { class: 'chip', title: 'Crimes raise your heat. High heat = more likely to get caught. It cools down over time (or lie low).', style: { background: m.heat >= 50 ? 'rgba(244,63,94,.3)' : 'rgba(251,146,60,.2)' } }, `🚨 Heat ${m.heat}`) : null,
         h('span', { class: 'chip' }, `🎸 ${m.skills.music}`), h('span', { class: 'chip' }, `🏅 ${m.skills.sport}`)),
       m.achievements.length ? h('div', { class: 'chips', style: { marginTop: '6px' } }, m.achievements.map((a) => h('span', { class: 'chip', style: { background: 'rgba(250,204,21,.12)' } }, a))) : null);
   }
@@ -206,7 +213,7 @@
     if (v) {
       const yes = Object.values(v.votes).filter((x) => x === 'yes').length;
       kids.push(h('div', { class: 'vote-banner', onclick: () => openVote(true) }, h('span', { style: { fontSize: '1.4rem' } }, '🗳️'),
-        h('div', { class: 'grow' }, v.title, h('div', { class: 'tiny muted' }, `${yes}/${v.voters.length} yes · ${v.rule === 'unanimous' ? 'everyone must agree' : 'majority wins'}`)),
+        h('div', { class: 'grow' }, v.title, h('div', { class: 'tiny muted' }, `${yes}/${v.voters.length} yes · ${v.rule === 'unanimous' ? 'everyone must agree' : v.rule === 'optin' ? `opt-in, needs ${v.need || 1}` : 'majority wins'}`)),
         m && v.voters.includes(m.cid) && !v.votes[m.cid] ? h('span', { class: 'btn btn-yellow btn-sm' }, 'Vote!') : h('span', { class: 'small muted' }, 'view')));
     }
     if (m) {
@@ -237,18 +244,20 @@
   function renderLog(m) {
     const log = $('#m-log');
     if (!m) { if (seenLog !== -2) { seenLog = -2; fill(log, h('p', { class: 'muted', style: { textAlign: 'center', padding: '20px' } }, '📜 Open the Family Log tab to follow along.')); } return; }
-    const key = m.log.length + ':' + m.age + ':' + (m.log.length ? m.log[m.log.length - 1].text : '');
+    const key = m.log.length + ':' + m.age + ':' + S.q + ':' + (m.log.length ? m.log[m.log.length - 1].text : '');
     if (log.dataset.key === key) return;
     const fresh = seenLog < 0 ? 0 : Math.max(0, m.log.length - seenLog);
     log.dataset.key = key;
     seenLog = m.log.length;
-    let last = -1;
+    let last = null;
     const rows = [];
+    const label = (age, q) => `${age === 0 ? '🍼 Baby' : `🎂 Age ${age}`}${S.quarterly && q ? ' · ' + SEASONS[q] : ''}`;
     m.log.forEach((e, i) => {
-      if (e.age !== last) { rows.push(h('div', { class: 'age-h' }, e.age === 0 ? '🍼 Baby' : `🎂 Age ${e.age}`)); last = e.age; }
+      const key = e.age + ':' + (S.quarterly ? e.q : '');
+      if (key !== last) { rows.push(h('div', { class: 'age-h' }, label(e.age, e.q))); last = key; }
       rows.push(h('div', { class: 'lentry' + (i >= m.log.length - fresh ? ' new' : '') }, e.text));
     });
-    if (last !== m.age && m.alive) rows.push(h('div', { class: 'age-h' }, `🎂 Age ${m.age}`));
+    if (m.alive && last !== m.age + ':' + (S.quarterly ? S.q : '')) rows.push(h('div', { class: 'age-h' }, label(m.age, S.q)));
     fill(log, rows);
     log.scrollTop = log.scrollHeight;
   }
@@ -262,9 +271,14 @@
     const out = m.energy <= 0;
     let grid;
     if (actTab === 'group') {
-      grid = m.groups.map((g) => h('button', { class: 'act group', disabled: !g.ok || !!S.vote, title: g.why || '', onclick: () => { Net.send('g:vote_start', { kind: 'group', action: g.id }); Sfx.play('click'); } },
+      const card = (g) => h('button', { class: 'act group', disabled: !g.ok || !!S.vote, title: g.why || '', onclick: () => { Net.send('g:vote_start', { kind: 'group', action: g.id }); Sfx.play('click'); } },
         h('span', {}, h('span', { class: 'e' }, g.emoji), ' ', g.title),
-        h('span', { class: 'why' }, g.ok ? `🗳️ ${g.rule === 'unanimous' ? 'Everyone must agree' : 'Majority vote'} · ${g.involved.join(', ')}` : `🔒 ${g.why}`)));
+        h('span', { class: 'why' }, g.ok ? `🗳️ ${g.rule === 'optin' ? `Opt-in · needs ${g.min}+` : RULES[g.rule]} · ${g.involved.join(', ')}` : `🔒 ${g.why}`));
+      const fam = m.groups.filter((g) => !g.crime);
+      const crime = m.groups.filter((g) => g.crime);
+      grid = [...fam.map(card),
+        crime.length ? h('div', { class: 'label-h', style: { gridColumn: '1 / -1', marginTop: '8px' } }, '🦹 Crew heists · whoever votes yes joins the crew') : null,
+        ...crime.map(card)].filter(Boolean);
     } else {
       grid = m.actions.filter((a) => a.cat === actTab).map((a) => h('button', { class: 'act', disabled: (out && !a.client) || a.done, title: a.done ? 'Already done this year' : '', onclick: () => doAction(a) },
         h('span', { class: 'e' }, a.emoji), h('span', {}, a.label + (a.done ? ' ✓' : ''))));
@@ -288,8 +302,26 @@
     fill(el, h('div', { class: 'age-row' },
       h('span', { class: 'energy', title: 'Actions left this year' }, '⚡', pips),
       h('button', { class: 'btn btn-green btn-lg age-btn', disabled: !!S.vote, onclick: () => { Net.send('g:vote_start', { kind: 'age' }); Sfx.play('click'); } },
-        S.vote ? '🗳️ Vote in progress…' : `➕ AGE  →  ${S.year + 1}`)),
-    h('p', { class: 'tiny faint', style: { textAlign: 'center', marginTop: '6px' } }, 'Aging starts a vote — every living sibling must say yes.'));
+        S.vote ? '🗳️ Vote in progress…' : `➕ AGE  →  ${nextLabel()}`)),
+    h('div', { class: 'row between wrap', style: { marginTop: '8px', gap: '8px' } },
+      h('span', { class: 'tiny faint' }, 'Aging starts a vote — every living sibling must say yes.'),
+      h('label', { class: 'switch small' }, h('input', { type: 'checkbox', checked: autoYes, onchange: (e) => { autoYes = e.target.checked; PA.store.set('life_autoyes', autoYes); maybeAutoVote(); } }), 'Auto-vote yes when I’m out of energy')));
+  }
+
+  function nextLabel() {
+    if (!S.quarterly) return String(S.year + 1);
+    return S.q === 4 ? `${SEASONS[1]} ${S.year + 1} 🎆` : `${SEASONS[S.q + 1]}`;
+  }
+
+  function maybeAutoVote() {
+    const v = S.vote;
+    const m = S.me;
+    if (!autoYes || !v || v.kind !== 'age' || !m || !m.alive || autoVoted === v.id) return;
+    if (!v.voters.includes(m.cid) || v.votes[m.cid]) return;
+    if (m.energy > 0 || m.event || (m.requests && m.requests.length)) return;
+    autoVoted = v.id;
+    Net.send('g:vote', { id: v.id, yes: true });
+    UI.toast('🔁 Auto-voted yes', '', 1500);
   }
 
   function doAction(a) {
@@ -340,7 +372,7 @@
         h('div', { class: 'sib-head' }, h('span', { class: 'sib-emoji' }, x.emoji),
           h('div', { class: 'grow', style: { minWidth: 0 } },
             h('div', { class: 'sib-name' }, x.first, isMe ? h('span', { class: 'muted small' }, ' (you)') : null, x.twin ? ' 👯' : ''),
-            h('div', { class: 'sib-sub' }, `${x.alive ? `Age ${x.age}` : `Died at ${x.age}`} · ${x.status}`),
+            h('div', { class: 'sib-sub' }, `${x.alive ? `Age ${x.age}` : `Died at ${x.age}`} · ${x.status}${x.heat ? ` · 🚨 ${x.heat}` : ''}`),
             h('div', { class: 'sib-sub' }, `${x.avatar} ${x.player}${x.online ? '' : ' · 📴 offline'}`)),
           h('div', { class: 'bold small', style: { textAlign: 'right' } }, fmtMoney(x.worth))),
         x.alive ? h('div', { class: 'mini' }, STATS.map(([k, e, , c]) => h('div', {}, `${e} ${x.stats[k]}`, bar(`${x.cid}-${k}`, x.stats[k], c, 'sm')))) : null);
@@ -377,7 +409,7 @@
     const items = S.familyLog || [];
     if (seenFamLog >= 0 && items.length > seenFamLog && tab !== 'log') { unreadLog += items.length - seenFamLog; updateDots(); }
     seenFamLog = items.length;
-    fill(el, items.length ? items.slice().reverse().map((e) => h('div', { class: 'famlog-item' }, h('span', { class: 'yr' }, e.year), h('span', {}, e.text))) : h('p', { class: 'muted' }, 'Nothing yet…'));
+    fill(el, items.length ? items.slice().reverse().map((e) => h('div', { class: 'famlog-item' }, h('span', { class: 'yr' }, `${S.quarterly && e.q ? SEASONS[e.q].split(' ')[0] + ' ' : ''}${e.year}`), h('span', {}, e.text))) : h('p', { class: 'muted' }, 'Nothing yet…'));
   }
 
   function setTab(t) {
@@ -435,15 +467,15 @@
     const icon = (x) => ({ yes: '✅', no: '❌', abstain: '🤷' }[x] || '⏳');
     fill(vote.box,
       h('h2', {}, v.title),
-      h('div', { class: 'badge ' + (v.rule === 'unanimous' ? 'online' : 'fun') + ' vote-rule' }, v.rule === 'unanimous' ? 'Everyone must vote yes' : 'Majority wins'),
+      h('div', { class: 'badge ' + (v.rule === 'unanimous' ? 'online' : 'fun') + ' vote-rule' }, v.rule === 'unanimous' ? 'Everyone must vote yes' : v.rule === 'optin' ? `Opt-in · only “I'm in” voters take part · needs ${v.need || 1}` : 'Majority wins'),
       h('p', {}, v.desc),
       starter ? h('p', { class: 'tiny muted' }, `Started by ${starter.first}`) : null,
       v.possible && v.possible.length ? h('div', { class: 'possible' }, h('b', {}, 'What could happen:'), v.possible.map((p) => h('div', {}, '• ' + p))) : null,
       h('div', { class: 'voters' }, v.voters.map((cid) => { const x = sib(cid) || {}; return h('div', { class: 'voter' }, h('span', {}, x.emoji || '🙂'), h('span', {}, x.first || '?'), h('span', { class: 'tiny muted' }, x.player ? `(${x.player})` : ''), h('span', { class: 'st' }, icon(v.votes[cid]))); })),
       h('div', { class: 'vtimer' }, h('i', { id: 'vtimer-fill' })),
       canVote ? h('div', { class: 'vote-btns' },
-        h('button', { class: 'btn btn-green btn-lg', onclick: (e) => { e.currentTarget.disabled = true; Net.send('g:vote', { id: v.id, yes: true }); Sfx.play('right'); } }, '👍 Yes'),
-        h('button', { class: 'btn btn-red btn-lg', onclick: (e) => { e.currentTarget.disabled = true; Net.send('g:vote', { id: v.id, yes: false }); Sfx.play('wrong'); } }, '👎 No'))
+        h('button', { class: 'btn btn-green btn-lg', onclick: (e) => { e.currentTarget.disabled = true; Net.send('g:vote', { id: v.id, yes: true }); Sfx.play('right'); } }, v.rule === 'optin' ? '🙋 I’m in' : '👍 Yes'),
+        h('button', { class: 'btn btn-red btn-lg', onclick: (e) => { e.currentTarget.disabled = true; Net.send('g:vote', { id: v.id, yes: false }); Sfx.play('wrong'); } }, v.rule === 'optin' ? '🙅 Count me out' : '👎 No'))
         : h('p', { class: 'center muted bold' }, mine ? `You voted ${icon(mine)} — waiting for the others…` : 'You’re not part of this vote.'));
     tickVote();
   }

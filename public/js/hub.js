@@ -178,7 +178,7 @@
   // ---------------------------------------------------------------- lobby chat
   const chat = Lobby.ChatBox($('#lobby-chat'), { title: '💬 Lobby chat', placeholder: 'Say hi to everyone…', room: false });
   Net.on('chat', (m) => { chat.add(m); if (m.from && m.from.id !== Net.id) Sfx.play('message'); });
-  Net.on('chat:history', (m) => { chat.clear(); m.messages.forEach((x) => chat.add(x)); if (!m.messages.length) chat.add({ sys: true, text: 'Be the first to say something! 👋' }); });
+  Net.on('chat:history', (m) => { chat.clear(); m.messages.forEach((x) => chat.add(x)); if (!m.messages.length) chat.add({ sys: true, placeholder: true, text: 'Be the first to say something! 👋' }); });
   Net.on('welcome', () => { Net.send('chat:history'); poll(); });
 
   Net.connect();

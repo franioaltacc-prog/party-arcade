@@ -15,6 +15,10 @@
   const ORB_V = 19.7;
   const MAX_FALL = 30;
   const SUB = 1 / 240;
+  const COYOTE = 0.09;   // you can still jump this long after running off a ledge
+  const BUFFER = 0.13;   // a tap this early before landing still counts
+  const ORB_R = 1.15;    // how close you need to be to a yellow ring
+  const LEDGE = 0.38;    // a jump that's barely too low still steps up onto a block
 
   // Level chunks: rows top -> bottom, the last row sits on the floor.
   //   .  empty      #  block       ^  spike      v  hanging spike
@@ -88,7 +92,7 @@
 
   function buildLevel(seed, difficulty = 'normal', length = 'medium') {
     const rng = mulberry32(seed);
-    const lv = { objs: [], cols: {}, checkpoints: [0], end: 0, theme: THEMES[difficulty] || THEMES.normal };
+    const lv = { objs: [], cols: {}, checkpoints: [0], end: 0, chunks: [], theme: THEMES[difficulty] || THEMES.normal };
     const mix = TIER_MIX[difficulty] || TIER_MIX.normal;
     const [gMin, gMax] = GAPS[difficulty] || GAPS.normal;
     const target = LENGTH[length] || LENGTH.medium;
@@ -102,19 +106,37 @@
       let chunk = pool[Math.floor(rng() * pool.length)];
       if (chunk === last) chunk = pool[Math.floor(rng() * pool.length)];
       last = chunk;
+      lv.chunks.push({ x, tier, chunk });
       x += placeChunk(lv, chunk, x);
       lv.checkpoints.push(x + 0.3);
-      x += gMin + Math.floor(rng() * (gMax - gMin + 1));
+      // tall sections need extra runway so you can land and react before the next one
+      x += gMin + Math.floor(rng() * (gMax - gMin + 1)) + exitRunway(chunk);
     }
     lv.end = x + 6;
     return lv;
   }
 
-  function newPlayer(x = 0) {
-    return { x, y: 0, vy: 0, rot: 0, grounded: true, dead: false, done: false, used: new Set() };
+  /** Extra floor after a chunk: how high you might be falling from when it ends. */
+  function exitRunway(chunk) {
+    const rows = chunk.length;
+    const w = chunk[0].length;
+    let top = 0;
+    for (let r = 0; r < rows; r++) {
+      for (let c = Math.max(0, w - 4); c < w; c++) {
+        if (chunk[r][c] === '#') top = Math.max(top, rows - r);
+      }
+    }
+    const pad = chunk.some((row) => row.includes('=')) ? 2 : 0;
+    const orb = chunk.some((row) => row.includes('o')) ? 3 : 0;            // rings leave you high in the air
+    const spikeEnd = chunk[rows - 1][w - 1] === '^' ? 1 : 0;              // landing right after spikes is tight
+    return Math.max(0, top - 1) * 2 + Math.max(pad, orb) + spikeEnd;
   }
 
-  const hits = (pl, ax0, ay0, ax1, ay1) => pl.x + 0.8 > ax0 && pl.x + 0.2 < ax1 && pl.y + 0.85 > ay0 && pl.y + 0.15 < ay1;
+  function newPlayer(x = 0) {
+    return { x, y: 0, vy: 0, rot: 0, grounded: true, dead: false, done: false, used: new Set(), air: 0, buffer: 0, jumped: false };
+  }
+
+  const hits = (pl, ax0, ay0, ax1, ay1) => pl.x + 0.78 > ax0 && pl.x + 0.22 < ax1 && pl.y + 0.82 > ay0 && pl.y + 0.18 < ay1;
 
   /** Advance one physics substep. `ev` collects sound/fx events. */
   function step(pl, lv, hold, dt, ev) {
@@ -137,8 +159,9 @@
         if (o.t !== '#') continue;
         if (pl.x + 0.97 <= o.x || pl.x + 0.03 >= o.x + 1 || pl.y + 0.97 <= o.y || pl.y >= o.y + 1) continue;
         const top = o.y + 1;
-        if (pl.vy <= 0 && (prevY >= top - 0.02 || top - pl.y < 0.2)) {
-          pl.y = top; pl.vy = 0; pl.grounded = true;
+        if (top - pl.y <= LEDGE || (pl.vy <= 0 && prevY >= top - 0.02)) {
+          pl.y = top;
+          if (pl.vy <= 0) { pl.vy = 0; pl.grounded = true; }
         } else if (pl.vy > 0 && prevY + 0.97 <= o.y + 0.05) {
           pl.y = o.y - 0.97; pl.vy = 0;
         } else {
@@ -152,23 +175,27 @@
       if (!col) continue;
       for (const o of col) {
         if (o.t === '^') {
-          if (hits(pl, o.x + 0.3, o.y, o.x + 0.7, o.y + 0.6)) { pl.dead = true; ev && ev.push('die'); return; }
+          if (hits(pl, o.x + 0.32, o.y, o.x + 0.68, o.y + 0.55)) { pl.dead = true; ev && ev.push('die'); return; }
         } else if (o.t === 'v') {
-          if (hits(pl, o.x + 0.3, o.y + 0.4, o.x + 0.7, o.y + 1)) { pl.dead = true; ev && ev.push('die'); return; }
+          if (hits(pl, o.x + 0.32, o.y + 0.45, o.x + 0.68, o.y + 1)) { pl.dead = true; ev && ev.push('die'); return; }
         } else if (o.t === '=') {
           if (!pl.used.has(o) && pl.x + 0.97 > o.x + 0.1 && pl.x + 0.03 < o.x + 0.9 && pl.y < o.y + 0.3 && pl.y + 0.97 > o.y) {
             pl.vy = PAD_V; pl.grounded = false; pl.used.add(o); ev && ev.push('pad');
           }
         } else if (o.t === 'o') {
-          if (hold && !pl.grounded && !pl.used.has(o)) {
+          if ((hold || pl.buffer > 0) && !pl.grounded && !pl.used.has(o)) {
             const dx = pl.x - o.x;
             const dy = pl.y - o.y;
-            if (dx * dx + dy * dy < 0.95 * 0.95) { pl.vy = ORB_V; pl.used.add(o); ev && ev.push('orb'); }
+            if (dx * dx + dy * dy < ORB_R * ORB_R) { pl.vy = ORB_V; pl.used.add(o); pl.buffer = 0; ev && ev.push('orb'); }
           }
         }
       }
     }
-    if (hold && pl.grounded) { pl.vy = JUMP_V; pl.grounded = false; ev && ev.push('jump'); }
+    if (pl.grounded) { pl.air = 0; pl.jumped = false; } else pl.air += dt;
+    if ((hold || pl.buffer > 0) && !pl.jumped && (pl.grounded || (pl.air < COYOTE && pl.vy <= 0))) {
+      pl.vy = JUMP_V; pl.grounded = false; pl.jumped = true; pl.buffer = 0; ev && ev.push('jump');
+    }
+    pl.buffer = Math.max(0, pl.buffer - dt);
     if (pl.grounded) {
       if (!wasGrounded) ev && ev.push('land');
       const target = Math.round(pl.rot / 90) * 90;
@@ -179,7 +206,7 @@
     if (pl.x >= lv.end) { pl.done = true; pl.x = lv.end; }
   }
 
-  window.DashCore = { buildLevel, newPlayer, step, CHUNKS, SPEED, SUB, placeChunk };
+  window.DashCore = { buildLevel, newPlayer, step, CHUNKS, SPEED, SUB, placeChunk, exitRunway };
 
   // ====================================================================
   // Music: a tiny synthwave loop made with WebAudio
@@ -682,10 +709,11 @@
     if (!game || !isJumpKey(e)) return;
     if (e.target.tagName === 'INPUT') return;
     e.preventDefault();
+    if (!hold && !e.repeat && game) game.player.buffer = BUFFER;
     hold = true;
   });
   addEventListener('keyup', (e) => { if (isJumpKey(e)) hold = false; });
-  stage.addEventListener('pointerdown', (e) => { e.preventDefault(); hold = true; Sfx.ac(); });
+  stage.addEventListener('pointerdown', (e) => { e.preventDefault(); if (!hold && game) game.player.buffer = BUFFER; hold = true; Sfx.ac(); });
   addEventListener('pointerup', () => { hold = false; });
   addEventListener('pointercancel', () => { hold = false; });
   addEventListener('blur', () => { hold = false; });

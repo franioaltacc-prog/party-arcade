@@ -1,6 +1,7 @@
 {
   "_help": "Shared events that hit the whole family when a year passes. cond uses family variables (see README). 'each' = effects for every living sibling (optionally filtered with each_cond). 'family' = family-wide changes. sib_rel_all changes every sibling-to-sibling relationship.",
   "chance_per_year": 0.32,
+  "_seasons": "Optional \"seasons\": [1-4] limits an event to Winter (1), Spring (2), Summer (3) or Fall (4) when playing in quarters.",
   "events": [
     {"id": "divorce", "weight": 0.5, "once": true, "cond": "parents_married and parents_alive == 2 and youngest_age >= 3",
      "text": "💔 {mom} and {dad} are getting divorced. The house feels quiet.",
@@ -50,6 +51,18 @@
     {"id": "parent_sick", "weight": 0.9, "cond": "parents_alive > 0 and oldest_parent_age >= 55",
      "text": "🏥 {parent} is in the hospital for a while.",
      "family": {"parent_health": -20}, "each": {"happy": -5}},
+    {"id": "holiday_gifts", "every": 1, "weight": 2.5, "seasons": [4], "cond": "siblings >= 1",
+     "text": "🎁 Holiday season! The {last} family swapped gifts by the tree.",
+     "each": {"happy": [4, 8]}, "sib_rel_all": [2, 5]},
+    {"id": "summer_camp", "every": 1, "weight": 2, "seasons": [3], "cond": "minors > 0 and family_money >= 2000",
+     "text": "🏕️ The {last} kids went to summer camp: canoes, campfires and mosquito bites!",
+     "family": {"money": -1500}, "each_cond": "age >= 7 and age <= 15", "each": {"happy": [5, 9], "health": 2}, "sib_rel_all": 3},
+    {"id": "spring_cleaning", "weight": 1.2, "seasons": [2], "cond": "minors > 0",
+     "text": "🧹 Spring cleaning day! Everyone had to clean their room. Someone found a mummified sandwich.",
+     "each_cond": "living_home", "each": {"happy": -2, "chaos": 0}},
+    {"id": "fireworks", "every": 1, "weight": 1.5, "seasons": [1], "cond": "true",
+     "text": "🎆 The {last} family watched the New Year fireworks together.",
+     "each": {"happy": 4}, "sib_rel_all": 2},
     {"id": "power_outage", "weight": 0.6, "cond": "minors > 0",
      "text": "🕯️ A huge storm knocked out the power. The family told ghost stories by candlelight.",
      "each_cond": "living_home", "each": {"happy": 3}, "sib_rel_all": 3}

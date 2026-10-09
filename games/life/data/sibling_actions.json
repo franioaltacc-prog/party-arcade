@@ -35,6 +35,15 @@
      "accept": {"transfer": "target_to_self", "debt": true, "rel": 3,
                 "self_text": "{target} lent you {amount}. Don't forget to pay it back! 💸", "target_text": "You lent {self} {amount}.", "log": "🙏 {target} lent {self} {amount}"},
      "decline": {"rel": -4, "self": {"happy": -3}, "self_text": "{target} said no to lending you money. 😒", "target_text": "You refused to lend {self} money."}},
+    {"id": "bail", "emoji": "🔓", "label": "Bail out of jail", "cond": "jail == 0", "target_cond": "t_jail > 0 and money >= 5000 * (t_jail // 4 + 1)", "amount": "5000 * (t_jail // 4 + 1)", "works_when_silent": true,
+     "outcomes": [{"self": {"money": "-amount", "karma": 4}, "target": {"jail_set": 0, "happy": [8, 14]}, "rel": [15, 25],
+                   "self_text": "You paid {amount} to bail {target} out of jail! 🔓", "target_text": "🔓 {self} paid {amount} to bail you out of jail! You're free!", "log": "🔓 {self} bailed {target} out of jail ({amount})"}]},
+    {"id": "snitch", "emoji": "🐀", "label": "Snitch on", "cond": "age >= 8 and jail == 0", "target_cond": "t_heat >= 15 and t_jail == 0",
+     "outcomes": [
+       {"w": "t_heat", "cond": "t_age >= 18", "self": {"karma": 2}, "target": {"jail": 1, "happy": -10}, "rel": [-35, -25], "count": "snitches", "chaos": 1,
+        "self_text": "You told the police about {target}'s crimes. They got 1 year in jail. 🐀", "target_text": "🐀 {self} snitched on you! You got 1 year in jail.", "log": "🐀 {self} snitched on {target} — and {target} went to jail!"},
+       {"w": "100 - t_heat", "self": {"karma": 1}, "target": {"heat": 20, "rel_parents": -6}, "rel": [-25, -15], "count": "snitches", "chaos": 1,
+        "self_text": "You told on {target}. The police are watching them now. 🐀", "target_text": "🐀 {self} told on you! The cops (and your parents) are watching you now.", "log": "🐀 {self} snitched on {target}!"}]},
     {"id": "payback", "emoji": "💸", "label": "Pay back", "cond": "true", "target_cond": "owes > 0 and money >= owes", "amount": "owes",
      "outcomes": [{"transfer": "self_to_target", "clear_debt": true, "rel": 6, "self": {"karma": 3},
                    "self_text": "You paid {target} back {amount}. Debt free! ✅", "target_text": "💸 {self} paid you back {amount}.", "log": "💸 {self} paid back {target} ({amount})"}]}

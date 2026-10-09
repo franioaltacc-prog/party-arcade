@@ -34,19 +34,19 @@
     }
     .hero-art .core span { animation: spin-slow 18s linear infinite reverse; display: inline-block; filter: drop-shadow(0 8px 10px rgba(0,0,0,.4)); }
     @keyframes spin-slow { to { transform: rotate(360deg); } }
-    .bubble {
+    .hero-bubble {
       position: absolute; width: 22%; aspect-ratio: 1; border-radius: 28%; display: grid; place-items: center; font-size: clamp(1.6rem, 4vw, 2.6rem);
       background: rgba(255,255,255,.08); border: 1px solid var(--border-strong); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
       box-shadow: var(--shadow); animation: bob 4s ease-in-out infinite; text-decoration: none !important;
       transition: transform .2s;
     }
-    .bubble:hover { transform: scale(1.15) rotate(-6deg); }
-    .bubble:nth-child(2) { top: 0; left: 8%; animation-delay: -.6s; }
-    .bubble:nth-child(3) { top: 4%; right: 6%; animation-delay: -1.4s; }
-    .bubble:nth-child(4) { top: 40%; right: -4%; animation-delay: -2.1s; }
-    .bubble:nth-child(5) { bottom: 2%; right: 14%; animation-delay: -.9s; }
-    .bubble:nth-child(6) { bottom: 0; left: 12%; animation-delay: -2.8s; }
-    .bubble:nth-child(7) { top: 40%; left: -5%; animation-delay: -3.3s; }
+    .hero-bubble:hover { transform: scale(1.15) rotate(-6deg); }
+    .hero-bubble:nth-child(2) { top: 0; left: 8%; animation-delay: -.6s; }
+    .hero-bubble:nth-child(3) { top: 4%; right: 6%; animation-delay: -1.4s; }
+    .hero-bubble:nth-child(4) { top: 40%; right: -4%; animation-delay: -2.1s; }
+    .hero-bubble:nth-child(5) { bottom: 2%; right: 14%; animation-delay: -.9s; }
+    .hero-bubble:nth-child(6) { bottom: 0; left: 12%; animation-delay: -2.8s; }
+    .hero-bubble:nth-child(7) { top: 40%; left: -5%; animation-delay: -3.3s; }
 
     .hub-grid { display: grid; grid-template-columns: 1fr 340px; gap: 22px; align-items: start; }
     .hub-main { display: flex; flex-direction: column; gap: 34px; min-width: 0; }
@@ -119,12 +119,12 @@
       </div>
       <div class="hero-art" aria-hidden="true">
         <div class="core"><span>🕹️</span></div>
-        <a class="bubble" href="/games/dash" tabindex="-1">🟪</a>
-        <a class="bubble" href="/games/life" tabindex="-1">🏡</a>
-        <a class="bubble" href="/games/doodle" tabindex="-1">🎨</a>
-        <a class="bubble" href="/games/blitz" tabindex="-1">⚡</a>
-        <a class="bubble" href="/games/snake" tabindex="-1">🐍</a>
-        <a class="bubble" href="/games/connect4" tabindex="-1">🔴</a>
+        <a class="hero-bubble" href="/games/dash" tabindex="-1">🟪</a>
+        <a class="hero-bubble" href="/games/life" tabindex="-1">🏡</a>
+        <a class="hero-bubble" href="/games/doodle" tabindex="-1">🎨</a>
+        <a class="hero-bubble" href="/games/blitz" tabindex="-1">⚡</a>
+        <a class="hero-bubble" href="/games/snake" tabindex="-1">🐍</a>
+        <a class="hero-bubble" href="/games/connect4" tabindex="-1">🔴</a>
       </div>
     </section>
 

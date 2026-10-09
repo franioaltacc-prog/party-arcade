@@ -48,13 +48,16 @@
       if (onSend) onSend(text); else Net.send('chat', { text });
     } }, input, h('button', { class: 'btn btn-cyan btn-sm', type: 'submit' }, 'Send'));
     fill(el, ...(title ? [h('div', { class: 'panel-title' }, title)] : []), h('div', { class: 'chat' }, log, form));
+    el.style.display = 'flex';
+    el.style.flexDirection = 'column';
     const box = {
       input,
       clear() { fill(log, ); },
       add(m) {
         const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
         let row;
-        if (m.sys) row = h('div', { class: 'chat-msg sys' }, m.text);
+        if (!m.placeholder) log.querySelectorAll('.placeholder').forEach((x) => x.remove());
+        if (m.sys) row = h('div', { class: 'chat-msg sys' + (m.placeholder ? ' placeholder' : '') }, m.text);
         else {
           const who = m.from || m;
           row = h('div', { class: 'chat-msg' + (m.good ? ' good' : '') + (m.secret ? ' secret' : '') },

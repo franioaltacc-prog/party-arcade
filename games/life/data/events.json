@@ -756,7 +756,11 @@
      ]
     }
    ],
-   "sib": "any"
+   "sib": "any",
+   "seasons": [
+    1,
+    4
+   ]
   },
   {
    "id": "lemonade",
@@ -813,6 +817,10 @@
       }
      ]
     }
+   ],
+   "seasons": [
+    2,
+    3
    ]
   },
   {
@@ -2415,7 +2423,11 @@
      ]
     }
    ],
-   "sib": "any"
+   "sib": "any",
+   "seasons": [
+    2,
+    3
+   ]
   },
   {
    "id": "hotdog",
@@ -2460,6 +2472,10 @@
       }
      ]
     }
+   ],
+   "seasons": [
+    2,
+    3
    ]
   },
   {
@@ -2844,6 +2860,375 @@
      ]
     }
    ]
+  },
+  {
+   "id": "halloween",
+   "ages": [
+    4,
+    16
+   ],
+   "seasons": [
+    4
+   ],
+   "sib": "any",
+   "text": "🎃 It's Halloween! What's your costume?",
+   "choices": [
+    {
+     "label": "Spooky ghost 👻",
+     "outcomes": [
+      {
+       "w": 1,
+       "text": "You scared the whole street and got a pillowcase full of candy! 🍬",
+       "fx": {
+        "happy": [
+         5,
+         8
+        ],
+        "health": -1
+       }
+      }
+     ]
+    },
+    {
+     "label": "Superhero 🦸",
+     "outcomes": [
+      {
+       "w": 1,
+       "text": "You saved the neighborhood from a dog. Mostly. 🐕",
+       "fx": {
+        "happy": [
+         4,
+         7
+        ],
+        "sport": 1
+       }
+      }
+     ]
+    },
+    {
+     "label": "Matching costumes with {sib}",
+     "cond": "siblings > 0",
+     "outcomes": [
+      {
+       "w": 1,
+       "text": "You and {sib} went as salt and pepper. Iconic. 🧂",
+       "fx": {
+        "happy": 6,
+        "sib_rel": 7,
+        "sib_fx": {
+         "happy": 5
+        }
+       }
+      }
+     ]
+    },
+    {
+     "label": "Steal {sib}'s candy 😈",
+     "cond": "siblings > 0",
+     "outcomes": [
+      {
+       "w": 0.6,
+       "text": "You got away with half of {sib}'s candy! 🍫",
+       "fx": {
+        "happy": 6,
+        "sib_rel": -6,
+        "chaos": 1
+       }
+      },
+      {
+       "w": 0.4,
+       "text": "{sib} caught you and told Mom. No candy for you. 😤",
+       "fx": {
+        "happy": -5,
+        "sib_rel": -4,
+        "rel_parents": -3
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "beach",
+   "ages": [
+    3,
+    80
+   ],
+   "seasons": [
+    3
+   ],
+   "text": "🏖️ It's a scorching summer day.",
+   "choices": [
+    {
+     "label": "Go to the beach",
+     "outcomes": [
+      {
+       "w": 0.8,
+       "text": "Sun, sand and ice cream. Perfect day! 🍦",
+       "fx": {
+        "happy": [
+         5,
+         8
+        ],
+        "health": 2
+       }
+      },
+      {
+       "w": 0.2,
+       "text": "You forgot sunscreen and turned into a lobster. 🦞",
+       "fx": {
+        "happy": -2,
+        "looks": -2,
+        "health": -2
+       }
+      }
+     ]
+    },
+    {
+     "label": "Stay inside with the AC",
+     "outcomes": [
+      {
+       "w": 1,
+       "text": "You binge-watched a whole series. Zero regrets. 📺",
+       "fx": {
+        "happy": 3
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "valentines",
+   "ages": [
+    13,
+    70
+   ],
+   "seasons": [
+    1
+   ],
+   "text": "💘 It's Valentine's Day!",
+   "choices": [
+    {
+     "label": "Do something sweet for {partner}",
+     "cond": "has_partner",
+     "outcomes": [
+      {
+       "w": 1,
+       "text": "You made {partner} breakfast in bed. Adorable. 🥞",
+       "fx": {
+        "happy": 7
+       }
+      }
+     ]
+    },
+    {
+     "label": "Send an anonymous valentine",
+     "cond": "not has_partner",
+     "outcomes": [
+      {
+       "w": "looks",
+       "text": "They figured out it was you... and asked you out! 💞",
+       "fx": {
+        "happy": 9,
+        "partner": "new"
+       }
+      },
+      {
+       "w": "100 - looks",
+       "text": "They thought it was from someone else. Ouch. 💔",
+       "fx": {
+        "happy": -4
+       }
+      }
+     ]
+    },
+    {
+     "label": "Ignore it, it's just a Tuesday",
+     "outcomes": [
+      {
+       "w": 1,
+       "text": "You ate a whole box of discount chocolates the next day. 🍫",
+       "fx": {
+        "happy": 3,
+        "health": -1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "report_card",
+   "ages": [
+    6,
+    17
+   ],
+   "seasons": [
+    2
+   ],
+   "cond": "parents_alive > 0",
+   "text": "📄 Report cards are out!",
+   "choices": [
+    {
+     "label": "Show your parents proudly",
+     "outcomes": [
+      {
+       "w": "smarts",
+       "text": "Straight A's! Your parents took you out for pizza. 🍕",
+       "fx": {
+        "happy": 6,
+        "rel_parents": 5
+       }
+      },
+      {
+       "w": "100 - smarts",
+       "text": "Lots of C's... Your parents want a 'chat'. 😬",
+       "fx": {
+        "happy": -4,
+        "rel_parents": -2
+       }
+      }
+     ]
+    },
+    {
+     "label": "Forge a signature ✍️",
+     "outcomes": [
+      {
+       "w": 0.6,
+       "text": "Nobody noticed. Criminal mastermind in training. 🦹",
+       "fx": {
+        "karma": -4,
+        "heat": 3,
+        "chaos": 1
+       }
+      },
+      {
+       "w": 0.4,
+       "text": "The teacher called home. Double trouble! 😱",
+       "fx": {
+        "happy": -7,
+        "rel_parents": -8,
+        "chaos": 1
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "summer_job",
+   "ages": [
+    15,
+    19
+   ],
+   "seasons": [
+    3
+   ],
+   "cond": "not has_job and jail == 0",
+   "text": "☀️ School's out. Want a summer job?",
+   "choices": [
+    {
+     "label": "Work at the ice cream stand 🍦",
+     "outcomes": [
+      {
+       "w": 1,
+       "text": "You earned $1,800 and ate way too much ice cream. 🍦",
+       "fx": {
+        "money": 1800,
+        "happy": 2,
+        "health": -1
+       }
+      }
+     ]
+    },
+    {
+     "label": "Be a camp counselor 🏕️",
+     "outcomes": [
+      {
+       "w": 1,
+       "text": "You earned $1,500 and the kids loved you. 🏕️",
+       "fx": {
+        "money": 1500,
+        "happy": 4,
+        "karma": 3
+       }
+      }
+     ]
+    },
+    {
+     "label": "Nah, summer is for chilling",
+     "outcomes": [
+      {
+       "w": 1,
+       "text": "You perfected your nap technique. 😴",
+       "fx": {
+        "happy": 5
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "resolution",
+   "ages": [
+    10,
+    90
+   ],
+   "seasons": [
+    1
+   ],
+   "text": "🎆 New Year! Time for a resolution.",
+   "choices": [
+    {
+     "label": "Get fit 💪",
+     "outcomes": [
+      {
+       "w": "health",
+       "text": "You actually stuck to it! 💪",
+       "fx": {
+        "health": 5,
+        "happy": 3
+       }
+      },
+      {
+       "w": "100 - health",
+       "text": "You quit by January 9th. Classic. 🛋️",
+       "fx": {
+        "happy": -1
+       }
+      }
+     ]
+    },
+    {
+     "label": "Read more books 📚",
+     "outcomes": [
+      {
+       "w": 1,
+       "text": "You read 12 books this year! 📚",
+       "fx": {
+        "smarts": 4
+       }
+      }
+     ]
+    },
+    {
+     "label": "Be nicer to {sib}",
+     "cond": "siblings > 0",
+     "outcomes": [
+      {
+       "w": 1,
+       "text": "You and {sib} had your best year ever. 💕",
+       "fx": {
+        "sib_rel": 10,
+        "karma": 3
+       }
+      }
+     ]
+    }
+   ],
+   "sib": "any"
   }
  ],
  "happenings": [

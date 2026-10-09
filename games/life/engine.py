@@ -11,12 +11,21 @@ from pathlib import Path
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 STATS = ("health", "happy", "smarts", "looks")
-EXTRA = ("fame", "karma", "music", "sport")
+EXTRA = ("fame", "karma", "music", "sport", "heat")
 ICON = {"health": "❤️", "happy": "😊", "smarts": "🧠", "looks": "✨", "fame": "⭐",
-        "karma": "😇", "music": "🎸", "sport": "🏅", "money": "💰"}
+        "karma": "😇", "music": "🎸", "sport": "🏅", "heat": "🚨", "money": "💰"}
 LEVELS = ["", "Senior ", "Lead ", "Head ", "Chief "]
 # let-values with these names are shown as plain numbers instead of money
 PLAIN_LETS = {"years", "n", "count", "pct"}
+SEASONS = {1: "❄️ Winter", 2: "🌸 Spring", 3: "☀️ Summer", 4: "🍂 Fall"}
+
+
+def jail_str(quarters):
+    """Jail time is counted in quarters (seasons)."""
+    y, q = divmod(int(quarters), 4)
+    if not y:
+        return f"{q} season{'s' if q != 1 else ''}"
+    return f"{y} yr{'s' if y != 1 else ''}" + (f" {q} season{'s' if q != 1 else ''}" if q else "")
 
 
 def load_data():
@@ -189,6 +198,8 @@ class Sibling:
         self.karma = 50
         self.music = random.randint(0, 15)
         self.sport = random.randint(0, 15)
+        self.heat = 0
+        self.q = 1
         self.money = 0
         self.rel_mom = random.randint(60, 85)
         self.rel_dad = random.randint(60, 85)
@@ -244,7 +255,7 @@ class Sibling:
         if not self.alive:
             return f"🪦 Died at {self.age}"
         if self.jail:
-            return f"🔒 In jail ({self.jail} yr{'s' if self.jail != 1 else ''} left)"
+            return f"🔒 In jail ({jail_str(self.jail)} left)"
         if self.uni:
             return f"🎓 {majors[self.uni['major']][0]} student"
         if self.job:
@@ -274,8 +285,8 @@ class Sibling:
         return out
 
     def add_log(self, text):
-        self.log.append({"age": self.age, "text": text})
-        del self.log[:-160]
+        self.log.append({"age": self.age, "q": self.q, "text": text})
+        del self.log[:-200]
 
     def achieve(self, title):
         if title and title not in self.achievements:

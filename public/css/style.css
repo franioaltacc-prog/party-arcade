@@ -295,11 +295,12 @@ label.field { display: flex; flex-direction: column; gap: 6px; font-weight: 600;
 .player-row .pmeta { margin-left: auto; color: var(--muted); font-size: 0.85rem; white-space: nowrap; display: flex; gap: 6px; align-items: center; }
 
 /* ---------- chat ---------- */
-.chat { display: flex; flex-direction: column; min-height: 0; height: 100%; }
+.chat { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
 .chat-log { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; min-height: 120px; scroll-behavior: smooth; }
 .chat-msg { display: flex; gap: 8px; align-items: flex-start; animation: fade-in 0.2s; }
 .chat-msg .bubble { background: rgba(255, 255, 255, 0.06); padding: 6px 10px; border-radius: 4px 14px 14px 14px; font-size: 0.93rem; overflow-wrap: anywhere; }
 .chat-msg .who { font-weight: 700; font-size: 0.8rem; }
+.chat-msg.placeholder { opacity: .8; }
 .chat-msg.sys { justify-content: center; color: var(--muted); font-size: 0.83rem; font-style: italic; text-align: center; }
 .chat-msg.good .bubble { background: rgba(34, 197, 94, 0.18); color: #c4f8d6; font-weight: 600; }
 .chat-msg.secret .bubble { background: rgba(250, 204, 21, 0.12); }
