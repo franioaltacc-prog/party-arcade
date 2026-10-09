@@ -27,7 +27,7 @@
         "self_text": "You {prank}. {target} is fuming! 😂", "target_text": "😜 {self} pranked you — they {prank}!", "log": "😜 {self} pranked {target}: {prank}"},
        {"w": 0.25, "self": {"happy": -3}, "target": {"happy": 4}, "rel": -2, "count": "pranks", "chaos": 1,
         "self_text": "Your prank backfired spectacularly. {target} saw it coming. 🤦", "target_text": "{self} tried to prank you and failed. LOL. 😎", "log": "🤦 {self}'s prank on {target} backfired!"}]},
-    {"id": "gift", "emoji": "🎁", "label": "Give money to", "cond": "money >= 50", "amount": "max(50, int(money * 0.1))", "works_when_silent": true,
+    {"id": "gift", "emoji": "🎁", "label": "Give money to", "cond": "money >= 50", "target_cond": "t_age >= 5", "amount": "max(50, int(money * 0.1))", "works_when_silent": true,
      "outcomes": [{"transfer": "self_to_target", "self": {"karma": 3, "happy": 2}, "target": {"happy": [4, 7]}, "rel": [8, 14], "count": "gifts",
                    "self_text": "You gave {target} {amount}. How generous! 🎁", "target_text": "🎁 {self} gave you {amount}!", "log": "🎁 {self} gave {target} {amount}"}]},
     {"id": "borrow", "emoji": "🙏", "label": "Borrow money from", "consent": true, "cond": "age >= 10", "target_cond": "t_money >= 100", "amount": "choose",

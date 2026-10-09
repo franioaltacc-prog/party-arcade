@@ -199,8 +199,11 @@
         h('div', { class: 'me-age' }, h('div', { class: 'y' }, `AGE · ${S.quarterly ? (SEASONS[S.q] || '') + ' ' : ''}${S.year}`), h('div', { class: 'n' }, m.age))),
       h('div', { class: 'stat-row' },
         ...STATS.map(([k, e, l, c]) => h('div', { class: 'stat' }, h('div', { class: 'lbl' }, h('span', {}, `${e} ${l}`), h('b', {}, m.stats[k])), bar(k, m.stats[k], c))),
-        h('div', { class: 'money-box' }, h('div', { class: 'l' }, '💰 MONEY'), h('div', { class: 'v' + (m.money < 0 ? ' neg' : '') }, fmtMoney(m.money)))),
+        m.age < 5
+          ? h('div', { class: 'money-box' }, h('div', { class: 'l' }, '💰 MONEY'), h('div', { class: 'v', style: { fontSize: '.9rem' } }, '🍼 Too young'))
+          : h('div', { class: 'money-box' }, h('div', { class: 'l' }, '💰 MONEY'), h('div', { class: 'v' + (m.money < 0 ? ' neg' : '') }, fmtMoney(m.money)))),
       h('div', { class: 'chips' }, chips.map((c) => h('span', { class: 'chip' }, c)), m.fame ? h('span', { class: 'chip' }, `⭐ Fame ${m.fame}`) : null,
+        m.trust ? h('span', { class: 'chip', title: 'Held for you until you turn 18', style: { background: 'rgba(34,197,94,.18)' } }, `🏦 Trust fund ${fmtMoney(m.trust)} (yours at 18)`) : null,
         m.heat ? h('span', { class: 'chip', title: 'Crimes raise your heat. High heat = more likely to get caught. It cools down over time (or lie low).', style: { background: m.heat >= 50 ? 'rgba(244,63,94,.3)' : 'rgba(251,146,60,.2)' } }, `🚨 Heat ${m.heat}`) : null,
         h('span', { class: 'chip' }, `🎸 ${m.skills.music}`), h('span', { class: 'chip' }, `🏅 ${m.skills.sport}`)),
       m.achievements.length ? h('div', { class: 'chips', style: { marginTop: '6px' } }, m.achievements.map((a) => h('span', { class: 'chip', style: { background: 'rgba(250,204,21,.12)' } }, a))) : null);
@@ -374,7 +377,7 @@
             h('div', { class: 'sib-name' }, x.first, isMe ? h('span', { class: 'muted small' }, ' (you)') : null, x.twin ? ' 👯' : ''),
             h('div', { class: 'sib-sub' }, `${x.alive ? `Age ${x.age}` : `Died at ${x.age}`} · ${x.status}${x.heat ? ` · 🚨 ${x.heat}` : ''}`),
             h('div', { class: 'sib-sub' }, `${x.avatar} ${x.player}${x.online ? '' : ' · 📴 offline'}`)),
-          h('div', { class: 'bold small', style: { textAlign: 'right' } }, fmtMoney(x.worth))),
+          h('div', { class: 'bold small', style: { textAlign: 'right' } }, x.age < 5 && x.alive ? '🍼' : fmtMoney(x.worth))),
         x.alive ? h('div', { class: 'mini' }, STATS.map(([k, e, , c]) => h('div', {}, `${e} ${x.stats[k]}`, bar(`${x.cid}-${k}`, x.stats[k], c, 'sm')))) : null);
       if (!isMe && me && x.rel != null) {
         const tag = x.silent ? '🙊 Not speaking' : x.best ? '👯 Besties' : '';

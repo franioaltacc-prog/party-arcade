@@ -201,6 +201,7 @@ class Sibling:
         self.heat = 0
         self.q = 1
         self.money = 0
+        self.trust = 0          # money held for kids until they turn 18
         self.rel_mom = random.randint(60, 85)
         self.rel_dad = random.randint(60, 85)
         self.living = "home"
@@ -235,7 +236,7 @@ class Sibling:
         return self.first
 
     def worth(self):
-        return self.money + sum(a["value"] for a in self.assets)
+        return self.money + self.trust + sum(a["value"] for a in self.assets)
 
     def emoji(self):
         if not self.alive:

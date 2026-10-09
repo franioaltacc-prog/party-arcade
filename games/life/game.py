@@ -18,6 +18,8 @@ VOTE_TIMEOUTS = (15, 30, 60, 90)
 REQUEST_TTL = 40
 DESTINATIONS = ["Hawaii 🌺", "Paris 🗼", "Tokyo 🗾", "Disney World 🏰", "the Grand Canyon 🏜️", "Bali 🏝️",
                 "Iceland 🧊", "Rome 🍝", "a theme park 🎢", "the beach 🏖️"]
+TODDLER = 5        # younger than this = no money at all
+ADULT = 18         # inheritance for younger kids waits in a trust fund until this age
 HEIST_ROLES = [("🧠 Mastermind", "smarts"), ("💻 Hacker", "smarts"), ("🚗 Getaway driver", "sport"),
                ("💪 Muscle", "health"), ("🎭 Distraction", "looks")]
 SCALED = {"health", "happy", "smarts", "looks", "fame", "music", "sport", "perf"}
@@ -183,6 +185,15 @@ class Life(Game):
         emoji, kind = random.choice(D["names"]["pets"])
         pets.append({"emoji": emoji, "kind": kind, "name": random.choice(D["names"]["pet_names"]), "born": born})
 
+    def give_money(self, s, amount, trust_under=TODDLER):
+        """Add (or take) money. Kids younger than `trust_under` can't hold money:
+        gains go into their trust fund (paid out at 18), costs are ignored."""
+        if s.age < trust_under:
+            if amount > 0:
+                s.trust += amount
+            return
+        s.money += amount
+
     def send_to_jail(self, s, years):
         s.jail += years * 4
         s.jail_total += years
@@ -287,7 +298,7 @@ class Life(Game):
                     d = int(round(d * scale)) or (1 if d > 0 else -1)
                 s.add(k, d)
             elif k == "money":
-                s.money += num(v, env)
+                self.give_money(s, num(v, env))
             elif k in ("rel_mom", "rel_dad", "rel_parents"):
                 d = num(v, env)
                 if k != "rel_dad":
@@ -801,7 +812,7 @@ class Life(Game):
         if tr == "self_to_target":
             moved = max(0, min(amount, s.money))
             s.money -= moved
-            t.money += moved
+            self.give_money(t, moved)
         elif tr == "target_to_self":
             moved = max(0, min(amount, t.money))
             t.money -= moved
@@ -1163,12 +1174,16 @@ class Life(Game):
         if f.inheritance <= 0 or not al:
             return "📜 There was no inheritance left to split."
         share = f.inheritance // len(al)
+        kids = []
         for s in al:
-            s.money += share
+            self.give_money(s, share, trust_under=ADULT)
+            if s.age < ADULT:
+                kids.append(s.first)
             s.add("happy", 5)
         total = f.inheritance
         f.inheritance = 0
-        return f"📜 The inheritance of {money_str(total)} was split equally — {money_str(share)} each! 💰"
+        note = f" ({join_names(kids)}'s share waits in a trust fund until they turn {ADULT}.)" if kids else ""
+        return f"📜 The inheritance of {money_str(total)} was split equally — {money_str(share)} each! 💰{note}"
 
     # ------------------------------------------------------------------ years
     def begin_turn(self):
@@ -1328,6 +1343,10 @@ class Life(Game):
             self.happening(s)
         s.add_log(f"🎂 Happy birthday! You're {a} now.")
 
+        if a == ADULT and s.trust:
+            s.money += s.trust
+            s.add_log(f"🏦 You turned {ADULT} and got your trust fund: {money_str(s.trust)}!")
+            s.trust = 0
         if s.worth() >= 1_000_000 and s.achieve("💰 Millionaire"):
             self.flog(f"💰 {s.first} became a MILLIONAIRE!")
         if a == 100 and s.achieve("💯 Centenarian"):
@@ -1400,7 +1419,7 @@ class Life(Game):
             after_lawyers = int(f.inheritance * 0.7)
             share = after_lawyers // len(al)
             for s in al:
-                s.money += share
+                self.give_money(s, share, trust_under=ADULT)
             self.flog(f"⚖️ Nobody could agree, so the lawyers split the inheritance — and kept 30%. Everyone got {money_str(share)}.")
             f.inheritance = 0
 
@@ -1618,7 +1637,7 @@ class Life(Game):
             "cid": s.cid, "name": self.full(s), "first": s.first, "gender": s.gender, "place": self.family.place,
             "emoji": s.emoji(), "age": s.age, "alive": s.alive, "cause": s.cause, "status": s.status(D["majors"]),
             "stats": {k: getattr(s, k) for k in STATS}, "skills": {"music": s.music, "sport": s.sport},
-            "fame": s.fame, "heat": s.heat, "money": s.money, "worth": s.worth(), "living": s.living,
+            "fame": s.fame, "heat": s.heat, "money": s.money, "trust": s.trust, "worth": s.worth(), "living": s.living,
             "job": dict(s.job) if s.job else None,
             "uni": {"major": D["majors"][s.uni["major"]][0], "years": s.uni["years"]} if s.uni else None,
             "degrees": [D["majors"][d][0] for d in s.degrees], "jail": s.jail, "retired": s.retired,
