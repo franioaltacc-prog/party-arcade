@@ -9,7 +9,12 @@
   const svg = (id, body, from, to) => `<svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">
     <defs><linearGradient id="g-${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${from}"/><stop offset="1" stop-color="${to}"/></linearGradient></defs>
     <rect width="200" height="120" fill="url(#g-${id})"/>${body}</svg>`;
-  const emoji = (x, y, size, e, extra = '') => `<text x="${x}" y="${y}" font-size="${size}" text-anchor="middle" dominant-baseline="central" ${extra}>${e}</text>`;
+  const emoji = (x, y, size, e, extra = '') => {
+    const url = PA.Emoji.url(e);
+    const s = size * 1.15;
+    return url ? `<image href="${url}" x="${x - s / 2}" y="${y - s / 2}" width="${s}" height="${s}" ${extra}/>`
+      : `<text x="${x}" y="${y}" font-size="${size}" text-anchor="middle" dominant-baseline="central" ${extra}>${e}</text>`;
+  };
 
   const ART = {
     dash: svg('dash', `

@@ -78,6 +78,7 @@ Everything lives in `games/life/data/*.json`. The files are re-read at the start
 ## Project layout
 - `server.py`: HTTP + WebSocket server and rooms
 - `accounts.py`: accounts, sessions, stats, XP and leaderboards (SQLite file or Turso over HTTPS, same SQL)
+- `public/js/art.js`: list of Microsoft Fluent 3D emoji (MIT, loaded from the jsDelivr CDN) and Phosphor icons (MIT). `core.js` swaps every emoji on a page for its 3D image and `PA.icon(name)` / `data-icon="name"` add icons
 - `games/`: one module per online game (server side)
 - `games/casino/`: casino server. `match.py` runs the match (coins, scores, win conditions); every game is its own module
   built on the shared bases in `tables.py`: `HouseTable` (vs house), `PlayersTable` (vs players) and `RoundTable` (shared betting round).

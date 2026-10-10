@@ -52,7 +52,7 @@
 
     <section id="solo" class="hidden">
       <div class="panel solo-card">
-        <div class="row between" style="margin-bottom:10px"><h2>🟦 Practice mode</h2><button class="btn btn-ghost btn-sm" id="solo-back">← Back</button></div>
+        <div class="row between" style="margin-bottom:10px"><h2>🟦 Practice mode</h2><button class="btn btn-ghost btn-sm" id="solo-back" data-icon="arrow-left">Back</button></div>
         <p class="muted" style="margin-bottom:16px">Every run is a brand-new random level. Beat your best times!</p>
         <div class="settings-grid">
           <div><div class="setting-label">Difficulty</div><div class="seg" id="solo-diff"></div></div>
@@ -75,11 +75,11 @@
 
     <section id="play" class="hidden">
       <div class="dash-top">
-        <span class="hud-stat" title="Time">⏱ <span id="hud-time">0.00</span></span>
+        <span class="hud-stat" title="Time">⏱️ <span id="hud-time">0.00</span></span>
         <span class="hud-stat" title="Attempts">💀 <span id="hud-att">1</span></span>
         <div class="track" id="track"><div class="fill" id="track-fill"></div><span class="flag">🏁</span></div>
         <button class="icon-btn" id="btn-music" title="Music on/off">🎵</button>
-        <button class="icon-btn" id="btn-quit" title="Quit">✕</button>
+        <button class="icon-btn" id="btn-quit" title="Quit" aria-label="Quit" data-icon="x"></button>
       </div>
       <div class="stage" id="stage"><canvas id="cv"></canvas><div id="banner" class="banner hidden"></div></div>
       <div class="dash-bottom">
@@ -89,6 +89,7 @@
     </section>
   </main>
 
+  <script src="/js/art.js"></script>
   <script src="/js/core.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollTrigger.min.js"></script>

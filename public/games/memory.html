@@ -23,6 +23,7 @@
     .card .front { transform: rotateY(180deg); background: #fff; font-size: clamp(1.6rem, 6vw, 3rem); box-shadow: inset 0 -5px 0 rgba(0,0,0,.12); }
     .card.done .front { background: #dcfce7; box-shadow: 0 0 0 3px var(--green), 0 0 20px rgba(34,197,94,.5); }
     .card.miss { animation: shake .4s; }
+    .card img.emo { width: 1.7em; height: 1.7em; }
   </style>
 </head>
 <body>
@@ -32,13 +33,14 @@
         <div class="seg" id="sizes"></div>
         <span class="grow"></span>
         <span class="stat-pill">🔁 <span id="moves">0</span></span>
-        <span class="stat-pill">⏱ <span id="time">0</span>s</span>
+        <span class="stat-pill">⏱️ <span id="time">0</span>s</span>
         <button class="btn btn-pink btn-sm" id="restart">New</button>
       </div>
       <div class="cards" id="cards"></div>
       <p class="muted small" style="text-align:center;margin-top:14px" id="best"></p>
     </div>
   </main>
+  <script src="/js/art.js"></script>
   <script src="/js/core.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollTrigger.min.js"></script>

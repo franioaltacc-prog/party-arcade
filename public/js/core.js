@@ -49,6 +49,109 @@
   const on = (t, fn) => { (bus[t] ||= new Set()).add(fn); return () => bus[t].delete(fn); };
   const emit = (t, d) => { (bus[t] || []).forEach((fn) => { try { fn(d); } catch (e) { console.error(e); } }); };
 
+  // ---------------------------------------------------------------- 3D emoji + icons
+  // Every emoji on the page is swapped for a Microsoft Fluent 3D emoji image (looks the same on
+  // every device). Buttons use Phosphor icons. Both come from js/art.js; without it nothing changes.
+  const ART = window.PA_ART || null;
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+
+  const Emoji = (() => {
+    const CDN = ART ? `https://cdn.jsdelivr.net/npm/@lobehub/fluent-emoji-3d@${ART.emojiVersion}/assets/` : '';
+    const files = new Map();
+    if (ART) for (const name of ART.emoji.split(',')) { files.set(name.replace(/-fe0f/g, ''), name); files.set(name, name); }
+    const PICTO = /\p{Extended_Pictographic}|\p{Regional_Indicator}/u;
+    const SHOWS_AS_EMOJI = /\p{Emoji_Presentation}|️|‍/u;   // © or ™ alone stay text
+    const SKIP = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'INPUT', 'SELECT', 'OPTION', 'NOSCRIPT', 'CANVAS', 'TITLE', 'CODE', 'PRE']);
+    const seg = typeof Intl !== 'undefined' && Intl.Segmenter ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }) : null;
+    const images = new Map();
+
+    function file(g) {
+      const cps = [...g].map((c) => c.codePointAt(0).toString(16).padStart(4, '0'));
+      const plain = cps.filter((c) => c !== 'fe0f');
+      return files.get(cps.join('-')) || files.get(plain.join('-'))
+        || files.get(plain.filter((c) => !/^1f3f[b-f]$/.test(c)).join('-')) || null;   // drop skin tones if needed
+    }
+    function url(g) {
+      if (!ART || !PICTO.test(g) || !SHOWS_AS_EMOJI.test(g)) return null;
+      const f = file(g);
+      return f ? CDN + f + '.webp' : null;
+    }
+    function skipped(node) {
+      for (let el = node.nodeType === 1 ? node : node.parentElement; el; el = el.parentElement) {
+        if (SKIP.has(el.tagName) || el.namespaceURI === SVG_NS || el.isContentEditable || (el.dataset && el.dataset.noemoji !== undefined)) return true;
+      }
+      return false;
+    }
+    function parseText(t) {
+      const text = t.nodeValue;
+      if (!text || !PICTO.test(text)) return;
+      const out = [];
+      let buf = '';
+      let hit = false;
+      for (const { segment: g } of seg.segment(text)) {
+        const src = url(g);
+        if (!src) { buf += g; continue; }
+        if (buf) out.push(buf);
+        buf = '';
+        const im = document.createElement('img');
+        im.className = 'emo';
+        im.alt = g;
+        im.draggable = false;
+        im.decoding = 'async';
+        im.onerror = () => im.replaceWith(g);
+        im.src = src;
+        out.push(im);
+        hit = true;
+      }
+      if (!hit) return;
+      if (buf) out.push(buf);
+      t.replaceWith(...out);
+    }
+    function parse(root) {
+      if (!ART || !seg || !root || !root.isConnected || skipped(root)) return;
+      if (root.nodeType === 3) { parseText(root); return; }
+      if (root.nodeType !== 1) return;
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+        acceptNode(n) {
+          if (n.nodeType === 1) return SKIP.has(n.tagName) || n.namespaceURI === SVG_NS || (n.dataset && n.dataset.noemoji !== undefined) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP;
+          return PICTO.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+        },
+      });
+      const found = [];
+      while (walker.nextNode()) found.push(walker.currentNode);
+      found.forEach(parseText);
+    }
+    function watch() {
+      parse(document.body);
+      new MutationObserver((muts) => {
+        for (const m of muts) {
+          if (m.type === 'characterData') parse(m.target);
+          else m.addedNodes.forEach(parse);
+        }
+      }).observe(document.body, { childList: true, subtree: true, characterData: true });
+    }
+    /** For canvas games: the emoji as a loaded image, or null (draw text instead). */
+    function image(g) {
+      const src = url(g);
+      if (!src) return null;
+      let im = images.get(src);
+      if (!im) { im = new Image(); im.src = src; images.set(src, im); }
+      return im.complete && im.naturalWidth ? im : null;
+    }
+    return { parse, url, image, watch };
+  })();
+
+  /** A Phosphor icon as an inline SVG element. */
+  function icon(name, cls = '') {
+    const s = document.createElementNS(SVG_NS, 'svg');
+    s.setAttribute('viewBox', '0 0 256 256');
+    s.setAttribute('class', ('ico ' + cls).trim());
+    s.setAttribute('aria-hidden', 'true');
+    s.setAttribute('fill', 'currentColor');
+    s.innerHTML = (ART && ART.icons[name]) || '';
+    return s;
+  }
+
   // ---------------------------------------------------------------- profile & account
   const AVATARS = ['😎', '🤖', '👽', '🐸', '🦊', '🐼', '🐙', '🦄', '🐯', '🐵', '👻', '🎃', '🍕', '🌮', '🚀', '⚡', '🔥', '💎', '🐧', '🦖', '🐱', '🐶', '🤠', '🥷', '🧙', '🐲', '🍩', '🐝'];
   const COLORS = ['#ff4fd8', '#8b5cf6', '#22d3ee', '#84cc16', '#facc15', '#fb923c', '#f43f5e', '#3b82f6', '#10b981', '#e879f9', '#14b8a6', '#f97316'];
@@ -337,7 +440,7 @@
     /** Show a modal; returns a close() function. */
     modal(content, { dismissable = true, onClose, wide = false } = {}) {
       const box = h('div', { class: 'modal' + (wide ? ' wide' : ''), role: 'dialog', 'aria-modal': 'true' });
-      if (dismissable) box.append(h('button', { class: 'icon-btn modal-close', 'aria-label': 'Close', onclick: () => close() }, '✕'));
+      if (dismissable) box.append(h('button', { class: 'icon-btn modal-close', 'aria-label': 'Close', onclick: () => close() }, icon('x')));
       box.append(content);
       const back = h('div', { class: 'modal-backdrop' }, box);
       let closed = false;
@@ -418,7 +521,7 @@
         const fail = (e) => { err.textContent = (e && e.message) || String(e); Sfx.play('wrong'); const f = fx(); if (f) f.shake(err); };
         const busy = (btn, on) => { btn.disabled = on; btn.classList.toggle('busy', on); };
         const header = (title, sub, back) => [
-          back ? h('button', { class: 'icon-btn acct-back', type: 'button', 'aria-label': 'Back', onclick: () => go(back) }, '←') : null,
+          back ? h('button', { class: 'icon-btn acct-back', type: 'button', 'aria-label': 'Back', onclick: () => go(back) }, icon('arrow-left')) : null,
           h('h2', { class: 'acct-title' }, title),
           sub ? h('p', { class: 'muted acct-sub' }, sub) : null];
         const input = (props) => h('input', { class: 'input', ...props });
@@ -450,7 +553,7 @@
               ...header(first ? 'Play as a guest 🎮' : 'Your guest card 🎮', 'Pick a name and a look. Friends will see this.', first ? 'choose' : null),
               form(() => { look.name = name.value.trim() || look.name; Profile.set(look); Sfx.play('coin'); done(look); },
                 h('div', { class: 'row', style: { marginBottom: '14px' } }, name,
-                  h('button', { class: 'icon-btn', type: 'button', title: 'Random name', onclick: () => { name.value = rand(ADJ) + rand(NOUN); Sfx.play('pop'); } }, '🎲')),
+                  h('button', { class: 'icon-btn', type: 'button', title: 'Random name', 'aria-label': 'Random name', onclick: () => { name.value = rand(ADJ) + rand(NOUN); Sfx.play('pop'); } }, icon('dice-five'))),
                 UI.lookPicker(look),
                 h('button', { class: 'btn btn-pink btn-block btn-lg', type: 'submit', style: { marginTop: '18px' } }, first ? "Let's go! 🚀" : 'Save')),
               h('p', { class: 'small muted acct-foot' }, 'Want your wins to count? ', h('a', { href: '#', onclick: (e) => { e.preventDefault(); go('signup'); } }, 'Create a free account ✨')),
@@ -522,11 +625,11 @@
               form(save, UI.lookPicker(look), h('label', { class: 'field', style: { marginTop: '14px' } }, 'Bio', bio), err,
                 h('button', { class: 'btn btn-pink btn-block', type: 'submit', style: { marginTop: '12px' } }, 'Save my look')),
               h('div', { class: 'acct-links' },
-                h('a', { class: 'btn btn-ghost btn-sm', href: '/profile?u=' + encodeURIComponent(u.name) }, '👤 My profile'),
-                h('a', { class: 'btn btn-ghost btn-sm', href: '/leaderboards' }, '🏆 Leaderboards'),
-                u.admin ? h('a', { class: 'btn btn-ghost btn-sm', href: '/admin' }, '🛡️ Admin') : null,
-                h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: () => go('password') }, '🔒 Password'),
-                h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: async () => { await Account.logout(); UI.toast('Logged out. See you soon! 👋'); done(null); } }, '🚪 Log out')),
+                h('a', { class: 'btn btn-ghost btn-sm', href: '/profile?u=' + encodeURIComponent(u.name) }, icon('user'), 'My profile'),
+                h('a', { class: 'btn btn-ghost btn-sm', href: '/leaderboards' }, icon('trophy'), 'Leaderboards'),
+                u.admin ? h('a', { class: 'btn btn-ghost btn-sm', href: '/admin' }, icon('shield-star'), 'Admin') : null,
+                h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: () => go('password') }, icon('lock-key'), 'Password'),
+                h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: async () => { await Account.logout(); UI.toast('Logged out. See you soon! 👋'); done(null); } }, icon('sign-out'), 'Log out')),
               h('p', { class: 'tiny acct-foot' }, h('a', { href: '#', class: 'danger-link', onclick: (e) => { e.preventDefault(); go('delete'); } }, 'Delete my account')),
             ];
           },
@@ -599,8 +702,9 @@
       const menu = h('div', { class: 'pop-menu', role: 'menu' }, items.filter(Boolean).map((it) => {
         if (it === '-') return h('div', { class: 'sep' });
         if (it.head) return h('div', { class: 'mhead' }, it.head);
-        if (it.href) return h('a', { class: 'mi', href: it.href, role: 'menuitem' }, it.label);
-        return h('button', { class: 'mi' + (it.danger ? ' danger' : ''), type: 'button', role: 'menuitem', onclick: () => { close(); it.onClick(); } }, it.label);
+        const label = it.icon ? [icon(it.icon), h('span', {}, it.label)] : it.label;
+        if (it.href) return h('a', { class: 'mi', href: it.href, role: 'menuitem' }, label);
+        return h('button', { class: 'mi' + (it.danger ? ' danger' : ''), type: 'button', role: 'menuitem', onclick: () => { close(); it.onClick(); } }, label);
       }));
       document.body.append(menu);
       // open below the button, or above it if there isn't room; scroll inside if it's taller than the screen
@@ -718,32 +822,32 @@
         const u = Account.user;
         if (u) {
           return [{ head: h('div', {}, h('b', {}, u.name), h('div', { class: 'tiny muted' }, `Level ${u.level} · ${u.xp.toLocaleString('en-US')} XP`)) },
-            { label: '👤 My profile', href: '/profile?u=' + encodeURIComponent(u.name) },
-            { label: '🎨 Edit my look', onClick: () => Profile.edit() },
-            { label: '🏆 Leaderboards', href: '/leaderboards' },
-            { label: '🔎 Find players', href: '/players' },
-            { label: '🎬 Credits', href: '/credits' },
-            u.admin ? { label: '🛡️ Admin panel', href: '/admin' } : null,
+            { icon: 'user', label: 'My profile', href: '/profile?u=' + encodeURIComponent(u.name) },
+            { icon: 'palette', label: 'Edit my look', onClick: () => Profile.edit() },
+            { icon: 'trophy', label: 'Leaderboards', href: '/leaderboards' },
+            { icon: 'magnifying-glass', label: 'Find players', href: '/players' },
+            { icon: 'film-strip', label: 'Credits', href: '/credits' },
+            u.admin ? { icon: 'shield-star', label: 'Admin panel', href: '/admin' } : null,
             '-',
-            { label: '🚪 Log out', onClick: async () => { await Account.logout(); UI.toast('Logged out. See you soon! 👋'); } }];
+            { icon: 'sign-out', label: 'Log out', onClick: async () => { await Account.logout(); UI.toast('Logged out. See you soon! 👋'); } }];
         }
         return [{ head: h('div', {}, h('b', {}, Profile.get().name), h('div', { class: 'tiny muted' }, 'Playing as a guest')) },
-          { label: '✨ Create an account', onClick: () => UI.accountModal({ view: 'signup' }) },
-          { label: '🔑 Log in', onClick: () => UI.accountModal({ view: 'login' }) },
-          { label: '🎨 Edit my look', onClick: () => Profile.edit() },
-          { label: '🏆 Leaderboards', href: '/leaderboards' },
-          { label: '🔎 Find players', href: '/players' },
-          { label: '🎬 Credits', href: '/credits' }];
+          { icon: 'user-plus', label: 'Create an account', onClick: () => UI.accountModal({ view: 'signup' }) },
+          { icon: 'sign-in', label: 'Log in', onClick: () => UI.accountModal({ view: 'login' }) },
+          { icon: 'palette', label: 'Edit my look', onClick: () => Profile.edit() },
+          { icon: 'trophy', label: 'Leaderboards', href: '/leaderboards' },
+          { icon: 'magnifying-glass', label: 'Find players', href: '/players' },
+          { icon: 'film-strip', label: 'Credits', href: '/credits' }];
       };
-      const lbBtn = h('a', { class: 'icon-btn hide-sm', href: '/leaderboards', title: 'Leaderboards', 'aria-label': 'Leaderboards' }, '🏆');
-      const muteBtn = h('button', { class: 'icon-btn', title: 'Sound on/off', 'aria-label': 'Toggle sound', onclick: () => Sfx.setMuted(!Sfx.muted) }, Sfx.muted ? '🔇' : '🔊');
-      on('muted', (m) => { muteBtn.textContent = m ? '🔇' : '🔊'; });
+      const lbBtn = h('a', { class: 'icon-btn hide-sm', href: '/leaderboards', title: 'Leaderboards', 'aria-label': 'Leaderboards' }, icon('trophy'));
+      const muteBtn = h('button', { class: 'icon-btn', title: 'Sound on/off', 'aria-label': 'Toggle sound', onclick: () => Sfx.setMuted(!Sfx.muted) }, icon(Sfx.muted ? 'speaker-slash' : 'speaker-high'));
+      on('muted', (m) => { muteBtn.replaceChildren(icon(m ? 'speaker-slash' : 'speaker-high')); });
       const pill = h('span', { class: 'online-pill hide-sm' }, h('span', { class: 'dot' }), h('span', { class: 'txt' }, 'Connecting…'));
       const setPill = (count) => { $('.txt', pill).textContent = `${count} online`; };
       Net.on('online', (m) => setPill(m.count));
       on('net', (ok) => { pill.classList.toggle('offline', !ok); if (!ok) $('.txt', pill).textContent = 'Reconnecting…'; });
       const bar = h('header', { class: 'topbar' },
-        back ? h('a', { class: 'back-link', href: '/' }, '←', h('span', { class: 'hide-sm' }, ' Arcade')) : null,
+        back ? h('a', { class: 'back-link', href: '/' }, icon('arrow-left'), h('span', { class: 'hide-sm' }, 'Arcade')) : null,
         h('a', { class: 'logo', href: '/' }, h('span', { class: 'logo-mark' }, '🕹️'), h('span', { class: 'logo-word hide-sm' }, h('span', {}, 'PARTY'), h('span', {}, ' ARCADE'))),
         title ? h('div', { class: 'page-title' }, emoji ? h('span', {}, emoji) : null, h('span', {}, title)) : null,
         h('div', { class: 'spacer' }),
@@ -785,5 +889,12 @@
     Sfx.play('boing');
   });
 
-  window.PA = { $, $$, h, fill, esc, rand, clamp, sleep, fmtMoney, fmtTime, store, on, emit, Profile, Account, Net, Sfx, UI, AVATARS, COLORS };
+  // static pages can ask for an icon with data-icon="name"
+  const startArt = () => {
+    document.querySelectorAll('[data-icon]').forEach((el) => { if (!el.querySelector('svg.ico')) el.prepend(icon(el.dataset.icon)); });
+    Emoji.watch();
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startArt); else startArt();
+
+  window.PA = { $, $$, h, fill, esc, rand, clamp, sleep, fmtMoney, fmtTime, store, on, emit, Profile, Account, Net, Sfx, UI, Emoji, icon, AVATARS, COLORS };
 })();

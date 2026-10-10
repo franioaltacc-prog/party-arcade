@@ -130,7 +130,7 @@
       h('p', { class: 'fake-note', style: { marginBottom: '14px' } }, '🪙 Fake coins only — no real money, nothing to buy. Coins reset every match.'),
       h('div', { class: 'set-grid' },
         h('div', {}, h('div', { class: 'label-h' }, 'Starting coins'), h('div', { class: 'row wrap', style: { gap: '6px' } }, seg('startCoins', [500, 1000, 5000], fmt), numIn('startCoins', 100, 1000000))),
-        h('div', {}, h('div', { class: 'label-h' }, 'How to win'), seg('winMode', ['time', 'rounds', 'target'], (v) => ({ time: '⏱ Time limit', rounds: '🔁 Rounds', target: '🎯 First to' }[v]))),
+        h('div', {}, h('div', { class: 'label-h' }, 'How to win'), seg('winMode', ['time', 'rounds', 'target'], (v) => ({ time: '⏱️ Time limit', rounds: '🔁 Rounds', target: '🎯 First to' }[v]))),
         st.winMode === 'time' ? h('div', {}, h('div', { class: 'label-h' }, 'Minutes'), seg('minutes', [5, 10, 20, 30], (v) => `${v} min`))
           : st.winMode === 'rounds' ? h('div', {}, h('div', { class: 'label-h' }, 'Rounds (any table)'), h('div', { class: 'row wrap', style: { gap: '6px' } }, seg('rounds', [10, 20, 30, 50]), numIn('rounds', 5, 500)))
             : h('div', {}, h('div', { class: 'label-h' }, 'Target coins'), h('div', { class: 'row wrap', style: { gap: '6px' } }, seg('target', [5000, 10000, 25000], fmt), numIn('target', 200, 100000000))),
@@ -159,7 +159,7 @@
         card2('💰 Biggest single win', r.biggestWin, r.biggestWin ? `+${fmt(r.biggestWin.value)}${r.biggestWin.game ? ' · ' + r.biggestWin.game : ''}` : ''),
         card2('💸 Biggest loss', r.biggestLoss, r.biggestLoss ? `-${fmt(r.biggestLoss.value)}` : ''),
         card2('🎲 Most games played', r.mostPlayed, r.mostPlayed ? `${r.mostPlayed.value} games` : ''),
-        h('div', { class: 'res-card' }, h('div', { class: 't' }, '⏱ Match'), h('div', { class: 'v' }, `${Math.floor(r.duration / 60)}m ${r.duration % 60}s`), h('div', { class: 'small muted' }, `${r.rounds} rounds`))),
+        h('div', { class: 'res-card' }, h('div', { class: 't' }, '⏱️ Match'), h('div', { class: 'v' }, `${Math.floor(r.duration / 60)}m ${r.duration % 60}s`), h('div', { class: 'small muted' }, `${r.rounds} rounds`))),
       h('table', { class: 'table results-box' }, h('thead', {}, h('tr', {}, h('th', {}, '#'), h('th', {}, 'Player'), h('th', {}, 'Coins'), h('th', {}, 'Games'))),
         h('tbody', {}, r.ranking.map((p, i) => h('tr', {}, h('td', {}, ['🥇', '🥈', '🥉'][i] || i + 1), h('td', {}, h('div', { class: 'row' }, UI.avatar(p, 'sm'), h('b', {}, p.name), p.out ? ' 💀' : '')), h('td', { class: 'mono bold', style: { color: 'var(--gold)' } }, fmt(p.coins)), h('td', {}, p.played))))),
       h('hr', { style: { border: 0, borderTop: '1px solid var(--border)', margin: '20px 0 6px' } }));
@@ -189,7 +189,7 @@
     const num = h('span', { class: 'n' + (old != null && n > old ? ' up' : old != null && n < old ? ' down' : '') }, fmt(n));
     const alive = S.scores.filter((r) => !r.out).length;
     let status;
-    if (st.winMode === 'time') status = h('span', { id: 'clock' }, '⏱ …');
+    if (st.winMode === 'time') status = h('span', { id: 'clock' }, '⏱️ …');
     else if (st.winMode === 'rounds') status = `🔁 Round ${Math.min(S.info.rounds + 1, st.rounds)} / ${st.rounds}`;
     else status = `🎯 First to ${fmt(st.target)} coins`;
     fill($('#match-bar'),
@@ -208,7 +208,7 @@
     const el = document.getElementById('clock');
     if (!el || S.info.endsIn == null) return;
     const s = Math.max(0, Math.round(S.info.endsIn - (performance.now() - infoAt) / 1000));
-    el.textContent = `⏱ ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')} left`;
+    el.textContent = `⏱️ ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')} left`;
     el.style.color = s <= 30 ? 'var(--red)' : '';
   }
 

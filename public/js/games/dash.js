@@ -674,10 +674,14 @@
     ctx.strokeStyle = 'rgba(0,0,0,0.35)';
     ctx.lineWidth = Math.max(1, S * 0.05);
     ctx.strokeRect(-S / 2 + S * 0.16, -S / 2 + S * 0.16, S * 0.68, S * 0.68);
-    ctx.font = `${Math.round(S * 0.62)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(emoji, 0, S * 0.04);
+    const im = PA.Emoji.image(emoji);
+    if (im) ctx.drawImage(im, -S * 0.36, -S * 0.36, S * 0.72, S * 0.72);
+    else {
+      ctx.font = `${Math.round(S * 0.62)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(emoji, 0, S * 0.04);
+    }
     ctx.restore();
   }
 
@@ -938,7 +942,7 @@
     state.wins = m.wins || {};
     const wasRacing = game && game.mode === 'race';
     setTimeout(() => {
-      if (game && game.mode === 'race' && !game.finished) UI.toast('⏱ Time’s up!', 'bad');
+      if (game && game.mode === 'race' && !game.finished) UI.toast('⏱️ Time’s up!', 'bad');
       if (wasRacing || !game) { showScreen('room'); renderRoomMain(); Lobby.refreshPlayers(); }
       if (m.results[0] && m.results[0].id === Net.id && m.results[0].done) UI.confetti(200);
     }, wasRacing && game && game.finished ? 1800 : 300);

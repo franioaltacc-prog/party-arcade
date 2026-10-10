@@ -1,7 +1,7 @@
 /* Shared room flow for online games: entry screen, invite code, players, chat. */
 (() => {
   'use strict';
-  const { $, h, fill, Net, Sfx, UI, Profile, Account } = PA;
+  const { $, h, fill, Net, Sfx, UI, Profile, Account, icon } = PA;
   const FX = PA.FX || {};
   const G = FX.on ? FX.gsap : null;
 
@@ -50,7 +50,7 @@
       if (!text) return;
       input.value = '';
       if (onSend) onSend(text); else Net.send('chat', { text });
-    } }, input, h('button', { class: 'btn btn-cyan btn-sm', type: 'submit' }, 'Send'));
+    } }, input, h('button', { class: 'btn btn-cyan btn-sm', type: 'submit', title: 'Send', 'aria-label': 'Send' }, icon('paper-plane-tilt')));
     fill(el, ...(title ? [h('div', { class: 'panel-title' }, title)] : []), h('div', { class: 'chat' }, log, form));
     el.style.display = 'flex';
     el.style.flexDirection = 'column';
@@ -86,8 +86,8 @@
         h('div', { class: 'code-card' },
           h('div', { class: 'code', title: 'Room code' }, Room.code || '----'),
           h('div', { class: 'col' },
-            h('button', { class: 'btn btn-yellow btn-block', onclick: () => { UI.copy(Room.inviteLink(), 'Invite link copied! Send it to your friends 🚀'); Sfx.play('coin'); } }, '🔗 Copy invite link'),
-            h('button', { class: 'btn btn-ghost btn-sm btn-block', onclick: leave }, '🚪 Leave room'),
+            h('button', { class: 'btn btn-yellow btn-block', onclick: () => { UI.copy(Room.inviteLink(), 'Invite link copied! Send it to your friends 🚀'); Sfx.play('coin'); } }, icon('link'), 'Copy invite link'),
+            h('button', { class: 'btn btn-ghost btn-sm btn-block', onclick: leave }, icon('door-open'), 'Leave room'),
           ),
           h('p', { class: 'tiny faint', style: { marginTop: '10px' } }, 'Friends can also type the code on the Party Arcade home page.'),
         ),
@@ -206,7 +206,7 @@
     if (adminPanel) { closeAdminPanel(); return; }
     const list = CHEATS[opts.game] || [];
     adminPanel = h('div', { class: 'admin-panel', role: 'dialog', 'aria-label': 'Admin cheats' },
-      h('div', { class: 'ap-head' }, h('b', {}, '🛡️ Admin cheats'), h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: closeAdminPanel }, '✕')),
+      h('div', { class: 'ap-head' }, h('b', {}, '🛡️ Admin cheats'), h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: closeAdminPanel }, icon('x'))),
       h('p', { class: 'tiny muted' }, 'Games where you cheat don’t count for leaderboards.'),
       list.map(([action, label, local]) => h('button', { class: 'btn btn-ghost btn-sm btn-block', onclick: () => runCheat(action, local) }, label)),
       h('a', { class: 'btn btn-ghost btn-sm btn-block', href: '/admin' }, '🛡️ Open admin panel'));
@@ -217,7 +217,7 @@
   function syncAdmin() {
     const show = Account.admin && CHEATS[opts.game];
     if (show && !adminFab) {
-      adminFab = h('button', { class: 'admin-fab', title: 'Admin cheats', 'aria-label': 'Admin cheats', onclick: toggleAdminPanel }, '🛡️');
+      adminFab = h('button', { class: 'admin-fab', title: 'Admin cheats', 'aria-label': 'Admin cheats', onclick: toggleAdminPanel }, icon('shield-star'));
       document.body.append(adminFab);
     } else if (!show && adminFab) {
       adminFab.remove(); adminFab = null; closeAdminPanel();

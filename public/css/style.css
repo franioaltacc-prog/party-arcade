@@ -661,3 +661,16 @@ label.field { display: flex; flex-direction: column; gap: 6px; font-weight: 600;
 .roll-who { font-family: var(--font-display); font-size: clamp(1.4rem, 4.5vw, 2.2rem); margin-top: 6px; }
 .roll-who.small { font-family: var(--font); font-weight: 700; font-size: clamp(1rem, 3vw, 1.3rem); }
 @media (max-width: 760px) { .cr-main { grid-template-columns: 1fr; } }
+
+/* ---------- 3D emoji (Fluent) + icons (Phosphor) ---------- */
+img.emo { display: inline-block; width: 1.2em; height: 1.2em; margin: 0 0.04em; vertical-align: -0.22em; object-fit: contain; pointer-events: none; user-select: none; -webkit-user-drag: none; }
+.avatar img.emo { width: 1.3em; height: 1.3em; margin: 0; vertical-align: middle; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.25)); }
+.emoji-grid button img.emo { width: 1.35em; height: 1.35em; }
+.entry .game-icon img.emo, .title-card .emoji img.emo, .cr-e img.emo, .hl .e img.emo { filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.35)); }
+svg.ico { width: 1.15em; height: 1.15em; flex: none; vertical-align: -0.2em; }
+.icon-btn svg.ico { width: 20px; height: 20px; }
+.back-link svg.ico { width: 18px; height: 18px; }
+.pop-menu .mi svg.ico { width: 18px; height: 18px; opacity: 0.85; }
+.btn svg.ico { width: 1.1em; height: 1.1em; }
+.admin-fab svg.ico { width: 26px; height: 26px; color: #fde68a; }
+.chat-form .btn { padding-left: 14px; padding-right: 14px; }

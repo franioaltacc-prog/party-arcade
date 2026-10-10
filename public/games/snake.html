@@ -49,6 +49,7 @@
       </div>
     </div>
   </main>
+  <script src="/js/art.js"></script>
   <script src="/js/core.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollTrigger.min.js"></script>
@@ -125,8 +126,10 @@
       for (let i = 0; i <= N; i++) { ctx.beginPath(); ctx.moveTo(i * C, 0); ctx.lineTo(i * C, W); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, i * C); ctx.lineTo(W, i * C); ctx.stroke(); }
       ctx.font = `${C * 0.85}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('🍎', apple.x * C + C / 2, apple.y * C + C / 2 + C * 0.05);
-      if (gold) { ctx.globalAlpha = gold.ttl < 12 ? (gold.ttl % 2 ? 0.4 : 1) : 1; ctx.fillText('⭐', gold.x * C + C / 2, gold.y * C + C / 2); ctx.globalAlpha = 1; }
+      // 3D emoji images when they've loaded, plain emoji text until then
+      const drawEmoji = (e, x, y, size) => { const im = PA.Emoji.image(e); if (im) ctx.drawImage(im, x - size / 2, y - size / 2, size, size); else ctx.fillText(e, x, y + C * 0.05); };
+      drawEmoji('🍎', apple.x * C + C / 2, apple.y * C + C / 2, C * 0.95);
+      if (gold) { ctx.globalAlpha = gold.ttl < 12 ? (gold.ttl % 2 ? 0.4 : 1) : 1; drawEmoji('⭐', gold.x * C + C / 2, gold.y * C + C / 2, C * 0.95); ctx.globalAlpha = 1; }
       const color = Profile.get().color;
       snake.forEach((s, i) => {
         const t = 1 - i / (snake.length + 4);

@@ -788,7 +788,7 @@ hub = Hub()
 # --------------------------------------------------------------------------
 # HTTP + WebSocket server
 # --------------------------------------------------------------------------
-def http_response(writer, status, reason, body=b"", ctype="text/plain; charset=utf-8", head_only=False):
+def http_response(writer, status, reason, body=b"", ctype="text/plain; charset=utf-8", head_only=False, extra=()):
     headers = [
         f"HTTP/1.1 {status} {reason}",
         f"Content-Type: {ctype}",
@@ -796,12 +796,13 @@ def http_response(writer, status, reason, body=b"", ctype="text/plain; charset=u
         "Cache-Control: no-cache",
         "X-Content-Type-Options: nosniff",
         "Connection: close",
+        *extra,
         "", "",
     ]
     writer.write("\r\n".join(headers).encode() + (b"" if head_only else body))
 
 
-async def serve_static(writer, method, path):
+async def serve_static(writer, method, path, headers=None):
     if method not in ("GET", "HEAD"):
         http_response(writer, 405, "Method Not Allowed", b"Method not allowed")
         return
@@ -822,7 +823,13 @@ async def serve_static(writer, method, path):
     ctype = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
     if ctype.startswith("text/") or ctype in ("application/json", "image/svg+xml"):
         ctype += "; charset=utf-8"
-    http_response(writer, 200, "OK", target.read_bytes(), ctype, head_only=(method == "HEAD"))
+    # browsers keep a copy and just ask "has it changed?" next time (304 = no, use yours)
+    info = target.stat()
+    etag = f'"{info.st_mtime_ns:x}-{info.st_size:x}"'
+    if (headers or {}).get("if-none-match") == etag:
+        http_response(writer, 304, "Not Modified", b"", ctype, head_only=True, extra=(f"ETag: {etag}",))
+        return
+    http_response(writer, 200, "OK", target.read_bytes(), ctype, head_only=(method == "HEAD"), extra=(f"ETag: {etag}",))
 
 
 PRIVATE_IP = re.compile(r"^(10\.|127\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::1$|f[cd][0-9a-f]{2}:|fe80:)", re.I)
@@ -930,7 +937,7 @@ async def handle_connection(reader, writer):
             await health(writer)
             await writer.drain()
         else:
-            await serve_static(writer, method, path)
+            await serve_static(writer, method, path, headers)
             await writer.drain()
     except (ConnectionError, OSError):
         pass

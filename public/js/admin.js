@@ -1,7 +1,7 @@
 /* Admin panel. Only admin accounts can use it: the server re-checks every request. */
 (() => {
   'use strict';
-  const { $, h, fill, Net, UI, Account, on } = PA;
+  const { $, h, fill, Net, UI, Account, on, icon } = PA;
   const FX = PA.FX || {};
   const root = $('#admin');
   const GAMES = { dash: ['🟪', 'Neon Dash'], life: ['🏡', 'Family Life'], doodle: ['🎨', 'Doodle Guess'], blitz: ['⚡', 'Party Blitz'], connect4: ['🔴', 'Connect 4'], casino: ['🎰', 'Casino Night'], impostor: ['🕵️', 'Impostor'], mines: ['💣', 'Minesweeper'] };
@@ -86,7 +86,7 @@
     page(
       h('div', { class: 'adm-cards', id: 'adm-cards' }),
       h('div', { class: 'adm-grid' },
-        h('section', { class: 'panel' }, h('div', { class: 'panel-title' }, '🎮 Live rooms', h('button', { class: 'btn btn-ghost btn-sm', style: { marginLeft: 'auto' }, onclick: refresh }, '🔄')), h('div', { id: 'adm-rooms' })),
+        h('section', { class: 'panel' }, h('div', { class: 'panel-title' }, '🎮 Live rooms', h('button', { class: 'btn btn-ghost btn-sm', style: { marginLeft: 'auto' }, onclick: refresh, title: 'Refresh', 'aria-label': 'Refresh' }, icon('arrow-clockwise'))), h('div', { id: 'adm-rooms' })),
         h('div', { class: 'col' },
           h('section', { class: 'panel' }, h('div', { class: 'panel-title' }, '📢 Announcement'),
             h('form', { class: 'row', onsubmit: async (e) => {
@@ -138,7 +138,7 @@
           h('button', { class: 'x', title: `Kick ${p.name}`, onclick: async () => {
             if (!await ask(`Kick ${p.name}?`, 'They can’t come back into this room.', [], 'Kick', true)) return;
             await req('admin:room', { code: r.code, action: 'kick', uid: p.id }); UI.toast(`Kicked ${p.name}`, 'good'); refresh();
-          } }, '✕')))));
+          } }, icon('x'))))));
     }) : h('p', { class: 'muted small' }, 'No rooms right now.'));
 
     fill($('#adm-online'), o.clients.length ? h('div', { class: 'adm-online' }, o.clients.map((c) => h('div', { class: 'adm-on' },
@@ -159,7 +159,7 @@
   }
 
   function userRow(u) {
-    const btn = h('button', { class: 'btn btn-ghost btn-sm' }, 'Actions ▾');
+    const btn = h('button', { class: 'btn btn-ghost btn-sm' }, 'Actions', icon('caret-down'));
     btn.onclick = () => UI.menu(btn, actionsFor(u));
     return h('div', { class: 'adm-user' + (u.banned ? ' banned' : '') }, UI.avatar(u),
       h('div', { class: 'grow' }, h('div', {}, h('b', {}, u.name), u.admin ? h('span', { class: 'tag adm' }, '🛡️ admin') : null, u.banned ? h('span', { class: 'tag ban' }, '🚫 banned') : null),

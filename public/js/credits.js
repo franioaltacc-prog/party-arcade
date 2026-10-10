@@ -1,7 +1,7 @@
 /* Credits: who made Party Arcade, plus a movie-style "roll the credits". */
 (() => {
   'use strict';
-  const { $, h, fill, Net, UI, Sfx } = PA;
+  const { $, h, fill, Net, UI, Sfx, icon } = PA;
   const FX = PA.FX || {};
   const G = FX.on ? FX.gsap : null;
   const root = $('#credits');
@@ -43,6 +43,8 @@
     ['🗄️', 'Turso', 'the account database'],
     ['🐙', 'GitHub', 'storing the code'],
     ['🤖', 'Claude by Anthropic', 'the AI that wrote the code with Franio'],
+    ['😀', 'Fluent Emoji by Microsoft', '3D emoji (via LobeHub’s CDN)'],
+    ['✏️', 'Phosphor Icons', 'button icons'],
   ];
 
   const INSPIRED = ['Geometry Dash (RobTop Games)', 'BitLife (Candywriter)', 'Pictionary & skribbl.io', 'Spyfall-style "who\'s the impostor?" word games',
@@ -121,7 +123,7 @@
     const close = () => { if (tween) tween.kill(); overlay.remove(); removeEventListener('keydown', onKey); };
     const onKey = (e) => { if (e.key === 'Escape') close(); };
     const overlay = h('div', { class: 'roll', role: 'dialog', 'aria-label': 'Credits', onclick: close },
-      h('button', { class: 'icon-btn roll-x', 'aria-label': 'Close', onclick: close }, '✕'), track);
+      h('button', { class: 'icon-btn roll-x', 'aria-label': 'Close', onclick: close }, icon('x')), track);
     document.body.append(overlay);
     addEventListener('keydown', onKey);
     if (!G) { track.style.position = 'static'; overlay.style.overflow = 'auto'; return; }
