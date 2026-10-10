@@ -108,6 +108,13 @@
       <circle cx="100" cy="60" r="44" fill="#111"/><circle cx="86" cy="44" r="16" fill="rgba(255,255,255,.12)"/>
       <circle cx="100" cy="60" r="18" fill="#fff"/><text x="100" y="61" text-anchor="middle" dominant-baseline="central" font-size="20" font-weight="800" fill="#111" font-family="Fredoka, sans-serif">8</text>`, '#1e1b4b', '#312e81'),
   };
+  ART.front = svg('front', `
+      <path d="M18 72 C26 42 66 30 94 44 C122 24 162 30 182 56 C192 82 162 102 122 96 C92 110 50 106 30 94 Z" fill="#2f5a3c"/>
+      <path d="M18 72 C26 42 66 30 94 44 L100 70 C80 90 50 102 30 94 Z" fill="#ff4fd8" opacity=".6" stroke="#ff9be9" stroke-width="1.5"/>
+      <path d="M94 44 C122 24 162 30 182 56 L150 76 L100 70 Z" fill="#22d3ee" opacity=".6" stroke="#7ff0ff" stroke-width="1.5"/>
+      <path d="M100 70 L150 76 L182 56 C192 82 162 102 122 96 C102 100 94 90 100 70 Z" fill="#facc15" opacity=".6" stroke="#fde68a" stroke-width="1.5"/>
+      ${emoji(58, 70, 20, '🏙️')}${emoji(140, 50, 18, '🚀')}${emoji(132, 84, 17, '🛡️')}${emoji(176, 104, 16, '⛵')}${emoji(80, 26, 18, '☢️')}`, '#0b1a3a', '#123068');
+  ART['front-solo'] = ART.front.replaceAll('g-front', 'g-front2').replace('#0b1a3a', '#1e1b4b').replace('#123068', '#0f766e');
   ART['mines-solo'] = ART.mines.replaceAll('g-mines', 'g-mines2').replace('#0f172a', '#14532d').replace('#4338ca', '#0d9488');
   ART['dash-solo'] = ART.dash.replaceAll('g-dash', 'g-dash2').replace('#2e1065', '#082f49').replace('#9333ea', '#0891b2');
 
@@ -117,6 +124,7 @@
     { key: 'life', title: 'Family Life', icon: '🏡', desc: 'A multiplayer BitLife where you and your friends are siblings in one family. Vote to age up, plan family trips, prank each other. Best life wins!', players: '1–4 siblings', glow: 'rgba(34,197,94,.6)', feature: true },
     { key: 'doodle', title: 'Doodle Guess', icon: '🎨', desc: 'One person draws, everyone guesses. Fast fingers win!', players: '2–12 players', glow: 'rgba(244,63,94,.6)' },
     { key: 'impostor', title: 'Impostor', icon: '🕵️', desc: 'Everyone knows the secret word… except the impostor. Give one clue each, argue it out, and vote out the faker!', players: '3–10 players', glow: 'rgba(244,63,94,.6)', isNew: true },
+    { key: 'front', title: 'Front Wars', icon: '🌍', desc: 'Conquer the world! Grab land, build cities, send boats and nukes. Free-for-all or teams, with friends and bots. Inspired by OpenFront.', players: '1–8 players + bots', glow: 'rgba(34,197,94,.6)', isNew: true },
     { key: 'mines', title: 'Minesweeper', icon: '💣', desc: 'Race your friends on the same board, or battle on one shared board for the most squares!', players: '1–8 players', glow: 'rgba(99,102,241,.6)', isNew: true },
     { key: 'blitz', title: 'Party Blitz', icon: '⚡', desc: 'Rapid-fire minigames: reaction, mashing, math, memory and more.', players: '1–12 players', glow: 'rgba(250,204,21,.6)' },
     { key: 'casino', title: 'Casino Night', icon: '🎰', desc: 'Fake-coin casino party: roulette, blackjack, slots, dice, poker and 1v1 duels. Most coins wins!', players: '1–6 players', glow: 'rgba(251,191,36,.6)' },
@@ -124,6 +132,7 @@
   ];
   const SOLO = [
     { key: 'dash-solo', href: '/games/dash?solo=1', title: 'Neon Dash Practice', icon: '🟦', desc: 'Train on random levels and chase your best times.', players: 'Solo' },
+    { key: 'front-solo', href: '/games/front?solo=1', title: 'Front Wars vs Bots', icon: '🤖', desc: 'Take on up to 40 bots and conquer the whole map. Easy, medium or hard!', players: 'Solo', isNew: true },
     { key: 'slope', title: 'Slope', icon: '🛝', desc: 'Roll a ball down an endless neon slope. Steer, dodge the red blocks, don’t fall off!', players: 'Solo', isNew: true },
     { key: 'mines-solo', href: '/games/mines?solo=1', title: 'Minesweeper', icon: '💣', desc: 'The classic! Easy, Medium and Hard boards. Your first click is always safe.', players: 'Solo' },
     { key: 'snake', title: 'Neon Snake', icon: '🐍', desc: 'Eat, grow, don’t bite yourself. Gets faster every apple.', players: 'Solo' },

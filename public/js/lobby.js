@@ -14,6 +14,7 @@
     casino: { title: 'Casino Night', emoji: '🎰' },
     impostor: { title: 'Impostor', emoji: '🕵️' },
     mines: { title: 'Minesweeper', emoji: '💣' },
+    front: { title: 'Front Wars', emoji: '🌍' },
   };
 
   const Room = {
@@ -189,6 +190,7 @@
     dash: [['god', '😇 God mode (no deaths)', true], ['skip', '⏩ Teleport to the finish', true]],
     impostor: [['reveal', '🔎 Show impostor & word'], ['skip', '⏭️ Skip this phase'], ['end', '🏁 End the game']],
     mines: [['mines', '💣 X-ray: see all mines'], ['clear', '🧹 Clear the board for me'], ['end', '🏁 End the game']],
+    front: [['troops', '💪 +50,000 troops', true], ['gold', '💰 +100,000 gold', true], ['end', '🏁 End the game']],
   };
   let adminFab = null;
   let adminPanel = null;

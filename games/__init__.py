@@ -3,8 +3,9 @@ from .casino import Casino
 from .connect4 import Connect4
 from .dash import Dash
 from .doodle import Doodle
+from .front import Front
 from .impostor import Impostor
 from .life import Life
 from .mines import Minesweeper
 
-GAMES = {g.key: g for g in (Dash, Life, Doodle, Blitz, Connect4, Casino, Impostor, Minesweeper)}
+GAMES = {g.key: g for g in (Dash, Life, Doodle, Blitz, Connect4, Casino, Impostor, Minesweeper, Front)}

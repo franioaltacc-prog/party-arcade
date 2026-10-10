@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Front Wars · Party Arcade</title>
+  <meta name="theme-color" content="#0b0920">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .fw-setup { max-width: 760px; margin: 0 auto; }
+    .fw-set { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .fw-set .lbl { font-size: .8rem; font-weight: 700; color: var(--muted); margin-bottom: 6px; letter-spacing: .03em; }
+    .fw-set input[type=range] { width: 100%; accent-color: var(--pink); }
+    .fw-bots { font-family: var(--font-display); font-size: 1.3rem; }
+    .mode-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .mode-card { text-align: left; padding: 14px; border-radius: 18px; border: 2px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; }
+    .mode-card b { display: block; font-size: 1.1rem; margin-bottom: 4px; }
+    .mode-card span { font-size: .85rem; color: var(--muted); }
+    .mode-card.on { border-color: var(--pink); background: rgba(255,79,216,.14); }
+    .mode-card:disabled { cursor: default; }
+    .fw-teams { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-top: 12px; }
+    .fw-team { padding: 10px; border-radius: 14px; border: 2px solid color-mix(in srgb, var(--tc) 60%, transparent); background: color-mix(in srgb, var(--tc) 14%, transparent); }
+    .fw-team b { display: block; margin-bottom: 6px; color: var(--tc); }
+    .fw-team .who { display: flex; flex-wrap: wrap; gap: 4px; min-height: 28px; font-size: .85rem; }
+    .fw-team .who span { padding: 2px 8px; border-radius: 999px; background: rgba(0,0,0,.3); }
+    .fw-result { margin-bottom: 14px; padding: 14px; border-radius: 18px; background: linear-gradient(160deg, rgba(250,204,21,.16), rgba(255,79,216,.1)); border: 1px solid rgba(250,204,21,.4); text-align: center; }
+    .fw-result h3 { font-family: var(--font-display); font-weight: 400; font-size: 1.4rem; margin-bottom: 8px; }
+    .fw-result .rr { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 12px; text-align: left; }
+    .fw-result .rr.won { background: rgba(250,204,21,.14); }
+
+    #play { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+    #play.with-chat { grid-template-columns: minmax(0, 1fr) 280px; }
+    #play-chat { height: calc(100vh - 130px); min-height: 380px; }
+    .fw-stage { position: relative; height: calc(100vh - 130px); min-height: 380px; border-radius: 22px; overflow: hidden; background: #070f24; box-shadow: var(--shadow), 0 0 0 1px var(--border); touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+    .fw-stage canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+    .fw-stage.panning canvas { cursor: grabbing; }
+    .fw-hud { position: absolute; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
+    .fw-hud > * { pointer-events: auto; }
+    .fw-box { background: rgba(8, 10, 28, .78); border: 1px solid rgba(255,255,255,.12); border-radius: 14px; padding: 8px 10px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); font-size: .85rem; }
+    .fw-tl { top: 10px; left: 10px; max-width: min(300px, 60%); }
+    .fw-tr { top: 10px; right: 10px; width: min(230px, 42%); }
+    .fw-bottom { left: 10px; right: 10px; bottom: 10px; flex-direction: row; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; }
+    .fw-me { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: center; }
+    .fw-me .big { font-family: var(--font-display); font-size: 1.15rem; line-height: 1.1; }
+    .fw-me .sub { font-size: .75rem; color: var(--muted); }
+    .fw-atk { font-size: .78rem; color: #fecaca; }
+    .fw-lb { display: flex; flex-direction: column; gap: 3px; }
+    .fw-lb .row { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 6px; align-items: center; font-size: .78rem; }
+    .fw-lb .row.me { font-weight: 800; }
+    .fw-lb .row.out { opacity: .4; text-decoration: line-through; }
+    .fw-lb .dot { width: 12px; height: 12px; border-radius: 4px; }
+    .fw-lb .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fw-lb .tm { font-size: .72rem; color: var(--muted); margin-top: 4px; }
+    .fw-lb h4 { font-size: .8rem; margin-bottom: 4px; display: flex; justify-content: space-between; }
+    .fw-ratio { display: flex; align-items: center; gap: 8px; min-width: 220px; }
+    .fw-ratio input { flex: 1; accent-color: #f43f5e; }
+    .fw-ratio b { font-family: var(--font-display); min-width: 46px; text-align: right; }
+    .fw-tools { display: flex; gap: 6px; flex-wrap: wrap; }
+    .fw-tool { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 64px; padding: 6px 8px; border-radius: 12px; border: 1px solid rgba(255,255,255,.14); background: rgba(8,10,28,.85); color: var(--text); cursor: pointer; font: inherit; font-size: .72rem; }
+    .fw-tool .e { font-size: 1.25rem; line-height: 1.1; }
+    .fw-tool small { color: #fde68a; font-weight: 700; }
+    .fw-tool:disabled { opacity: .45; cursor: not-allowed; }
+    .fw-tool.on { border-color: #facc15; box-shadow: 0 0 0 2px rgba(250,204,21,.6), 0 0 18px rgba(250,204,21,.35); }
+    .fw-ctl { display: flex; gap: 6px; }
+    .fw-banner { position: absolute; left: 50%; top: 64px; transform: translateX(-50%); padding: 10px 18px; border-radius: 16px; background: rgba(8,10,28,.85); border: 1px solid rgba(250,204,21,.5); font-weight: 700; text-align: center; pointer-events: none; max-width: 90%; }
+    .fw-over { position: absolute; inset: 0; display: grid; place-items: center; background: radial-gradient(circle, rgba(7,15,36,.55), rgba(7,15,36,.88)); padding: 20px; text-align: center; }
+    .fw-over h2 { font-family: var(--font-display); font-weight: 400; font-size: clamp(2rem, 7vw, 3.6rem); line-height: 1.05; }
+    .fw-over p { color: #cfe; margin: 10px 0 16px; }
+    .fw-tip { position: absolute; pointer-events: none; padding: 5px 9px; border-radius: 10px; background: rgba(8,10,28,.9); border: 1px solid rgba(255,255,255,.15); font-size: .78rem; white-space: nowrap; transform: translate(14px, 14px); }
+    .fw-float { position: absolute; pointer-events: none; font-weight: 800; text-shadow: 0 2px 6px #000; animation: fw-float .9s ease-out forwards; }
+    @keyframes fw-float { from { opacity: 1; transform: translate(-50%, -50%); } to { opacity: 0; transform: translate(-50%, -160%); } }
+    @media (max-width: 900px) { #play.with-chat { grid-template-columns: minmax(0, 1fr); } #play-chat { height: 320px; } }
+    @media (max-width: 640px) {
+      .fw-set, .mode-cards { grid-template-columns: 1fr; }
+      .fw-tr { display: none; }
+      .fw-tl { max-width: 70%; }
+      .fw-tool { min-width: 52px; }
+      .fw-ratio { min-width: 0; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div id="entry"></div>
+
+    <section id="setup" class="hidden fw-setup">
+      <div class="panel">
+        <div class="row" style="align-items:center;gap:10px;margin-bottom:12px">
+          <button class="btn btn-ghost btn-sm" id="setup-back" data-icon="arrow-left">Back</button>
+          <h2 style="margin:0">🤖 Solo vs bots</h2>
+        </div>
+        <div id="setup-body"></div>
+      </div>
+    </section>
+
+    <section id="room" class="hidden room-layout">
+      <div class="col">
+        <div class="panel" id="room-code"></div>
+        <div class="panel" id="room-players"></div>
+      </div>
+      <div class="panel room-main" id="room-main"></div>
+      <div class="panel chat-panel" id="room-chat"></div>
+    </section>
+
+    <section id="play" class="hidden">
+      <div class="fw-stage" id="stage">
+        <canvas id="cv"></canvas>
+        <div class="fw-hud fw-tl" id="hud-me"></div>
+        <div class="fw-hud fw-tr" id="hud-lb"></div>
+        <div class="fw-hud fw-bottom">
+          <div class="fw-box fw-ratio" title="How many of your troops each attack or boat takes (Q / E)">⚔️ <input type="range" id="ratio" min="5" max="100" step="5" aria-label="Attack size"><b id="ratio-val">30%</b></div>
+          <div class="fw-tools" id="tools"></div>
+          <div class="fw-ctl" id="ctl"></div>
+        </div>
+        <div class="fw-banner hidden" id="banner"></div>
+        <div class="fw-tip hidden" id="tip"></div>
+        <div class="fw-over hidden" id="over"></div>
+      </div>
+      <div class="panel hidden" id="play-chat"></div>
+    </section>
+  </main>
+  <script src="/js/art.js"></script>
+  <script src="/js/core.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollTrigger.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/Flip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/SplitText.min.js"></script>
+  <script src="/js/fx.js"></script>
+  <script src="/js/lobby.js"></script>
+  <script src="/js/games/front-core.js"></script>
+  <script src="/js/games/front.js"></script>
+</body>
+</html>

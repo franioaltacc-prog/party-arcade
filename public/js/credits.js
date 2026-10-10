@@ -31,7 +31,7 @@
   const GAMES = [
     ['🟪', 'Neon Dash'], ['🏡', 'Family Life'], ['🎨', 'Doodle Guess'], ['🕵️', 'Impostor'], ['💣', 'Minesweeper'],
     ['⚡', 'Party Blitz'], ['🎰', 'Casino Night'], ['🔴', 'Connect 4'], ['🐍', 'Neon Snake'], ['🔢', '2048'],
-    ['🃏', 'Memory Flip'], ['🛝', 'Slope'], ['🎡', 'Spin the Wheel'], ['🤔', 'Would You Rather'], ['🎱', 'Magic 8-Ball'],
+    ['🃏', 'Memory Flip'], ['🛝', 'Slope'], ['🌍', 'Front Wars'], ['🎡', 'Spin the Wheel'], ['🤔', 'Would You Rather'], ['🎱', 'Magic 8-Ball'],
   ];
 
   const TOOLS = [
@@ -49,7 +49,7 @@
   ];
 
   const INSPIRED = ['Geometry Dash (RobTop Games)', 'BitLife (Candywriter)', 'Pictionary & skribbl.io', 'Spyfall-style "who\'s the impostor?" word games',
-    'Classic Minesweeper', 'Slope (by Rob Kay)', '2048 (Gabriele Cirulli)', 'Snake', 'Connect Four', 'WarioWare-style microgames'];
+    'Classic Minesweeper', 'Slope (by Rob Kay)', 'OpenFront.io', '2048 (Gabriele Cirulli)', 'Snake', 'Connect Four', 'WarioWare-style microgames'];
 
   function render(players) {
     fill(root,

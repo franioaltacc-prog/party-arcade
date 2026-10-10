@@ -57,6 +57,8 @@ BOARDS = {
     "mines_medium": ("💣 Minesweeper fastest (Medium)", "mines_medium.best", "asc", "time"),
     "mines_hard": ("💣 Minesweeper fastest (Hard)", "mines_hard.best", "asc", "time"),
     "slope": ("🛝 Slope best distance", "slope.best", "desc", "int"),
+    "front": ("🌍 Front Wars wins", "front.wins", "desc", "int"),
+    "front_solo": ("🤖 Front Wars solo wins (vs bots)", "frontsolo.wins", "desc", "int"),
 }
 
 # Scores the browser reports for solo games: game -> (stat ops, lowest, highest)
@@ -69,6 +71,7 @@ SOLO = {
     "mines-medium": ("mines_medium", 5000, 3_600_000),
     "mines-hard": ("mines_hard", 20000, 3_600_000),
     "slope": ("slope", 1, 1_000_000),
+    "front-solo": ("frontsolo", 1, 40),   # a win vs this many bots
 }
 FASTEST = {"memory", "dash-solo", "mines-easy", "mines-medium", "mines-hard"}   # solo games where a lower time wins
 
@@ -554,7 +557,9 @@ class Accounts:
         value = int(value)
         if not lo <= value <= hi:
             raise AuthError("That score doesn't look right 🤔")
-        if game == "dash-solo":
+        if game == "front-solo":
+            stats = {"frontsolo.wins": ("add", 1), "frontsolo.best": ("max", value)}
+        elif game == "dash-solo":
             stats = {"dashsolo.levels": ("add", 1), "dashsolo.best": ("min", value)}
         elif game in FASTEST:
             stats = {f"{prefix}.best": ("min", value), f"{prefix}.wins": ("add", 1)}
@@ -568,6 +573,8 @@ class Accounts:
 
     @staticmethod
     def solo_detail(game, value):
+        if game == "front-solo":
+            return f"Beat {value} bot{'s' if value != 1 else ''}"
         if game in FASTEST:
             return f"Finished in {value / 1000:.2f}s"
         return f"Scored {value:,}"
