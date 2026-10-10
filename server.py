@@ -826,7 +826,8 @@ async def serve_static(writer, method, path, headers=None):
     # browsers keep a copy and just ask "has it changed?" next time (304 = no, use yours)
     info = target.stat()
     etag = f'"{info.st_mtime_ns:x}-{info.st_size:x}"'
-    if (headers or {}).get("if-none-match") == etag:
+    sent = [t.strip().removeprefix("W/") for t in (headers or {}).get("if-none-match", "").split(",")]
+    if etag in sent or "*" in sent:
         http_response(writer, 304, "Not Modified", b"", ctype, head_only=True, extra=(f"ETag: {etag}",))
         return
     http_response(writer, 200, "OK", target.read_bytes(), ctype, head_only=(method == "HEAD"), extra=(f"ETag: {etag}",))
