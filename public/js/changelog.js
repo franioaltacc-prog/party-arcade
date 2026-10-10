@@ -6,6 +6,11 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '2.11.0', date: '2026-10-10', emoji: '⚽', title: 'Neon Dash: much harder ball', items: [
+      'New ball parts for Hard and Insane: a lower tunnel, fast spike switches, then pillars with spikes on the other side, so you have to flip at exactly the right moment',
+      'Insane now only uses the two hardest ball parts (about 3× tighter timing than before)',
+      'Every new part is still checked by the solver bot, so it can always be beaten',
+    ] },
     { v: '2.10.0', date: '2026-10-10', emoji: '🔒', title: 'Privacy Policy and this changelog', items: [
       'New Privacy Policy page that explains, in plain English, what the site knows about you and what you can do about it',
       'Links to it on every page, on the sign-up screen and on the guest screen',

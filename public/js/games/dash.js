@@ -139,15 +139,20 @@
     { mode: 'ufo', tier: 3, w: 46, ceil: 7, ops: [['S', 2, 44], ['T', 2, 44], ['W', 8, 1, 3, 2.5], ['W', 14, 1, 1, 2.5], ['W', 20, 1, 4, 2.2], ['W', 26, 1, 2, 2.2], ['O', 31, 3, 'b'], ['W', 35, 1, 2, 2.4], ['W', 41, 1, 3, 2.4]] },
     { mode: 'ball', tier: 1, w: 42, ceil: 7, ops: [['S', 9, 6], ['T', 22, 6], ['S', 34, 5]] },
     { mode: 'ball', tier: 2, w: 44, ceil: 7, ops: [['S', 7, 5], ['T', 16, 5], ['S', 25, 4], ['T', 33, 4], ['F', 40, 1, 2]] },
-    { mode: 'ball', tier: 3, w: 46, ceil: 7, ops: [['S', 6, 4], ['T', 13, 4], ['S', 20, 3], ['T', 26, 3], ['O', 31, 3, 'b'], ['S', 29, 8], ['T', 39, 4]] },
+    // harder ball parts: a lower tunnel, fast spike switches, then pillars with spikes on the
+    // other side, so you have to flip at just the right moment to slip past each one
+    { mode: 'ball', tier: 3, w: 51, ceil: 6, ops: [['S', 4, 2], ['T', 8, 2], ['S', 12, 2], ['T', 16, 2],
+      ['F', 25, 2, 2], ['T', 24, 3], ['C', 34, 2, 2], ['S', 33, 3], ['F', 43, 2, 2], ['T', 42, 3]] },
+    { mode: 'ball', tier: 4, w: 59, ceil: 6, ops: [['S', 4, 2], ['T', 8, 2], ['S', 12, 2], ['T', 16, 2],
+      ['F', 25, 2, 3], ['T', 24, 3], ['C', 34, 2, 3], ['S', 33, 3], ['F', 43, 2, 3], ['T', 42, 3], ['C', 52, 2, 3], ['S', 51, 3]] },
     { mode: 'wave', tier: 2, w: 36, ceil: 7, ops: [], slopes: corridor(36, 4.4, [[6, 2.3], [8.4, 4.7], [10.8, 2.3], [13.8, 2.3], [16.2, 4.7], [19.2, 4.7], [21.6, 2.3], [24.6, 2.3], [26.1, 3.8], [27.6, 2.3]]) },
     { mode: 'wave', tier: 3, w: 34, ceil: 7, ops: [], slopes: corridor(34, 4.2, [[5, 2.2], [7.6, 4.8], [9.6, 2.8], [11.6, 4.8], [14.2, 2.2], [16.2, 4.2], [18.2, 2.2], [20.8, 4.8], [22.8, 2.8], [24.8, 4.8], [27.4, 2.2]]) },
   ];
   const SECTION_POOL = {
     easy: { chance: 0.12, modes: { ship: [1], ufo: [1] } },
     normal: { chance: 0.16, modes: { ship: [1, 2], ufo: [1, 2], ball: [1] } },
-    hard: { chance: 0.2, modes: { ship: [2, 3], ufo: [2], ball: [1, 2], wave: [2] } },
-    insane: { chance: 0.24, modes: { ship: [2, 3], ufo: [2, 3], ball: [2, 3], wave: [2, 3] } },
+    hard: { chance: 0.2, modes: { ship: [2, 3], ufo: [2], ball: [2, 3], wave: [2] } },
+    insane: { chance: 0.24, modes: { ship: [2, 3], ufo: [2, 3], ball: [3, 4], wave: [2, 3] } },
   };
 
   /** Turn a tunnel's building steps into objects (y = 0 is the floor). Heights can be
