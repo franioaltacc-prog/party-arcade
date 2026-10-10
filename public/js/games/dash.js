@@ -44,7 +44,7 @@
       ['..o...o..', '.........', '^^^^^^^^^'],
       ['#^^^#'],
       ['..........', '..........', '...r......', '.......###', '^^^^^^^###'],
-      ['......p...p...p..', '.................', '....^^^^^^^^^^^^^'],
+      ['......p..p..p...', '................', '....^^^^^^^^^^^^'],
     ],
     4: [
       ['^^^.^^^'], ['#^^^#^^^#'],
@@ -53,7 +53,7 @@
       ['##.....##', '##^^^^^##'],
       ['=..^^^^#^^^'],
       ['.........', '.........', '..r......', '......###', '......###', '^^^^^^###'],
-      ['..o...p...r....', '...............', '...............', '^^^^^^^^^^^^^^^'],
+      ['..o...p...r....', '...............', '^^^^^^^^^^^^^^^'],
     ],
   };
   const TIER_MIX = {
@@ -103,8 +103,8 @@
   // tunnels (floor + ceiling) and the physics clamps you inside them, so nobody can
   // fly out of the level. The normal cube parts have a hard ceiling too (WORLD_TOP).
   const MODE_DIMS = { cube: [0.97, 0.97], ship: [0.97, 0.7], ufo: [0.97, 0.8], ball: [0.9, 0.9], wave: [0.6, 0.6] };
-  const SHIP_ACC = 62;
-  const SHIP_MAX = 9.5;
+  const SHIP_ACC = 36;   // gentle, so the ship glides instead of wobbling
+  const SHIP_MAX = 7;
   const UFO_GRAV = 52;
   const UFO_FLAP = 12.5;
   const UFO_FALL = 13;
@@ -122,8 +122,8 @@
   //   ^ x y / v x y  one spike            O x y t  orb (b = blue: flips gravity)
   const SECTIONS = [
     { mode: 'ship', tier: 1, w: 44, ceil: 7, ops: [['S', 4, 3], ['F', 9, 2, 4], ['S', 13, 3], ['C', 18, 2, 3], ['F', 27, 2, 4], ['S', 31, 3], ['C', 36, 2, 3]] },
-    { mode: 'ship', tier: 2, w: 46, ceil: 7, ops: [['S', 3, 4], ['F', 8, 2, 4], ['^', 8, 4], ['^', 9, 4], ['C', 15, 2, 4], ['F', 22, 2, 4], ['C', 29, 2, 4], ['S', 31, 4], ['F', 36, 2, 3], ['C', 41, 2, 3]] },
-    { mode: 'ship', tier: 3, w: 50, ceil: 7, ops: [['S', 2, 48], ['C', 6, 3, 5], ['F', 17, 3, 4], ['T', 16, 5], ['C', 28, 3, 5], ['F', 39, 3, 4], ['T', 38, 5]] },
+    { mode: 'ship', tier: 2, w: 50, ceil: 7, ops: [['S', 3, 4], ['F', 9, 2, 4], ['^', 9, 4], ['^', 10, 4], ['C', 19, 2, 4], ['F', 29, 2, 4], ['S', 33, 4], ['C', 39, 2, 3], ['F', 46, 2, 3]] },
+    { mode: 'ship', tier: 3, w: 54, ceil: 7, ops: [['S', 2, 16], ['C', 6, 3, 4], ['F', 18, 3, 4], ['T', 17, 5], ['S', 22, 12], ['C', 30, 3, 4], ['F', 42, 3, 4], ['T', 41, 5], ['S', 46, 6]] },
     { mode: 'ufo', tier: 1, w: 40, ceil: 7, ops: [['S', 4, 4], ['W', 9, 2, 3, 3], ['S', 12, 5], ['W', 18, 2, 1, 3], ['S', 21, 5], ['W', 27, 2, 3, 3], ['S', 30, 6]] },
     { mode: 'ufo', tier: 2, w: 44, ceil: 7, ops: [['S', 3, 41], ['W', 8, 2, 2, 3], ['W', 15, 2, 4, 2.5], ['W', 22, 2, 1, 2.5], ['W', 29, 2, 3, 2.5], ['W', 36, 2, 2, 2.5]] },
     { mode: 'ufo', tier: 3, w: 46, ceil: 7, ops: [['S', 2, 44], ['T', 2, 44], ['W', 8, 1, 3, 2.5], ['W', 14, 1, 1, 2.5], ['W', 20, 1, 4, 2.2], ['W', 26, 1, 2, 2.2], ['O', 31, 3, 'b'], ['W', 35, 1, 2, 2.4], ['W', 41, 1, 3, 2.4]] },
@@ -137,7 +137,7 @@
     easy: { chance: 0.12, modes: { ship: [1], ufo: [1] } },
     normal: { chance: 0.16, modes: { ship: [1, 2], ufo: [1, 2], ball: [1] } },
     hard: { chance: 0.2, modes: { ship: [2, 3], ufo: [2], ball: [1, 2], wave: [2] } },
-    insane: { chance: 0.24, modes: { ship: [3], ufo: [2, 3], ball: [2, 3], wave: [2, 3] } },
+    insane: { chance: 0.24, modes: { ship: [2, 3], ufo: [2, 3], ball: [2, 3], wave: [2, 3] } },
   };
 
   /** Turn a tunnel's building steps into objects (y = 0 is the floor). Heights can be
@@ -253,7 +253,7 @@
     const h = MODE_DIMS[mode][1];
     if (sec && pl.y + h > sec.ceil) pl.y = sec.ceil - h;   // never start inside or above a tunnel's ceiling
     if (mode === 'cube') { pl.grounded = false; pl.jumped = true; pl.air = 1; }
-    else pl.vy = Math.max(-6, Math.min(6, pl.vy));
+    else { pl.vy = Math.max(-6, Math.min(6, pl.vy)); if (mode !== 'ball') pl.rot = 0; }
     ev && ev.push('portal');
   }
 
@@ -328,9 +328,10 @@
       ev && ev.push('jump');
     }
     pl.buffer = Math.max(0, pl.buffer - dt);
-    if (mode === 'ship') pl.rot = -Math.atan2(pl.vy, SPEED) * 180 / Math.PI;
+    // ship and UFO tilt smoothly toward where they're heading instead of snapping
+    if (mode === 'ship') pl.rot += (-Math.atan2(pl.vy, SPEED * 1.4) * 180 / Math.PI - pl.rot) * Math.min(1, dt * 12);
     else if (mode === 'wave') pl.rot = pl.vy > 0 ? -42 : 42;
-    else if (mode === 'ufo') pl.rot = Math.max(-18, Math.min(18, -pl.vy * 1.5));
+    else if (mode === 'ufo') pl.rot += (Math.max(-18, Math.min(18, -pl.vy * 1.5)) - pl.rot) * Math.min(1, dt * 14);
     else pl.rot += 620 * dt * pl.g;
     if (pl.grounded && !wasGrounded && mode !== 'ship' && mode !== 'wave') ev && ev.push('land');
   }
@@ -504,7 +505,7 @@
   new ResizeObserver(resize).observe(stage);
 
   let game = null;       // current session
-  if (location.hostname === 'localhost') window.__dashGame = () => game;   // for testing on your own computer only
+  if (location.hostname === 'localhost') { window.__dashGame = () => game; window.__dashDraw = (now) => draw(now); }   // for testing on your own computer only
   let hold = false;
 
   const ghosts = new Map();
@@ -756,8 +757,10 @@
       cg.addColorStop(1, 'rgba(0,0,0,0.75)');
       ctx.fillStyle = cg;
       ctx.fillRect(xa, 0, xb - xa, yc);
-      ctx.shadowColor = col; ctx.shadowBlur = 14;
       ctx.fillStyle = col;
+      ctx.globalAlpha = 0.25;
+      ctx.fillRect(xa, yc - 5, xb - xa, 10);
+      ctx.globalAlpha = 1;
       ctx.fillRect(xa, yc - 1.5, xb - xa, 3);
       ctx.restore();
       drawPortal(sec.x0, 0, Math.min(sec.ceil, 4.2), sec.mode, sx, sy, S, now);
@@ -778,13 +781,52 @@
       ctx.fillRect(fx + cell * 2, 0, W, groundPx);
     }
 
-    // objects
+    // objects. Blocks and spikes are gathered into one shape each and drawn in one go:
+    // a glow per spike made the spiky tunnels (UFO!) slow on fast-refresh screens.
     const t = now / 1000;
+    const fills = new Path2D();
+    const blocks = new Path2D();
+    const inner = new Path2D();
+    const spikes = new Path2D();
+    const extras = [];
     for (let c = viewL; c <= viewR; c++) {
       const col = g.level.cols[c];
       if (!col) continue;
-      for (const o of col) drawObj(o, sx(o.x), sy(o.y + 1), S, th, t, g.player.used.has(o));
+      for (const o of col) {
+        const x = sx(o.x);
+        const y = sy(o.y + 1);
+        if (o.t === '#') {
+          fills.rect(x, y, S, S);
+          blocks.rect(x + 1, y + 1, S - 2, S - 2);
+          inner.rect(x + S * 0.25, y + S * 0.25, S * 0.5, S * 0.5);
+        } else if (o.t === '^') {
+          spikes.moveTo(x + S * 0.08, y + S); spikes.lineTo(x + S / 2, y + S * 0.08); spikes.lineTo(x + S * 0.92, y + S); spikes.closePath();
+        } else if (o.t === 'v') {
+          spikes.moveTo(x + S * 0.08, y); spikes.lineTo(x + S / 2, y + S * 0.92); spikes.lineTo(x + S * 0.92, y); spikes.closePath();
+        } else extras.push(o);
+      }
     }
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fill(fills);
+    ctx.strokeStyle = th.line;
+    ctx.lineWidth = Math.max(1.5, S * 0.06);
+    ctx.stroke(blocks);
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 1;
+    ctx.stroke(inner);
+    ctx.fillStyle = '#0a0612';
+    ctx.fill(spikes);
+    ctx.save();
+    ctx.strokeStyle = th.line;
+    ctx.lineJoin = 'round';
+    ctx.globalAlpha = 0.22;
+    ctx.lineWidth = Math.max(5, S * 0.2);
+    ctx.stroke(spikes);
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = Math.max(1.5, S * 0.06);
+    ctx.stroke(spikes);
+    ctx.restore();
+    for (const o of extras) drawObj(o, sx(o.x), sy(o.y + 1), S, th, t, g.player.used.has(o));
 
     // ground
     const gy = sy(0);
@@ -799,10 +841,11 @@
       if (c % 3) continue;
       ctx.beginPath(); ctx.moveTo(sx(c), gy); ctx.lineTo(sx(c), H); ctx.stroke();
     }
-    ctx.shadowColor = th.line; ctx.shadowBlur = 14;
     ctx.fillStyle = th.line;
+    ctx.globalAlpha = 0.25;
+    ctx.fillRect(0, gy - 5, W, 10);
+    ctx.globalAlpha = 1;
     ctx.fillRect(0, gy - 1.5, W, 3);
-    ctx.shadowBlur = 0;
 
     // "Attempt N" text
     if (g.attempts > 1 || g.mode === 'solo') {
@@ -840,11 +883,15 @@
     const p = g.player;
     if (p.mode === 'wave' && g.trail.length > 1) {
       ctx.save();
-      ctx.strokeStyle = me.color; ctx.lineWidth = Math.max(3, S * 0.14); ctx.lineJoin = 'round';
-      ctx.shadowColor = me.color; ctx.shadowBlur = 12;
+      ctx.strokeStyle = me.color; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
       ctx.beginPath();
       g.trail.forEach((tr, i) => { const X = sx(tr.wx), Y = sy(tr.wy); if (i) ctx.lineTo(X, Y); else ctx.moveTo(X, Y); });
       ctx.lineTo(sx(p.x + 0.3), sy(p.y + 0.3));
+      ctx.globalAlpha = 0.25;
+      ctx.lineWidth = Math.max(8, S * 0.36);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.lineWidth = Math.max(3, S * 0.14);
       ctx.stroke();
       ctx.restore();
     }
@@ -862,29 +909,9 @@
     if (g.flash) { ctx.fillStyle = `rgba(255,255,255,${g.flash * 0.25})`; ctx.fillRect(0, 0, W, H); }
   }
 
+  /** Pads and orbs (blocks and spikes are drawn in bulk in draw()). */
   function drawObj(o, x, y, S, th, t, used) {
-    if (o.t === '#') {
-      ctx.fillStyle = 'rgba(0,0,0,0.55)';
-      ctx.fillRect(x, y, S, S);
-      ctx.strokeStyle = th.line;
-      ctx.lineWidth = Math.max(1.5, S * 0.06);
-      ctx.strokeRect(x + 1, y + 1, S - 2, S - 2);
-      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(x + S * 0.25, y + S * 0.25, S * 0.5, S * 0.5);
-    } else if (o.t === '^' || o.t === 'v') {
-      const up = o.t === '^';
-      ctx.beginPath();
-      if (up) { ctx.moveTo(x + S * 0.08, y + S); ctx.lineTo(x + S / 2, y + S * 0.08); ctx.lineTo(x + S * 0.92, y + S); }
-      else { ctx.moveTo(x + S * 0.08, y); ctx.lineTo(x + S / 2, y + S * 0.92); ctx.lineTo(x + S * 0.92, y); }
-      ctx.closePath();
-      ctx.fillStyle = '#0a0612';
-      ctx.fill();
-      ctx.shadowColor = th.line; ctx.shadowBlur = 10;
-      ctx.strokeStyle = th.line; ctx.lineWidth = Math.max(1.5, S * 0.06);
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-    } else if (o.t === '=' || o.t === '_') {
+    if (o.t === '=' || o.t === '_') {
       const c = o.t === '=' ? '#facc15' : '#f472b6';
       ctx.globalAlpha = used ? 0.4 : 1;
       ctx.fillStyle = c;
