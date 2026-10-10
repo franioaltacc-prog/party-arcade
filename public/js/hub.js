@@ -129,7 +129,7 @@
     const badge = kind === 'online' ? h('span', { class: 'badge online' }, '● Online') : kind === 'solo' ? h('span', { class: 'badge solo' }, 'Solo') : h('span', { class: 'badge fun' }, 'Fun');
     const live = h('span', { class: 'live', 'data-live': g.key }, h('span', { class: 'dot' }), h('span', { class: 'n' }, '0'), ' playing');
     const thumb = h('div', { class: 'thumb', html: ART[g.key] || '' }, badge, kind === 'online' ? live : null,
-      g.isNew ? h('span', { class: 'badge new', style: { position: 'absolute', left: '10px', bottom: '10px' } }, '✨ New') : null);
+      g.isNew ? h('span', { class: 'badge new new-tag' }, '✨ New') : null);
     return h('a', { class: 'game-card' + (g.feature ? ' feature' : ''), href, style: g.glow ? { '--glow': g.glow } : null, onclick: () => Sfx.play('pop') },
       thumb,
       h('div', { class: 'info' },

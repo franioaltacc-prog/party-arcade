@@ -666,6 +666,12 @@ class Accounts:
         elif action == "xp":
             amount = int(max(-1_000_000, min(1_000_000, float(value or 0))))
             await self.q("UPDATE users SET xp = MAX(0, xp + ?) WHERE id = ?", amount, uid)
+        elif action == "setxp":
+            amount = int(max(0, min(100_000_000, float(value or 0))))
+            await self.q("UPDATE users SET xp = ? WHERE id = ?", amount, uid)
+        elif action == "setlevel":
+            level = int(max(1, min(1000, float(value or 1))))
+            await self.q("UPDATE users SET xp = ? WHERE id = ?", 50 * (level - 1) ** 2, uid)
         elif action == "reset":
             await self.many([("DELETE FROM stats WHERE user_id = ?", (uid,)), ("DELETE FROM matches WHERE user_id = ?", (uid,)),
                              ("UPDATE users SET xp = 0 WHERE id = ?", (uid,))])

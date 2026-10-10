@@ -141,6 +141,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   transition: transform 0.12s, background 0.2s;
 }
 .icon-btn:hover { background: var(--panel-2); transform: translateY(-1px); }
+a.icon-btn { color: var(--text); text-decoration: none !important; }
 .icon-btn:active { transform: translateY(1px); }
 
 .online-pill {
@@ -473,7 +474,7 @@ label.field { display: flex; flex-direction: column; gap: 6px; font-weight: 600;
 
 /* drop-down menu */
 .pop-menu {
-  position: fixed; z-index: 250; min-width: 220px; padding: 6px; border-radius: 16px;
+  position: fixed; z-index: 250; min-width: 220px; padding: 6px; border-radius: 16px; overflow-y: auto; overscroll-behavior: contain;
   background: #1d1846; border: 1px solid var(--border-strong); box-shadow: var(--shadow);
 }
 .pop-menu .mi { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 12px; border: 0; border-radius: 10px; background: transparent; cursor: pointer; font-weight: 600; color: var(--text); text-align: left; text-decoration: none !important; }

@@ -587,7 +587,13 @@
     /** Small menu that drops down from a button. items: {label, href} | {label, onClick} | '-' */
     menu(anchor, items) {
       document.querySelectorAll('.pop-menu').forEach((m) => m.remove());
-      const close = () => { menu.remove(); document.removeEventListener('pointerdown', outside, true); document.removeEventListener('keydown', esc); };
+      const close = () => {
+        menu.remove();
+        document.removeEventListener('pointerdown', outside, true);
+        document.removeEventListener('keydown', esc);
+        removeEventListener('scroll', close, true);
+        removeEventListener('resize', close);
+      };
       const outside = (e) => { if (!menu.contains(e.target) && !anchor.contains(e.target)) close(); };
       const esc = (e) => { if (e.key === 'Escape') close(); };
       const menu = h('div', { class: 'pop-menu', role: 'menu' }, items.filter(Boolean).map((it) => {
@@ -597,13 +603,23 @@
         return h('button', { class: 'mi' + (it.danger ? ' danger' : ''), type: 'button', role: 'menuitem', onclick: () => { close(); it.onClick(); } }, it.label);
       }));
       document.body.append(menu);
+      // open below the button, or above it if there isn't room; scroll inside if it's taller than the screen
       const r = anchor.getBoundingClientRect();
-      menu.style.top = r.bottom + 8 + 'px';
-      menu.style.right = Math.max(8, innerWidth - r.right) + 'px';
+      const gap = 8;
+      menu.style.maxHeight = innerHeight - gap * 2 + 'px';
+      const height = menu.offsetHeight;
+      const below = innerHeight - r.bottom - gap * 2;
+      const above = r.top - gap * 2;
+      const up = height > below && above > below;
+      const top = up ? Math.max(gap, r.top - gap - height) : Math.min(r.bottom + gap, innerHeight - gap - height);
+      menu.style.top = Math.max(gap, top) + 'px';
+      menu.style.right = Math.max(gap, innerWidth - r.right) + 'px';
       document.addEventListener('pointerdown', outside, true);
       document.addEventListener('keydown', esc);
+      addEventListener('scroll', close, { capture: true, once: true });
+      addEventListener('resize', close, { once: true });
       const f = fx();
-      if (f) f.gsap.from(menu, { y: -10, scale: 0.95, autoAlpha: 0, transformOrigin: '100% 0%', duration: 0.25, ease: 'back.out(2)' });
+      if (f) f.gsap.from(menu, { y: up ? 10 : -10, scale: 0.95, autoAlpha: 0, transformOrigin: up ? '100% 100%' : '100% 0%', duration: 0.25, ease: 'back.out(2)' });
       return close;
     },
 

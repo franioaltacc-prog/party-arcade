@@ -177,6 +177,8 @@
       { head: h('b', {}, u.name) },
       { label: '👤 View profile', href: '/profile?u=' + encodeURIComponent(u.name) },
       { label: '✨ Give XP', onClick: async () => { const v = await ask(`Give XP to ${u.name}`, 'Use a minus number to take XP away.', [{ key: 'n', label: 'XP', type: 'number', value: 100 }], 'Give'); if (v) act('xp', Number(v.n), 'XP updated ✨'); } },
+      { label: '🎯 Set XP', onClick: async () => { const v = await ask(`Set ${u.name}'s XP`, `Right now: ${u.xp.toLocaleString('en-US')} XP (level ${u.level}).`, [{ key: 'n', label: 'Total XP', type: 'number', value: u.xp }], 'Set XP'); if (v) act('setxp', Number(v.n), 'XP set 🎯'); } },
+      { label: '⭐ Set level', onClick: async () => { const v = await ask(`Set ${u.name}'s level`, `Right now: level ${u.level}. Their XP is set to the start of the new level.`, [{ key: 'n', label: 'Level', type: 'number', value: u.level }], 'Set level'); if (v) act('setlevel', Number(v.n), 'Level set ⭐'); } },
       { label: '📊 Set a stat', onClick: async () => {
         const v = await ask(`Set a stat for ${u.name}`, 'Examples: wins, games, dash.wins, life.best, snake.best, casino.best_win', [{ key: 'k', label: 'Stat', placeholder: 'wins' }, { key: 'n', label: 'Value', type: 'number', value: 0 }], 'Set');
         if (v) act('stat', { key: v.k.trim(), value: Number(v.n) }, 'Stat set 📊');
