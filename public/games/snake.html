@@ -113,6 +113,7 @@
       $('#stage').classList.add('shake'); setTimeout(() => $('#stage').classList.remove('shake'), 400);
       const isBest = score > best;
       if (isBest) { best = score; store.set('snake_best', best); $('#best').textContent = best; UI.confetti(); }
+      if (score > 0) PA.Account.submit('snake', score);
       fill($('#ov'), h('div', {}, h('h2', {}, isBest ? '🏆 NEW BEST!' : 'GAME OVER'), h('p', { class: 'muted' }, `You scored ${score}. Length ${snake.length}.`), h('button', { class: 'btn btn-lime btn-lg', style: { marginTop: '16px' }, onclick: start }, '🔁 Play again')));
       $('#ov').classList.remove('hidden');
     }

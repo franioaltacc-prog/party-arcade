@@ -616,6 +616,7 @@ class Life(Game):
         if waiting:
             m.send("error", msg="Waiting for " + join_names(waiting) + " to press Ready ✋")
             return
+        self.tainted = False
         for k, v in list(self.settings["rules"].items()):
             if k not in D["group_map"]:
                 del self.settings["rules"][k]
@@ -1577,6 +1578,63 @@ class Life(Game):
         self.family = Family(D["names"])
         self.broadcast("over")
         self.push()
+        self.save_results(sibs)
+
+    def save_results(self, sibs):
+        ordered = sorted(sibs, key=lambda x: -x.score["total"])
+        n = len(ordered)
+        best = ordered[0].score["total"] if ordered else 0
+        leaders = sum(1 for x in ordered if x.score["total"] == best)
+        for s in ordered:
+            total = s.score["total"]
+            if n < 2:
+                outcome = "play"
+            elif total == best:
+                outcome = "win" if leaders == 1 else "draw"
+            else:
+                outcome = "loss"
+            stats = {"life.lives": ("add", 1), "life.best": ("max", total), "life.oldest": ("max", s.age),
+                     "life.richest": ("max", s.worth())}
+            if outcome == "win":
+                stats["life.wins"] = ("add", 1)
+            xp = 12 + clamp(total // 20, 0, 40) + (25 if outcome == "win" else 0)
+            self.record(s.owner, outcome, stats, f"{s.first} lived to {s.age} · score {total}", xp=xp)
+
+    def on_admin(self, m, action, msg):
+        s = self.sib_of(m.uid)
+        if self.phase != "playing":
+            return None
+        if action == "skip":
+            if self.vote:
+                self.finish_vote(True)
+            else:
+                self.end_turn()
+            self.after_change()
+            return "⏩ Time skipped forward."
+        if not s or not s.alive:
+            return None
+        if action == "money":
+            self.give_money(s, 100_000)
+            text = "💰 +$100,000" + (" (into your trust fund)" if s.age < TODDLER else "")
+        elif action == "stats":
+            for k in STATS:
+                setattr(s, k, 100)
+            text = "💪 All stats maxed."
+        elif action == "energy":
+            s.energy = 9
+            s.done = set()
+            text = "⚡ Energy refilled."
+        elif action == "clean":
+            s.heat = 0
+            s.jail = 0
+            text = "😇 Record wiped: no heat, no jail."
+        elif action == "event":
+            s.event = self.pick_event(s)
+            text = "🎲 New random event." if s.event else "🎲 No event fits right now."
+        else:
+            return None
+        self.push()
+        return text
 
     def summary(self, s):
         bits = []

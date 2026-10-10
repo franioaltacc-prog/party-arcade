@@ -283,6 +283,7 @@ class Casino(Game):
         self.room.cancel(self.end_timer)
         self._finishing = False
         self.phase = "playing"
+        self.tainted = False
         self.results = None
         self.rounds = 0
         self.feed = []
@@ -333,6 +334,48 @@ class Casino(Game):
         self.broadcast("over", reason=reason)
         self.push_all()
         self.make_tables()
+        self.save_results(rows)
+
+    def save_results(self, rows):
+        # this class has its own record() for bets, so call the account one directly
+        n = len(rows)
+        for i, r in enumerate(rows):
+            tied = n >= 2 and rows[0]["coins"] == rows[1]["coins"]
+            if n < 2:
+                outcome = "play"
+            elif i == 0 or (tied and r["coins"] == rows[0]["coins"]):
+                outcome = "draw" if tied else "win"
+            else:
+                outcome = "loss"
+            stats = {"casino.best_coins": ("max", r["coins"]), "casino.best_win": ("max", r["bestWin"]["amount"]),
+                     "casino.bets": ("add", r["played"])}
+            if outcome == "win":
+                stats["casino.wins"] = ("add", 1)
+            Game.record(self, r["id"], outcome, stats, f"#{i + 1} of {n} · 🪙 {r['coins']:,} coins")
+
+    def on_admin(self, m, action, msg):
+        p = self.players.get(m.uid)
+        if action == "end" and self.phase == "playing":
+            self.later_finish("🛡️ An admin ended the match.")
+            return "🏁 Ending the match."
+        if not p or self.phase != "playing":
+            return None
+        if action == "coins":
+            p["out"] = False
+            self.give(m.uid, 10_000)
+            self.push_scores()
+            return "🪙 +10,000 coins."
+        if action == "rich":
+            p["out"] = False
+            self.give(m.uid, 1_000_000)
+            self.push_scores()
+            return "💎 +1,000,000 coins."
+        if action == "broke":
+            p["coins"] = 0
+            self.after_coins(m.uid)
+            self.push_scores()
+            return "💸 You're broke now. Enjoy!"
+        return None
 
     # ------------------------------------------------------------- connections
     def on_join(self, m, rejoin):

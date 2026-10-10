@@ -142,6 +142,7 @@ class Blitz(Game):
     def start(self):
         self.phase = "playing"
         self.final = None
+        self.tainted = False
         self.scores = {u.uid: 0 for u in self.room.online_members()}
         self.round_no = 0
         self.last_kind = None
@@ -219,3 +220,20 @@ class Blitz(Game):
                             "avatar": mm.avatar if mm else "👻", "color": mm.color if mm else "#888888"})
         self.final = ranking
         self.broadcast("final", ranking=ranking)
+        self.record_ranking(ranking, "blitz")
+
+    def on_admin(self, m, action, msg):
+        if self.phase != "playing":
+            return None
+        if action == "skip" and self.round and self.round["open"]:
+            self.end_round()
+            return "⏭️ Round skipped."
+        if action == "points" and m.uid in self.scores:
+            self.scores[m.uid] += 500
+            self.broadcast("scores", scores=self.scores)
+            return "💯 +500 points."
+        if action == "end":
+            self.room.cancel(self.timer)
+            self.finish()
+            return "🏁 Game ended."
+        return None

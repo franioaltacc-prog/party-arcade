@@ -101,6 +101,7 @@
     function win() {
       clearInterval(timer);
       const time = Math.floor((performance.now() - t0) / 1000);
+      if (size === 'normal') PA.Account.submit('memory', performance.now() - t0);
       const bests = store.get('memory_best', {});
       const prev = bests[size];
       const isBest = !prev || moves < prev.moves || (moves === prev.moves && time < prev.time);

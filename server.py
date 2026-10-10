@@ -25,11 +25,12 @@ import traceback
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
+from accounts import Accounts, AuthError, StoreError, level_info
 from games import GAMES
 
 ROOT = Path(__file__).resolve().parent
 PUBLIC = (ROOT / "public").resolve()
-DATA = ROOT / "data"
+DATA = Path(os.environ.get("DATA_DIR") or ROOT / "data")
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8000"))
 
@@ -87,6 +88,9 @@ class Client:
         self.open = True
         self.last_chat = 0.0
         self.voted = set()
+        self.account = None     # {"id", "name", "admin"} when logged in
+        self.ip = "?"
+        self.solo_at = 0.0
 
     def send(self, t, **data):
         if not self.open:
@@ -123,6 +127,7 @@ class Member:
 
     def copy_profile(self, client):
         self.name, self.avatar, self.color = client.name, client.avatar, client.color
+        self.account = client.account
 
     @property
     def online(self):
@@ -133,8 +138,10 @@ class Member:
             self.client.send(t, **data)
 
     def info(self):
+        acct = self.account
         return {"id": self.uid, "name": self.name, "avatar": self.avatar,
-                "color": self.color, "online": self.online}
+                "color": self.color, "online": self.online,
+                "acct": acct["name"] if acct else None, "adm": bool(acct and acct["admin"])}
 
 
 class Room:
@@ -282,6 +289,9 @@ class Hub:
         self.wyr = self.load_json("wyr.json", {})
         self.wyr_dirty = False
         self._online_scheduled = False
+        self.accounts = Accounts(DATA)
+        self.tasks = set()
+        self.started = time.time()
 
     # -- persistence -----------------------------------------------------
     def load_json(self, name, default):
@@ -379,6 +389,11 @@ class Hub:
             self.set_profile(c, msg)
             c.send("welcome", id=c.uid, online=self.online_payload())
             self.online_changed()
+            token = msg.get("token")
+            if isinstance(token, str) and token:
+                self.spawn(self.resume(c, token))
+            else:
+                c.send("auth:state", user=None)
             return
         if c.uid is None:
             return
@@ -387,6 +402,8 @@ class Hub:
             c.send("pong", ts=msg.get("ts"))
         elif t == "profile":
             self.set_profile(c, msg)
+            if c.account:
+                c.name = c.account["name"]
             if c.room and c.uid in c.room.members:
                 c.room.members[c.uid].copy_profile(c)
                 c.room.sync_players()
@@ -432,6 +449,8 @@ class Hub:
         elif t == "wyr:get":
             q = str(msg.get("q"))[:6]
             c.send("wyr:result", q=q, votes=self.wyr.get(q, [0, 0]), mine=None)
+        elif t in ACCOUNT_MESSAGES:
+            self.spawn(self.account_message(c, t, msg))
         elif t.startswith("g:") and c.room:
             member = c.room.members.get(c.uid)
             if member and member.client is c:
@@ -465,6 +484,218 @@ class Hub:
             self.wyr_dirty = True
         c.send("wyr:result", q=q, votes=votes, mine=choice)
 
+    # -- accounts --------------------------------------------------------
+    def spawn(self, coro):
+        task = asyncio.get_running_loop().create_task(coro)
+        self.tasks.add(task)
+
+        def done(t):
+            self.tasks.discard(t)
+            if not t.cancelled() and t.exception():
+                traceback.print_exception(t.exception())
+
+        task.add_done_callback(done)
+
+    def clients_of(self, user_id):
+        return [c for c in list(self.clients) if c.account and c.account["id"] == user_id]
+
+    def attach(self, c, user):
+        """Log this connection in as `user` (a row from the users table)."""
+        c.account = {"id": user["id"], "name": user["name"], "admin": bool(user["admin"])}
+        c.name, c.avatar, c.color = user["name"], user["avatar"], user["color"]
+        self.refresh_member(c)
+
+    def detach(self, c):
+        c.account = None
+        self.refresh_member(c)
+
+    def refresh_member(self, c):
+        if c.room and c.uid in c.room.members:
+            member = c.room.members[c.uid]
+            if member.client is c:
+                member.copy_profile(c)
+                c.room.sync_players()
+
+    async def resume(self, c, token):
+        try:
+            user = await self.accounts.resume(token)
+        except StoreError:
+            traceback.print_exc()
+            c.send("auth:state", user=None, offline=True)
+            return
+        if user and c.open:
+            self.attach(c, user)
+            c.send("auth:state", user=self.accounts.public(user))
+        else:
+            c.send("auth:state", user=None, expired=True)
+
+    def record(self, room, uid, game, outcome, stats=None, detail="", xp=None):
+        """Save a finished game for a player if they are logged in."""
+        member = room.members.get(uid)
+        acct = member.account if member else None
+        if acct:
+            self.spawn(self._record(room, uid, acct, game, outcome, stats, detail, xp))
+
+    async def _record(self, room, uid, acct, game, outcome, stats, detail, xp):
+        try:
+            gained, before, after = await self.accounts.record(acct["id"], game, outcome, stats, detail, xp)
+        except StoreError:
+            traceback.print_exc()
+            return
+        self.tell_xp(acct["id"], gained, before, after, f"{GAME_TITLES.get(game, game)} · {outcome}")
+
+    def tell_xp(self, user_id, gained, before, after, why=""):
+        info = level_info(after)
+        up = info["level"] > level_info(before)["level"]
+        for c in self.clients_of(user_id):
+            c.send("account:xp", gained=gained, why=why, levelUp=up, **info)
+
+    async def account_message(self, c, t, msg):
+        rid = msg.get("rid")
+        try:
+            result = await self.account_op(c, t, msg)
+            c.send("res", rid=rid, ok=True, **(result or {}))
+        except AuthError as e:
+            c.send("res", rid=rid, ok=False, error=str(e))
+        except StoreError:
+            traceback.print_exc()
+            c.send("res", rid=rid, ok=False, error="The account database isn't reachable right now. Try again in a minute. 🛠️")
+        except Exception:
+            traceback.print_exc()
+            c.send("res", rid=rid, ok=False, error="Something went wrong 😵")
+
+    def need_login(self, c):
+        if not c.account:
+            raise AuthError("You need to log in first.")
+        return c.account["id"]
+
+    async def account_op(self, c, t, msg):
+        acc = self.accounts
+        if t == "auth:signup":
+            user, token = await acc.signup(msg.get("name"), msg.get("password"), msg.get("avatar"), msg.get("color"), c.ip)
+            self.attach(c, user)
+            return {"token": token, "user": acc.public(user)}
+        if t == "auth:login":
+            user, token = await acc.login(msg.get("name"), msg.get("password"), c.ip)
+            self.attach(c, user)
+            return {"token": token, "user": acc.public(user)}
+        if t == "auth:logout":
+            await acc.logout(msg.get("token"))
+            self.detach(c)
+            return {}
+        if t == "account:update":
+            user = await acc.update_look(self.need_login(c), msg.get("avatar"), msg.get("color"), msg.get("bio"))
+            for other in self.clients_of(user["id"]):
+                self.attach(other, user)
+            return {"user": acc.public(user)}
+        if t == "account:password":
+            token = await acc.change_password(self.need_login(c), msg.get("old"), msg.get("new"))
+            return {"token": token}
+        if t == "account:delete":
+            uid = self.need_login(c)
+            await acc.delete_account(uid, msg.get("password"))
+            for other in self.clients_of(uid):
+                self.detach(other)
+                if other is not c:
+                    other.send("auth:state", user=None, expired=True)
+            return {}
+        if t == "profile:get":
+            prof = await acc.profile(msg.get("name"))
+            if not prof:
+                raise AuthError("No player with that name.")
+            live = self.clients_of(prof["id"])
+            prof["online"] = bool(live)
+            rooms = [x.room for x in live if x.room]
+            prof["playing"] = GAME_TITLES.get(rooms[0].game_key) if rooms else None
+            return {"profile": prof}
+        if t == "lb:boards":
+            return {"boards": acc.boards()}
+        if t == "lb:get":
+            return {"board": await acc.board(str(msg.get("board") or "xp"), c.account["id"] if c.account else None)}
+        if t == "stats:solo":
+            uid = self.need_login(c)
+            if time.time() - c.solo_at < 4:
+                raise AuthError("Slow down a little 🙂")
+            c.solo_at = time.time()
+            game = str(msg.get("game") or "")
+            value = msg.get("value")
+            if not isinstance(value, (int, float)) or value != value:
+                raise AuthError("Bad score.")
+            result = await acc.solo(uid, game, value)
+            self.tell_xp(uid, result["gained"], result["before"], result["after"], GAME_TITLES.get(game, game))
+            return result
+        if t == "admin:unlock":
+            user = await acc.unlock_admin(self.need_login(c), msg.get("code"))
+            for other in self.clients_of(user["id"]):
+                self.attach(other, user)
+                other.send("auth:state", user=acc.public(user))
+            return {"user": acc.public(user)}
+
+        # everything below is admin only (checked against the database every time)
+        actor = await acc.require_admin(self.need_login(c))
+        if t == "admin:overview":
+            return {"users": await acc.count_users(), "storage": acc.store.kind, "where": acc.store.where,
+                    "uptime": int(time.time() - self.started), "adminCode": len(acc.admin_code) >= 8,
+                    "clients": [{"name": x.name, "avatar": x.avatar, "acct": x.account["name"] if x.account else None,
+                                 "room": x.room.code if x.room else None, "game": x.room.game_key if x.room else None}
+                                for x in list(self.clients) if x.uid],
+                    "rooms": [{"code": r.code, "game": r.game_key, "phase": r.game.phase, "tainted": r.game.tainted,
+                               "players": [{"id": m.uid, "name": m.name, "avatar": m.avatar, "online": m.online,
+                                            "acct": m.account["name"] if m.account else None} for m in r.members.values()]}
+                              for r in self.rooms.values()]}
+        if t == "admin:users":
+            return {"users": await acc.search(msg.get("q"))}
+        if t == "admin:user":
+            action = str(msg.get("action") or "")
+            name = str(msg.get("name") or "")
+            user = await acc.admin_action(actor, name, action, msg.get("value"))
+            for other in [x for x in list(self.clients) if x.account and x.account["name"].lower() == name.lower()]:
+                if user is None or action in ("ban", "logout", "password"):
+                    self.detach(other)
+                    other.send("auth:state", user=None, banned=action == "ban", expired=True)
+                else:
+                    self.attach(other, user)
+                    other.send("auth:state", user=acc.public(user))
+            return {"user": acc.public(user) if user else None}
+        if t == "admin:announce":
+            text = clean_text(msg.get("text"), 200)
+            if not text:
+                raise AuthError("Type a message first.")
+            for x in list(self.clients):
+                x.send("announce", text=text, by=actor["name"])
+            return {"sent": len(self.clients)}
+        if t == "admin:room":
+            room = self.rooms.get(clean_text(msg.get("code"), 8).upper())
+            if not room:
+                raise AuthError("That room is gone.")
+            if msg.get("action") == "close":
+                for uid in list(room.members):
+                    room.kick(uid, "An admin closed this room. 🛡️")
+                room.close()
+                self.rooms.pop(room.code, None)
+                self.online_changed()
+                return {"closed": True}
+            if msg.get("action") == "kick":
+                uid = str(msg.get("uid") or "")
+                if uid not in room.members:
+                    raise AuthError("That player already left.")
+                room.kick(uid, "An admin removed you from the room. 🛡️")
+                return {"kicked": True}
+            raise AuthError("Unknown room action.")
+        if t == "admin:cheat":
+            if not c.room or c.uid not in c.room.members:
+                raise AuthError("Join a game room first.")
+            member = c.room.members[c.uid]
+            game = c.room.game
+            text = game.on_admin(member, str(msg.get("action") or ""), msg)
+            if not text:
+                raise AuthError("That cheat doesn't work here.")
+            if not game.tainted:
+                game.tainted = True
+                c.room.system("🛠️ An admin used a cheat, so this game won't count for leaderboards.")
+            return {"text": text}
+        raise AuthError("Unknown request.")
+
     # -- housekeeping ----------------------------------------------------
     async def janitor(self):
         while True:
@@ -482,6 +713,15 @@ class Hub:
                 self.wyr_dirty = False
                 self.save_json("wyr.json", self.wyr)
 
+
+ACCOUNT_MESSAGES = {
+    "auth:signup", "auth:login", "auth:logout", "account:update", "account:password", "account:delete",
+    "profile:get", "lb:boards", "lb:get", "stats:solo", "admin:unlock", "admin:overview", "admin:users",
+    "admin:user", "admin:announce", "admin:room", "admin:cheat",
+}
+GAME_TITLES = {"dash": "Neon Dash", "life": "Family Life", "doodle": "Doodle Guess", "blitz": "Party Blitz",
+               "connect4": "Connect 4", "casino": "Casino Night", "snake": "Neon Snake", "2048": "2048",
+               "memory": "Memory Flip", "dash-solo": "Neon Dash practice", "dashsolo": "Neon Dash practice"}
 
 hub = Hub()
 
@@ -526,6 +766,20 @@ async def serve_static(writer, method, path):
     http_response(writer, 200, "OK", target.read_bytes(), ctype, head_only=(method == "HEAD"))
 
 
+PRIVATE_IP = re.compile(r"^(10\.|127\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::1$|f[cd][0-9a-f]{2}:|fe80:)", re.I)
+
+
+def client_ip(headers, peer):
+    """The visitor's address, used for rate limits. Behind a proxy (Render) the proxy
+    appends the real address to X-Forwarded-For, so read it from the right and skip
+    private proxy hops. Anything further left could be made up by the visitor."""
+    hops = [x.strip() for x in headers.get("x-forwarded-for", "").split(",") if x.strip()]
+    for ip in reversed(hops):
+        if not PRIVATE_IP.match(ip):
+            return ip[:64]
+    return (hops[-1] if hops else (peer[0] if peer else "?"))[:64]
+
+
 async def websocket_session(reader, writer, headers):
     key = headers.get("sec-websocket-key")
     if not key:
@@ -541,6 +795,7 @@ async def websocket_session(reader, writer, headers):
     await writer.drain()
 
     client = Client(writer)
+    client.ip = client_ip(headers, writer.get_extra_info("peername"))
     hub.clients.add(client)
     parts, size = [], 0
     try:
@@ -611,6 +866,9 @@ async def handle_connection(reader, writer):
     try:
         if path == "/ws" and "websocket" in headers.get("upgrade", "").lower():
             await websocket_session(reader, writer, headers)
+        elif path == "/api/health":
+            await health(writer)
+            await writer.drain()
         else:
             await serve_static(writer, method, path)
             await writer.drain()
@@ -621,6 +879,18 @@ async def handle_connection(reader, writer):
             writer.close()
         except Exception:
             pass
+
+
+async def health(writer):
+    """Small status page used to check the database (and to keep it awake)."""
+    acc = hub.accounts
+    info = {"ok": True, "storage": acc.store.kind, "accounts": acc.ready, "online": len(hub.clients)}
+    try:
+        await acc.q("SELECT 1 AS one")
+        info["accounts"] = True
+    except Exception as e:
+        info.update(accounts=False, error=str(e)[:200])
+    http_response(writer, 200, "OK", json.dumps(info).encode(), "application/json; charset=utf-8")
 
 
 def lan_address():
@@ -634,6 +904,12 @@ def lan_address():
 
 async def main():
     asyncio.create_task(hub.janitor())
+    try:
+        await hub.accounts.init()
+        where = "Turso database" if hub.accounts.store.kind == "turso" else hub.accounts.store.where
+        print(f"  👤 Accounts are saved in: {where}")
+    except Exception as e:
+        print(f"  ⚠️  Accounts are offline: {e}")
     server = await asyncio.start_server(handle_connection, HOST, PORT, reuse_address=True)
     lan = lan_address()
     print("\n  🕹️  Party Arcade is running!\n")

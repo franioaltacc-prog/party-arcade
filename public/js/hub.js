@@ -190,11 +190,33 @@
   const poll = () => { if (!document.hidden) Net.send('rooms:list'); };
   setInterval(poll, 4000);
 
+  // ---------------------------------------------------------------- top players
+  const topPanel = $('#top-panel');
+  async function renderTop() {
+    let board = null;
+    try { board = (await Net.request('lb:get', { board: 'xp' })).board; } catch { /* accounts offline */ }
+    const u = PA.Account.user;
+    const rows = board ? board.rows.slice(0, 5) : [];
+    fill(topPanel,
+      h('div', { class: 'panel-title' }, '🌟 Top players', h('a', { class: 'count', href: '/leaderboards' }, 'All boards →')),
+      rows.length
+        ? h('div', { class: 'top-list' }, rows.map((r) => h('a', { class: 'top-row' + (u && r.id === u.id ? ' me' : ''), href: '/profile?u=' + encodeURIComponent(r.name) },
+          h('span', { class: 'rk' }, ['🥇', '🥈', '🥉'][r.rank - 1] || '#' + r.rank), PA.UI.avatar(r, 'sm'), h('span', { class: 'nm' }, r.name),
+          h('span', { class: 'lvl' }, 'Lv ' + r.level))))
+        : h('div', { class: 'empty' }, board ? 'No champions yet — be the first! 👑' : 'Leaderboards are taking a nap 😴'),
+      u
+        ? h('a', { class: 'top-me', href: '/profile?u=' + encodeURIComponent(u.name) }, PA.UI.xpBar(u))
+        : h('button', { class: 'btn btn-pink btn-sm btn-block', style: { marginTop: '12px' }, onclick: () => PA.UI.accountModal({ view: 'choose' }) }, '✨ Sign up to save your stats'));
+    if (G) FX.list(topPanel.querySelectorAll('.top-row'), { x: 30, y: 0, stagger: 0.06 });
+  }
+  PA.on('account', () => renderTop());
+  setInterval(() => { if (!document.hidden) renderTop(); }, 60000);
+
   // ---------------------------------------------------------------- lobby chat
   const chat = Lobby.ChatBox($('#lobby-chat'), { title: '💬 Lobby chat', placeholder: 'Say hi to everyone…', room: false });
   Net.on('chat', (m) => { chat.add(m); if (m.from && m.from.id !== Net.id) Sfx.play('message'); });
   Net.on('chat:history', (m) => { chat.clear(); m.messages.forEach((x) => chat.add(x)); if (!m.messages.length) chat.add({ sys: true, placeholder: true, text: 'Be the first to say something! 👋' }); });
-  Net.on('welcome', () => { Net.send('chat:history'); poll(); });
+  Net.on('welcome', () => { Net.send('chat:history'); poll(); renderTop(); });
 
   // ---------------------------------------------------------------- motion
   if (G) {

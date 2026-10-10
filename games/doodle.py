@@ -157,6 +157,7 @@ class Doodle(Game):
     # -- flow --------------------------------------------------------------
     def start(self):
         self.final = None
+        self.tainted = False
         self.scores = {u.uid: 0 for u in self.room.online_members()}
         self.order = list(self.scores)
         random.shuffle(self.order)
@@ -248,6 +249,23 @@ class Doodle(Game):
                             "avatar": mm.avatar if mm else "👻", "color": mm.color if mm else "#888888"})
         self.final = ranking
         self.broadcast("final", ranking=ranking)
+        self.record_ranking(ranking, "doodle")
+
+    def on_admin(self, m, action, msg):
+        playing = self.phase in ("choosing", "drawing", "reveal")
+        if action == "word" and self.phase == "drawing":
+            return f"🤫 The word is: {self.word.upper()}"
+        if action == "skip" and self.phase in ("choosing", "drawing"):
+            self.end_turn()
+            return "⏭️ Turn skipped."
+        if action == "points" and playing and m.uid in self.scores:
+            self.scores[m.uid] += 500
+            self.broadcast("scores", scores=self.scores)
+            return "💯 +500 points."
+        if action == "end" and playing:
+            self.finish()
+            return "🏁 Game ended."
+        return None
 
     def clear_timers(self):
         self.room.cancel(self.timer)

@@ -87,7 +87,10 @@
       tiles.push({ id: nextId++, r, c, v: Math.random() < 0.9 ? 2 : 4 });
     }
 
+    let sent = false;
     function reset() {
+      if (score > 0 && !sent) PA.Account.submit('2048', score);
+      sent = false;
       fill(grid, slots());
       tiles = []; score = 0; won = false; history = null;
       addRandom(); addRandom(); render();
@@ -141,7 +144,7 @@
     }
     function overlay(...kids) { grid.append(h('div', { class: 'over2048' }, h('div', {}, ...kids))); }
     function winScreen() { UI.confetti(); Sfx.play('win'); overlay(h('h2', { class: 'gradient-text' }, '2048!'), h('p', { class: 'muted' }, 'You did it! Keep going for a bigger score?'), h('div', { class: 'row', style: { justifyContent: 'center', marginTop: '14px' } }, h('button', { class: 'btn btn-lime', onclick: () => grid.querySelector('.over2048').remove() }, 'Keep going'), h('button', { class: 'btn btn-ghost', onclick: reset }, 'New game'))); }
-    function loseScreen() { Sfx.play('lose'); overlay(h('h2', {}, 'No moves!'), h('p', { class: 'muted' }, `Final score: ${score}`), h('button', { class: 'btn btn-pink btn-lg', style: { marginTop: '14px' }, onclick: reset }, '🔁 Try again')); }
+    function loseScreen() { Sfx.play('lose'); if (score > 0 && !sent) { sent = true; PA.Account.submit('2048', score); } overlay(h('h2', {}, 'No moves!'), h('p', { class: 'muted' }, `Final score: ${score}`), h('button', { class: 'btn btn-pink btn-lg', style: { marginTop: '14px' }, onclick: reset }, '🔁 Try again')); }
 
     const keys = { ArrowUp: [-1, 0], KeyW: [-1, 0], ArrowDown: [1, 0], KeyS: [1, 0], ArrowLeft: [0, -1], KeyA: [0, -1], ArrowRight: [0, 1], KeyD: [0, 1] };
     addEventListener('keydown', (e) => { if (keys[e.code] && e.target.tagName !== 'INPUT') { e.preventDefault(); move(...keys[e.code]); } });

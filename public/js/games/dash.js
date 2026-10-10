@@ -164,6 +164,8 @@
           if (pl.vy <= 0) { pl.vy = 0; pl.grounded = true; }
         } else if (pl.vy > 0 && prevY + 0.97 <= o.y + 0.05) {
           pl.y = o.y - 0.97; pl.vy = 0;
+        } else if (pl.god) {
+          pl.y = top; pl.vy = 0; pl.grounded = true;   // admin god mode: climb over walls
         } else {
           pl.dead = true; ev && ev.push('die'); return;
         }
@@ -175,9 +177,9 @@
       if (!col) continue;
       for (const o of col) {
         if (o.t === '^') {
-          if (hits(pl, o.x + 0.32, o.y, o.x + 0.68, o.y + 0.55)) { pl.dead = true; ev && ev.push('die'); return; }
+          if (!pl.god && hits(pl, o.x + 0.32, o.y, o.x + 0.68, o.y + 0.55)) { pl.dead = true; ev && ev.push('die'); return; }
         } else if (o.t === 'v') {
-          if (hits(pl, o.x + 0.32, o.y + 0.45, o.x + 0.68, o.y + 1)) { pl.dead = true; ev && ev.push('die'); return; }
+          if (!pl.god && hits(pl, o.x + 0.32, o.y + 0.45, o.x + 0.68, o.y + 1)) { pl.dead = true; ev && ev.push('die'); return; }
         } else if (o.t === '=') {
           if (!pl.used.has(o) && pl.x + 0.97 > o.x + 0.1 && pl.x + 0.03 < o.x + 0.9 && pl.y < o.y + 0.3 && pl.y + 0.97 > o.y) {
             pl.vy = PAD_V; pl.grounded = false; pl.used.add(o); ev && ev.push('pad');
@@ -359,6 +361,7 @@
     g.last = now;
     const started = now >= g.startAt;
     const p = g.player;
+    p.god = !!g.god;
     const ev = [];
 
     if (started && !p.dead && !p.done) {
@@ -432,6 +435,15 @@
     }
   }
 
+  // admin cheats (the cheat panel in lobby.js asks the server first when in a race)
+  PA.on('admin:cheat', ({ action }) => {
+    const g = game;
+    if (!g || !g.running || g.finished) return;
+    g.cheated = true;
+    if (action === 'god') { g.god = true; g.player.dead = false; }
+    if (action === 'skip') { g.player = newPlayer(Math.max(0, g.level.end - 4)); g.player.god = g.god = true; }
+  });
+
   function onDeath() {
     const g = game;
     Sfx.play('boom');
@@ -454,6 +466,7 @@
       Net.send('g:finish', { time: g.finishMs, attempts: g.attempts });
       showBanner(h('span', { class: 'big' }, 'FINISHED!'), `${fmtTime(g.finishMs)} · ${g.attempts} attempt${g.attempts === 1 ? '' : 's'}`);
     } else {
+      if (!g.cheated) PA.Account.submit('dash-solo', g.finishMs);
       setTimeout(() => soloResults(g), 900);
     }
   }

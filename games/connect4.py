@@ -29,6 +29,42 @@ class Connect4(Game):
     def new_game(self):
         self.reset_board()
         self.phase = "playing"
+        self.tainted = False
+
+    def save_results(self):
+        a, b = self.seats
+        if not a or not b:
+            return
+        if self.winner == -1:
+            for uid in (a, b):
+                self.record(uid, "draw", {"c4.draws": ("add", 1)}, f"Draw after {self.moves} moves")
+            return
+        win, lose = (a, b) if self.winner == 0 else (b, a)
+        self.record(win, "win", {"c4.wins": ("add", 1)}, f"Won in {self.moves} moves")
+        self.record(lose, "loss", {"c4.losses": ("add", 1)}, f"Lost in {self.moves} moves")
+
+    def on_admin(self, m, action, msg):
+        if action == "win" and m.uid in self.seats and self.phase == "playing":
+            self.winner = self.seats.index(m.uid)
+            self.win_cells = []
+            self.phase = "over"
+            self.score[m.uid] = self.score.get(m.uid, 0) + 1
+            self.push()
+            return "🏆 You win. Obviously."
+        if action == "undo" and self.phase == "playing" and self.last:
+            r, c = self.last
+            self.board[r][c] = 0
+            self.moves -= 1
+            self.turn ^= 1
+            self.last = None
+            self.push()
+            return "↩️ Took back the last move."
+        if action == "reset" and None not in self.seats:
+            self.new_game()
+            self.tainted = True
+            self.push()
+            return "🔄 Fresh board."
+        return None
 
     def state_for(self, m):
         return {"phase": self.phase, "seats": self.seats, "board": self.board, "turn": self.turn,
@@ -83,9 +119,11 @@ class Connect4(Game):
                 self.win_cells = cells
                 self.phase = "over"
                 self.score[m.uid] = self.score.get(m.uid, 0) + 1
+                self.save_results()
             elif self.moves == ROWS * COLS:
                 self.winner = -1
                 self.phase = "over"
+                self.save_results()
             else:
                 self.turn ^= 1
             self.push()

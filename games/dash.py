@@ -70,6 +70,7 @@ class Dash(Game):
     def start(self):
         self.phase = "racing"
         self.results = None
+        self.tainted = False
         runners = {u.uid: {"done": False, "time": None, "place": None, "p": 0.0, "attempts": 1}
                    for u in self.room.online_members()}
         self.race = {"id": (self.race["id"] + 1) if self.race else 1,
@@ -128,3 +129,29 @@ class Dash(Game):
         rows.sort(key=lambda r: (not r["done"], r["place"] or 0, -r["p"]))
         self.results = rows
         self.broadcast("results", results=rows, wins=self.wins)
+        self.save_results(rows)
+
+    def save_results(self, rows):
+        n = len(rows)
+        level = f"{self.race['settings']['difficulty']} {self.race['settings']['length']}"
+        for r in rows:
+            won = n >= 2 and r["done"] and r["place"] == 1
+            stats = {"dash.races": ("add", 1)}
+            if won:
+                stats["dash.wins"] = ("add", 1)
+            if r["done"]:
+                stats["dash.finishes"] = ("add", 1)
+                if n >= 2 and r["place"] <= 3:
+                    stats["dash.podiums"] = ("add", 1)
+                detail = f"#{r['place']} of {n} · {r['time'] / 1000:.2f}s · {level}"
+            else:
+                detail = f"Didn't finish ({round(r['p'] * 100)}%) · {level}"
+            outcome = "win" if won else ("loss" if n >= 2 else "play")
+            self.record(r["id"], outcome, stats, detail, xp=40 if won else 20 if r["done"] else 12)
+
+    def on_admin(self, m, action, msg):
+        if action == "god":
+            return "😇 God mode: spikes can't hurt you this race."
+        if action == "skip":
+            return "⏩ Skipping you to the finish line!"
+        return None

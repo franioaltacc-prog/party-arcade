@@ -1,7 +1,7 @@
 /* Shared room flow for online games: entry screen, invite code, players, chat. */
 (() => {
   'use strict';
-  const { $, h, fill, Net, Sfx, UI, Profile } = PA;
+  const { $, h, fill, Net, Sfx, UI, Profile, Account } = PA;
   const FX = PA.FX || {};
   const G = FX.on ? FX.gsap : null;
 
@@ -108,10 +108,14 @@
   function drawPlayers(panel) {
     const fresh = [];
     const seen = panel.seen || (panel.seen = new Set());
-    const list = h('div', { class: 'player-list' }, Room.players.map((p) => h('div', { class: 'player-row' + (p.id === Net.id ? ' me' : ''), 'data-pid': p.id },
+    const list = h('div', { class: 'player-list' }, Room.players.map((p) => h('div', {
+      class: 'player-row' + (p.id === Net.id ? ' me' : '') + (p.acct ? ' clickable' : ''), 'data-pid': p.id,
+      title: p.acct ? `See ${p.acct}'s profile` : 'Guest player',
+      onclick: p.acct ? (e) => { if (!e.target.closest('button')) UI.profileCard(p.acct); } : null,
+    },
       UI.avatar(p),
       h('div', { class: 'grow' },
-        h('div', { class: 'pname' }, p.name, p.id === Net.id ? h('span', { class: 'faint small' }, ' (you)') : null),
+        h('div', { class: 'pname' }, p.name, UI.badges(p), p.id === Net.id ? h('span', { class: 'faint small' }, ' (you)') : null),
         !p.online ? h('div', { class: 'tiny faint' }, 'reconnecting…') : null),
       h('div', { class: 'pmeta' }, panel.extra ? panel.extra(p) : null, p.id === Room.host ? h('span', { title: 'Host' }, '👑') : null),
     )));
@@ -169,10 +173,59 @@
 
   function on(t, fn) { (listeners[t] ||= []).push(fn); }
 
+  // ------------------------------------------------------------ admin cheats
+  // Only shown to admins. The server checks admin rights again for every cheat,
+  // and a game where a cheat was used doesn't count for leaderboards.
+  const CHEATS = {
+    casino: [['coins', '🪙 +10,000 coins'], ['rich', '💎 +1,000,000 coins'], ['broke', '💸 Go broke'], ['end', '🏁 End the match']],
+    life: [['money', '💰 +$100,000'], ['stats', '💪 Max my stats'], ['energy', '⚡ Refill my energy'], ['clean', '😇 Clear heat & jail'],
+      ['event', '🎲 Give me an event'], ['skip', '⏩ Skip time (no vote)']],
+    blitz: [['points', '💯 +500 points'], ['skip', '⏭️ Skip this round'], ['end', '🏁 End the game']],
+    doodle: [['word', '🤫 Show me the word'], ['points', '💯 +500 points'], ['skip', '⏭️ Skip this turn'], ['end', '🏁 End the game']],
+    connect4: [['win', '🏆 Win this game'], ['undo', '↩️ Undo last move'], ['reset', '🔄 New board']],
+    dash: [['god', '😇 God mode (no deaths)', true], ['skip', '⏩ Teleport to the finish', true]],
+  };
+  let adminFab = null;
+  let adminPanel = null;
+  function closeAdminPanel() { if (adminPanel) { adminPanel.remove(); adminPanel = null; } }
+  async function runCheat(action, local) {
+    try {
+      if (Room.code || !local) {
+        const r = await Net.request('admin:cheat', { action });
+        UI.toast(r.text, 'good', action === 'word' ? 6000 : 2500);
+      } else UI.toast('🛠️ Cheat on (practice mode)', 'good');
+      Sfx.play('coin');
+      PA.emit('admin:cheat', { action });
+    } catch (e) { UI.toast(e.message, 'bad'); }
+  }
+  function toggleAdminPanel() {
+    if (adminPanel) { closeAdminPanel(); return; }
+    const list = CHEATS[opts.game] || [];
+    adminPanel = h('div', { class: 'admin-panel', role: 'dialog', 'aria-label': 'Admin cheats' },
+      h('div', { class: 'ap-head' }, h('b', {}, '🛡️ Admin cheats'), h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: closeAdminPanel }, '✕')),
+      h('p', { class: 'tiny muted' }, 'Games where you cheat don’t count for leaderboards.'),
+      list.map(([action, label, local]) => h('button', { class: 'btn btn-ghost btn-sm btn-block', onclick: () => runCheat(action, local) }, label)),
+      h('a', { class: 'btn btn-ghost btn-sm btn-block', href: '/admin' }, '🛡️ Open admin panel'));
+    document.body.append(adminPanel);
+    const f = PA.FX;
+    if (f && f.on) f.list(adminPanel.children, { y: 10, stagger: 0.03, duration: 0.25 });
+  }
+  function syncAdmin() {
+    const show = Account.admin && CHEATS[opts.game];
+    if (show && !adminFab) {
+      adminFab = h('button', { class: 'admin-fab', title: 'Admin cheats', 'aria-label': 'Admin cheats', onclick: toggleAdminPanel }, '🛡️');
+      document.body.append(adminFab);
+    } else if (!show && adminFab) {
+      adminFab.remove(); adminFab = null; closeAdminPanel();
+    }
+  }
+
   function init(o) {
     opts = { ...GAME_INFO[o.game], ...o };
     UI.topbar({ title: opts.title, emoji: opts.emoji });
     buildEntry();
+    syncAdmin();
+    PA.on('account', syncAdmin);
 
     Net.on('room:joined', (m) => {
       if (m.game !== opts.game) { location.href = `/games/${m.game}?room=${m.code}`; return; }

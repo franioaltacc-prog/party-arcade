@@ -26,6 +26,7 @@ class Game:
     def __init__(self, room):
         self.room = room
         self.phase = "lobby"
+        self.tainted = False  # an admin used a cheat: don't save this game's results
 
     # Shown in "open rooms" and used by quick play.
     def listed(self):
@@ -54,3 +55,33 @@ class Game:
 
     def on_message(self, m, t, msg):
         pass
+
+    # -- accounts ----------------------------------------------------------
+    def record(self, uid, outcome, stats=None, detail="", xp=None):
+        """Save a finished game for a logged-in player.
+        outcome: "win", "loss", "draw" or "play". stats: {"key": ("add"|"max"|"min"|"set", number)}."""
+        if not self.tainted:
+            self.room.hub.record(self.room, uid, self.key, outcome, stats, detail, xp)
+
+    def record_ranking(self, ranking, prefix, unit="pts", value="points"):
+        """Save a points game: the single top scorer wins, a shared top is a draw.
+        Playing alone never counts as a win."""
+        n = len(ranking)
+        top = ranking[0][value] if ranking else 0
+        leaders = [r for r in ranking if r[value] == top]
+        for i, r in enumerate(ranking):
+            pts = r[value]
+            if n < 2:
+                outcome = "play"
+            elif r[value] == top and top > 0:
+                outcome = "win" if len(leaders) == 1 else "draw"
+            else:
+                outcome = "loss"
+            stats = {f"{prefix}.points": ("add", pts), f"{prefix}.best": ("max", pts)}
+            if outcome == "win":
+                stats[f"{prefix}.wins"] = ("add", 1)
+            self.record(r["id"], outcome, stats, f"#{i + 1} of {n} · {pts:,} {unit}")
+
+    def on_admin(self, m, action, msg):
+        """Admin cheats. Return a short message if the cheat worked, else None."""
+        return None

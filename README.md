@@ -16,8 +16,29 @@ There's nothing to install: the server uses only Python's standard library (3.9+
 
 Render sets `PORT` for you and gives you a public `https://….onrender.com` link (WebSockets work over `wss://`).
 On the free plan the site sleeps after 15 minutes with no visitors and takes about a minute to wake up.
-Game state lives in memory, so a restart or redeploy resets open rooms.
+Game state lives in memory, so a restart or redeploy resets open rooms. To keep accounts, see the Turso steps below.
 To update the site, upload the changed files to GitHub — Render redeploys automatically.
+
+## Accounts, stats and leaderboards
+Players can **sign up / log in** (username + password, no email) or **play as a guest**. Logged-in players get:
+XP and levels, saved stats for every online game (saved when a game finishes), match history, achievements,
+a public profile (`/profile?u=Name`), and **leaderboards** (`/leaderboards`). Solo high scores (Snake, 2048,
+Memory Flip on Normal, Dash practice) are saved too. Passwords are hashed with scrypt; only a hash of each login token is stored.
+Wins only count when at least 2 people played.
+
+**Where accounts are saved.** By default in `data/arcade.db` (a SQLite file). That's perfect on your own computer,
+but **Render's free plan wipes files on every restart/redeploy**, so online you need a free database:
+1. Make a free account at [turso.tech](https://turso.tech) (you can sign in with GitHub) and create a database.
+2. Copy its **URL** (`libsql://…turso.io`) and create a **token** for it.
+3. On Render → your service → **Environment**, add `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`, then save (Render redeploys).
+4. Check `https://<your-site>/api/health` — it should say `"storage": "turso", "accounts": true`.
+
+**Admin.** Add an environment variable `ADMIN_CODE` (a secret phrase, 8+ characters — never put it in the code or on GitHub).
+Then log in with your normal account, open `/admin` and type the code once: your account becomes an admin.
+Admins get the admin panel (online players, live rooms with kick/close, announcements, account search with
+ban/unban, reset password, give XP, set stats, reset stats, make admin, delete) and a 🛡️ cheat button in every
+online game (casino coins, Family Life money/stats/time skip, Neon Dash god mode, Doodle word peek, Blitz points…).
+A game where an admin used a cheat doesn't count for anyone's stats or leaderboards.
 
 ## Games
 - **Online:** Neon Dash (mini Geometry Dash race), Family Life (multiplayer BitLife with siblings), Doodle Guess, Party Blitz, Connect 4
@@ -38,6 +59,7 @@ Everything lives in `games/life/data/*.json`. The files are re-read at the start
 
 ## Project layout
 - `server.py`: HTTP + WebSocket server and rooms
+- `accounts.py`: accounts, sessions, stats, XP and leaderboards (SQLite file or Turso over HTTPS, same SQL)
 - `games/`: one module per online game (server side)
 - `games/casino/`: casino server. `match.py` runs the match (coins, scores, win conditions); every game is its own module
   built on the shared bases in `tables.py`: `HouseTable` (vs house), `PlayersTable` (vs players) and `RoundTable` (shared betting round).
