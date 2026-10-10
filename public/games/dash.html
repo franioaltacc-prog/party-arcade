@@ -58,6 +58,7 @@
           <div><div class="setting-label">Difficulty</div><div class="seg" id="solo-diff"></div></div>
           <div><div class="setting-label">Length</div><div class="seg" id="solo-len"></div></div>
           <label class="switch"><input type="checkbox" id="solo-cp" checked> Checkpoints (respawn closer when you crash)</label>
+          <label class="switch"><input type="checkbox" id="solo-modes" checked> 🚀 Ship / 🛸 UFO / ⚽ Ball / 〰️ Wave parts</label>
         </div>
         <button class="btn btn-pink btn-lg btn-block" id="solo-go" style="margin-top:20px">▶ Play</button>
         <div style="margin-top:18px"><div class="setting-label">🏆 Your best times</div><div id="solo-best"></div></div>
@@ -83,7 +84,7 @@
       </div>
       <div class="stage" id="stage"><canvas id="cv"></canvas><div id="banner" class="banner hidden"></div></div>
       <div class="dash-bottom">
-        <span>Jump: <span class="kbd">Space</span> <span class="kbd">↑</span> click or tap. <b>Hold</b> to keep jumping. Yellow rings = tap in the air!</span>
+        <span><span class="kbd">Space</span> <span class="kbd">↑</span> click or tap = jump. <b>Hold</b>: keep jumping, fly the 🚀 ship, ride the 〰️ wave. <b>Tap</b>: 🛸 UFO flap, ⚽ ball flips gravity. Rings: tap in the air!</span>
         <div class="standings" id="standings"></div>
       </div>
     </section>

@@ -19,7 +19,7 @@ class Dash(Game):
 
     def __init__(self, room):
         super().__init__(room)
-        self.settings = {"difficulty": "normal", "length": "medium", "checkpoints": True}
+        self.settings = {"difficulty": "normal", "length": "medium", "checkpoints": True, "modes": True}
         self.race = None
         self.results = None
         self.wins = {}
@@ -49,6 +49,8 @@ class Dash(Game):
                 self.settings["length"] = msg["length"]
             if "checkpoints" in msg:
                 self.settings["checkpoints"] = bool(msg["checkpoints"])
+            if "modes" in msg:
+                self.settings["modes"] = bool(msg["modes"])
             self.broadcast("settings", settings=self.settings)
         elif t == "start" and host and self.phase != "racing":
             self.start()
@@ -63,7 +65,9 @@ class Dash(Game):
             self.room.broadcast("g:pos", exclude=m.uid, id=m.uid,
                                 x=round(num(msg.get("x")), 3), y=round(num(msg.get("y")), 3),
                                 r=round(num(msg.get("r")), 1), d=bool(msg.get("d")),
-                                p=run["p"], a=run["attempts"])
+                                p=run["p"], a=run["attempts"],
+                                m=msg.get("m") if msg.get("m") in ("cube", "ship", "ufo", "ball", "wave") else "cube",
+                                g=-1 if msg.get("g") == -1 else 1)
         elif t == "finish" and self.phase == "racing":
             self.finish(m, msg)
 

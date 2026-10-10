@@ -22,7 +22,8 @@
 
   // Level chunks: rows top -> bottom, the last row sits on the floor.
   //   .  empty      #  block       ^  spike      v  hanging spike
-  //   o  jump orb (tap/hold in the air)          =  jump pad
+  //   o  yellow orb (tap/hold in the air)        =  yellow jump pad
+  //   p  pink orb (small jump)   r  red orb (huge jump)   _  pink pad (small launch)
   const CHUNKS = {
     1: [
       ['^'], ['^^'], ['#'], ['##'], ['###'], ['#...#'], ['^....^'], ['#..^'], ['^..#'],
@@ -33,6 +34,8 @@
       ['..o..', '.....', '^^^^^'],
       ['vvvvvv', '......', '......', '######'],
       ['^.....^^'], ['##^^##'], ['#...^^'],
+      ['..p...', '......', '^^^^^^'],
+      ['......', '....##', '_...##'],
     ],
     3: [
       ['#^^^'], ['..#', '.##', '###'], ['##..##..##', '##^^##^^##'],
@@ -40,6 +43,8 @@
       ['^^...^^^'],
       ['..o...o..', '.........', '^^^^^^^^^'],
       ['#^^^#'],
+      ['..........', '..........', '...r......', '.......###', '^^^^^^^###'],
+      ['......p...p...p..', '.................', '....^^^^^^^^^^^^^'],
     ],
     4: [
       ['^^^.^^^'], ['#^^^#^^^#'],
@@ -47,6 +52,8 @@
       ['..o...o...o..', '.............', '^^^^^^^^^^^^^'],
       ['##.....##', '##^^^^^##'],
       ['=..^^^^#^^^'],
+      ['.........', '.........', '..r......', '......###', '......###', '^^^^^^###'],
+      ['..o...p...r....', '...............', '...............', '^^^^^^^^^^^^^^^'],
     ],
   };
   const TIER_MIX = {
@@ -90,21 +97,111 @@
     return chunk[0].length;
   }
 
-  function buildLevel(seed, difficulty = 'normal', length = 'medium') {
+
+  // ---- game modes -----------------------------------------------------------
+  // Portals switch your mode. Ship, UFO, Ball and Wave only happen inside closed
+  // tunnels (floor + ceiling) and the physics clamps you inside them, so nobody can
+  // fly out of the level. The normal cube parts have a hard ceiling too (WORLD_TOP).
+  const MODE_DIMS = { cube: [0.97, 0.97], ship: [0.97, 0.7], ufo: [0.97, 0.8], ball: [0.9, 0.9], wave: [0.6, 0.6] };
+  const SHIP_ACC = 62;
+  const SHIP_MAX = 9.5;
+  const UFO_GRAV = 52;
+  const UFO_FLAP = 12.5;
+  const UFO_FALL = 13;
+  const BALL_GRAV = 68;
+  const BALL_FALL = 17;
+  const WAVE_V = SPEED * 0.9;
+  const WORLD_TOP = 14;
+  const ORB_POWER = { o: ORB_V, p: 14.5, r: 25 };   // yellow, pink (small), red (huge)
+  const PINK_PAD_V = 21;
+
+  // Tunnel sections, written as building steps (the tunnel is `ceil` blocks tall):
+  //   F x w h  pillar from the floor      C x w h  pillar from the ceiling
+  //   W x w y gap  wall with a hole from y to y+gap
+  //   S x w  spikes on the floor          T x w  spikes hanging from the ceiling
+  //   ^ x y / v x y  one spike            O x y t  orb (b = blue: flips gravity)
+  const SECTIONS = [
+    { mode: 'ship', tier: 1, w: 44, ceil: 7, ops: [['S', 4, 3], ['F', 9, 2, 4], ['S', 13, 3], ['C', 18, 2, 3], ['F', 27, 2, 4], ['S', 31, 3], ['C', 36, 2, 3]] },
+    { mode: 'ship', tier: 2, w: 46, ceil: 7, ops: [['S', 3, 4], ['F', 8, 2, 4], ['^', 8, 4], ['^', 9, 4], ['C', 15, 2, 4], ['F', 22, 2, 4], ['C', 29, 2, 4], ['S', 31, 4], ['F', 36, 2, 3], ['C', 41, 2, 3]] },
+    { mode: 'ship', tier: 3, w: 50, ceil: 7, ops: [['S', 2, 48], ['C', 6, 3, 5], ['F', 17, 3, 4], ['T', 16, 5], ['C', 28, 3, 5], ['F', 39, 3, 4], ['T', 38, 5]] },
+    { mode: 'ufo', tier: 1, w: 40, ceil: 7, ops: [['S', 4, 4], ['W', 9, 2, 3, 3], ['S', 12, 5], ['W', 18, 2, 1, 3], ['S', 21, 5], ['W', 27, 2, 3, 3], ['S', 30, 6]] },
+    { mode: 'ufo', tier: 2, w: 44, ceil: 7, ops: [['S', 3, 41], ['W', 8, 2, 2, 3], ['W', 15, 2, 4, 2.5], ['W', 22, 2, 1, 2.5], ['W', 29, 2, 3, 2.5], ['W', 36, 2, 2, 2.5]] },
+    { mode: 'ufo', tier: 3, w: 46, ceil: 7, ops: [['S', 2, 44], ['T', 2, 44], ['W', 8, 1, 3, 2.5], ['W', 14, 1, 1, 2.5], ['W', 20, 1, 4, 2.2], ['W', 26, 1, 2, 2.2], ['O', 31, 3, 'b'], ['W', 35, 1, 2, 2.4], ['W', 41, 1, 3, 2.4]] },
+    { mode: 'ball', tier: 1, w: 42, ceil: 7, ops: [['S', 9, 6], ['T', 22, 6], ['S', 34, 5]] },
+    { mode: 'ball', tier: 2, w: 44, ceil: 7, ops: [['S', 7, 5], ['T', 16, 5], ['S', 25, 4], ['T', 33, 4], ['F', 40, 1, 2]] },
+    { mode: 'ball', tier: 3, w: 46, ceil: 7, ops: [['S', 6, 4], ['T', 13, 4], ['S', 20, 3], ['T', 26, 3], ['O', 31, 3, 'b'], ['S', 29, 8], ['T', 39, 4]] },
+    { mode: 'wave', tier: 2, w: 40, ceil: 7, ops: [['W', 8, 2, 1, 3], ['W', 15, 2, 4, 3], ['W', 22, 2, 1, 3], ['W', 29, 2, 4, 3], ['W', 36, 2, 2, 3]] },
+    { mode: 'wave', tier: 3, w: 44, ceil: 7, ops: [['W', 7, 2, 1, 2.6], ['W', 13, 2, 4, 2.6], ['W', 19, 2, 1, 2.6], ['W', 25, 2, 3, 2.6], ['W', 31, 2, 1, 2.6], ['W', 37, 2, 4, 2.6]] },
+  ];
+  const SECTION_POOL = {
+    easy: { chance: 0.12, modes: { ship: [1], ufo: [1] } },
+    normal: { chance: 0.16, modes: { ship: [1, 2], ufo: [1, 2], ball: [1] } },
+    hard: { chance: 0.2, modes: { ship: [2, 3], ufo: [2], ball: [1, 2], wave: [2] } },
+    insane: { chance: 0.24, modes: { ship: [3], ufo: [2, 3], ball: [2, 3], wave: [2, 3] } },
+  };
+
+  /** Turn a tunnel's building steps into objects (y = 0 is the floor). Heights can be
+      fractional for holes (W): blocks fill every row the hole doesn't cover. */
+  function sectionCells(sec) {
+    const cells = [];
+    const put = (t, x, y) => { if (x >= 0 && x < sec.w && y >= 0 && y < sec.ceil) cells.push([t, x, y]); };
+    for (const [op, a, b, c, d] of sec.ops) {
+      if (op === 'F') for (let x = a; x < a + b; x++) for (let y = 0; y < c; y++) put('#', x, y);
+      else if (op === 'C') for (let x = a; x < a + b; x++) for (let y = sec.ceil - c; y < sec.ceil; y++) put('#', x, y);
+      else if (op === 'W') for (let x = a; x < a + b; x++) for (let y = 0; y < sec.ceil; y++) { if (y + 1 <= c || y >= c + d) put('#', x, y); }
+      else if (op === 'S') for (let x = a; x < a + b; x++) put('^', x, 0);
+      else if (op === 'T') for (let x = a; x < a + b; x++) put('v', x, sec.ceil - 1);
+      else if (op === '^' || op === 'v') put(op, a, b);
+      else if (op === 'O') put(c, a, b);
+    }
+    // a block wins over a spike in the same cell
+    const solid = new Set(cells.filter((q) => q[0] === '#').map((q) => q[1] + ',' + q[2]));
+    return cells.filter((q) => q[0] === '#' || !solid.has(q[1] + ',' + q[2]));
+  }
+
+  function placeSection(lv, sec, x0) {
+    for (const [t, x, y] of sectionCells(sec)) addObj(lv, t, x0 + x, y);
+    lv.sections.push({ x0, x1: x0 + sec.w, mode: sec.mode, ceil: sec.ceil, tier: sec.tier });
+    return sec.w;
+  }
+
+  function sectionAt(lv, x) {
+    for (const s of lv.sections) if (x >= s.x0 && x < s.x1) return s;
+    return null;
+  }
+
+
+  function buildLevel(seed, difficulty = 'normal', length = 'medium', modes = true) {
     const rng = mulberry32(seed);
-    const lv = { objs: [], cols: {}, checkpoints: [0], end: 0, chunks: [], theme: THEMES[difficulty] || THEMES.normal };
+    const lv = { objs: [], cols: {}, checkpoints: [0], end: 0, chunks: [], sections: [], theme: THEMES[difficulty] || THEMES.normal };
     const mix = TIER_MIX[difficulty] || TIER_MIX.normal;
     const [gMin, gMax] = GAPS[difficulty] || GAPS.normal;
     const target = LENGTH[length] || LENGTH.medium;
+    const pool = SECTION_POOL[difficulty] || SECTION_POOL.normal;
     let x = 12;
     let last = null;
+    let lastSection = 0;
     while (x < target) {
+      // sometimes a portal into a Ship / UFO / Ball / Wave tunnel
+      if (modes && x > 40 && x - lastSection > 70 && x < target - 30 && rng() < pool.chance) {
+        const kinds = Object.keys(pool.modes);
+        const kind = kinds[Math.floor(rng() * kinds.length)];
+        const tiers = pool.modes[kind];
+        const tier = tiers[Math.floor(rng() * tiers.length)];
+        const options = SECTIONS.filter((q) => q.mode === kind && q.tier === tier);
+        const sec = options[Math.floor(rng() * options.length)];
+        x += placeSection(lv, sec, x);
+        lastSection = x;
+        lv.checkpoints.push(x + 0.3);
+        x += gMin + Math.floor(rng() * (gMax - gMin + 1)) + 5;   // room to fall back to the floor
+        continue;
+      }
       let roll = rng();
       let tier = mix[0][0];
       for (const [t, w] of mix) { if ((roll -= w) <= 0) { tier = t; break; } }
-      const pool = CHUNKS[tier];
-      let chunk = pool[Math.floor(rng() * pool.length)];
-      if (chunk === last) chunk = pool[Math.floor(rng() * pool.length)];
+      const chunks = CHUNKS[tier];
+      let chunk = chunks[Math.floor(rng() * chunks.length)];
+      if (chunk === last) chunk = chunks[Math.floor(rng() * chunks.length)];
       last = chunk;
       lv.chunks.push({ x, tier, chunk });
       x += placeChunk(lv, chunk, x);
@@ -126,14 +223,15 @@
         if (chunk[r][c] === '#') top = Math.max(top, rows - r);
       }
     }
-    const pad = chunk.some((row) => row.includes('=')) ? 2 : 0;
-    const orb = chunk.some((row) => row.includes('o')) ? 3 : 0;            // rings leave you high in the air
+    const pad = chunk.some((row) => /[=_]/.test(row)) ? 2 : 0;
+    const orb = chunk.some((row) => /[opr]/.test(row)) ? 3 : 0;            // rings leave you high in the air
     const spikeEnd = chunk[rows - 1][w - 1] === '^' ? 1 : 0;              // landing right after spikes is tight
     return Math.max(0, top - 1) * 2 + Math.max(pad, orb) + spikeEnd;
   }
 
+
   function newPlayer(x = 0) {
-    return { x, y: 0, vy: 0, rot: 0, grounded: true, dead: false, done: false, used: new Set(), air: 0, buffer: 0, jumped: false };
+    return { x, y: 0, vy: 0, rot: 0, grounded: true, dead: false, done: false, used: new Set(), air: 0, buffer: 0, jumped: false, mode: 'cube', g: 1 };
   }
 
   const hits = (pl, ax0, ay0, ax1, ay1) => pl.x + 0.78 > ax0 && pl.x + 0.22 < ax1 && pl.y + 0.82 > ay0 && pl.y + 0.18 < ay1;
@@ -141,6 +239,104 @@
   /** Advance one physics substep. `ev` collects sound/fx events. */
   function step(pl, lv, hold, dt, ev) {
     if (pl.dead || pl.done) return;
+    const sec = lv.sections && lv.sections.length ? sectionAt(lv, pl.x + 0.5) : null;
+    const mode = sec ? sec.mode : 'cube';
+    if (mode !== pl.mode) enterMode(pl, mode, sec, ev);
+    if (mode === 'cube') stepCube(pl, lv, hold, dt, ev);
+    else stepFlyer(pl, lv, hold, dt, ev, sec);
+    if (pl.x >= lv.end) { pl.done = true; pl.x = lv.end; }
+  }
+
+  function enterMode(pl, mode, sec, ev) {
+    pl.mode = mode;
+    pl.g = 1;
+    const h = MODE_DIMS[mode][1];
+    if (sec && pl.y + h > sec.ceil) pl.y = sec.ceil - h;   // never start inside or above a tunnel's ceiling
+    if (mode === 'cube') { pl.grounded = false; pl.jumped = true; pl.air = 1; }
+    else pl.vy = Math.max(-6, Math.min(6, pl.vy));
+    ev && ev.push('portal');
+  }
+
+  /** Ship, UFO, Ball and Wave. The tunnel's floor and ceiling are walls you slide along. */
+  function stepFlyer(pl, lv, hold, dt, ev, sec) {
+    const mode = pl.mode;
+    const [w, h] = MODE_DIMS[mode];
+    const top = sec ? sec.ceil : WORLD_TOP;
+    const c0 = Math.floor(pl.x) - 1;
+    const c1 = Math.floor(pl.x) + 2;
+    // blue orbs: tap while touching one to flip gravity (UFO and Ball)
+    if (pl.buffer > 0 && (mode === 'ufo' || mode === 'ball')) {
+      for (let c = c0; c <= c1 && pl.buffer > 0; c++) {
+        for (const o of lv.cols[c] || []) {
+          if (o.t !== 'b' || pl.used.has(o)) continue;
+          const dx = pl.x - o.x;
+          const dy = pl.y - o.y;
+          if (dx * dx + dy * dy < ORB_R * ORB_R) { pl.g = -pl.g; pl.vy = 0; pl.used.add(o); pl.buffer = 0; ev && ev.push('orb'); break; }
+        }
+      }
+    }
+    const prevY = pl.y;
+    pl.x += SPEED * dt;
+    if (mode === 'ship') {
+      pl.vy = Math.max(-SHIP_MAX, Math.min(SHIP_MAX, pl.vy + (hold ? SHIP_ACC : -SHIP_ACC) * dt));
+    } else if (mode === 'ufo') {
+      if (pl.buffer > 0) { pl.vy = UFO_FLAP * pl.g; pl.buffer = 0; ev && ev.push('jump'); }
+      pl.vy -= UFO_GRAV * pl.g * dt;
+      pl.vy = pl.g > 0 ? Math.max(pl.vy, -UFO_FALL) : Math.min(pl.vy, UFO_FALL);
+    } else if (mode === 'ball') {
+      pl.vy -= BALL_GRAV * pl.g * dt;
+      pl.vy = pl.g > 0 ? Math.max(pl.vy, -BALL_FALL) : Math.min(pl.vy, BALL_FALL);
+    } else {
+      pl.vy = (hold ? 1 : -1) * WAVE_V;
+    }
+    pl.y += pl.vy * dt;
+    const wasGrounded = pl.grounded;
+    pl.grounded = false;
+    if (pl.y <= 0) { pl.y = 0; if (pl.vy < 0) pl.vy = 0; if (pl.g > 0) pl.grounded = true; }
+    if (pl.y + h >= top) { pl.y = top - h; if (pl.vy > 0) pl.vy = 0; if (pl.g < 0) pl.grounded = true; }
+
+    for (let c = c0; c <= c1; c++) {
+      for (const o of lv.cols[c] || []) {
+        if (o.t !== '#') continue;
+        if (pl.x + w - 0.03 <= o.x || pl.x + 0.03 >= o.x + 1 || pl.y + h - 0.02 <= o.y || pl.y + 0.02 >= o.y + 1) continue;
+        if (mode !== 'wave' && pl.vy <= 0 && prevY >= o.y + 1 - 0.05) { pl.y = o.y + 1; pl.vy = 0; if (pl.g > 0) pl.grounded = true; }
+        else if (mode !== 'wave' && pl.vy >= 0 && prevY + h <= o.y + 0.05) { pl.y = o.y - h; pl.vy = 0; if (pl.g < 0) pl.grounded = true; }
+        else if (pl.god) { pl.y = Math.min(top - h, o.y + 1); pl.vy = 0; }
+        else { pl.dead = true; ev && ev.push('die'); return; }
+      }
+    }
+    const hx0 = pl.x + w * 0.15;
+    const hx1 = pl.x + w * 0.85;
+    const hy0 = pl.y + h * 0.15;
+    const hy1 = pl.y + h * 0.85;
+    for (let c = c0; c <= c1 && !pl.god; c++) {
+      for (const o of lv.cols[c] || []) {
+        const up = o.t === '^';
+        if (!up && o.t !== 'v') continue;
+        const y0 = up ? o.y : o.y + 0.45;
+        const y1 = up ? o.y + 0.55 : o.y + 1;
+        if (hx1 > o.x + 0.32 && hx0 < o.x + 0.68 && hy1 > y0 && hy0 < y1) { pl.dead = true; ev && ev.push('die'); return; }
+      }
+    }
+    if (pl.grounded) pl.air = 0; else pl.air += dt;
+    if (mode === 'ball' && pl.buffer > 0 && (pl.grounded || pl.air < COYOTE)) {
+      pl.g = -pl.g;
+      pl.vy = -pl.g * 2;
+      pl.buffer = 0;
+      pl.grounded = false;
+      pl.air = COYOTE;
+      ev && ev.push('jump');
+    }
+    pl.buffer = Math.max(0, pl.buffer - dt);
+    if (mode === 'ship') pl.rot = -Math.atan2(pl.vy, SPEED) * 180 / Math.PI;
+    else if (mode === 'wave') pl.rot = pl.vy > 0 ? -42 : 42;
+    else if (mode === 'ufo') pl.rot = Math.max(-18, Math.min(18, -pl.vy * 1.5));
+    else pl.rot += 620 * dt * pl.g;
+    if (pl.grounded && !wasGrounded && mode !== 'ship' && mode !== 'wave') ev && ev.push('land');
+  }
+
+  /** The normal cube. */
+  function stepCube(pl, lv, hold, dt, ev) {
     const prevY = pl.y;
     pl.x += SPEED * dt;
     pl.vy = Math.max(pl.vy - GRAV * dt, -MAX_FALL);
@@ -148,6 +344,7 @@
     const wasGrounded = pl.grounded;
     pl.grounded = false;
     if (pl.y <= 0) { pl.y = 0; if (pl.vy < 0) pl.vy = 0; pl.grounded = true; }
+    if (pl.y + 0.97 > WORLD_TOP) { pl.y = WORLD_TOP - 0.97; if (pl.vy > 0) pl.vy = 0; }
 
     const c0 = Math.floor(pl.x) - 1;
     const c1 = Math.floor(pl.x) + 2;
@@ -180,15 +377,15 @@
           if (!pl.god && hits(pl, o.x + 0.32, o.y, o.x + 0.68, o.y + 0.55)) { pl.dead = true; ev && ev.push('die'); return; }
         } else if (o.t === 'v') {
           if (!pl.god && hits(pl, o.x + 0.32, o.y + 0.45, o.x + 0.68, o.y + 1)) { pl.dead = true; ev && ev.push('die'); return; }
-        } else if (o.t === '=') {
+        } else if (o.t === '=' || o.t === '_') {
           if (!pl.used.has(o) && pl.x + 0.97 > o.x + 0.1 && pl.x + 0.03 < o.x + 0.9 && pl.y < o.y + 0.3 && pl.y + 0.97 > o.y) {
-            pl.vy = PAD_V; pl.grounded = false; pl.used.add(o); ev && ev.push('pad');
+            pl.vy = o.t === '=' ? PAD_V : PINK_PAD_V; pl.grounded = false; pl.used.add(o); ev && ev.push('pad');
           }
-        } else if (o.t === 'o') {
+        } else if (o.t === 'o' || o.t === 'p' || o.t === 'r') {
           if ((hold || pl.buffer > 0) && !pl.grounded && !pl.used.has(o)) {
             const dx = pl.x - o.x;
             const dy = pl.y - o.y;
-            if (dx * dx + dy * dy < ORB_R * ORB_R) { pl.vy = ORB_V; pl.used.add(o); pl.buffer = 0; ev && ev.push('orb'); }
+            if (dx * dx + dy * dy < ORB_R * ORB_R) { pl.vy = ORB_POWER[o.t]; pl.used.add(o); pl.buffer = 0; ev && ev.push('orb'); }
           }
         }
       }
@@ -205,10 +402,9 @@
     } else {
       pl.rot += 400 * dt;
     }
-    if (pl.x >= lv.end) { pl.done = true; pl.x = lv.end; }
   }
 
-  window.DashCore = { buildLevel, newPlayer, step, CHUNKS, SPEED, SUB, placeChunk, exitRunway };
+  window.DashCore = { buildLevel, newPlayer, step, CHUNKS, SECTIONS, SPEED, SUB, BUFFER, placeChunk, placeSection, sectionCells, exitRunway };
 
   // ====================================================================
   // Music: a tiny synthwave loop made with WebAudio
@@ -308,13 +504,14 @@
   new ResizeObserver(resize).observe(stage);
 
   let game = null;       // current session
+  if (location.hostname === 'localhost') window.__dashGame = () => game;   // for testing on your own computer only
   let hold = false;
 
   const ghosts = new Map();
 
   function startSession(opts) {
     stopSession();
-    const level = buildLevel(opts.seed, opts.difficulty, opts.length);
+    const level = buildLevel(opts.seed, opts.difficulty, opts.length, opts.modes !== false);
     game = {
       ...opts, level,
       player: newPlayer(0),
@@ -372,8 +569,13 @@
         acc -= s;
         if (p.dead || p.done) break;
       }
-      // checkpoints
-      while (g.cp + 1 < g.level.checkpoints.length && p.x >= g.level.checkpoints[g.cp + 1] && p.grounded) g.cp++;
+      // checkpoints: passing a flag alive saves your progress (the floor at every flag is
+      // always empty, so respawning there is safe). It used to also need you to be standing on
+      // the ground, which never happened if you held the button to bunny-hop past it.
+      while (!p.dead && g.cp + 1 < g.level.checkpoints.length && p.x >= g.level.checkpoints[g.cp + 1]) {
+        g.cp++;
+        if (g.checkpoints) ev.push('checkpoint');
+      }
       if (p.done && !g.finished) onFinish(now);
     }
     for (const e of ev) {
@@ -381,6 +583,8 @@
       else if (e === 'pad') { Sfx.play('boing'); burst(p.x + 0.5, p.y, '#facc15', 10, 4); }
       else if (e === 'orb') { Sfx.play('orb'); burst(p.x + 0.5, p.y + 0.5, '#fde047', 14, 5); }
       else if (e === 'land') burst(p.x + 0.5, p.y, g.level.theme.line, 4, 2);
+      else if (e === 'portal') { Sfx.play('swoosh'); burst(p.x + 0.5, p.y + 0.5, MODE_COLOR[p.mode], 18, 7); }
+      else if (e === 'checkpoint') { Sfx.play('coin'); const cx = g.level.checkpoints[g.cp]; burst(cx + 0.3, 1, '#a3e635', 16, 5); }
       else if (e === 'die') onDeath();
     }
     if (p.dead) {
@@ -395,7 +599,7 @@
     // network
     if (g.mode === 'race' && now - g.lastSend > 66 && started && !g.finished) {
       g.lastSend = now;
-      Net.send('g:pos', { x: +p.x.toFixed(2), y: +p.y.toFixed(2), r: Math.round(p.rot), d: p.dead, p: +(p.x / g.level.end).toFixed(4), a: g.attempts });
+      Net.send('g:pos', { x: +p.x.toFixed(2), y: +p.y.toFixed(2), r: Math.round(p.rot), d: p.dead, p: +(p.x / g.level.end).toFixed(4), a: g.attempts, m: p.mode, g: p.g });
       renderTrack();
     }
     if (g.mode !== 'race' && Math.floor(now / 100) !== Math.floor((now - dt * 1000) / 100)) renderTrack();
@@ -409,7 +613,7 @@
     }
 
     // trail + particles
-    if (!p.dead && started && !p.done && Math.random() < 0.9) g.trail.push({ x: p.x + 0.15, y: p.y + 0.15 + Math.random() * 0.2, life: 0.35 });
+    if (!p.dead && started && !p.done && Math.random() < 0.9) g.trail.push({ x: p.x + 0.15, y: p.y + 0.15 + Math.random() * 0.2, wx: p.x + 0.3, wy: p.y + 0.3, life: 0.35 });
     for (const t of g.trail) t.life -= dt;
     g.trail = g.trail.filter((t) => t.life > 0);
     for (const q of g.particles) { q.vy -= 30 * dt; q.x += q.vx * dt; q.y += q.vy * dt; q.life -= dt; }
@@ -421,7 +625,8 @@
     const viewW = W / (H / 10);
     const targetX = p.x - viewW * 0.3;
     g.camX = p.dead ? g.camX : (g.camX < targetX - 20 ? targetX : g.camX + (targetX - g.camX) * Math.min(1, dt * 10));
-    const targetY = Math.max(0, p.y - 4.5);
+    const inTunnel = p.mode !== 'cube';
+    const targetY = inTunnel ? 0 : Math.max(0, p.y - 4.5);
     g.camY += (targetY - g.camY) * Math.min(1, dt * 5);
 
     draw(now);
@@ -519,14 +724,44 @@
 
     // checkpoints
     if (g.checkpoints) {
-      ctx.fillStyle = 'rgba(163,230,53,0.55)';
       for (let i = 1; i < g.level.checkpoints.length; i++) {
         const cx = g.level.checkpoints[i];
         if (cx < viewL || cx > viewR) continue;
+        const reached = i <= g.cp;
         const x = sx(cx + 0.2);
-        ctx.beginPath(); ctx.moveTo(x, sy(0)); ctx.lineTo(x, sy(1.2)); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(163,230,53,0.7)'; ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(x, sy(1.2)); ctx.lineTo(x + S * 0.45, sy(1.05)); ctx.lineTo(x, sy(0.9)); ctx.fill();
+        ctx.save();
+        ctx.shadowColor = reached ? '#facc15' : '#a3e635';
+        ctx.shadowBlur = reached ? 16 : 6;
+        ctx.strokeStyle = reached ? '#fde047' : 'rgba(163,230,53,0.8)';
+        ctx.fillStyle = reached ? '#facc15' : 'rgba(163,230,53,0.6)';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(x, sy(0)); ctx.lineTo(x, sy(1.4)); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x, sy(1.4)); ctx.lineTo(x + S * 0.55, sy(1.2)); ctx.lineTo(x, sy(1)); ctx.fill();
+        ctx.restore();
       }
+    }
+
+    // tunnels: a solid ceiling above Ship / UFO / Ball / Wave parts, and their portals
+    for (const sec of g.level.sections || []) {
+      if (sec.x1 < viewL - 3 || sec.x0 > viewR + 3) continue;
+      const xa = sx(sec.x0);
+      const xb = sx(sec.x1);
+      const yc = sy(sec.ceil);
+      const col = MODE_COLOR[sec.mode];
+      ctx.save();
+      ctx.fillStyle = col + '14';
+      ctx.fillRect(xa, yc, xb - xa, sy(0) - yc);
+      const cg = ctx.createLinearGradient(0, yc - S * 2, 0, yc);
+      cg.addColorStop(0, 'rgba(0,0,0,0.25)');
+      cg.addColorStop(1, 'rgba(0,0,0,0.75)');
+      ctx.fillStyle = cg;
+      ctx.fillRect(xa, 0, xb - xa, yc);
+      ctx.shadowColor = col; ctx.shadowBlur = 14;
+      ctx.fillStyle = col;
+      ctx.fillRect(xa, yc - 1.5, xb - xa, 3);
+      ctx.restore();
+      drawPortal(sec.x0, 0, Math.min(sec.ceil, 4.2), sec.mode, sx, sy, S, now);
+      drawPortal(sec.x1, 0, sec.ceil, 'cube', sx, sy, S, now);
     }
 
     // finish line
@@ -582,7 +817,7 @@
     // ghosts
     for (const gh of ghosts.values()) {
       if (gh.x < viewL - 2 || gh.x > viewR + 2) continue;
-      drawCube(sx(gh.x), sy(gh.y + 1), S, gh.color, gh.avatar, gh.rot, gh.d ? 0.15 : 0.45);
+      drawRunner(gh.m || 'cube', sx(gh.x), sy(gh.y + 1), S, gh.color, gh.avatar, gh.rot, gh.d ? 0.15 : 0.45, false, gh.g || 1);
       ctx.save();
       ctx.font = `600 ${Math.round(S * 0.36)}px Fredoka, sans-serif`;
       ctx.textAlign = 'center';
@@ -593,7 +828,7 @@
 
     // trail
     const me = PA.Profile.get();
-    for (const tr of g.trail) {
+    for (const tr of g.player.mode === 'wave' ? [] : g.trail) {
       ctx.globalAlpha = tr.life / 0.35 * 0.5;
       ctx.fillStyle = me.color;
       const s = S * 0.3 * (tr.life / 0.35);
@@ -603,7 +838,17 @@
 
     // player
     const p = g.player;
-    if (!p.dead) drawCube(sx(p.x), sy(p.y + 1), S, me.color, me.avatar, p.rot, 1, true);
+    if (p.mode === 'wave' && g.trail.length > 1) {
+      ctx.save();
+      ctx.strokeStyle = me.color; ctx.lineWidth = Math.max(3, S * 0.14); ctx.lineJoin = 'round';
+      ctx.shadowColor = me.color; ctx.shadowBlur = 12;
+      ctx.beginPath();
+      g.trail.forEach((tr, i) => { const X = sx(tr.wx), Y = sy(tr.wy); if (i) ctx.lineTo(X, Y); else ctx.moveTo(X, Y); });
+      ctx.lineTo(sx(p.x + 0.3), sy(p.y + 0.3));
+      ctx.stroke();
+      ctx.restore();
+    }
+    if (!p.dead) drawRunner(p.mode, sx(p.x), sy(p.y + 1), S, me.color, me.avatar, p.rot, 1, true, p.g);
 
     // particles
     for (const q of g.particles) {
@@ -639,24 +884,113 @@
       ctx.strokeStyle = th.line; ctx.lineWidth = Math.max(1.5, S * 0.06);
       ctx.stroke();
       ctx.shadowBlur = 0;
-    } else if (o.t === '=') {
-      ctx.fillStyle = used ? 'rgba(250,204,21,0.4)' : '#facc15';
-      ctx.shadowColor = '#facc15'; ctx.shadowBlur = used ? 0 : 16;
+    } else if (o.t === '=' || o.t === '_') {
+      const c = o.t === '=' ? '#facc15' : '#f472b6';
+      ctx.globalAlpha = used ? 0.4 : 1;
+      ctx.fillStyle = c;
+      ctx.shadowColor = c; ctx.shadowBlur = used ? 0 : 16;
       ctx.beginPath();
-      ctx.ellipse(x + S / 2, y + S, S * 0.42, S * 0.22, 0, Math.PI, 0);
+      ctx.ellipse(x + S / 2, y + S, S * 0.42, S * (o.t === '=' ? 0.22 : 0.16), 0, Math.PI, 0);
       ctx.fill();
       ctx.shadowBlur = 0;
-    } else if (o.t === 'o') {
+      ctx.globalAlpha = 1;
+    } else if (ORB_COLOR[o.t]) {
+      const c = ORB_COLOR[o.t];
       const pulse = 1 + Math.sin(t * 6 + o.x) * 0.08;
       ctx.save();
       ctx.globalAlpha = used ? 0.3 : 1;
-      ctx.shadowColor = '#fde047'; ctx.shadowBlur = 20;
-      ctx.strokeStyle = '#fde047'; ctx.lineWidth = S * 0.12;
+      ctx.shadowColor = c; ctx.shadowBlur = 20;
+      ctx.strokeStyle = c; ctx.lineWidth = S * 0.12;
       ctx.beginPath(); ctx.arc(x + S / 2, y + S / 2, S * 0.32 * pulse, 0, Math.PI * 2); ctx.stroke();
-      ctx.fillStyle = 'rgba(253,224,71,0.35)';
+      ctx.globalAlpha *= 0.4;
+      ctx.fillStyle = c;
       ctx.beginPath(); ctx.arc(x + S / 2, y + S / 2, S * 0.18 * pulse, 0, Math.PI * 2); ctx.fill();
+      if (o.t === 'b') {   // little arrows: this one flips gravity
+        ctx.globalAlpha = used ? 0.3 : 1;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.moveTo(x + S * 0.5, y + S * 0.3); ctx.lineTo(x + S * 0.6, y + S * 0.42); ctx.lineTo(x + S * 0.4, y + S * 0.42); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(x + S * 0.5, y + S * 0.7); ctx.lineTo(x + S * 0.6, y + S * 0.58); ctx.lineTo(x + S * 0.4, y + S * 0.58); ctx.fill();
+      }
       ctx.restore();
     }
+  }
+
+  const MODE_COLOR = { cube: '#a3e635', ship: '#f472b6', ufo: '#fb923c', ball: '#ef4444', wave: '#22d3ee' };
+  const MODE_ICON = { cube: '🟩', ship: '🚀', ufo: '🛸', ball: '⚽', wave: '〰️' };
+  const ORB_COLOR = { o: '#fde047', p: '#f472b6', r: '#ef4444', b: '#60a5fa' };
+
+  /** A tall glowing portal ring at x, from y0 to y1 (blocks). */
+  function drawPortal(x, y0, y1, mode, sx, sy, S, now) {
+    const col = MODE_COLOR[mode];
+    const cx = sx(x);
+    const top = sy(y1);
+    const bottom = sy(y0);
+    const rx = S * 0.38;
+    const ry = (bottom - top) / 2;
+    const wob = 1 + Math.sin(now / 160 + x) * 0.04;
+    ctx.save();
+    ctx.shadowColor = col; ctx.shadowBlur = 22;
+    ctx.strokeStyle = col; ctx.lineWidth = Math.max(3, S * 0.14);
+    ctx.beginPath(); ctx.ellipse(cx, top + ry, rx * wob, ry, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 0.25;
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.ellipse(cx, top + ry, rx * 0.7 * wob, ry * 0.92, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+    const im = PA.Emoji.image(MODE_ICON[mode]);
+    const icon = S * 0.7;
+    if (im) ctx.drawImage(im, cx - icon / 2, top + ry - icon / 2, icon, icon);
+    ctx.restore();
+  }
+
+  /** Draw the player (or a ghost) as the right thing for its mode. (x, y) = top-left in pixels. */
+  function drawRunner(mode, x, y, S, color, emoji, rot, alpha, glow, g) {
+    if (mode === 'cube' || !mode) { drawCube(x, y, S, color, emoji, rot, alpha, glow); return; }
+    const [w, hgt] = MODE_DIMS[mode] || [1, 1];
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    const cx = x + (w * S) / 2;
+    const cy = y + S - (hgt * S) / 2;   // the player's box sits on its bottom edge
+    ctx.translate(cx, cy);
+    if (glow) { ctx.shadowColor = color; ctx.shadowBlur = 22; }
+    if (mode === 'ship') {
+      ctx.rotate((rot * Math.PI) / 180);
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(S * 0.55, S * 0.05); ctx.lineTo(-S * 0.5, S * 0.32); ctx.lineTo(-S * 0.35, 0); ctx.lineTo(-S * 0.5, -S * 0.08); ctx.closePath();
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = Math.max(1.5, S * 0.06); ctx.stroke();
+      drawCube(-S * 0.38, -S * 0.5, S * 0.5, color, emoji, 0, 1, false);   // the pilot
+    } else if (mode === 'ufo') {
+      ctx.scale(1, g < 0 ? -1 : 1);
+      drawCube(-S * 0.22, -S * 0.52, S * 0.44, color, emoji, 0, 1, false);
+      ctx.fillStyle = 'rgba(165, 243, 252, 0.35)';
+      ctx.beginPath(); ctx.ellipse(0, -S * 0.12, S * 0.32, S * 0.3, 0, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.ellipse(0, S * 0.08, S * 0.5, S * 0.18, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = Math.max(1.5, S * 0.05); ctx.stroke();
+    } else if (mode === 'ball') {
+      ctx.rotate((rot * Math.PI) / 180);
+      const r = S * 0.45;
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = Math.max(2, S * 0.07); ctx.stroke();
+      ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+      ctx.beginPath(); ctx.moveTo(-r, 0); ctx.lineTo(r, 0); ctx.moveTo(0, -r); ctx.lineTo(0, r); ctx.stroke();
+      const im = PA.Emoji.image(emoji);
+      if (im) ctx.drawImage(im, -r * 0.6, -r * 0.6, r * 1.2, r * 1.2);
+    } else if (mode === 'wave') {
+      ctx.rotate((rot * Math.PI) / 180);
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.moveTo(S * 0.42, 0); ctx.lineTo(-S * 0.3, S * 0.3); ctx.lineTo(-S * 0.15, 0); ctx.lineTo(-S * 0.3, -S * 0.3); ctx.closePath();
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = Math.max(1.5, S * 0.06); ctx.stroke();
+    }
+    ctx.restore();
   }
 
   function drawCube(x, y, S, color, emoji, rot, alpha, glow) {
@@ -771,6 +1105,7 @@
     seg($('#solo-diff'), DIFFS, solo.difficulty, (v) => { solo.difficulty = v; store.set('dash_solo', solo); renderSolo(); });
     seg($('#solo-len'), LENS, solo.length, (v) => { solo.length = v; store.set('dash_solo', solo); renderSolo(); });
     $('#solo-cp').checked = solo.checkpoints;
+    $('#solo-modes').checked = solo.modes !== false;
     const best = store.get('dash_best', {});
     fill($('#solo-best'), ...DIFFS.flatMap(([d, dl]) => LENS.map(([l, ll]) => {
       const b = best[`${d}-${l}`];
@@ -779,9 +1114,10 @@
     if (!$('#solo-best').children.length) $('#solo-best').append(h('p', { class: 'muted small' }, 'No runs yet. Go set some records! 🏁'));
   }
   $('#solo-cp').addEventListener('change', (e) => { solo.checkpoints = e.target.checked; store.set('dash_solo', solo); });
+  $('#solo-modes').addEventListener('change', (e) => { solo.modes = e.target.checked; store.set('dash_solo', solo); renderSolo(); });
   $('#solo-back').addEventListener('click', () => { showScreen('entry'); history.replaceState(null, '', location.pathname); });
   function playSolo(seed) {
-    startSession({ mode: 'solo', seed: seed || Math.floor(Math.random() * 2 ** 31), difficulty: solo.difficulty, length: solo.length, checkpoints: solo.checkpoints, countdown: 0 });
+    startSession({ mode: 'solo', seed: seed || Math.floor(Math.random() * 2 ** 31), difficulty: solo.difficulty, length: solo.length, checkpoints: solo.checkpoints, modes: solo.modes !== false, countdown: 0 });
   }
   $('#solo-go').addEventListener('click', () => playSolo());
   function soloResults(g) {
@@ -845,6 +1181,7 @@
         h('div', {}, h('div', { class: 'setting-label' }, 'Difficulty'), (() => { const d = h('div', { class: 'seg' }); seg(d, DIFFS, s.difficulty, (v) => send({ difficulty: v }), !host); return d; })()),
         h('div', {}, h('div', { class: 'setting-label' }, 'Length'), (() => { const d = h('div', { class: 'seg' }); seg(d, LENS, s.length, (v) => send({ length: v }), !host); return d; })()),
         h('label', { class: 'switch' }, h('input', { type: 'checkbox', checked: s.checkpoints, disabled: !host, onchange: (e) => send({ checkpoints: e.target.checked }) }), 'Checkpoints'),
+        h('label', { class: 'switch' }, h('input', { type: 'checkbox', checked: s.modes !== false, disabled: !host, onchange: (e) => send({ modes: e.target.checked }) }), '🚀 Ship / UFO / Ball / Wave parts'),
       ),
       h('div', { class: 'start-area' },
         host
@@ -871,7 +1208,7 @@
     state.race = race;
     const mine = race.runners && race.runners[Net.id];
     if (!mine) { showScreen('room'); renderRoomMain(); return; }
-    startSession({ mode: 'race', seed: race.seed, difficulty: race.settings.difficulty, length: race.settings.length, checkpoints: race.settings.checkpoints, countdown: Math.max(0, countdown) });
+    startSession({ mode: 'race', seed: race.seed, difficulty: race.settings.difficulty, length: race.settings.length, checkpoints: race.settings.checkpoints, modes: race.settings.modes !== false, countdown: Math.max(0, countdown) });
     for (const id of Object.keys(race.runners)) {
       if (id === Net.id) continue;
       const p = Room.player(id) || { name: '?', avatar: '❓', color: '#888888' };
@@ -886,7 +1223,7 @@
     emoji: '🟪',
     tagline: 'Jump over spikes, hit the pads, and race your friends to the finish line!',
     solo: { label: '🎮 Play solo (practice)', onClick: () => { showScreen('solo'); renderSolo(); } },
-    howTo: '<b>How to play</b><ul><li>Press <b>Space</b>, <b>↑</b>, click or tap to jump. Hold to bunny-hop.</li><li>🟨 Yellow pads launch you up. 🟡 Yellow rings: tap while touching them to jump again in mid-air.</li><li>Online: everyone gets the same level. Crash and you respawn — first to the finish wins!</li></ul>',
+    howTo: '<b>How to play</b><ul><li>Press <b>Space</b>, <b>↑</b>, click or tap to jump. Hold to bunny-hop.</li><li>🟨 Pads launch you up. Rings: tap while touching them to jump again in mid-air (🟡 normal, 🩷 small, ❤️ huge, 🔵 flips gravity).</li><li>Portals change your mode: 🚀 <b>Ship</b> (hold to fly up), 🛸 <b>UFO</b> (tap to flap), ⚽ <b>Ball</b> (tap to flip gravity), 〰️ <b>Wave</b> (hold to zig-zag up).</li><li>Online: everyone gets the same level. Crash and you respawn — first to the finish wins!</li></ul>',
   });
   Lobby.renderCode($('#room-code'));
   Lobby.renderPlayers($('#room-players'), { extra: (p) => (state.wins[p.id] ? h('span', { title: 'Wins' }, `🏆${state.wins[p.id]}`) : null) });
@@ -916,7 +1253,7 @@
         ghosts.set(m.id, gh);
       }
       if (m.d && !gh.d) gh.deadAt = performance.now();
-      Object.assign(gh, { tx: m.x, ty: m.y, rot: m.r, d: m.d, p: m.p });
+      Object.assign(gh, { tx: m.x, ty: m.y, rot: m.r, d: m.d, p: m.p, m: m.m || 'cube', g: m.g || 1 });
     }
     if (state.race && state.race.runners && state.race.runners[m.id]) { state.race.runners[m.id].p = m.p; renderSpecTrack(); }
   });
