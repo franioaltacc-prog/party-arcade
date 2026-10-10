@@ -42,6 +42,11 @@
       <g transform="translate(76 40) rotate(8)"><rect width="30" height="42" rx="5" fill="#fff"/><text x="15" y="24" text-anchor="middle" dominant-baseline="central" font-size="18" font-weight="800" fill="#dc2626" font-family="Fredoka, sans-serif">K♥</text></g>
       ${[[132, 78, '#3b82f6'], [146, 70, '#ef4444'], [138, 60, '#facc15'], [152, 54, '#16a34a']].map(([x, y, c]) => `<circle cx="${x}" cy="${y}" r="11" fill="${c}" stroke="#fff" stroke-width="3" stroke-dasharray="4 3"/>`).join('')}
       ${emoji(40, 24, 18, '🎰')}${emoji(168, 22, 18, '🪙')}${emoji(30, 100, 16, '🎲')}`, '#422006', '#a16207'),
+    impostor: svg('imp', `
+      <circle cx="100" cy="76" r="28" fill="none" stroke="#f43f5e" stroke-width="3" stroke-dasharray="5 5"/>
+      ${[[45, '😎'], [100, '🕵️'], [155, '🤠']].map(([x, e]) => `<circle cx="${x}" cy="76" r="22" fill="rgba(255,255,255,.16)"/>${emoji(x, 77, 26, e)}`).join('')}
+      ${[[45, '🍕'], [100, '❓'], [155, '🍕']].map(([x, e]) => `<rect x="${x - 17}" y="14" width="34" height="28" rx="10" fill="#fff"/><path d="M${x - 5} 41 l5 8 l5 -8z" fill="#fff"/>${emoji(x, 28, 16, e)}`).join('')}
+      ${emoji(100, 110, 12, '🗳️ ? 🗳️')}`, '#4c0519', '#5b21b6'),
     connect4: svg('c4', `
       <rect x="38" y="12" width="124" height="100" rx="12" fill="#2563eb" stroke="#1d4ed8" stroke-width="3"/>
       ${[0, 1, 2, 3, 4].map((r) => [0, 1, 2, 3, 4, 5].map((c) => {
@@ -88,6 +93,7 @@
     { key: 'dash', title: 'Neon Dash', icon: '🟪', desc: 'A mini Geometry Dash! Race your friends through the same level of spikes, jump pads and orbs.', players: '1–12 players', glow: 'rgba(168,85,247,.7)', feature: true },
     { key: 'life', title: 'Family Life', icon: '🏡', desc: 'A multiplayer BitLife where you and your friends are siblings in one family. Vote to age up, plan family trips, prank each other. Best life wins!', players: '1–4 siblings', glow: 'rgba(34,197,94,.6)', feature: true },
     { key: 'doodle', title: 'Doodle Guess', icon: '🎨', desc: 'One person draws, everyone guesses. Fast fingers win!', players: '2–12 players', glow: 'rgba(244,63,94,.6)' },
+    { key: 'impostor', title: 'Impostor', icon: '🕵️', desc: 'Everyone knows the secret word… except the impostor. Give one clue each, argue it out, and vote out the faker!', players: '3–10 players', glow: 'rgba(244,63,94,.6)', isNew: true },
     { key: 'blitz', title: 'Party Blitz', icon: '⚡', desc: 'Rapid-fire minigames: reaction, mashing, math, memory and more.', players: '1–12 players', glow: 'rgba(250,204,21,.6)' },
     { key: 'casino', title: 'Casino Night', icon: '🎰', desc: 'Fake-coin casino party: roulette, blackjack, slots, dice, poker and 1v1 duels. Most coins wins!', players: '1–6 players', glow: 'rgba(251,191,36,.6)' },
     { key: 'connect4', title: 'Connect 4', icon: '🔴', desc: 'The classic. Drop discs, get four in a row, talk trash in chat.', players: '2 + spectators', glow: 'rgba(59,130,246,.6)' },
@@ -109,7 +115,8 @@
     const href = g.href || `/games/${g.key}`;
     const badge = kind === 'online' ? h('span', { class: 'badge online' }, '● Online') : kind === 'solo' ? h('span', { class: 'badge solo' }, 'Solo') : h('span', { class: 'badge fun' }, 'Fun');
     const live = h('span', { class: 'live', 'data-live': g.key }, h('span', { class: 'dot' }), h('span', { class: 'n' }, '0'), ' playing');
-    const thumb = h('div', { class: 'thumb', html: ART[g.key] || '' }, badge, kind === 'online' ? live : null);
+    const thumb = h('div', { class: 'thumb', html: ART[g.key] || '' }, badge, kind === 'online' ? live : null,
+      g.isNew ? h('span', { class: 'badge new', style: { position: 'absolute', left: '10px', bottom: '10px' } }, '✨ New') : null);
     return h('a', { class: 'game-card' + (g.feature ? ' feature' : ''), href, style: g.glow ? { '--glow': g.glow } : null, onclick: () => Sfx.play('pop') },
       thumb,
       h('div', { class: 'info' },
@@ -199,6 +206,7 @@
     const rows = board ? board.rows.slice(0, 5) : [];
     fill(topPanel,
       h('div', { class: 'panel-title' }, '🌟 Top players', h('a', { class: 'count', href: '/leaderboards' }, 'All boards →')),
+      h('a', { class: 'find-link', href: '/players' }, '🔎 Find a player…'),
       rows.length
         ? h('div', { class: 'top-list' }, rows.map((r) => h('a', { class: 'top-row' + (u && r.id === u.id ? ' me' : ''), href: '/profile?u=' + encodeURIComponent(r.name) },
           h('span', { class: 'rk' }, ['🥇', '🥈', '🥉'][r.rank - 1] || '#' + r.rank), PA.UI.avatar(r, 'sm'), h('span', { class: 'nm' }, r.name),

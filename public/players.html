@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Leaderboards · Party Arcade</title>
+  <title>Find players · Party Arcade</title>
   <meta name="theme-color" content="#0b0920">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,15 +12,7 @@
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-  <main class="page lb-page">
-    <section class="page-head">
-      <h1 class="display">Leaderboards <span class="gradient-text">🏆</span></h1>
-      <p class="muted">Log in and play to climb the ranks. Online games count when they finish; solo high scores count too.</p>
-      <a class="btn btn-ghost btn-sm" href="/players" style="margin-top:12px">🔎 Find a player</a>
-    </section>
-    <nav class="lb-tabs" id="tabs" aria-label="Leaderboards"></nav>
-    <section class="panel lb-board" id="board"></section>
-    <div id="mine"></div>
+  <main class="page lb-page" id="players">
   </main>
 
   <script src="/js/core.js"></script>
@@ -29,6 +21,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/Flip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/SplitText.min.js"></script>
   <script src="/js/fx.js"></script>
-  <script src="/js/leaderboards.js"></script>
+  <script src="/js/players.js"></script>
 </body>
 </html>

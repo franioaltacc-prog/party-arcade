@@ -304,6 +304,8 @@ label.field { display: flex; flex-direction: column; gap: 6px; font-weight: 600;
 .chat-msg.sys { justify-content: center; color: var(--muted); font-size: 0.83rem; font-style: italic; text-align: center; }
 .chat-msg.good .bubble { background: rgba(34, 197, 94, 0.18); color: #c4f8d6; font-weight: 600; }
 .chat-msg.secret .bubble { background: rgba(250, 204, 21, 0.12); }
+.chat-msg.spec .bubble { background: rgba(139, 92, 246, 0.2); font-style: italic; }
+.chat-msg.clue .bubble { background: rgba(34, 211, 238, 0.16); border: 1px solid rgba(34, 211, 238, 0.4); font-weight: 700; font-size: 1rem; }
 .chat-form { display: flex; gap: 8px; margin-top: 10px; }
 .chat-form .input { padding: 10px 12px; }
 
@@ -609,3 +611,22 @@ label.field { display: flex; flex-direction: column; gap: 6px; font-weight: 600;
   .lb-row .lvl { display: none; }
   .lb-row .val { min-width: 0; }
 }
+
+/* find players */
+.pl-tools { display: grid; gap: 12px; margin-bottom: 16px; }
+.pl-search { font-size: 1.15rem; padding: 14px 16px; }
+.pl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.pl-card {
+  position: relative; display: grid; justify-items: center; gap: 6px; padding: 18px 12px 16px; border-radius: 22px; text-align: center;
+  color: var(--text); text-decoration: none !important; background: linear-gradient(170deg, color-mix(in srgb, var(--c) 22%, transparent), rgba(255, 255, 255, 0.03) 70%);
+  border: 1px solid color-mix(in srgb, var(--c) 40%, var(--border)); transition: border-color 0.2s, box-shadow 0.2s;
+}
+.pl-card:hover { border-color: var(--c); box-shadow: 0 16px 34px -18px var(--c); }
+.pl-av { position: relative; }
+.pl-dot { position: absolute; right: 0; bottom: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--green); border: 3px solid #141033; box-shadow: 0 0 10px var(--green); }
+.pl-name { font-weight: 700; font-size: 1.1rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-lvl { font-size: 0.72rem; font-weight: 800; padding: 3px 9px; border-radius: 999px; background: linear-gradient(90deg, var(--yellow), var(--orange)); color: #2b1600; }
+.pl-seen { font-size: 0.8rem; color: var(--muted); }
+.pl-bio { font-size: 0.8rem; font-style: italic; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.find-link { display: block; margin-bottom: 10px; padding: 9px 12px; border-radius: 12px; border: 1px dashed var(--border-strong); color: var(--muted); font-weight: 600; text-decoration: none !important; }
+.find-link:hover { color: var(--text); background: var(--panel); }

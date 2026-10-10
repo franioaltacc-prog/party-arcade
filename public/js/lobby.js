@@ -12,6 +12,7 @@
     blitz: { title: 'Party Blitz', emoji: '⚡' },
     connect4: { title: 'Connect 4', emoji: '🔴' },
     casino: { title: 'Casino Night', emoji: '🎰' },
+    impostor: { title: 'Impostor', emoji: '🕵️' },
   };
 
   const Room = {
@@ -62,9 +63,9 @@
         if (m.sys) row = h('div', { class: 'chat-msg sys' + (m.placeholder ? ' placeholder' : '') }, m.text);
         else {
           const who = m.from || m;
-          row = h('div', { class: 'chat-msg' + (m.good ? ' good' : '') + (m.secret ? ' secret' : '') },
+          row = h('div', { class: 'chat-msg' + (m.good ? ' good' : '') + (m.secret ? ' secret' : '') + (m.spec ? ' spec' : '') + (m.clue ? ' clue' : '') },
             UI.avatar(who, 'sm'),
-            h('div', { class: 'bubble' }, h('div', { class: 'who', style: { color: who.color } }, who.name, m.secret ? ' 🤫' : ''), m.text));
+            h('div', { class: 'bubble' }, h('div', { class: 'who', style: { color: who.color } }, who.name, m.secret ? ' 🤫' : '', m.spec ? ' 👀 spectator' : '', m.clue ? ' 🗝️ clue' : ''), m.text));
         }
         log.append(row);
         if (G && !m.placeholder) G.from(row, { x: -18, scale: 0.92, autoAlpha: 0, transformOrigin: '0% 50%', duration: 0.35, ease: 'back.out(2)', clearProps: 'transform,opacity,visibility' });
@@ -184,6 +185,7 @@
     doodle: [['word', '🤫 Show me the word'], ['points', '💯 +500 points'], ['skip', '⏭️ Skip this turn'], ['end', '🏁 End the game']],
     connect4: [['win', '🏆 Win this game'], ['undo', '↩️ Undo last move'], ['reset', '🔄 New board']],
     dash: [['god', '😇 God mode (no deaths)', true], ['skip', '⏩ Teleport to the finish', true]],
+    impostor: [['reveal', '🔎 Show impostor & word'], ['skip', '⏭️ Skip this phase'], ['end', '🏁 End the game']],
   };
   let adminFab = null;
   let adminPanel = null;

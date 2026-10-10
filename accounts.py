@@ -47,6 +47,8 @@ BOARDS = {
     "casino": ("🎰 Casino Night wins", "casino.wins", "desc", "int"),
     "casino_big": ("💰 Biggest casino win", "casino.best_win", "desc", "coins"),
     "c4": ("🔴 Connect 4 wins", "c4.wins", "desc", "int"),
+    "impostor": ("🕵️ Impostor wins", "impostor.wins", "desc", "int"),
+    "impostor_rounds": ("🎭 Rounds won as the impostor", "impostor.imp_wins", "desc", "int"),
     "snake": ("🐍 Snake high score", "snake.best", "desc", "int"),
     "2048": ("🔢 2048 best score", "2048.best", "desc", "int"),
     "memory": ("🃏 Memory Flip fastest (Normal)", "memory.best", "asc", "time"),
@@ -544,6 +546,26 @@ class Accounts:
         out["recent"] = res[1]["rows"]
         out["rank"] = res[2]["rows"][0]["n"] + 1 if not user["banned"] else None
         return out
+
+    async def find_players(self, text, sort="active", limit=48):
+        """Public player search: anyone can look up players who have an account."""
+        text = str(text or "").strip().lower()[:16]
+        order = {"active": "last_seen DESC", "new": "created DESC", "level": "xp DESC", "name": "name_key ASC"}.get(sort, "last_seen DESC")
+        if text:
+            safe = text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            res = await self.q(f"SELECT * FROM users WHERE banned = 0 AND name_key LIKE ? ESCAPE '\\' "
+                               f"ORDER BY CASE WHEN name_key = ? THEN 0 WHEN name_key LIKE ? ESCAPE '\\' THEN 1 ELSE 2 END, {order} LIMIT ?",
+                               f"%{safe}%", text, f"{safe}%", limit)
+        else:
+            res = await self.q(f"SELECT * FROM users WHERE banned = 0 ORDER BY {order} LIMIT ?", limit)
+        total = (await self.q("SELECT COUNT(*) AS n FROM users WHERE banned = 0"))["rows"][0]["n"]
+        players = []
+        for u in res["rows"]:
+            info = level_info(u["xp"])
+            players.append({"id": u["id"], "name": u["name"], "avatar": u["avatar"], "color": u["color"], "bio": u["bio"],
+                            "admin": bool(u["admin"]), "created": u["created"], "lastSeen": u["last_seen"],
+                            "level": info["level"], "xp": info["xp"]})
+        return players, total
 
     def boards(self):
         return [{"key": k, "title": v[0], "order": v[2], "format": v[3]} for k, v in BOARDS.items()]

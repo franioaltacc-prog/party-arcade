@@ -19,6 +19,8 @@
     ['Party Blitz', '⚡', '#facc15', [['Games', 'blitz.games'], ['Wins', 'blitz.wins'], ['Best game', 'blitz.best'], ['Total points', 'blitz.points']]],
     ['Casino Night', '🎰', '#fbbf24', [['Matches', 'casino.games'], ['Wins', 'casino.wins'], ['Biggest win', 'casino.best_win', (v) => `🪙 ${num(v)}`], ['Most coins', 'casino.best_coins', (v) => `🪙 ${num(v)}`]]],
     ['Connect 4', '🔴', '#3b82f6', [['Wins', 'c4.wins'], ['Losses', 'c4.losses'], ['Draws', 'c4.draws']]],
+    ['Impostor', '🕵️', '#f43f5e', [['Games', 'impostor.games'], ['Wins', 'impostor.wins'], ['Rounds as impostor', 'impostor.imp_rounds'],
+      ['Won as impostor', 'impostor.imp_wins'], ['Survived as impostor', 'impostor.survived'], ['Correct votes', 'impostor.correct_votes']]],
     ['Solo arcade', '🕹️', '#22d3ee', [['🐍 Snake best', 'snake.best'], ['🔢 2048 best', '2048.best'], ['🃏 Memory (Normal)', 'memory.best', secs], ['🟦 Dash levels', 'dashsolo.levels']]],
   ];
 
@@ -38,13 +40,14 @@
     ['⚡', 'Lightning', 'Win a game of Party Blitz', (s) => s['blitz.wins'] >= 1],
     ['🎰', 'High roller', 'Win 5,000 coins in one bet', (s) => s['casino.best_win'] >= 5000],
     ['🔴', 'Four in a row', 'Win at Connect 4', (s) => s['c4.wins'] >= 1],
+    ['🕵️', 'Master of disguise', 'Win 10 rounds as the Impostor', (s) => s['impostor.imp_wins'] >= 10],
     ['🐍', 'Snake charmer', 'Score 40 in Snake', (s) => s['snake.best'] >= 40],
     ['🔢', 'Tile master', 'Score 20,000 in 2048', (s) => s['2048.best'] >= 20000],
     ['🧠', 'Elephant memory', 'Beat Memory Flip (Normal) in under 30s', (s) => s['memory.best'] > 0 && s['memory.best'] <= 30000],
   ];
 
-  const GAME_EMOJI = { dash: '🟪', life: '🏡', doodle: '🎨', blitz: '⚡', connect4: '🔴', casino: '🎰', snake: '🐍', 2048: '🔢', memory: '🃏', dashsolo: '🟦' };
-  const GAME_NAME = { dash: 'Neon Dash', life: 'Family Life', doodle: 'Doodle Guess', blitz: 'Party Blitz', connect4: 'Connect 4', casino: 'Casino Night', snake: 'Neon Snake', 2048: '2048', memory: 'Memory Flip', dashsolo: 'Dash practice' };
+  const GAME_EMOJI = { dash: '🟪', life: '🏡', doodle: '🎨', blitz: '⚡', connect4: '🔴', casino: '🎰', impostor: '🕵️', snake: '🐍', 2048: '🔢', memory: '🃏', dashsolo: '🟦' };
+  const GAME_NAME = { dash: 'Neon Dash', life: 'Family Life', doodle: 'Doodle Guess', blitz: 'Party Blitz', connect4: 'Connect 4', casino: 'Casino Night', impostor: 'Impostor', snake: 'Neon Snake', 2048: '2048', memory: 'Memory Flip', dashsolo: 'Dash practice' };
   const OUTCOME = { win: ['WIN', 'win'], loss: ['LOSS', 'loss'], draw: ['DRAW', 'draw'], play: ['PLAYED', 'play'] };
 
   function message(emoji, title, text, ...kids) {
@@ -133,7 +136,8 @@
       const { profile } = await Net.request('profile:get', { name: wanted });
       render(profile);
     } catch (e) {
-      message('🤷', 'Player not found', e.message, h('a', { class: 'btn btn-pink btn-lg btn-block', href: '/leaderboards' }, '🏆 See the leaderboards'));
+      message('🤷', 'Player not found', e.message, h('a', { class: 'btn btn-pink btn-lg btn-block', href: '/players?q=' + encodeURIComponent(wanted || '') }, '🔎 Search for players'),
+        h('a', { class: 'btn btn-ghost btn-block', href: '/leaderboards' }, '🏆 See the leaderboards'));
     }
   }
 

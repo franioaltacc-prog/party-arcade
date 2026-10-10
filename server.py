@@ -91,6 +91,7 @@ class Client:
         self.account = None     # {"id", "name", "admin"} when logged in
         self.ip = "?"
         self.solo_at = 0.0
+        self.search_at = 0.0
 
     def send(self, t, **data):
         if not self.open:
@@ -464,6 +465,9 @@ class Hub:
         c.last_chat = now
         entry = {"from": c.info(), "text": text, "ts": int(now * 1000)}
         if c.room:
+            member = c.room.members.get(c.uid)
+            if member and member.client is c and c.room.game.on_chat(member, entry):
+                return
             c.room.broadcast("chat", **entry)
         else:
             self.chat_log.append(entry)
@@ -608,6 +612,17 @@ class Hub:
             rooms = [x.room for x in live if x.room]
             prof["playing"] = GAME_TITLES.get(rooms[0].game_key) if rooms else None
             return {"profile": prof}
+        if t == "players:find":
+            if time.time() - c.search_at < 0.25:
+                await asyncio.sleep(0.25)
+            c.search_at = time.time()
+            players, total = await acc.find_players(msg.get("q"), str(msg.get("sort") or "active"))
+            for p in players:
+                live = self.clients_of(p["id"])
+                p["online"] = bool(live)
+                rooms = [x.room for x in live if x.room]
+                p["playing"] = GAME_TITLES.get(rooms[0].game_key) if rooms else None
+            return {"players": players, "total": total}
         if t == "lb:boards":
             return {"boards": acc.boards()}
         if t == "lb:get":
@@ -716,12 +731,13 @@ class Hub:
 
 ACCOUNT_MESSAGES = {
     "auth:signup", "auth:login", "auth:logout", "account:update", "account:password", "account:delete",
-    "profile:get", "lb:boards", "lb:get", "stats:solo", "admin:unlock", "admin:overview", "admin:users",
+    "profile:get", "players:find", "lb:boards", "lb:get", "stats:solo", "admin:unlock", "admin:overview", "admin:users",
     "admin:user", "admin:announce", "admin:room", "admin:cheat",
 }
 GAME_TITLES = {"dash": "Neon Dash", "life": "Family Life", "doodle": "Doodle Guess", "blitz": "Party Blitz",
                "connect4": "Connect 4", "casino": "Casino Night", "snake": "Neon Snake", "2048": "2048",
-               "memory": "Memory Flip", "dash-solo": "Neon Dash practice", "dashsolo": "Neon Dash practice"}
+               "memory": "Memory Flip", "dash-solo": "Neon Dash practice", "dashsolo": "Neon Dash practice",
+               "impostor": "Impostor"}
 
 hub = Hub()
 

@@ -63,9 +63,9 @@ class Game:
         if not self.tainted:
             self.room.hub.record(self.room, uid, self.key, outcome, stats, detail, xp)
 
-    def record_ranking(self, ranking, prefix, unit="pts", value="points"):
+    def record_ranking(self, ranking, prefix, unit="pts", value="points", extra=None):
         """Save a points game: the single top scorer wins, a shared top is a draw.
-        Playing alone never counts as a win."""
+        Playing alone never counts as a win. extra: {uid: {stat: (op, n)}} added per player."""
         n = len(ranking)
         top = ranking[0][value] if ranking else 0
         leaders = [r for r in ranking if r[value] == top]
@@ -80,7 +80,12 @@ class Game:
             stats = {f"{prefix}.points": ("add", pts), f"{prefix}.best": ("max", pts)}
             if outcome == "win":
                 stats[f"{prefix}.wins"] = ("add", 1)
+            stats.update((extra or {}).get(r["id"], {}))
             self.record(r["id"], outcome, stats, f"#{i + 1} of {n} · {pts:,} {unit}")
+
+    def on_chat(self, m, entry):
+        """Return True if the game handled this room chat message itself."""
+        return False
 
     def on_admin(self, m, action, msg):
         """Admin cheats. Return a short message if the cheat worked, else None."""
