@@ -103,14 +103,17 @@
   // tunnels (floor + ceiling) and the physics clamps you inside them, so nobody can
   // fly out of the level. The normal cube parts have a hard ceiling too (WORLD_TOP).
   const MODE_DIMS = { cube: [0.97, 0.97], ship: [0.97, 0.7], ufo: [0.97, 0.8], ball: [0.9, 0.9], wave: [0.6, 0.6] };
-  const SHIP_ACC = 36;   // gentle, so the ship glides instead of wobbling
-  const SHIP_MAX = 7;
+  const SHIP_LIFT = 40;   // holding pushes you up this hard...
+  const SHIP_GRAV = 32;   // ...and letting go drops you a bit softer, so the ship feels light
+  const SHIP_MAX = 7.5;   // fastest climb
+  const SHIP_FALL = 6.5;  // fastest drop
   const UFO_GRAV = 52;
   const UFO_FLAP = 12.5;
   const UFO_FALL = 13;
   const BALL_GRAV = 68;
   const BALL_FALL = 17;
-  const WAVE_V = SPEED * 0.9;
+  const WAVE_V = SPEED;   // exactly 45 degrees, so the wave can ride along the slopes
+  const WAVE_HIT = 0.2;   // half the size of the wave's (small, like GD) hitbox
   const WORLD_TOP = 14;
   const ORB_POWER = { o: ORB_V, p: 14.5, r: 25 };   // yellow, pink (small), red (huge)
   const PINK_PAD_V = 21;
@@ -120,6 +123,13 @@
   //   W x w y gap  wall with a hole from y to y+gap
   //   S x w  spikes on the floor          T x w  spikes hanging from the ceiling
   //   ^ x y / v x y  one spike            O x y t  orb (b = blue: flips gravity)
+  /** A GD-style wave corridor: the floor and roof are zigzag slopes `gap` blocks apart that follow
+      `path` ([x, y] = the middle of the corridor). It opens up at both ends so you can fly in and out.
+      Gives [x, floorY, roofY] points; slopes are never steeper than 45 degrees (the wave's angle). */
+  function corridor(w, gap, path) {
+    return [[0, 0, 7], ...path.map(([x, y]) => [x, y - gap / 2, y + gap / 2]), [w, 0, 7]];
+  }
+
   const SECTIONS = [
     { mode: 'ship', tier: 1, w: 44, ceil: 7, ops: [['S', 4, 3], ['F', 9, 2, 4], ['S', 13, 3], ['C', 18, 2, 3], ['F', 27, 2, 4], ['S', 31, 3], ['C', 36, 2, 3]] },
     { mode: 'ship', tier: 2, w: 50, ceil: 7, ops: [['S', 3, 4], ['F', 9, 2, 4], ['^', 9, 4], ['^', 10, 4], ['C', 19, 2, 4], ['F', 29, 2, 4], ['S', 33, 4], ['C', 39, 2, 3], ['F', 46, 2, 3]] },
@@ -130,8 +140,8 @@
     { mode: 'ball', tier: 1, w: 42, ceil: 7, ops: [['S', 9, 6], ['T', 22, 6], ['S', 34, 5]] },
     { mode: 'ball', tier: 2, w: 44, ceil: 7, ops: [['S', 7, 5], ['T', 16, 5], ['S', 25, 4], ['T', 33, 4], ['F', 40, 1, 2]] },
     { mode: 'ball', tier: 3, w: 46, ceil: 7, ops: [['S', 6, 4], ['T', 13, 4], ['S', 20, 3], ['T', 26, 3], ['O', 31, 3, 'b'], ['S', 29, 8], ['T', 39, 4]] },
-    { mode: 'wave', tier: 2, w: 40, ceil: 7, ops: [['W', 8, 2, 1, 3], ['W', 15, 2, 4, 3], ['W', 22, 2, 1, 3], ['W', 29, 2, 4, 3], ['W', 36, 2, 2, 3]] },
-    { mode: 'wave', tier: 3, w: 44, ceil: 7, ops: [['W', 7, 2, 1, 2.6], ['W', 13, 2, 4, 2.6], ['W', 19, 2, 1, 2.6], ['W', 25, 2, 3, 2.6], ['W', 31, 2, 1, 2.6], ['W', 37, 2, 4, 2.6]] },
+    { mode: 'wave', tier: 2, w: 36, ceil: 7, ops: [], slopes: corridor(36, 4.4, [[6, 2.3], [8.4, 4.7], [10.8, 2.3], [13.8, 2.3], [16.2, 4.7], [19.2, 4.7], [21.6, 2.3], [24.6, 2.3], [26.1, 3.8], [27.6, 2.3]]) },
+    { mode: 'wave', tier: 3, w: 34, ceil: 7, ops: [], slopes: corridor(34, 4.2, [[5, 2.2], [7.6, 4.8], [9.6, 2.8], [11.6, 4.8], [14.2, 2.2], [16.2, 4.2], [18.2, 2.2], [20.8, 4.8], [22.8, 2.8], [24.8, 4.8], [27.4, 2.2]]) },
   ];
   const SECTION_POOL = {
     easy: { chance: 0.12, modes: { ship: [1], ufo: [1] } },
@@ -161,9 +171,27 @@
 
   function placeSection(lv, sec, x0) {
     for (const [t, x, y] of sectionCells(sec)) addObj(lv, t, x0 + x, y);
-    lv.sections.push({ x0, x1: x0 + sec.w, mode: sec.mode, ceil: sec.ceil, tier: sec.tier });
+    const placed = { x0, x1: x0 + sec.w, mode: sec.mode, ceil: sec.ceil, tier: sec.tier };
+    if (sec.slopes) {
+      placed.floor = sec.slopes.map(([x, f]) => [x0 + x, f]);
+      placed.roof = sec.slopes.map(([x, , r]) => [x0 + x, r]);
+    }
+    lv.sections.push(placed);
     return sec.w;
   }
+
+  /** Height of a slope line (a list of [x, y] points) at x. */
+  function lineAt(pts, x) {
+    if (x <= pts[0][0]) return pts[0][1];
+    for (let i = 1; i < pts.length; i++) {
+      const [x1, y1] = pts[i];
+      if (x <= x1) { const [x0, y0] = pts[i - 1]; return y0 + ((y1 - y0) * (x - x0)) / (x1 - x0); }
+    }
+    return pts[pts.length - 1][1];
+  }
+  // highest floor / lowest roof anywhere between x = a and x = b
+  const lineMax = (pts, a, b) => pts.reduce((m, [x, y]) => (x > a && x < b ? Math.max(m, y) : m), Math.max(lineAt(pts, a), lineAt(pts, b)));
+  const lineMin = (pts, a, b) => pts.reduce((m, [x, y]) => (x > a && x < b ? Math.min(m, y) : m), Math.min(lineAt(pts, a), lineAt(pts, b)));
 
   function sectionAt(lv, x) {
     for (const s of lv.sections) if (x >= s.x0 && x < s.x1) return s;
@@ -278,7 +306,7 @@
     const prevY = pl.y;
     pl.x += SPEED * dt;
     if (mode === 'ship') {
-      pl.vy = Math.max(-SHIP_MAX, Math.min(SHIP_MAX, pl.vy + (hold ? SHIP_ACC : -SHIP_ACC) * dt));
+      pl.vy = Math.max(-SHIP_FALL, Math.min(SHIP_MAX, pl.vy + (hold ? SHIP_LIFT : -SHIP_GRAV) * dt));
     } else if (mode === 'ufo') {
       if (pl.buffer > 0) { pl.vy = UFO_FLAP * pl.g; pl.buffer = 0; ev && ev.push('jump'); }
       pl.vy -= UFO_GRAV * pl.g * dt;
@@ -294,6 +322,17 @@
     pl.grounded = false;
     if (pl.y <= 0) { pl.y = 0; if (pl.vy < 0) pl.vy = 0; if (pl.g > 0) pl.grounded = true; }
     if (pl.y + h >= top) { pl.y = top - h; if (pl.vy > 0) pl.vy = 0; if (pl.g < 0) pl.grounded = true; }
+    // wave slopes: touching the zigzag floor or roof is a crash
+    if (sec && sec.floor) {
+      const cx = pl.x + w / 2;
+      const cy = pl.y + h / 2;
+      const lo = lineMax(sec.floor, cx - WAVE_HIT, cx + WAVE_HIT);
+      const hi = lineMin(sec.roof, cx - WAVE_HIT, cx + WAVE_HIT);
+      if (cy - WAVE_HIT < lo || cy + WAVE_HIT > hi) {
+        if (pl.god) pl.y = Math.max(lo + WAVE_HIT, Math.min(hi - WAVE_HIT, cy)) - h / 2;
+        else { pl.dead = true; ev && ev.push('die'); return; }
+      }
+    }
 
     for (let c = c0; c <= c1; c++) {
       for (const o of lv.cols[c] || []) {
@@ -762,6 +801,7 @@
       ctx.fillRect(xa, yc - 5, xb - xa, 10);
       ctx.globalAlpha = 1;
       ctx.fillRect(xa, yc - 1.5, xb - xa, 3);
+      if (sec.floor) drawSlopes(sec, sx, sy, S, th);
       ctx.restore();
       drawPortal(sec.x0, 0, Math.min(sec.ceil, 4.2), sec.mode, sx, sy, S, now);
       drawPortal(sec.x1, 0, sec.ceil, 'cube', sx, sy, S, now);
@@ -907,6 +947,40 @@
     ctx.globalAlpha = 1;
 
     if (g.flash) { ctx.fillStyle = `rgba(255,255,255,${g.flash * 0.25})`; ctx.fillRect(0, 0, W, H); }
+  }
+
+  /** A wave corridor's zigzag floor and roof: dark solid pyramids with a neon edge, like blocks. */
+  function drawSlopes(sec, sx, sy, S, th) {
+    const solid = new Path2D();
+    const edge = new Path2D();
+    const inner = new Path2D();
+    for (const [pts, base, dir] of [[sec.floor, 0, -1], [sec.roof, sec.ceil, 1]]) {
+      solid.moveTo(sx(pts[0][0]), sy(base));
+      for (const [x, y] of pts) solid.lineTo(sx(x), sy(y));
+      solid.lineTo(sx(pts[pts.length - 1][0]), sy(base));
+      solid.closePath();
+      pts.forEach(([x, y], i) => (i ? edge.lineTo(sx(x), sy(y)) : edge.moveTo(sx(x), sy(y))));
+      // a faint second line a little inside the solid part, like the inner square on blocks
+      pts.forEach(([x, y], i) => {
+        const yi = dir < 0 ? Math.max(0, y - 0.35) : Math.min(sec.ceil, y + 0.35);
+        if (i) inner.lineTo(sx(x), sy(yi)); else inner.moveTo(sx(x), sy(yi));
+      });
+    }
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fill(solid);
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 1;
+    ctx.stroke(inner);
+    ctx.strokeStyle = th.line;
+    ctx.globalAlpha = 0.22;
+    ctx.lineWidth = Math.max(5, S * 0.2);
+    ctx.stroke(edge);
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = Math.max(1.5, S * 0.06);
+    ctx.stroke(edge);
+    ctx.restore();
   }
 
   /** Pads and orbs (blocks and spikes are drawn in bulk in draw()). */
