@@ -520,7 +520,7 @@
         if (timer || !enabled || Sfx.muted) return;
         const c = Sfx.ac();
         if (!c) return;
-        bus = c.createGain(); bus.gain.value = 0.45; bus.connect(Sfx.master);
+        bus = c.createGain(); bus.gain.value = 0.45; bus.connect(Sfx.music);
         nextTime = c.currentTime + 0.06; stepN = 0;
         timer = setInterval(schedule, 25);
       },

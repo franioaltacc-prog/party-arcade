@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Settings · Party Arcade</title>
+  <meta name="theme-color" content="#0b0920">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .st { max-width: 900px; margin: 0 auto; }
+    .st .page-head { text-align: center; margin-bottom: 18px; }
+    .st .panel { margin-bottom: 16px; }
+    .st h2 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.1rem, 3vw, 1.35rem); margin: 0 0 12px; scroll-margin-top: 80px; }
+    .st h3 { font-size: 1rem; margin: 18px 0 8px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+    .st h3 small { color: var(--muted); font-weight: 600; }
+    .st-row { display: grid; grid-template-columns: 170px 1fr auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .st-row:last-child { border-bottom: 0; }
+    .st-row input[type=range] { width: 100%; accent-color: var(--pink); }
+    .st-row .val { font-family: var(--font-display); min-width: 48px; text-align: right; }
+    .st-note { font-size: .82rem; color: var(--muted); margin-top: 6px; }
+    .st-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+    .rw-preview { display: flex; align-items: center; gap: 18px; padding: 12px; border-radius: 18px; background: rgba(0,0,0,.25); margin-bottom: 6px; flex-wrap: wrap; }
+    .rw-preview .avatar.xl { margin: 10px; }
+    .rw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
+    .rw { position: relative; display: grid; justify-items: center; gap: 6px; padding: 14px 8px 10px; border-radius: 16px; border: 2px solid var(--border); background: var(--panel); color: var(--text); font: inherit; cursor: pointer; text-align: center; }
+    .rw:hover:not(:disabled) { border-color: var(--cyan); }
+    .rw.on { border-color: var(--yellow, #facc15); background: rgba(250,204,21,.12); box-shadow: 0 0 16px rgba(250,204,21,.25); }
+    .rw:disabled { cursor: default; }
+    .rw.locked { opacity: .55; }
+    .rw b { font-size: .88rem; }
+    .rw .hint { font-size: .7rem; color: var(--muted); line-height: 1.3; }
+    .rw .tag { position: absolute; top: 6px; right: 6px; font-size: .7rem; }
+    .rw .avatar.lg { margin: 6px; }
+    @media (max-width: 640px) { .st-row { grid-template-columns: 1fr auto; } .st-row > :nth-child(2) { grid-column: 1 / -1; grid-row: 2; } }
+  </style>
+</head>
+<body>
+  <main class="page st" id="settings"></main>
+  <script src="/js/art.js"></script>
+  <script src="/js/core.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollTrigger.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/Flip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/SplitText.min.js"></script>
+  <script src="/js/fx.js"></script>
+  <script src="/js/settings.js"></script>
+</body>
+</html>

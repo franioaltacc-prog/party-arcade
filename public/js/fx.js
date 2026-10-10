@@ -4,7 +4,8 @@
 (() => {
   'use strict';
   const g = window.gsap;
-  const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // the device asks for reduced motion, or "Less motion" was picked in Settings (core.js sets .calm)
+  const reduce = (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) || document.documentElement.classList.contains('calm');
   const ON = !!g && !reduce;
   if (g) g.registerPlugin(...[window.ScrollTrigger, window.Flip, window.SplitText].filter(Boolean));
   if (ON) document.documentElement.classList.add('fx-on');

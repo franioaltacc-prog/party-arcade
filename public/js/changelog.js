@@ -6,6 +6,13 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '2.12.0', date: '2026-10-11', emoji: '✨', title: 'Rewards, ball skins and Settings', items: [
+      'Unlock rewards by levelling up and earning achievements: 14 glowing auras and 11 animated avatars',
+      'Everyone sees your aura and animation in rooms, chat, leaderboards and on your profile',
+      '13 ball skins for Slope (glass, disco, soccer, lava, galaxy, Planet Earth, 8-ball and more), with a picker in the Slope menu',
+      'New Settings page: sound and music volume, “less motion”, wear your rewards, and your account',
+      'Profiles show how many rewards you’ve unlocked',
+    ] },
     { v: '2.11.0', date: '2026-10-10', emoji: '⚽', title: 'Neon Dash: much harder ball', items: [
       'New ball parts for Hard and Insane: a lower tunnel, fast spike switches, then pillars with spikes on the other side, so you have to flip at exactly the right moment',
       'Insane now only uses the two hardest ball parts (about 3× tighter timing than before)',

@@ -28,32 +28,7 @@
     ['Solo arcade', '🕹️', '#22d3ee', [['🐍 Snake best', 'snake.best'], ['🔢 2048 best', '2048.best'], ['🃏 Memory (Normal)', 'memory.best', secs], ['🟦 Dash levels', 'dashsolo.levels'], ['🛝 Slope best', 'slope.best']]],
   ];
 
-  const ACHIEVEMENTS = [
-    ['👋', 'Hello world', 'Finish your first online game', (s) => s.games >= 1],
-    ['🏆', 'Winner', 'Win an online game', (s) => s.wins >= 1],
-    ['🔥', 'On fire', 'Win 10 games', (s) => s.wins >= 10],
-    ['👑', 'Champion', 'Win 50 games', (s) => s.wins >= 50],
-    ['🎮', 'Regular', 'Play 25 online games', (s) => s.games >= 25],
-    ['🕹️', 'Arcade legend', 'Play 100 online games', (s) => s.games >= 100],
-    ['⭐', 'Rising star', 'Reach level 5', (s, u) => u.level >= 5],
-    ['🌟', 'Superstar', 'Reach level 15', (s, u) => u.level >= 15],
-    ['🟪', 'Speed demon', 'Win a Neon Dash race', (s) => s['dash.wins'] >= 1],
-    ['🧓', 'Long life', 'Live to 90 in Family Life', (s) => s['life.oldest'] >= 90],
-    ['💰', 'Millionaire', 'Be worth $1,000,000 in Family Life', (s) => s['life.richest'] >= 1e6],
-    ['🎨', 'Picasso', 'Win a game of Doodle Guess', (s) => s['doodle.wins'] >= 1],
-    ['⚡', 'Lightning', 'Win a game of Party Blitz', (s) => s['blitz.wins'] >= 1],
-    ['🎰', 'High roller', 'Win 5,000 coins in one bet', (s) => s['casino.best_win'] >= 5000],
-    ['🔴', 'Four in a row', 'Win at Connect 4', (s) => s['c4.wins'] >= 1],
-    ['🕵️', 'Master of disguise', 'Win 10 rounds as the Impostor', (s) => s['impostor.imp_wins'] >= 10],
-    ['💣', 'Bomb squad', 'Win a Minesweeper game online', (s) => s['mines.wins'] >= 1],
-    ['🧹', 'Clean sweep', 'Beat Minesweeper on Hard (solo)', (s) => s['mines_hard.best'] > 0],
-    ['🛝', 'Downhill legend', 'Roll 1,000 in Slope', (s) => s['slope.best'] >= 1000],
-    ['🌍', 'World conqueror', 'Win a Front Wars game online', (s) => s['front.wins'] >= 1],
-    ['🤖', 'Bot crusher', 'Beat 20 or more bots in Front Wars solo', (s) => s['frontsolo.best'] >= 20],
-    ['🐍', 'Snake charmer', 'Score 40 in Snake', (s) => s['snake.best'] >= 40],
-    ['🔢', 'Tile master', 'Score 20,000 in 2048', (s) => s['2048.best'] >= 20000],
-    ['🧠', 'Elephant memory', 'Beat Memory Flip (Normal) in under 30s', (s) => s['memory.best'] > 0 && s['memory.best'] <= 30000],
-  ];
+  // achievements (and the rewards they unlock) come from /data/unlocks.json, shared with the server
 
   const GAME_EMOJI = { dash: '🟪', life: '🏡', doodle: '🎨', blitz: '⚡', connect4: '🔴', casino: '🎰', impostor: '🕵️', slope: '🛝', front: '🌍', frontsolo: '🤖', mines: '💣', mines_easy: '💣', mines_medium: '💣', mines_hard: '💣', snake: '🐍', 2048: '🔢', memory: '🃏', dashsolo: '🟦' };
   const GAME_NAME = { dash: 'Neon Dash', life: 'Family Life', doodle: 'Doodle Guess', blitz: 'Party Blitz', connect4: 'Connect 4', casino: 'Casino Night', impostor: 'Impostor', slope: 'Slope', front: 'Front Wars', frontsolo: 'Front Wars solo', mines: 'Minesweeper', mines_easy: 'Minesweeper Easy', mines_medium: 'Minesweeper Medium', mines_hard: 'Minesweeper Hard', snake: 'Neon Snake', 2048: '2048', memory: 'Memory Flip', dashsolo: 'Dash practice' };
@@ -64,14 +39,15 @@
     if (FX.entry) FX.entry(root.firstChild);
   }
 
-  function render(p) {
+  function render(p, U, have) {
     const st = p.stats || {};
     const mine = Account.user && Account.user.id === p.id;
     document.title = `${p.name} · Party Arcade`;
     const games = st.games || 0;
     const wins = st.wins || 0;
     const sections = SECTIONS.filter(([, , , items]) => items.some(([, key]) => st[key]));
-    const unlocked = ACHIEVEMENTS.filter(([, , , test]) => test(st, p)).length;
+    const unlocked = U.achievements.filter((a) => have.achievements.has(a.id)).length;
+    const rewards = [['✨', 'auras', have.aura.size, U.auras.length], ['🎭', 'animations', have.anim.size, U.anims.length], ['🛝', 'ball skins', have.ball.size, U.balls.length]];
 
     fill(root,
       h('section', { class: 'prof-head panel', style: { '--c': p.color } },
@@ -84,12 +60,13 @@
           UI.xpBar(p),
           mine ? h('div', { class: 'row wrap', style: { marginTop: '12px', gap: '8px' } },
             h('button', { class: 'btn btn-pink btn-sm', onclick: () => Profile.edit() }, '🎨 Edit my look'),
+            h('a', { class: 'btn btn-yellow btn-sm', href: '/settings#rewards' }, '✨ Wear rewards'),
             h('a', { class: 'btn btn-ghost btn-sm', href: '/leaderboards' }, '🏆 Leaderboards'),
             h('button', { class: 'btn btn-ghost btn-sm', onclick: async () => { await Account.logout(); UI.toast('Logged out 👋'); } }, '🚪 Log out')) : null)),
 
       h('section', { class: 'prof-highlights' },
         [['🎮', num(games), 'online games'], ['🏆', num(wins), 'wins'], ['📈', games ? Math.round((wins / games) * 100) + '%' : '–', 'win rate'],
-          ['🌟', p.rank ? '#' + p.rank : '–', 'XP rank'], ['🎖️', `${unlocked}/${ACHIEVEMENTS.length}`, 'achievements']]
+          ['🌟', p.rank ? '#' + p.rank : '–', 'XP rank'], ['🎖️', `${unlocked}/${U.achievements.length}`, 'achievements']]
           .map(([e, v, l]) => h('div', { class: 'hl' }, h('span', { class: 'e' }, e), h('b', { class: 'v', 'data-count': v }, v), h('span', { class: 'l' }, l)))),
 
       h('div', { class: 'prof-grid' },
@@ -101,10 +78,15 @@
               h('div', { class: 'gstat-grid' }, items.map(([label, key, f]) => h('div', {}, h('b', {}, st[key] ? (f ? f(st[key]) : num(st[key])) : '–'), h('span', {}, label)))))))
             : h('p', { class: 'muted panel' }, mine ? 'No games saved yet. Finish an online game and your stats show up here!' : 'No games saved yet.'),
           h('h2', { class: 'prof-h' }, '🎖️ Achievements'),
-          h('div', { class: 'achs' }, ACHIEVEMENTS.map(([e, title, desc, test]) => {
-            const ok = test(st, p);
-            return h('div', { class: 'ach' + (ok ? ' ok' : ''), title: desc }, h('span', { class: 'e' }, ok ? e : '🔒'), h('b', {}, title), h('span', {}, desc));
-          }))),
+          h('div', { class: 'achs' }, U.achievements.map((a) => {
+            const ok = have.achievements.has(a.id);
+            return h('div', { class: 'ach' + (ok ? ' ok' : ''), title: a.desc }, h('span', { class: 'e' }, ok ? a.emoji : '🔒'), h('b', {}, a.name), h('span', {}, a.desc));
+          })),
+          h('h2', { class: 'prof-h' }, '🎁 Rewards unlocked'),
+          h('div', { class: 'prof-rewards panel' },
+            rewards.map(([e, label, n, total]) => h('div', { class: 'pr' }, h('span', { class: 'e' }, e), h('b', {}, `${n}/${total}`), h('span', { class: 'muted small' }, label))),
+            h('p', { class: 'tiny muted', style: { gridColumn: '1 / -1', margin: 0 } }, 'Level up and earn achievements to unlock auras, animated avatars and Slope ball skins.',
+              mine ? [' ', h('a', { href: '/settings#rewards' }, 'Wear them in Settings →')] : null))),
         h('aside', { class: 'prof-side' },
           h('h2', { class: 'prof-h' }, '🕘 Recent games'),
           p.recent.length
@@ -142,8 +124,8 @@
     }
     fill(root, h('div', { class: 'lb-empty' }, h('span', { class: 'spin' }, '🌀'), ' Loading…'));
     try {
-      const { profile } = await Net.request('profile:get', { name: wanted });
-      render(profile);
+      const [{ profile }, U] = await Promise.all([Net.request('profile:get', { name: wanted }), PA.Unlocks.load()]);
+      render(profile, U, await PA.Unlocks.of(profile.level, profile.stats || {}));
     } catch (e) {
       message('🤷', 'Player not found', e.message, h('a', { class: 'btn btn-pink btn-lg btn-block', href: '/players?q=' + encodeURIComponent(wanted || '') }, '🔎 Search for players'),
         h('a', { class: 'btn btn-ghost btn-block', href: '/leaderboards' }, '🏆 See the leaderboards'));

@@ -117,13 +117,120 @@
   const redEdge = new THREE.LineBasicMaterial({ color: 0xff5577 });
   const blockMat = new THREE.MeshStandardMaterial({ color: 0x4a0010, emissive: 0xff1144, emissiveIntensity: 0.55, roughness: 0.5 });
 
-  const color = new THREE.Color(Profile.get().color || '#39ff88');
-  const ball = new THREE.Mesh(new THREE.SphereGeometry(R, 32, 20),
-    new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.35, metalness: 0.2, roughness: 0.35 }));
+  // ------------------------------------------------------------------ the ball and its skins
+  // Skins are rewards (Settings → Rewards). Each one is a material; patterns are painted on a
+  // canvas that wraps around the ball (left-right = around, top-bottom = pole to pole).
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(R, 40, 24), new THREE.MeshStandardMaterial());
   const ballLines = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(R * 1.01, 1)), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 }));
   ball.add(ballLines);
-  const glow = new THREE.PointLight(color, 1.2, 9);
+  const glow = new THREE.PointLight(0xffffff, 1.2, 9);
   scene.add(ball, glow);
+
+  function paint(draw, w = 256, hh = 128) {
+    const c = document.createElement('canvas');
+    c.width = w; c.height = hh;
+    draw(c.getContext('2d'), w, hh);
+    const tex = new THREE.CanvasTexture(c);
+    tex.anisotropy = 4;
+    return tex;
+  }
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const std = (o) => new THREE.MeshStandardMaterial(o);
+  const SKINS = {
+    classic: (c) => ({ mat: std({ color: c, emissive: c, emissiveIntensity: 0.35, metalness: 0.2, roughness: 0.35 }), lines: true, glow: c }),
+    glass: () => ({ mat: std({ color: 0xcfefff, transparent: true, opacity: 0.38, metalness: 0.3, roughness: 0.02, emissive: 0x7dd3fc, emissiveIntensity: 0.15 }), lines: true, glow: 0x9be7ff }),
+    disco: () => {
+      const map = paint((g, w, hh) => { for (let y = 0; y < hh; y += 8) for (let x = 0; x < w; x += 8) { const v = Math.floor(rnd(110, 255)); g.fillStyle = `rgb(${v},${v},${v + 10})`; g.fillRect(x, y, 7, 7); } });
+      return { mat: std({ map, metalness: 0.95, roughness: 0.18, emissive: 0x333344, emissiveIntensity: 0.4 }), glow: 0xffffff };
+    },
+    soccer: () => {
+      const map = paint((g, w, hh) => {
+        g.fillStyle = '#f8fafc'; g.fillRect(0, 0, w, hh);
+        g.fillStyle = '#111';
+        for (let r = 0; r < 4; r++) for (let k = 0; k < 6; k++) {
+          const x = (k + (r % 2) * 0.5) * (w / 6); const y = (r + 0.5) * (hh / 4);
+          g.beginPath(); for (let i = 0; i < 5; i++) { const a = (i / 5) * Math.PI * 2; g.lineTo(x + Math.cos(a) * 11, y + Math.sin(a) * 11); } g.fill();
+        }
+      });
+      return { mat: std({ map, roughness: 0.55, emissive: 0x222222, emissiveIntensity: 0.3 }), glow: 0xffffff };
+    },
+    basket: () => {
+      const map = paint((g, w, hh) => {
+        g.fillStyle = '#ea580c'; g.fillRect(0, 0, w, hh);
+        g.strokeStyle = '#1c1917'; g.lineWidth = 4;
+        g.beginPath(); g.moveTo(0, hh / 2); g.lineTo(w, hh / 2); g.stroke();
+        for (const x of [w / 4, (w * 3) / 4]) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, hh); g.stroke(); }
+        for (const x0 of [0, w / 2]) { g.beginPath(); for (let y = 0; y <= hh; y += 4) g.lineTo(x0 + w / 4 + Math.sin((y / hh) * Math.PI) * (w / 9) * (x0 ? 1 : -1), y); g.stroke(); }
+      });
+      return { mat: std({ map, roughness: 0.7, emissive: 0x7c2d12, emissiveIntensity: 0.35 }), glow: 0xfb923c };
+    },
+    rainbow: () => {
+      const map = paint((g, w, hh) => { const cols = ['#f43f5e', '#fb923c', '#facc15', '#22c55e', '#22d3ee', '#6366f1', '#a855f7']; cols.forEach((c, i) => { g.fillStyle = c; g.fillRect(0, (i * hh) / cols.length, w, hh / cols.length + 1); }); });
+      return { mat: std({ map, emissiveMap: map, emissive: 0xffffff, emissiveIntensity: 0.45, roughness: 0.4 }), glow: 0xffffff };
+    },
+    lava: () => {
+      const map = paint((g, w, hh) => {
+        g.fillStyle = '#1c0a00'; g.fillRect(0, 0, w, hh);
+        for (let i = 0; i < 40; i++) {
+          g.strokeStyle = ['#f97316', '#fde047', '#ef4444'][i % 3]; g.lineWidth = rnd(1.5, 3.5);
+          let x = rnd(0, w); let y = rnd(0, hh); g.beginPath(); g.moveTo(x, y);
+          for (let k = 0; k < 5; k++) { x += rnd(-18, 18); y += rnd(-12, 12); g.lineTo(x, y); } g.stroke();
+        }
+      });
+      return { mat: std({ map, emissiveMap: map, emissive: 0xffffff, emissiveIntensity: 1.1, roughness: 0.8 }), glow: 0xff6a00 };
+    },
+    gold: () => ({ mat: std({ color: 0xffc83d, metalness: 1, roughness: 0.22, emissive: 0x6b4200, emissiveIntensity: 0.6 }), glow: 0xffd166 }),
+    galaxy: () => {
+      const map = paint((g, w, hh) => {
+        const gr = g.createLinearGradient(0, 0, w, hh); gr.addColorStop(0, '#1e1b4b'); gr.addColorStop(0.5, '#6d28d9'); gr.addColorStop(1, '#0f172a');
+        g.fillStyle = gr; g.fillRect(0, 0, w, hh);
+        for (let i = 0; i < 160; i++) { g.fillStyle = Math.random() < 0.8 ? '#fff' : '#f0abfc'; g.fillRect(rnd(0, w), rnd(0, hh), rnd(1, 2.2), rnd(1, 2.2)); }
+      });
+      return { mat: std({ map, emissiveMap: map, emissive: 0xffffff, emissiveIntensity: 0.7, roughness: 0.5 }), glow: 0xa855f7 };
+    },
+    melon: () => {
+      const map = paint((g, w) => { for (let x = 0; x < w; x += 16) { g.fillStyle = '#166534'; g.fillRect(x, 0, 10, 128); g.fillStyle = '#4ade80'; g.fillRect(x + 10, 0, 6, 128); } });
+      return { mat: std({ map, roughness: 0.45, emissive: 0x14532d, emissiveIntensity: 0.4 }), glow: 0x4ade80 };
+    },
+    earth: () => {
+      const map = paint((g, w, hh) => {
+        g.fillStyle = '#1d4ed8'; g.fillRect(0, 0, w, hh);
+        g.fillStyle = '#16a34a';
+        for (let i = 0; i < 9; i++) { const x = rnd(0, w); const y = rnd(hh * 0.2, hh * 0.8); for (let k = 0; k < 7; k++) { g.beginPath(); g.arc(x + rnd(-18, 18), y + rnd(-10, 10), rnd(5, 13), 0, Math.PI * 2); g.fill(); } }
+        g.fillStyle = '#f8fafc'; g.fillRect(0, 0, w, 9); g.fillRect(0, hh - 9, w, 9);
+      });
+      return { mat: std({ map, emissiveMap: map, emissive: 0xffffff, emissiveIntensity: 0.3, roughness: 0.6 }), glow: 0x60a5fa };
+    },
+    ice: () => ({ mat: std({ color: 0xbfe9ff, transparent: true, opacity: 0.8, metalness: 0.15, roughness: 0.05, emissive: 0x7dd3fc, emissiveIntensity: 0.35 }), lines: true, glow: 0xbae6fd }),
+    eight: () => {
+      const map = paint((g, w, hh) => {
+        g.fillStyle = '#0a0a0a'; g.fillRect(0, 0, w, hh);
+        for (const x of [w * 0.25, w * 0.75]) {
+          g.fillStyle = '#fff'; g.beginPath(); g.ellipse(x, hh / 2, 20, 26, 0, 0, Math.PI * 2); g.fill();
+          g.fillStyle = '#111'; g.font = '800 34px Fredoka, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('8', x, hh / 2 + 2);
+        }
+      });
+      return { mat: std({ map, roughness: 0.15, metalness: 0.2, emissive: 0x111111, emissiveIntensity: 0.3 }), glow: 0xffffff };
+    },
+  };
+  let skinId = null;
+  function applySkin(id) {
+    if (!SKINS[id]) id = 'classic';
+    const c = new THREE.Color(Profile.get().color || '#39ff88');
+    const key = id + (id === 'classic' ? c.getHexString() : '');
+    if (key === skinId) return;
+    skinId = key;
+    const old = ball.material;
+    const s = SKINS[id](c);
+    ball.material = s.mat;
+    ballLines.visible = !!s.lines;
+    glow.color.set(s.glow);
+    if (old) { if (old.map) old.map.dispose(); old.dispose(); }
+  }
+  const wornSkin = () => (Account.user && Account.user.look && Account.user.look.ball) || 'classic';
+  applySkin(wornSkin());
+  onBus('account', () => applySkin(wornSkin()));
+  onBus('profile', () => applySkin(wornSkin()));
 
   // ------------------------------------------------------------------ the track
   // Forward is -z. Tiles are tilted slabs: from (z0, y0) to (z1, y1), centred on x, w wide.
@@ -466,7 +573,7 @@
           const d = noiseBuf.getChannelData(0);
           for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
         }
-        bus = c.createGain(); bus.gain.value = 0.42; bus.connect(Sfx.master);
+        bus = c.createGain(); bus.gain.value = 0.42; bus.connect(Sfx.music);
         pump = c.createGain(); pump.connect(bus);
         // lead echo: dry + a delayed copy that repeats a few times
         echo = c.createGain(); echo.connect(bus);
@@ -537,9 +644,35 @@
       h('h1', {}, why ? (isBest ? 'NEW BEST!' : 'GAME OVER') : 'SLOPE'),
       why ? h('p', {}, `${why} You rolled ${score.toLocaleString('en-US')}.`) : h('p', {}, 'Roll down the neon slope. Steer, dodge the red blocks, and don’t fall off! Blue arrows speed you up, orange ramps launch you.'),
       h('button', { class: 'btn btn-lime btn-lg', onclick: start }, why ? '🔁 Play again' : '▶ Play'),
+      skinPicker(),
       h('div', { class: 'sl-keys' }, '⬅️ ➡️ / A D to steer · on a phone, hold the left or right side · Space to start')));
     over.style.display = 'grid';
     if (FX.pop) FX.pop(over.firstChild, { from: 0.8 });
+  }
+
+  /** The ball skins you've unlocked, to pick from in the menu. */
+  let skinsHave = null;
+  function skinPicker() {
+    const box = h('div', { class: 'sl-skins' });
+    const draw = async () => {
+      const U = await PA.Unlocks.load();
+      if (!Account.user) {
+        fill(box, h('div', { class: 'ballp sm b-classic', style: { '--c': Profile.get().color } }),
+          h('span', { class: 'small' }, '🔒 Make a free account to unlock ', U.balls.length - 1, ' ball skins'));
+        return;
+      }
+      if (!skinsHave) {
+        try { const { profile } = await Net.request('profile:get', { name: Account.user.name }); skinsHave = (await PA.Unlocks.of(profile.level, profile.stats || {})).ball; } catch { skinsHave = new Set(['classic']); }
+      }
+      const worn = wornSkin();
+      fill(box, U.balls.filter((b) => skinsHave.has(b.id)).map((b) => h('button', {
+        class: 'sl-skin' + (b.id === worn ? ' on' : ''), title: b.name, 'aria-label': `Ball skin: ${b.name}`,
+        onclick: async () => { try { await Account.wear({ ball: b.id === 'classic' ? '' : b.id }); Sfx.play('coin'); draw(); } catch (e) { UI.toast(e.message, 'bad'); } },
+      }, h('div', { class: 'ballp sm b-' + b.id, style: { '--c': Profile.get().color } }))),
+      h('a', { class: 'small', href: '/settings#rewards', style: { marginLeft: '6px' } }, `${skinsHave.size - 1}/${U.balls.length - 1} skins unlocked · get more`));
+    };
+    draw();
+    return box;
   }
 
   /** The "SPEED UP!" flash. */

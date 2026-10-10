@@ -26,7 +26,7 @@ import traceback
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-from accounts import Accounts, AuthError, StoreError, level_info
+from accounts import Accounts, AuthError, StoreError, level_info, parse_look
 from games import GAMES
 
 ROOT = Path(__file__).resolve().parent
@@ -97,6 +97,7 @@ class Client:
         self.ip = "?"
         self.solo_at = 0.0
         self.search_at = 0.0
+        self.look = {}          # rewards a logged-in player is wearing (aura, avatar animation)
 
     def send(self, t, **data):
         if not self.open:
@@ -132,7 +133,12 @@ class Client:
                 pass
 
     def info(self):
-        return {"id": self.uid, "name": self.name, "avatar": self.avatar, "color": self.color}
+        return {"id": self.uid, "name": self.name, "avatar": self.avatar, "color": self.color, **shown_look(self.look)}
+
+
+def shown_look(look):
+    """The rewards other players can see on someone's avatar."""
+    return {k: look[k] for k in ("aura", "anim") if look.get(k)}
 
 
 class Member:
@@ -147,6 +153,7 @@ class Member:
     def copy_profile(self, client):
         self.name, self.avatar, self.color = client.name, client.avatar, client.color
         self.account = client.account
+        self.look = dict(client.look)
 
     @property
     def online(self):
@@ -159,7 +166,7 @@ class Member:
     def info(self):
         acct = self.account
         return {"id": self.uid, "name": self.name, "avatar": self.avatar,
-                "color": self.color, "online": self.online,
+                "color": self.color, "online": self.online, **shown_look(self.look),
                 "acct": acct["name"] if acct else None, "adm": bool(acct and acct["admin"])}
 
 
@@ -595,10 +602,12 @@ class Hub:
         """Log this connection in as `user` (a row from the users table)."""
         c.account = {"id": user["id"], "name": user["name"], "admin": bool(user["admin"])}
         c.name, c.avatar, c.color = user["name"], user["avatar"], user["color"]
+        c.look = parse_look(user.get("look"))
         self.refresh_member(c)
 
     def detach(self, c):
         c.account = None
+        c.look = {}
         self.refresh_member(c)
 
     def refresh_member(self, c):
@@ -690,6 +699,12 @@ class Hub:
             return {}
         if t == "account:update":
             user = await acc.update_look(self.need_login(c), msg.get("avatar"), msg.get("color"), msg.get("bio"))
+            for other in self.clients_of(user["id"]):
+                self.attach(other, user)
+            return {"user": acc.public(user)}
+        if t == "account:look":
+            look = msg.get("look") if isinstance(msg.get("look"), dict) else {}
+            user = await acc.set_look(self.need_login(c), look)
             for other in self.clients_of(user["id"]):
                 self.attach(other, user)
             return {"user": acc.public(user)}
@@ -839,7 +854,7 @@ class Hub:
 
 
 ACCOUNT_MESSAGES = {
-    "auth:signup", "auth:login", "auth:logout", "account:update", "account:password", "account:delete",
+    "auth:signup", "auth:login", "auth:logout", "account:update", "account:look", "account:password", "account:delete",
     "profile:get", "players:find", "lb:boards", "lb:get", "stats:solo", "admin:unlock", "admin:overview", "admin:users",
     "admin:user", "admin:announce", "admin:room", "admin:cheat",
 }

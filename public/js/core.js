@@ -5,7 +5,7 @@
 
   // The site's version. Bump it with every update, together with a new entry at the
   // top of public/js/changelog.js (the /changelog page).
-  const VERSION = '2.11.0';
+  const VERSION = '2.12.0';
 
   // ---------------------------------------------------------------- helpers
   const $ = (s, r = document) => r.querySelector(s);
@@ -47,6 +47,19 @@
     get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage blocked */ } },
   };
+
+  // Settings kept in this browser (the /settings page changes them).
+  const Settings = {
+    get() { return { sfx: 80, music: 70, motion: 'full', ...store.get('pa_settings', {}) }; },
+    set(patch) { const v = { ...Settings.get(), ...patch }; store.set('pa_settings', v); emit('settings', v); applyCalm(); return v; },
+  };
+  /** "Less motion": either picked in Settings or asked for by the device. Stops avatar animations etc. */
+  function applyCalm() {
+    const calm = Settings.get().motion === 'less' || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+    document.documentElement.classList.toggle('calm', calm);
+    return calm;
+  }
+  applyCalm();
 
   // tiny event bus
   const bus = {};
@@ -202,6 +215,12 @@
       Account.save(r.user);
       return r.user;
     },
+    /** Wear rewards: { aura, anim, ball } (an id, or '' for none). The server checks they're unlocked. */
+    async wear(look) {
+      const r = await Net.request('account:look', { look });
+      Account.save(r.user);
+      return r.user;
+    },
     /** Save a solo high score (snake, 2048, memory, dash-solo) if logged in. */
     async submit(game, value) {
       if (!Account.user) {
@@ -229,7 +248,7 @@
 
   const Profile = {
     get() {
-      if (Account.user) return { name: Account.user.name, avatar: Account.user.avatar, color: Account.user.color };
+      if (Account.user) { const u = Account.user; return { name: u.name, avatar: u.avatar, color: u.color, ...((u.look && { aura: u.look.aura, anim: u.look.anim }) || {}) }; }
       const saved = store.get('pa_profile');
       if (saved && saved.name) return saved;
       let draft = store.get('pa_profile_draft');
@@ -352,16 +371,23 @@
   // ---------------------------------------------------------------- sound
   const Sfx = (() => {
     let ctx = null;
-    let master = null;
+    let master = null;     // sound effects
+    let music = null;      // game music (Neon Dash, Slope)
     let muted = store.get('pa_muted', false);
+    const levels = () => { const st = Settings.get(); return [0.7 * st.sfx / 100, 0.7 * st.music / 100]; };
     function ac() {
       if (!ctx) {
         const C = window.AudioContext || window.webkitAudioContext;
         if (!C) return null;
         ctx = new C();
+        const [fx, mu] = levels();
         master = ctx.createGain();
-        master.gain.value = 0.7;
+        master.gain.value = fx;
         master.connect(ctx.destination);
+        music = ctx.createGain();
+        music.gain.value = mu;
+        music.connect(ctx.destination);
+        on('settings', () => { const [a, b] = levels(); master.gain.value = a; music.gain.value = b; });
       }
       if (ctx.state === 'suspended') ctx.resume();
       return ctx;
@@ -417,6 +443,7 @@
       play(name) { if (!muted && presets[name]) { try { presets[name](); } catch { /* audio unavailable */ } } },
       tone, noise, ac,
       get master() { ac(); return master; },
+      get music() { ac(); return music; },
       get muted() { return muted; },
       setMuted(v) { muted = !!v; store.set('pa_muted', muted); emit('muted', muted); },
     };
@@ -466,7 +493,10 @@
     },
 
     avatar(p, size = '') {
-      return h('div', { class: `avatar ${size} ${p && p.online === false ? 'off' : ''}`, style: { '--c': (p && p.color) || '#8b5cf6' }, title: p ? p.name : '' }, (p && p.avatar) || '🙂');
+      const look = (p && (p.look || p)) || {};
+      const fancy = (look.aura ? ` au au-${look.aura}` : '') + (look.anim ? ` an-${look.anim}` : '');
+      return h('div', { class: `avatar ${size} ${p && p.online === false ? 'off' : ''}${fancy}`, style: { '--c': (p && p.color) || '#8b5cf6' }, title: p ? p.name : '' },
+        h('span', { class: 'av-e' }, (p && p.avatar) || '🙂'));
     },
 
     /** Little badges after a player's name: ✔ = has an account, 🛡️ = admin. */
@@ -837,6 +867,7 @@
             { icon: 'palette', label: 'Edit my look', onClick: () => Profile.edit() },
             { icon: 'trophy', label: 'Leaderboards', href: '/leaderboards' },
             { icon: 'magnifying-glass', label: 'Find players', href: '/players' },
+            { icon: 'gear', label: 'Settings & rewards', href: '/settings' },
             { icon: 'film-strip', label: 'Credits', href: '/credits' },
             u.admin ? { icon: 'shield-star', label: 'Admin panel', href: '/admin' } : null,
             '-',
@@ -848,6 +879,7 @@
           { icon: 'palette', label: 'Edit my look', onClick: () => Profile.edit() },
           { icon: 'trophy', label: 'Leaderboards', href: '/leaderboards' },
           { icon: 'magnifying-glass', label: 'Find players', href: '/players' },
+          { icon: 'gear', label: 'Settings', href: '/settings' },
           { icon: 'film-strip', label: 'Credits', href: '/credits' }];
       };
       const lbBtn = h('a', { class: 'icon-btn hide-sm', href: '/leaderboards', title: 'Leaderboards', 'aria-label': 'Leaderboards' }, icon('trophy'));
@@ -908,15 +940,46 @@
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startArt); else startArt();
 
+  // ---------------------------------------------------------------- achievements & rewards
+  const Unlocks = {
+    data: null,
+    async load() {
+      if (!Unlocks.data) Unlocks.data = fetch('/data/unlocks.json').then((r) => r.json()).catch(() => ({ achievements: [], auras: [], anims: [], balls: [] }));
+      return Unlocks.data;
+    },
+    ok(rule, level, stats, achs) {
+      if (!rule) return true;
+      if ('level' in rule) return level >= rule.level;
+      if ('ach' in rule) return achs.has(rule.ach);
+      const v = stats[rule.stat] || 0;
+      return (!('gte' in rule) || v >= rule.gte) && (!('gt' in rule) || v > rule.gt) && (!('lte' in rule) || v <= rule.lte);
+    },
+    /** What a player has unlocked, from their level and stats. */
+    async of(level, stats) {
+      const d = await Unlocks.load();
+      const achs = new Set(d.achievements.filter((a) => Unlocks.ok(a.rule, level, stats, new Set())).map((a) => a.id));
+      const has = (list) => new Set(list.filter((c) => Unlocks.ok(c.rule, level, stats, achs)).map((c) => c.id));
+      return { achievements: achs, aura: has(d.auras), anim: has(d.anims), ball: has(d.balls) };
+    },
+    /** "Reach level 10" / "Achievement: Speed demon (Win a Neon Dash race)" */
+    async hint(rule) {
+      const d = await Unlocks.load();
+      if (!rule) return 'Free';
+      if ('level' in rule) return `Reach level ${rule.level}`;
+      if ('ach' in rule) { const a = d.achievements.find((x) => x.id === rule.ach); return a ? `${a.emoji} ${a.name}: ${a.desc}` : 'An achievement'; }
+      return 'A secret';
+    },
+  };
+
   // ---------------------------------------------------------------- footer
   // Every page gets the version and links to the privacy policy and changelog. A page with
   // its own footer (the home page) gets the links added to it.
   (function footer() {
-    const links = [' · ', h('a', { href: '/privacy' }, '🔒 Privacy'), ' · ', h('a', { href: '/changelog' }, `📜 What’s new · v${VERSION}`)];
+    const links = [' · ', h('a', { href: '/settings' }, '⚙️ Settings'), ' · ', h('a', { href: '/privacy' }, '🔒 Privacy'), ' · ', h('a', { href: '/changelog' }, `📜 What’s new · v${VERSION}`)];
     const own = $('footer.footer');
     if (own) { own.append(...links); return; }
     document.body.append(h('footer', { class: 'footer' }, '🕹️ Party Arcade · ', h('a', { href: '/credits' }, '🎬 Credits'), ...links));
   })();
 
-  window.PA = { $, $$, h, fill, esc, rand, clamp, sleep, fmtMoney, fmtTime, store, on, emit, Profile, Account, Net, Sfx, UI, Emoji, icon, AVATARS, COLORS, VERSION };
+  window.PA = { $, $$, h, fill, esc, rand, clamp, sleep, fmtMoney, fmtTime, store, on, emit, Profile, Account, Net, Sfx, UI, Emoji, icon, AVATARS, COLORS, VERSION, Settings, Unlocks };
 })();

@@ -25,6 +25,7 @@ import time
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 NAME_RE = re.compile(r"^[A-Za-z0-9_]{3,16}$")
 COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -110,6 +111,9 @@ SCHEMA = [
         xp INTEGER NOT NULL DEFAULT 0,
         ts INTEGER NOT NULL)""",
     "CREATE INDEX IF NOT EXISTS matches_user ON matches(user_id, id)",
+    """CREATE TABLE IF NOT EXISTS looks (
+        user_id INTEGER PRIMARY KEY,
+        data TEXT NOT NULL DEFAULT '{}')""",
     """CREATE TABLE IF NOT EXISTS saved_rooms (
         code TEXT PRIMARY KEY,
         game TEXT NOT NULL,
@@ -118,6 +122,45 @@ SCHEMA = [
         saved INTEGER NOT NULL)""",
 ]
 ROOM_KEEP = 600   # seconds a room saved at shutdown can be picked up again
+
+# Achievements and the rewards (auras, avatar animations, ball skins) they unlock. The same
+# file is used by the website, so the rules only live in one place.
+UNLOCKS_FILE = Path(__file__).resolve().parent / "public" / "data" / "unlocks.json"
+try:
+    UNLOCKS = json.loads(UNLOCKS_FILE.read_text(encoding="utf-8"))
+except (OSError, ValueError):
+    UNLOCKS = {"achievements": [], "auras": [], "anims": [], "balls": []}
+LOOK_SLOTS = {"aura": "auras", "anim": "anims", "ball": "balls"}   # what you can wear -> list in UNLOCKS
+
+
+def rule_ok(rule, level, stats, achs):
+    if not rule:
+        return True
+    if "level" in rule:
+        return level >= rule["level"]
+    if "ach" in rule:
+        return rule["ach"] in achs
+    v = stats.get(rule.get("stat"), 0) or 0
+    return (("gte" not in rule or v >= rule["gte"]) and ("gt" not in rule or v > rule["gt"])
+            and ("lte" not in rule or v <= rule["lte"]))
+
+
+def unlocked_items(xp, stats):
+    """Every reward this player has unlocked: {"aura": {...}, "anim": {...}, "ball": {...}}."""
+    level = level_info(xp)["level"]
+    achs = {a["id"] for a in UNLOCKS["achievements"] if rule_ok(a.get("rule"), level, stats, set())}
+    return {slot: {c["id"] for c in UNLOCKS[kind] if rule_ok(c.get("rule"), level, stats, achs)} for slot, kind in LOOK_SLOTS.items()}
+
+
+def parse_look(raw):
+    """The rewards a player is wearing, from the looks table."""
+    try:
+        data = json.loads(raw or "{}")
+    except ValueError:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {k: v for k, v in data.items() if k in LOOK_SLOTS and isinstance(v, str) and len(v) <= 24}
 
 UPSERT = {
     "add": "stats.value + excluded.value",
@@ -137,6 +180,9 @@ class StoreError(Exception):
 
 def now():
     return int(time.time())
+
+
+USER_COLS = "u.*, l.data AS look"   # a users row plus what they're wearing (LEFT JOIN looks l)
 
 
 def tidy(v):
@@ -397,16 +443,17 @@ class Accounts:
     @staticmethod
     def public(u):
         info = level_info(u["xp"])
-        return {"id": u["id"], "name": u["name"], "avatar": u["avatar"], "color": u["color"], "bio": u.get("bio", ""),
+        return {"id": u["id"], "name": u["name"], "avatar": u["avatar"], "color": u["color"], "bio": u.get("bio", ""), "look": parse_look(u.get("look")),
                 "admin": bool(u["admin"]), "banned": bool(u.get("banned")), "created": u["created"],
                 "lastSeen": u["last_seen"], **info}
 
     async def user_by_id(self, uid):
-        rows = (await self.q("SELECT * FROM users WHERE id = ?", uid))["rows"]
+        rows = (await self.q(f"SELECT {USER_COLS} FROM users u LEFT JOIN looks l ON l.user_id = u.id WHERE u.id = ?", uid))["rows"]
         return rows[0] if rows else None
 
     async def user_by_name(self, name):
-        rows = (await self.q("SELECT * FROM users WHERE name_key = ?", str(name or "").strip().lower()))["rows"]
+        rows = (await self.q(f"SELECT {USER_COLS} FROM users u LEFT JOIN looks l ON l.user_id = u.id WHERE u.name_key = ?",
+                             str(name or "").strip().lower()))["rows"]
         return rows[0] if rows else None
 
     async def new_session(self, user_id):
@@ -475,7 +522,8 @@ class Accounts:
     async def resume(self, token):
         if not token or len(str(token)) > 100:
             return None
-        rows = (await self.q("SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND s.expires > ?",
+        rows = (await self.q(f"SELECT {USER_COLS} FROM sessions s JOIN users u ON u.id = s.user_id LEFT JOIN looks l ON l.user_id = u.id "
+                             "WHERE s.token = ? AND s.expires > ?",
                              token_hash(token), now()))["rows"]
         if not rows or rows[0]["banned"]:
             return None
@@ -509,6 +557,28 @@ class Accounts:
                          ("DELETE FROM sessions WHERE user_id = ?", (user_id,))])
         return await self.new_session(user_id)
 
+    async def set_look(self, user_id, look):
+        """Wear rewards: {"aura": id or "", "anim": ..., "ball": ...}. Only unlocked ones are allowed."""
+        user = await self.user_by_id(user_id)
+        if not user:
+            raise AuthError("No such account.")
+        stats = {r["key"]: r["value"] for r in (await self.q("SELECT key, value FROM stats WHERE user_id = ?", user_id))["rows"]}
+        have = unlocked_items(user["xp"], stats)
+        current = parse_look(user.get("look"))
+        for slot in LOOK_SLOTS:
+            if slot not in (look or {}):
+                continue
+            want = look[slot]
+            if not want:
+                current.pop(slot, None)
+            elif isinstance(want, str) and want in have[slot]:
+                current[slot] = want
+            else:
+                raise AuthError("That one is still locked 🔒")
+        await self.q("INSERT INTO looks (user_id, data) VALUES (?, ?) ON CONFLICT (user_id) DO UPDATE SET data = excluded.data",
+                     user_id, json.dumps(current, separators=(",", ":")))
+        return await self.user_by_id(user_id)
+
     async def delete_account(self, user_id, password):
         user = await self.user_by_id(user_id)
         if not user or not await asyncio.to_thread(check_password, str(password or ""), user["pw"]):
@@ -516,7 +586,7 @@ class Accounts:
         await self.wipe(user_id)
 
     async def wipe(self, user_id):
-        await self.many([(f"DELETE FROM {table} WHERE user_id = ?", (user_id,)) for table in ("sessions", "stats", "matches")]
+        await self.many([(f"DELETE FROM {table} WHERE user_id = ?", (user_id,)) for table in ("sessions", "stats", "matches", "looks")]
                         + [("DELETE FROM users WHERE id = ?", (user_id,))])
         self.board_cache.clear()
 
@@ -601,16 +671,16 @@ class Accounts:
         order = {"active": "last_seen DESC", "new": "created DESC", "level": "xp DESC", "name": "name_key ASC"}.get(sort, "last_seen DESC")
         if text:
             safe = text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-            res = await self.q(f"SELECT * FROM users WHERE banned = 0 AND name_key LIKE ? ESCAPE '\\' "
+            res = await self.q(f"SELECT {USER_COLS} FROM users u LEFT JOIN looks l ON l.user_id = u.id WHERE banned = 0 AND name_key LIKE ? ESCAPE '\\' "
                                f"ORDER BY CASE WHEN name_key = ? THEN 0 WHEN name_key LIKE ? ESCAPE '\\' THEN 1 ELSE 2 END, {order} LIMIT ?",
                                f"%{safe}%", text, f"{safe}%", limit)
         else:
-            res = await self.q(f"SELECT * FROM users WHERE banned = 0 ORDER BY {order} LIMIT ?", limit)
+            res = await self.q(f"SELECT {USER_COLS} FROM users u LEFT JOIN looks l ON l.user_id = u.id WHERE banned = 0 ORDER BY {order} LIMIT ?", limit)
         total = (await self.q("SELECT COUNT(*) AS n FROM users WHERE banned = 0"))["rows"][0]["n"]
         players = []
         for u in res["rows"]:
             info = level_info(u["xp"])
-            players.append({"id": u["id"], "name": u["name"], "avatar": u["avatar"], "color": u["color"], "bio": u["bio"],
+            players.append({"id": u["id"], "name": u["name"], "avatar": u["avatar"], "color": u["color"], "bio": u["bio"], "look": parse_look(u.get("look")),
                             "admin": bool(u["admin"]), "created": u["created"], "lastSeen": u["last_seen"],
                             "level": info["level"], "xp": info["xp"]})
         return players, total
@@ -627,16 +697,16 @@ class Accounts:
             rows = cached[1]
         else:
             if stat is None:
-                res = await self.q("SELECT id, name, avatar, color, xp, xp AS value FROM users "
-                                   "WHERE banned = 0 AND xp > 0 ORDER BY xp DESC, id LIMIT 50")
+                res = await self.q("SELECT u.id, u.name, u.avatar, u.color, u.xp, u.xp AS value, l.data AS look FROM users u "
+                                   "LEFT JOIN looks l ON l.user_id = u.id WHERE u.banned = 0 AND u.xp > 0 ORDER BY u.xp DESC, u.id LIMIT 50")
             else:
                 direction = "ASC" if order == "asc" else "DESC"
-                res = await self.q("SELECT u.id, u.name, u.avatar, u.color, u.xp, s.value FROM stats s "
-                                   "JOIN users u ON u.id = s.user_id WHERE s.key = ? AND u.banned = 0 AND s.value > 0 "
+                res = await self.q("SELECT u.id, u.name, u.avatar, u.color, u.xp, s.value, l.data AS look FROM stats s "
+                                   "JOIN users u ON u.id = s.user_id LEFT JOIN looks l ON l.user_id = u.id WHERE s.key = ? AND u.banned = 0 AND s.value > 0 "
                                    f"ORDER BY s.value {direction}, u.id LIMIT 50", stat)
             rows = []
             for i, r in enumerate(res["rows"]):
-                rows.append({"rank": i + 1, "id": r["id"], "name": r["name"], "avatar": r["avatar"], "color": r["color"],
+                rows.append({"rank": i + 1, "id": r["id"], "name": r["name"], "avatar": r["avatar"], "color": r["color"], "look": parse_look(r.get("look")),
                              "level": level_info(r["xp"])["level"], "value": tidy(r["value"])})
             self.board_cache[key] = (time.time(), rows)
         me = None
