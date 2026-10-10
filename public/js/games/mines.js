@@ -38,21 +38,38 @@
       if (button === 1 || (code >= 1 && code <= 8)) { act('chord', i); return; }
       if (code === HIDDEN) act('reveal', i);
     }
-    el.addEventListener('contextmenu', (e) => e.preventDefault());
+    // Flag = right-click, Ctrl+click (Mac), long-press (touch) or flag mode. Some browsers only send
+    // "contextmenu" for a right-click, so that flags too; `recent` stops one gesture flagging twice.
+    let recent = null;
+    const flag = (i) => { recent = { i, t: performance.now() }; click(i, 2); };
+    const cellOf = (e) => { const cell = e.target.closest('.ms-cell'); return cell ? +cell.dataset.i : -1; };
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      const i = cellOf(e);
+      if (i < 0) return;
+      if (press && press.i === i) { clearTimeout(press.timer); press.long = true; }
+      const same = recent && recent.i === i && performance.now() - recent.t < 600;
+      recent = null;
+      if (!same) click(i, 2);   // this browser only told us about the right-click here
+    });
     el.addEventListener('pointerdown', (e) => {
-      const cell = e.target.closest('.ms-cell');
-      if (!cell) return;
-      const i = +cell.dataset.i;
-      if (e.pointerType === 'mouse') { if (e.button === 2 || e.button === 1) { e.preventDefault(); click(i, e.button); } press = { i, long: false }; return; }
-      press = { i, long: false, timer: setTimeout(() => { press.long = true; click(i, 2); if (navigator.vibrate) navigator.vibrate(25); }, 380) };
+      const i = cellOf(e);
+      if (i < 0) return;
+      if (e.pointerType === 'mouse' || e.pointerType === 'pen') {
+        if (e.button === 2 || (e.button === 0 && e.ctrlKey)) { e.preventDefault(); press = null; flag(i); return; }
+        if (e.button === 1) { e.preventDefault(); press = null; click(i, 1); return; }
+        press = { i, long: false };
+        return;
+      }
+      press = { i, long: false, timer: setTimeout(() => { if (press) press.long = true; flag(i); if (navigator.vibrate) navigator.vibrate(25); }, 380) };
     });
     el.addEventListener('pointerup', (e) => {
       if (!press) return;
       clearTimeout(press.timer);
-      const cell = e.target.closest('.ms-cell');
+      const i = cellOf(e);
       const p = press;
       press = null;
-      if (!cell || p.long || +cell.dataset.i !== p.i || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      if (i < 0 || p.long || i !== p.i || ((e.pointerType === 'mouse' || e.pointerType === 'pen') && e.button !== 0)) return;
       click(p.i, 0);
     });
     el.addEventListener('pointercancel', () => { if (press) clearTimeout(press.timer); press = null; });
