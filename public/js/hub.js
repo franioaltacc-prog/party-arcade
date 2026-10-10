@@ -62,6 +62,13 @@
         return `<rect x="${x}" y="${y}" width="16" height="18" rx="3" fill="#3d3480"/>`;
       }).join('')}</g>
       ${emoji(24, 30, 22, '💣')}${emoji(178, 92, 22, '😎')}`, '#0f172a', '#4338ca'),
+    slope: svg('slope', `
+      ${[0, 1, 2, 3, 4, 5].map((i) => { const y = 120 - i * 16; const s = 1 - i * 0.13; const w = 130 * s; const x = 100 - w / 2 + (i % 2 ? 6 : -6) * s;
+        return `<polygon points="${x},${y} ${x + w},${y} ${x + w - 8 * s},${y - 15} ${x + 8 * s},${y - 15}" fill="#04140a" stroke="#39ff88" stroke-width="${2.5 * s}"/>`; }).join('')}
+      <rect x="112" y="78" width="16" height="12" fill="#ff1144" stroke="#ff5577" stroke-width="2"/>
+      <circle cx="92" cy="96" r="13" fill="#39ff88" stroke="#fff" stroke-width="2"/>
+      <path d="M92 83 v26 M79 96 h26" stroke="rgba(0,0,0,.25)" stroke-width="2"/>
+      ${Array.from({ length: 14 }, (_, i) => `<circle cx="${(i * 53) % 200}" cy="${(i * 29) % 40 + 5}" r="1.2" fill="#88ffcc"/>`).join('')}`, '#02030a', '#06281a'),
     connect4: svg('c4', `
       <rect x="38" y="12" width="124" height="100" rx="12" fill="#2563eb" stroke="#1d4ed8" stroke-width="3"/>
       ${[0, 1, 2, 3, 4].map((r) => [0, 1, 2, 3, 4, 5].map((c) => {
@@ -117,6 +124,7 @@
   ];
   const SOLO = [
     { key: 'dash-solo', href: '/games/dash?solo=1', title: 'Neon Dash Practice', icon: '🟦', desc: 'Train on random levels and chase your best times.', players: 'Solo' },
+    { key: 'slope', title: 'Slope', icon: '🛝', desc: 'Roll a ball down an endless neon slope. Steer, dodge the red blocks, don’t fall off!', players: 'Solo', isNew: true },
     { key: 'mines-solo', href: '/games/mines?solo=1', title: 'Minesweeper', icon: '💣', desc: 'The classic! Easy, Medium and Hard boards. Your first click is always safe.', players: 'Solo' },
     { key: 'snake', title: 'Neon Snake', icon: '🐍', desc: 'Eat, grow, don’t bite yourself. Gets faster every apple.', players: 'Solo' },
     { key: '2048', title: '2048', icon: '🔢', desc: 'Slide and merge tiles. Can you reach 2048?', players: 'Solo' },

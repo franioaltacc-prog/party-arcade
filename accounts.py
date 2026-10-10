@@ -56,6 +56,7 @@ BOARDS = {
     "dash_solo": ("🟦 Dash practice levels beaten", "dashsolo.levels", "desc", "int"),
     "mines_medium": ("💣 Minesweeper fastest (Medium)", "mines_medium.best", "asc", "time"),
     "mines_hard": ("💣 Minesweeper fastest (Hard)", "mines_hard.best", "asc", "time"),
+    "slope": ("🛝 Slope best distance", "slope.best", "desc", "int"),
 }
 
 # Scores the browser reports for solo games: game -> (stat ops, lowest, highest)
@@ -67,6 +68,7 @@ SOLO = {
     "mines-easy": ("mines_easy", 1000, 3_600_000),     # milliseconds; lower is better
     "mines-medium": ("mines_medium", 5000, 3_600_000),
     "mines-hard": ("mines_hard", 20000, 3_600_000),
+    "slope": ("slope", 1, 1_000_000),
 }
 FASTEST = {"memory", "dash-solo", "mines-easy", "mines-medium", "mines-hard"}   # solo games where a lower time wins
 

@@ -42,7 +42,7 @@ A game where an admin used a cheat doesn't count for anyone's stats or leaderboa
 
 ## Games
 - **Online:** Neon Dash (mini Geometry Dash race), Family Life (multiplayer BitLife with siblings), Doodle Guess, Impostor, Minesweeper (Race / Battle), Party Blitz, Connect 4
-- **Solo:** Neon Dash practice, Minesweeper (Easy / Medium / Hard), Snake, 2048, Memory Flip
+- **Solo:** Neon Dash practice, Minesweeper (Easy / Medium / Hard), Slope (3D, three.js), Snake, 2048, Memory Flip
 - **Fun:** Spin the Wheel, Would You Rather (global votes), Magic 8-Ball
 - **Casino Night (fake coins only):** every match everyone starts with the same coins; most coins at the end wins.
   - VS HOUSE: Roulette, Lucky Dice, Blackjack, Slots. VS PLAYERS: Texas Hold'em, Coinflip, High Card and Dice duels.

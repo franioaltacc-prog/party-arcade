@@ -23,7 +23,7 @@
       ['Won as impostor', 'impostor.imp_wins'], ['Survived as impostor', 'impostor.survived'], ['Correct votes', 'impostor.correct_votes']]],
     ['Minesweeper', '💣', '#6366f1', [['Games', 'mines.games'], ['Wins', 'mines.wins'], ['Race boards cleared', 'mines.cleared'], ['Best battle', 'mines.best'],
       ['Solo Easy', 'mines_easy.best', secs], ['Solo Medium', 'mines_medium.best', secs], ['Solo Hard', 'mines_hard.best', secs]]],
-    ['Solo arcade', '🕹️', '#22d3ee', [['🐍 Snake best', 'snake.best'], ['🔢 2048 best', '2048.best'], ['🃏 Memory (Normal)', 'memory.best', secs], ['🟦 Dash levels', 'dashsolo.levels']]],
+    ['Solo arcade', '🕹️', '#22d3ee', [['🐍 Snake best', 'snake.best'], ['🔢 2048 best', '2048.best'], ['🃏 Memory (Normal)', 'memory.best', secs], ['🟦 Dash levels', 'dashsolo.levels'], ['🛝 Slope best', 'slope.best']]],
   ];
 
   const ACHIEVEMENTS = [
@@ -45,13 +45,14 @@
     ['🕵️', 'Master of disguise', 'Win 10 rounds as the Impostor', (s) => s['impostor.imp_wins'] >= 10],
     ['💣', 'Bomb squad', 'Win a Minesweeper game online', (s) => s['mines.wins'] >= 1],
     ['🧹', 'Clean sweep', 'Beat Minesweeper on Hard (solo)', (s) => s['mines_hard.best'] > 0],
+    ['🛝', 'Downhill legend', 'Roll 1,000 in Slope', (s) => s['slope.best'] >= 1000],
     ['🐍', 'Snake charmer', 'Score 40 in Snake', (s) => s['snake.best'] >= 40],
     ['🔢', 'Tile master', 'Score 20,000 in 2048', (s) => s['2048.best'] >= 20000],
     ['🧠', 'Elephant memory', 'Beat Memory Flip (Normal) in under 30s', (s) => s['memory.best'] > 0 && s['memory.best'] <= 30000],
   ];
 
-  const GAME_EMOJI = { dash: '🟪', life: '🏡', doodle: '🎨', blitz: '⚡', connect4: '🔴', casino: '🎰', impostor: '🕵️', mines: '💣', mines_easy: '💣', mines_medium: '💣', mines_hard: '💣', snake: '🐍', 2048: '🔢', memory: '🃏', dashsolo: '🟦' };
-  const GAME_NAME = { dash: 'Neon Dash', life: 'Family Life', doodle: 'Doodle Guess', blitz: 'Party Blitz', connect4: 'Connect 4', casino: 'Casino Night', impostor: 'Impostor', mines: 'Minesweeper', mines_easy: 'Minesweeper Easy', mines_medium: 'Minesweeper Medium', mines_hard: 'Minesweeper Hard', snake: 'Neon Snake', 2048: '2048', memory: 'Memory Flip', dashsolo: 'Dash practice' };
+  const GAME_EMOJI = { dash: '🟪', life: '🏡', doodle: '🎨', blitz: '⚡', connect4: '🔴', casino: '🎰', impostor: '🕵️', slope: '🛝', mines: '💣', mines_easy: '💣', mines_medium: '💣', mines_hard: '💣', snake: '🐍', 2048: '🔢', memory: '🃏', dashsolo: '🟦' };
+  const GAME_NAME = { dash: 'Neon Dash', life: 'Family Life', doodle: 'Doodle Guess', blitz: 'Party Blitz', connect4: 'Connect 4', casino: 'Casino Night', impostor: 'Impostor', slope: 'Slope', mines: 'Minesweeper', mines_easy: 'Minesweeper Easy', mines_medium: 'Minesweeper Medium', mines_hard: 'Minesweeper Hard', snake: 'Neon Snake', 2048: '2048', memory: 'Memory Flip', dashsolo: 'Dash practice' };
   const OUTCOME = { win: ['WIN', 'win'], loss: ['LOSS', 'loss'], draw: ['DRAW', 'draw'], play: ['PLAYED', 'play'] };
 
   function message(emoji, title, text, ...kids) {

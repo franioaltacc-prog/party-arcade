@@ -6,7 +6,7 @@
   const GROUPS = [
     ['General', ['xp', 'wins', 'games']],
     ['Online games', ['dash', 'life', 'life_age', 'doodle', 'blitz', 'casino', 'casino_big', 'c4', 'impostor', 'impostor_rounds', 'mines']],
-    ['Solo', ['snake', '2048', 'memory', 'dash_solo', 'mines_medium', 'mines_hard']],
+    ['Solo', ['snake', '2048', 'memory', 'dash_solo', 'mines_medium', 'mines_hard', 'slope']],
   ];
   let boards = [];
   let current = new URLSearchParams(location.search).get('b') || store.get('lb_board', 'xp');

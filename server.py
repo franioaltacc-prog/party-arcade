@@ -848,7 +848,7 @@ GAME_TITLES = {"dash": "Neon Dash", "life": "Family Life", "doodle": "Doodle Gue
                "memory": "Memory Flip", "dash-solo": "Neon Dash practice", "dashsolo": "Neon Dash practice",
                "impostor": "Impostor", "mines": "Minesweeper", "mines_easy": "Minesweeper (Easy)",
                "mines_medium": "Minesweeper (Medium)", "mines_hard": "Minesweeper (Hard)", "mines-easy": "Minesweeper (Easy)",
-               "mines-medium": "Minesweeper (Medium)", "mines-hard": "Minesweeper (Hard)"}
+               "mines-medium": "Minesweeper (Medium)", "mines-hard": "Minesweeper (Hard)", "slope": "Slope"}
 
 hub = Hub()
 

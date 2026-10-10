@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Slope · Party Arcade</title>
+  <meta name="theme-color" content="#0b0920">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .sl-wrap { width: min(1100px, 100%); margin: 0 auto; }
+    .sl-stage { position: relative; width: 100%; aspect-ratio: 16 / 9; max-height: calc(100vh - 170px); border-radius: 22px; overflow: hidden; background: #02030a; box-shadow: var(--shadow), 0 0 0 1px var(--border); touch-action: none; user-select: none; -webkit-user-select: none; }
+    .sl-stage canvas { display: block; width: 100%; height: 100%; }
+    .sl-hud { position: absolute; top: 12px; left: 14px; right: 14px; display: flex; justify-content: space-between; pointer-events: none; font-family: var(--font-display); color: #b9ffcf; text-shadow: 0 0 12px rgba(57,255,136,.8); font-size: clamp(1rem, 3vw, 1.6rem); }
+    .sl-hud small { display: block; font-family: var(--font); font-size: .75rem; color: rgba(185,255,207,.7); text-shadow: none; }
+    .sl-over { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; background: radial-gradient(circle, rgba(2,3,10,.55), rgba(2,3,10,.88)); padding: 20px; }
+    .sl-over h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(2.4rem, 9vw, 4.6rem); color: #39ff88; text-shadow: 0 0 30px rgba(57,255,136,.7); line-height: 1; }
+    .sl-over p { color: #cfe; margin: 10px 0 16px; }
+    .sl-keys { margin-top: 12px; font-size: .85rem; color: var(--muted); }
+    .sl-msg { padding: 40px; text-align: center; color: var(--muted); }
+    .sl-touch { position: absolute; bottom: 14px; display: none; gap: 10px; left: 14px; right: 14px; justify-content: space-between; pointer-events: none; opacity: .55; font-size: 2rem; }
+    @media (pointer: coarse) { .sl-touch { display: flex; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="sl-wrap" id="slope">
+      <div class="sl-stage" id="stage">
+        <div class="sl-hud"><div><small>DISTANCE</small><span id="score">0</span></div><div style="text-align:right"><small>BEST</small><span id="best">0</span></div></div>
+        <div class="sl-touch"><span>⬅️</span><span>➡️</span></div>
+        <div class="sl-over" id="over"></div>
+      </div>
+    </section>
+  </main>
+  <script src="/js/art.js"></script>
+  <script src="/js/core.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollTrigger.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/Flip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/SplitText.min.js"></script>
+  <script src="/js/fx.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="/js/games/slope.js"></script>
+</body>
+</html>
