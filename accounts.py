@@ -105,7 +105,14 @@ SCHEMA = [
         xp INTEGER NOT NULL DEFAULT 0,
         ts INTEGER NOT NULL)""",
     "CREATE INDEX IF NOT EXISTS matches_user ON matches(user_id, id)",
+    """CREATE TABLE IF NOT EXISTS saved_rooms (
+        code TEXT PRIMARY KEY,
+        game TEXT NOT NULL,
+        host TEXT NOT NULL DEFAULT '',
+        banned TEXT NOT NULL DEFAULT '[]',
+        saved INTEGER NOT NULL)""",
 ]
+ROOM_KEEP = 600   # seconds a room saved at shutdown can be picked up again
 
 UPSERT = {
     "add": "stats.value + excluded.value",
@@ -343,6 +350,31 @@ class Accounts:
             except Exception:
                 raise StoreError(self.error or "database not ready") from None
         return await self.store.run(stmts)
+
+    # -- rooms kept across restarts ------------------------------------------
+    async def save_rooms(self, rooms):
+        """rooms: [(code, game, host, banned_list)] from a server that is shutting down."""
+        t = now()
+        stmts = [("DELETE FROM saved_rooms WHERE saved < ?", (t - ROOM_KEEP,))]
+        stmts += [("INSERT OR REPLACE INTO saved_rooms (code, game, host, banned, saved) VALUES (?, ?, ?, ?, ?)",
+                   (code, game, host or "", json.dumps(sorted(banned)), t)) for code, game, host, banned in rooms]
+        await self.many(stmts)
+
+    async def take_room(self, code):
+        """Claim a room saved by the previous server, or None."""
+        res = await self.many([
+            ("SELECT * FROM saved_rooms WHERE code = ? AND saved >= ?", (code, now() - ROOM_KEEP)),
+            ("DELETE FROM saved_rooms WHERE code = ?", (code,)),
+        ])
+        rows = res[0]["rows"]
+        if not rows:
+            return None
+        r = rows[0]
+        try:
+            banned = set(json.loads(r["banned"]))
+        except ValueError:
+            banned = set()
+        return {"code": r["code"], "game": r["game"], "host": r["host"] or None, "banned": banned}
 
     def limited(self, key, limit, window):
         """True if `key` already did something `limit` times in the last `window` seconds."""
