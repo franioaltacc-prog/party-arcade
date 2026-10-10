@@ -7,8 +7,8 @@ MODES = ("ffa", "teams")
 SIZES = ("small", "medium", "large")
 STYLES = ("continents", "islands", "pangaea")
 LEVELS = ("easy", "medium", "hard")
-BUILDINGS = ("city", "post", "silo")
-MOVES = ("spawn", "attack", "boat", "build", "nuke")
+BUILDINGS = ("city", "post", "silo", "port")
+MOVES = ("spawn", "attack", "boat", "build", "nuke", "warship", "ally", "unally", "decline")
 TICK = 0.1                 # seconds per simulation step
 MAX_TICKS = 60 * 60 * 10   # games stop after an hour
 EMPTY_GRACE = 60           # end a game when no player has been online this long
@@ -167,6 +167,8 @@ class Front(Game):
             if it.get("b") not in BUILDINGS:
                 return
             clean["b"] = it["b"]
+        if k in ("ally", "unally", "decline"):   # alliances: p = the other player
+            clean = {"k": k, "p": int(num(it.get("p"), 0, 0, 200))}
         self.queue.append([p, clean])
 
     def check_hash(self, m, msg):
@@ -197,11 +199,13 @@ class Front(Game):
             return
         if "team" in w:
             key = ("team", int(num(w.get("team"), 0, 0, 4)))
+        elif isinstance(w.get("players"), list):   # an alliance won together
+            key = ("players", tuple(sorted({int(num(x, 0, 0, 200)) for x in w["players"][:20]})))
         else:
             key = ("player", int(num(w.get("player"), 0, 0, 200)))
         shares = msg.get("shares") if isinstance(msg.get("shares"), dict) else {}
         self.reports[m.uid] = (key, {
-            "winner": {key[0]: key[1]},
+            "winner": {key[0]: list(key[1]) if key[0] == "players" else key[1]},
             "tick": int(num(msg.get("tick"), 0, 0, MAX_TICKS)),
             "shares": {str(int(num(k, 0, 0, 200))): round(num(v, 0, 0, 1), 4) for k, v in list(shares.items())[:80]},
             "names": [str(x)[:40] for x in (msg.get("names") or [])[:60]] if isinstance(msg.get("names"), list) else [],
@@ -221,10 +225,14 @@ class Front(Game):
         rows = []
         for i, h in enumerate(humans):
             p = i + 1
-            won = winner.get("player") == p or (winner.get("team") and winner.get("team") == h["team"])
+            won = winner.get("player") == p or (winner.get("team") and winner.get("team") == h["team"]) or p in winner.get("players", [])
             rows.append({"id": h["uid"], "name": h["name"], "avatar": h["avatar"], "color": h["color"], "team": h["team"],
                          "won": bool(won), "share": rep["shares"].get(str(p), 0)})
-        if "player" in winner and winner["player"] > len(humans):
+        names = rep["names"]
+        who = lambda p: humans[p - 1]["name"] if p <= len(humans) else (names[p - 1] if p - 1 < len(names) else "A bot")
+        if "players" in winner:
+            win_name = " & ".join(who(p).replace("🤖 ", "") for p in winner["players"][:4]) + (" (alliance)" if len(winner["players"]) > 1 else "")
+        elif "player" in winner and winner["player"] > len(humans):
             names = rep["names"]
             idx = winner["player"] - 1
             win_name = names[idx] if idx < len(names) else "A bot"

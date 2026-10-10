@@ -24,10 +24,12 @@
   const TOOLS = [
     ['city', '🏙️', 'City', 'More troops and gold (1)'],
     ['post', '🛡️', 'Defense', 'Land near it is much harder to take (2)'],
-    ['silo', '🚀', 'Silo', 'Lets you launch nukes (3)'],
-    ['nuke', '☢️', 'Nuke', 'Wipe out an area — needs a silo (4)'],
+    ['port', '⚓', 'Port', 'On your coast: brings in trade gold and builds warships (3)'],
+    ['warship', '🚢', 'Warship', 'Click the sea: it sails there, guards it and sinks enemy boats — needs a port (4)'],
+    ['silo', '🚀', 'Silo', 'Lets you launch nukes (5)'],
+    ['nuke', '☢️', 'Nuke', 'Wipe out an area — needs a silo (6)'],
   ];
-  const BUILD_EMOJI = { city: '🏙️', post: '🛡️', silo: '🚀' };
+  const BUILD_EMOJI = { city: '🏙️', post: '🛡️', silo: '🚀', port: '⚓' };
 
   // ================================================================ screens
   const SCREENS = ['entry', 'setup', 'room', 'play'];
@@ -48,6 +50,7 @@
       g, cfg, mode, me, pending: [], incoming: turns || [], over: false, paused: false, speed: 1, acc: 0,
       lastFrame: performance.now(), lastStep: performance.now(), troopsAgo: [], knockedOut: false, watching: false,
       expect: (turns && turns.length ? turns[turns.length - 1].n : 0) + 1, reported: false,
+      log: [],   // every move, by tick, for the replay
     };
     tool = null;
     view.attach(g);
@@ -61,7 +64,42 @@
   }
 
   function myPlayer() { return S && S.me ? S.g.players[S.me] : null; }
-  function canAct() { const p = myPlayer(); return p && p.alive && !S.g.winner && !(S.mode === 'solo' && S.paused); }
+  function canAct() { const p = myPlayer(); return S.mode !== 'replay' && p && p.alive && !S.g.winner && !(S.mode === 'solo' && S.paused); }
+  const ffa = () => S && S.cfg.mode !== 'teams';
+  const isAlly = (p) => S && S.me && p && p !== S.me && F.allied(S.g, S.me, p);
+
+  /** A little card about another player: their stats and alliance buttons. */
+  let cardFor = 0;
+  function playerCard(p) {
+    cardFor = p;
+    renderCard();
+  }
+  function renderCard() {
+    const el = $('#card');
+    const g = S && S.g;
+    const pl = g && cardFor ? g.players[cardFor] : null;
+    if (!pl) { el.classList.add('hidden'); cardFor = 0; return; }
+    const me = myPlayer();
+    const asked = g.requests.some((r) => r.from === S.me && r.to === cardFor);
+    const asksMe = g.requests.some((r) => r.from === cardFor && r.to === S.me);
+    const btns = [];
+    if (me && me.alive && pl.alive && cardFor !== S.me && ffa() && canAct()) {
+      if (isAlly(cardFor)) btns.push(h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { act({ k: 'unally', p: cardFor }); Sfx.play('wrong'); } }, '💔 Break alliance'));
+      else if (asksMe) btns.push(h('button', { class: 'btn btn-lime btn-sm', onclick: () => { act({ k: 'ally', p: cardFor }); Sfx.play('coin'); } }, '✅ Accept alliance'),
+        h('button', { class: 'btn btn-ghost btn-sm', onclick: () => act({ k: 'decline', p: cardFor }) }, '❌ No thanks'));
+      else if (asked) btns.push(h('button', { class: 'btn btn-ghost btn-sm', disabled: true }, '⏳ Asked…'));
+      else btns.push(h('button', { class: 'btn btn-cyan btn-sm', onclick: () => { act({ k: 'ally', p: cardFor }); Sfx.play('click'); float(innerWidth / 2, 120, '🤝 Asked!'); } }, '🤝 Ask to team up'));
+    }
+    if (pl.alive) btns.push(h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { const c = F.centerTile(g, cardFor); if (c >= 0) view.focus(c); } }, '🎯 Show'));
+    const status = !pl.alive ? '💀 Knocked out' : cardFor === S.me ? '⭐ That’s you' : isAlly(cardFor) ? (ffa() ? '🤝 Your ally' : '🤝 Teammate')
+      : asksMe ? '💬 Wants to team up with you' : asked ? '⏳ You asked to team up' : '⚔️ Not allied';
+    fill(el, h('div', { class: 'fw-card-head' }, h('span', { class: 'dot', style: { background: pl.color } }), h('b', {}, pl.name),
+      h('button', { class: 'icon-btn fw-x', 'aria-label': 'Close', onclick: () => { cardFor = 0; renderCard(); } }, '✕')),
+    h('div', { class: 'small muted' }, `🪖 ${short(pl.troops)} · 🗺️ ${pct(F.share(g, cardFor))}${pl.team ? ' · Team ' + F.TEAM_NAMES[pl.team - 1] : ''}`),
+    h('div', { class: 'small' }, status),
+    btns.length ? h('div', { class: 'fw-card-btns' }, btns) : null);
+    el.classList.remove('hidden');
+  }
 
   /** Send a move: solo keeps it for the next tick, online it goes to the server. */
   function act(it) {
@@ -71,7 +109,9 @@
   }
 
   function stepGame(intents, quiet) {
+    const before = S.g.tick;
     F.step(S.g, intents);
+    if (intents.length && S.log && S.g.tick !== before) S.log.push([S.g.tick, intents]);
     S.lastStep = performance.now();
     const events = S.g.events.splice(0);
     if (!quiet) for (const e of events) onEvent(e);
@@ -84,7 +124,14 @@
     if (!S) return;
     const dt = Math.min(250, now - S.lastFrame);
     S.lastFrame = now;
-    if (S.mode === 'solo') {
+    if (S.mode === 'replay') {
+      if (S.playing && S.g.tick < S.end) {
+        S.acc += dt * S.speed;
+        let n = 0;
+        while (S.acc >= F.TICK_MS && S.g.tick < S.end && n < 400) { S.acc -= F.TICK_MS; replayStep(S.speed <= 8); n++; }
+        if (S.g.tick >= S.end) { S.playing = false; renderControls(); }
+      } else S.acc = 0;
+    } else if (S.mode === 'solo') {
       if (!S.paused && !S.g.winner) {
         S.acc += dt * S.speed;
         let n = 0;
@@ -136,7 +183,27 @@
     } else if (e.type === 'out') {
       if (e.who === me) knockedOut();
       else UI.toast(`💀 ${nameOf(e.who)} was knocked out`, '', 2000);
+    } else if (e.type === 'request') {
+      if (e.to === me) { Sfx.play('message'); }
+    } else if (e.type === 'allied') {
+      if (e.a === me || e.b === me) { Sfx.play('coin'); UI.toast(`🤝 You and ${nameOf(e.a === me ? e.b : e.a)} are now allies!`, 'good', 3000); }
+      else UI.toast(`🤝 ${nameOf(e.a)} and ${nameOf(e.b)} teamed up`, '', 2000);
+    } else if (e.type === 'betrayed') {
+      if (e.of === me) { Sfx.play('wrong'); UI.toast(`💔 ${nameOf(e.by)} broke your alliance!`, 'bad', 3500); }
+      else if (e.by === me) UI.toast(`💔 You broke your alliance with ${nameOf(e.of)}`, '', 2500);
+      else UI.toast(`💔 ${nameOf(e.by)} betrayed ${nameOf(e.of)}!`, '', 2000);
+    } else if (e.type === 'declined') {
+      if (e.of === me) UI.toast(`🙅 ${nameOf(e.by)} said no thanks`, '', 2500);
+    } else if (e.type === 'warship') {
+      if (e.by === me) Sfx.play('coin');
+    } else if (e.type === 'shot') {
+      view.shot(e.from, e.to, e.by);
+    } else if (e.type === 'sunk') {
+      const what = e.what === 'boat' ? 'boat' : 'warship';
+      if (e.of === me) { Sfx.play('boom'); UI.toast(`🌊 ${nameOf(e.by)} sank your ${what}!`, 'bad', 2500); }
+      else if (e.by === me) { Sfx.play('right'); UI.toast(`💥 You sank ${nameOf(e.of)}’s ${what}!`, 'good', 2000); }
     }
+    if (cardFor) renderCard();
   }
 
   function knockedOut() {
@@ -150,13 +217,15 @@
   function iWon() {
     const w = S.g.winner; const me = myPlayer();
     if (!w || !me) return false;
-    return w.player === S.me || (w.team && w.team === me.team);
+    return w.player === S.me || (w.team && w.team === me.team) || (w.players && w.players.includes(S.me));
   }
   function winnerName() {
     const w = S.g.winner;
     if (!w) return '';
+    if (w.players) return w.players.map((p) => nameOf(p).replace('🤖 ', '')).join(' & ') + (w.players.length > 1 ? ' (alliance)' : '');
     return w.team ? `Team ${F.TEAM_NAMES[w.team - 1]}` : nameOf(w.player);
   }
+  const winnerShare = (g) => (g.winner.team ? F.teamShare(g, g.winner.team) : g.winner.players ? g.winner.players.reduce((n, p) => n + F.share(g, p), 0) : F.share(g, S.me));
 
   function gameOver() {
     S.over = true;
@@ -172,7 +241,7 @@
     if (won) {
       Sfx.play('win');
       UI.confetti(240);
-      if (FX.banner) FX.banner('🏆 VICTORY!', `${pct(S.g.winner.team ? F.teamShare(g, S.g.winner.team) : F.share(g, S.me))} of the world is yours`, { color: '#facc15' });
+      if (FX.banner) FX.banner('🏆 VICTORY!', g.winner.players && g.winner.players.length > 1 ? 'You won together with your allies!' : `${pct(winnerShare(g))} of the world is yours`, { color: '#facc15' });
       if (S.mode === 'solo' && S.cfg.bots > 0) Account.submit('front-solo', S.cfg.bots);
     } else if (S.me) Sfx.play('lose');
     const minutes = Math.max(1, Math.round((g.tick - g.spawnEnd) / 600));
@@ -184,11 +253,55 @@
       S.mode === 'solo'
         ? h('div', { class: 'row', style: { justifyContent: 'center', gap: '10px', flexWrap: 'wrap' } },
           h('button', { class: 'btn btn-pink btn-lg', onclick: () => startSolo(S.cfg.settings) }, '🔁 Play again'),
+          replayButton(),
           h('button', { class: 'btn btn-ghost', onclick: openSetup }, '⚙️ Change settings'))
         : h('p', { class: 'small muted' }, 'Saving the results…')));
     $('#over').classList.remove('hidden');
     if (FX.pop) FX.pop($('#over').firstChild, { from: 0.8 });
   }
+
+  // ================================================================ replay
+  // The game is deterministic, so a replay just plays all the recorded moves again from the start.
+  function startReplay() {
+    const done = S.mode === 'replay' ? S.done : S;
+    S = {
+      g: null, cfg: done.cfg, mode: 'replay', me: done.me, done, log: done.log, li: 0, end: done.g.tick,
+      speed: 8, playing: true, acc: 0, lastFrame: performance.now(), lastStep: performance.now(), troopsAgo: [], over: true,
+    };
+    replaySeek(0);
+    tool = null; cardFor = 0; renderCard();
+    $('#over').classList.add('hidden');
+    renderTools(); renderControls();
+    Sfx.play('swoosh');
+  }
+  function replayStep(effects) {
+    const T = S.g.tick + 1;
+    const moves = S.li < S.log.length && S.log[S.li][0] === T ? S.log[S.li++][1] : [];
+    F.step(S.g, moves);
+    S.lastStep = performance.now();
+    const events = S.g.events.splice(0);
+    if (effects) for (const e of events) if (e.type === 'nuke') view.boom(e.tile); else if (e.type === 'shot') view.shot(e.from, e.to);
+  }
+  function replaySeek(tick) {
+    const g = F.createGame(S.cfg);
+    S.g = g; S.li = 0;
+    g.track = false;
+    while (g.tick < tick) replayStep(false);
+    g.track = true;
+    g.dirty.length = 0;
+    view.attach(g);
+  }
+  function exitReplay() {
+    if (!S || S.mode !== 'replay') return;
+    S = S.done;
+    view.attach(S.g);
+    S.g.dirty.length = 0;
+    banner(null);
+    renderTools(); renderControls();
+    $('#over').classList.remove('hidden');
+  }
+  const clock = (ticks) => { const sec = Math.max(0, Math.floor(ticks / 10)); return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`; };
+  const replayButton = () => h('button', { class: 'btn btn-yellow', onclick: startReplay }, '🎬 Watch the replay');
 
   function banner(text) {
     const el = $('#banner');
@@ -199,7 +312,7 @@
 
   // ================================================================ clicking the map
   function clickTile(t, sx, sy) {
-    if (!S || t < 0) return;
+    if (!S || t < 0 || S.mode === 'replay') return;
     const g = S.g;
     const me = myPlayer();
     if (!me) return;
@@ -212,6 +325,17 @@
     }
     if (!canAct()) return;
     if (tool) {
+      if (tool === 'warship') {
+        if (!me.nPort) { UI.toast('⚓ Build a port on your coast first!', 'bad'); return; }
+        if (g.terrain[t]) { float(sx, sy, '🌊 Click the sea'); return; }
+        if (me.gold < F.COST.warship) { float(sx, sy, `💰 A warship costs ${short(F.COST.warship)}`); return; }
+        if (g.warships.filter((w) => w.owner === S.me).length >= F.MAX_WARSHIPS) { float(sx, sy, `🚢 Max ${F.MAX_WARSHIPS} warships`); return; }
+        if (!F.warshipRoute(g, S.me, t)) { float(sx, sy, '🌊 Your ships can’t sail there'); return; }
+        act({ k: 'warship', t });
+        float(sx, sy, '🚢 Setting sail!');
+        if (!keepTool) { tool = null; renderTools(); }
+        return;
+      }
       if (tool === 'nuke') {
         if (!me.nSilo) { UI.toast('🚀 Build a missile silo first!', 'bad'); return; }
         if (me.gold < F.COST.nuke) { UI.toast(`💰 A nuke costs ${short(F.COST.nuke)} gold`, 'bad'); return; }
@@ -220,7 +344,7 @@
       } else {
         if (g.owner[t] !== S.me) { float(sx, sy, '🚫 Build on your own land'); return; }
         if (!F.canBuild(g, S.me, tool, t)) {
-          float(sx, sy, me.gold < F.buildCost(g, S.me, tool) ? '💰 Not enough gold' : '📏 Too close to another building');
+          float(sx, sy, me.gold < F.buildCost(g, S.me, tool) ? '💰 Not enough gold' : tool === 'port' && !F.isCoast(g, t) ? '⚓ Ports go right on the coast' : '📏 Too close to another building');
           return;
         }
         act({ k: 'build', b: tool, t });
@@ -232,7 +356,7 @@
     if (!g.terrain[t]) return;
     const o = g.owner[t];
     if (o === S.me) return;
-    if (o && F.allied(g, S.me, o)) { float(sx, sy, '🤝 Teammate!'); return; }
+    if (o && F.allied(g, S.me, o)) { float(sx, sy, ffa() ? '🤝 Your ally!' : '🤝 Teammate!'); playerCard(o); return; }
     const troops = Math.floor(me.troops * ratio / 100);
     if (F.sharesBorder(g, S.me, o)) {
       act({ k: 'attack', t, r: ratio });
@@ -267,7 +391,7 @@
     let fitZ = 1;
     let cw = 1; let ch = 1; let dpr = 1;
     let labels = []; let labelsAt = 0; let dist = null;
-    const booms = []; const warns = [];
+    const booms = []; const warns = []; const shots = [];
     let hover = -1; let mouse = null;
 
     function resize() {
@@ -471,6 +595,35 @@
         emojiAt('⛵', x, y, s);
         if (z > 3) { ctx.font = '700 11px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(short(b.troops), x, y + s * 0.9); }
       }
+      // warships: a ship in its owner's colour, a health bar when hurt, and (yours) the area it guards
+      for (const w of g.warships) {
+        const a = w.path[Math.min(w.path.length - 1, w.i)];
+        const c = w.path[Math.min(w.path.length - 1, w.i + 1)];
+        const f = w.i < w.path.length - 1 ? frac : 0;
+        const x = sx((a % g.W) + ((c % g.W) - (a % g.W)) * f + 0.5);
+        const y = sy(Math.floor(a / g.W) + (Math.floor(c / g.W) - Math.floor(a / g.W)) * f + 0.5);
+        if (x < -40 || y < -40 || x > cw + 40 || y > ch + 40) continue;
+        const s2 = Math.max(16, z * 3);
+        if (w.owner === S.me) {
+          ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+          ctx.beginPath(); ctx.arc(x, y, F.WARSHIP_RANGE * z, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+        }
+        ctx.fillStyle = g.players[w.owner].color;
+        ctx.beginPath(); ctx.arc(x, y + s2 * 0.12, s2 * 0.45, 0, Math.PI * 2); ctx.fill();
+        emojiAt('🚢', x, y, s2);
+        if (w.hp < 100) {
+          ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(x - s2 * 0.5, y - s2 * 0.75, s2, 4);
+          ctx.fillStyle = w.hp > 50 ? '#4ade80' : w.hp > 25 ? '#facc15' : '#f43f5e'; ctx.fillRect(x - s2 * 0.5, y - s2 * 0.75, s2 * w.hp / 100, 4);
+        }
+      }
+      // cannon shots
+      for (let i = shots.length - 1; i >= 0; i--) {
+        const sh = shots[i];
+        const age = (now - sh.at) / 1000;
+        if (age > 0.35) { shots.splice(i, 1); continue; }
+        ctx.strokeStyle = `rgba(253, 224, 71, ${1 - age / 0.35})`; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(sx((sh.from % g.W) + 0.5), sy(Math.floor(sh.from / g.W) + 0.5)); ctx.lineTo(sx((sh.to % g.W) + 0.5), sy(Math.floor(sh.to / g.W) + 0.5)); ctx.stroke();
+      }
       // nukes in the air: an arc from the silo to the target
       for (const n of g.nukes) {
         const p = Math.min(1, (g.tick - n.t0 + frac) / (n.t1 - n.t0));
@@ -506,10 +659,10 @@
         if (size < 7) continue;
         const x = sx(l.x); const y = sy(l.y);
         if (x < -100 || y < -40 || x > cw + 100 || y > ch + 40) continue;
-        let name = pl.name.replace('🤖 ', '');
+        let name = (S.cfg.mode !== 'teams' && l.p !== S.me && S.me && F.allied(g, S.me, l.p) ? '🤝 ' : '') + pl.name.replace('🤖 ', '');
         ctx.font = `700 ${Math.round(size)}px Fredoka, sans-serif`;
         while (name.length > 4 && ctx.measureText(name).width > l.r * z * 2.4) name = name.slice(0, -2);
-        if (name !== pl.name.replace('🤖 ', '')) name += '…';
+        if (!pl.name.endsWith(name.replace('🤝 ', ''))) name += '…';
         ctx.lineWidth = Math.max(2, size / 6);
         ctx.strokeStyle = 'rgba(0,0,0,0.75)';
         ctx.strokeText(name, x, y - size * 0.35);
@@ -563,6 +716,16 @@
       if (pointers.size === 2) { const [a, b] = [...pointers.values()]; pinch = Math.hypot(a.x - b.x, a.y - b.y); down = null; clearTimeout(longTimer); return; }
       if (e.button === 2) return;
       down = { ...p, moved: false, touch: e.pointerType !== 'mouse' };
+      clearTimeout(longTimer);
+      if (down.touch) {   // hold a finger on someone's land to see their card (alliances)
+        const d = down;
+        longTimer = setTimeout(() => {
+          if (down !== d || d.moved) return;
+          d.long = true;
+          const t = tileAt(d.x, d.y);
+          if (t >= 0 && g.owner[t]) { playerCard(g.owner[t]); if (navigator.vibrate) navigator.vibrate(15); }
+        }, 550);
+      }
     });
     cv.addEventListener('pointermove', (e) => {
       const p = pos(e);
@@ -589,20 +752,27 @@
       pointers.delete(e.pointerId);
       if (pointers.size < 2) pinch = 0;
       $('#stage').classList.remove('panning');
-      if (down && !down.moved && e.type === 'pointerup') { const p = pos(e); clickTile(tileAt(p.x, p.y), p.x, p.y); }
+      clearTimeout(longTimer);
+      if (down && !down.moved && !down.long && e.type === 'pointerup') { const p = pos(e); clickTile(tileAt(p.x, p.y), p.x, p.y); }
       down = null;
     };
     cv.addEventListener('pointerup', up);
     cv.addEventListener('pointercancel', up);
     cv.addEventListener('pointerleave', () => { if (!pointers.size) { hover = -1; mouse = null; tip(); } });
     cv.addEventListener('wheel', (e) => { e.preventDefault(); const p = pos(e); zoomAt(p.x, p.y, Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
-    cv.addEventListener('contextmenu', (e) => { e.preventDefault(); if (tool) { tool = null; renderTools(); } });
+    cv.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      if (tool) { tool = null; renderTools(); return; }
+      const p = pos(e); const t = tileAt(p.x, p.y);
+      if (t >= 0 && g.owner[t]) playerCard(g.owner[t]);
+    });
 
     return {
       attach, draw, resize, tileAt,
       zoomBy: (f) => zoomAt(cw / 2, ch / 2, f),
       pan,
       boom: (t) => booms.push({ tile: t, at: performance.now() }),
+      shot: (from, to) => shots.push({ from, to, at: performance.now() }),
       warn: (t) => warns.push(t),
       ownedNear: (t, p) => {
         if (!p) return false;
@@ -635,6 +805,7 @@
         h('span', {}, '🗺️'), h('div', { class: 'big', style: { color: me.color } }, pct(F.share(g, S.me)),
           h('span', { class: 'sub' }, ` · ${g.count[S.me].toLocaleString('en-US')} tiles`)),
         h('span', {}, '🏆'), h('div', { class: 'sub' }, `#${1 + g.players.filter((q) => q && q.alive && g.count[q.id] > g.count[S.me]).length} of ${g.players.filter((q) => q && q.alive).length} still in`),
+        ffa() && F.alliesOf(g, S.me).length ? h('div', { class: 'fw-allies', style: { gridColumn: '1 / -1' } }, '🤝 ', F.alliesOf(g, S.me).map((q) => nameOf(q).replace('🤖 ', '')).join(', ')) : null,
         atk.length || myBoats.length ? h('div', { class: 'fw-atk', style: { gridColumn: '1 / -1' } },
           ...atk.map((a) => h('div', {}, `⚔️ ${a.target ? nameOf(a.target).replace('🤖 ', '') : 'empty land'}: ${short(a.troops)}`)),
           ...myBoats.map((b) => h('div', {}, `⛵ boat: ${short(b.troops)}`))) : null));
@@ -660,12 +831,28 @@
       h('h4', {}, h('span', {}, '🏆 Leaders'), h('span', { class: 'muted' }, `${alive.length}/${all.length || g.players.length - 1} left`)),
       ...teamRows,
       teamRows.length ? h('div', { style: { height: '4px' } }) : null,
-      ...shown.map((p) => h('div', { class: 'row' + (p.id === S.me ? ' me' : '') },
+      ...shown.map((p) => h('div', { class: 'row click' + (p.id === S.me ? ' me' : ''), title: 'Click for alliance options', onclick: () => playerCard(p.id) },
         h('span', { class: 'dot', style: { background: p.color } }),
-        h('span', { class: 'nm' }, p.name.replace('🤖 ', '🤖')),
+        h('span', { class: 'nm' }, (ffa() && isAlly(p.id) ? '🤝 ' : '') + p.name.replace('🤖 ', '🤖')),
         h('span', {}, pct(F.share(g, p.id))))),
+      ffa() ? h('div', { class: 'tm' }, '🤝 Click a name (or right-click their land) to team up') : null,
       h('div', { class: 'tm' }, `🎯 Own ${Math.round(F.WIN_SHARE * 100)}% of the land to win`)));
 
+    // alliance requests waiting for an answer
+    const asks = S.me && ffa() && S.mode !== 'replay' ? g.requests.filter((r) => r.to === S.me) : [];
+    fill($('#asks'), asks.map((r) => h('div', { class: 'fw-ask' },
+      h('span', { class: 'dot', style: { background: g.players[r.from].color } }),
+      h('span', { class: 'grow' }, h('b', {}, nameOf(r.from).replace('🤖 ', '')), ' wants to team up! ', h('span', { class: 'muted' }, `${Math.ceil((F.REQUEST_TICKS - (g.tick - r.tick)) / 10)}s`)),
+      h('button', { class: 'btn btn-lime btn-sm', onclick: () => { act({ k: 'ally', p: r.from }); Sfx.play('coin'); } }, '✅'),
+      h('button', { class: 'btn btn-ghost btn-sm', onclick: () => act({ k: 'decline', p: r.from }) }, '❌'))));
+    if (cardFor) renderCard();
+
+    if (S.mode === 'replay') {
+      banner(`🎬 Replay · ${clock(g.tick)} / ${clock(S.end)}${S.g.tick >= S.end ? ' · the end' : ''}`);
+      const pos = $('#replay-pos');
+      if (pos && document.activeElement !== pos) pos.value = g.tick;
+      return;
+    }
     // spawn phase countdown
     if (g.tick <= g.spawnEnd && !S.g.winner) {
       const left = Math.ceil((g.spawnEnd - g.tick) / 10);
@@ -677,13 +864,13 @@
   function renderTools(refresh) {
     const g = S && S.g; const me = myPlayer();
     const el = $('#tools');
-    if (!g || !me || !me.alive) { fill(el); return; }
-    const sig = [tool, me.gold >= F.COST.nuke, me.nSilo, ...['city', 'post', 'silo'].map((b) => me.gold >= F.buildCost(g, S.me, b))].join();
+    if (!g || !me || !me.alive || S.mode === 'replay') { fill(el); el.dataset.sig = ''; return; }
+    const sig = [tool, S.mode, me.gold >= F.COST.nuke, me.gold >= F.COST.warship, me.nSilo, me.nPort, ...['city', 'post', 'port', 'silo'].map((b) => me.gold >= F.buildCost(g, S.me, b))].join();
     if (refresh && el.dataset.sig === sig) return;
     el.dataset.sig = sig;
     fill(el, ...TOOLS.map(([key, e, label, hint]) => {
-      const cost = key === 'nuke' ? F.COST.nuke : F.buildCost(g, S.me, key);
-      const ok = me.gold >= cost && (key !== 'nuke' || me.nSilo > 0);
+      const cost = F.buildCost(g, S.me, key);
+      const ok = me.gold >= cost && (key !== 'nuke' || me.nSilo > 0) && (key !== 'warship' || me.nPort > 0);
       return h('button', {
         class: 'fw-tool' + (tool === key ? ' on' : ''), disabled: !ok && tool !== key, title: `${label}: ${hint}`,
         onclick: (ev) => { tool = tool === key ? null : key; keepTool = ev.shiftKey; Sfx.play('click'); renderTools(); },
@@ -693,6 +880,19 @@
 
   function renderControls() {
     const el = $('#ctl');
+    if (S && S.mode === 'replay') {
+      const slider = h('input', { type: 'range', min: 0, max: S.end, step: 10, value: S.g.tick, id: 'replay-pos', 'aria-label': 'Replay position',
+        onchange: (e) => { replaySeek(+e.target.value); renderHud(); } });
+      fill(el, h('div', { class: 'fw-box fw-replay' },
+        h('button', { class: 'icon-btn', title: S.playing ? 'Pause' : 'Play', 'aria-label': S.playing ? 'Pause' : 'Play', onclick: () => {
+          if (!S.playing && S.g.tick >= S.end) replaySeek(0);
+          S.playing = !S.playing; renderControls();
+        } }, S.playing ? '⏸️' : '▶️'),
+        slider,
+        h('div', { class: 'seg' }, [2, 8, 32].map((v) => h('button', { class: S.speed === v ? 'on' : '', onclick: () => { S.speed = v; renderControls(); } }, `${v}×`))),
+        h('button', { class: 'btn btn-ghost btn-sm', onclick: exitReplay }, '✖ Exit replay')));
+      return;
+    }
     const btns = [
       h('button', { class: 'icon-btn', title: 'Zoom in', 'aria-label': 'Zoom in', onclick: () => view.zoomBy(1.4) }, '➕'),
       h('button', { class: 'icon-btn', title: 'Zoom out', 'aria-label': 'Zoom out', onclick: () => view.zoomBy(1 / 1.4) }, '➖'),
@@ -741,7 +941,7 @@
     else if (k === 'e') setRatio(ratio + 5);
     else if (k === 'p' || k === ' ') { e.preventDefault(); togglePause(); }
     else if (k === 'escape') { tool = null; renderTools(); }
-    else if ('1234'.includes(k) && k.length === 1) { const key = TOOLS[+k - 1][0]; tool = tool === key ? null : key; renderTools(); }
+    else if ('123456'.includes(k) && k.length === 1) { const key = TOOLS[+k - 1][0]; tool = tool === key ? null : key; renderTools(); }
     else if (k === '+' || k === '=') view.zoomBy(1.3);
     else if (k === '-') view.zoomBy(1 / 1.3);
     else if (k === 'arrowleft' || k === 'a') view.pan(60, 0);
@@ -791,9 +991,12 @@
     + '<li>📍 Pick a starting spot. Then <b>click empty land</b> to expand, and <b>click a neighbour</b> to attack them.</li>'
     + '<li>⚔️ The slider sets how many of your troops each attack uses. Troops grow back on their own — more land = more troops.</li>'
     + '<li>⛵ Click land across the sea to send a <b>boat</b> full of troops.</li>'
-    + '<li>💰 Gold builds 🏙️ cities (more troops), 🛡️ defense posts and 🚀 silos for ☢️ nukes.</li>'
+    + '<li>💰 Gold builds 🏙️ cities (more troops), 🛡️ defense posts, ⚓ ports (trade gold) and 🚀 silos for ☢️ nukes.</li>'
+    + '<li>🚢 With a port, build <b>warships</b>: click the sea and they guard it, sinking enemy boats and warships.</li>'
+    + '<li>🤝 In free-for-all, click a name in the leaderboard (or right-click / long-press their land) to <b>team up</b>. Allies can’t attack each other — and if everyone left is allied, you all win!</li>'
+    + '<li>🎬 After a game, watch the <b>replay</b> to see how the map changed.</li>'
     + '<li>🏆 Own 80% of the land (or be the last one standing) to win. Mountains and hills are slower to take!</li>'
-    + '<li>🖱️ Drag to move the map, scroll or pinch to zoom. Keys: Q/E attack size, 1–4 build, P pause.</li></ul>';
+    + '<li>🖱️ Drag to move the map, scroll or pinch to zoom. Keys: Q/E attack size, 1–6 build, P pause.</li></ul>';
   $('#setup-back').addEventListener('click', () => { showScreen('entry'); Lobby.showEntry(); history.replaceState(null, '', location.pathname); });
 
   // ================================================================ online
@@ -923,8 +1126,8 @@
       if (box) {
         const last = box.lastChild;
         if (last && last.tagName === 'P') last.remove();
-        box.append(h('div', { class: 'row', style: { justifyContent: 'center', gap: '10px' } },
-          h('button', { class: 'btn btn-pink', onclick: () => { S = null; route(); } }, '👥 Back to the lobby')));
+        box.append(h('div', { class: 'row', style: { justifyContent: 'center', gap: '10px', flexWrap: 'wrap' } },
+          h('button', { class: 'btn btn-pink', onclick: () => { S = null; route(); } }, '👥 Back to the lobby'), replayButton()));
       }
     }
   });

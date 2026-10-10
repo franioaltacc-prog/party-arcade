@@ -6,6 +6,13 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '2.13.0', date: '2026-10-11', emoji: '🌍', title: 'Front Wars: alliances, warships and replays', items: [
+      'Team up in free-for-all: click a name in the leaderboard (or right-click their land) to ask. Allies can’t attack or nuke each other',
+      'Break an alliance whenever you like, but bots remember: hard bots might betray you too!',
+      'If everyone still standing is allied, you all win together',
+      'Ports on your coast bring in trade gold and let you build warships that guard the sea and sink enemy boats',
+      'Watch a replay after every game: play, pause, 2×/8×/32× speed and a timeline',
+    ] },
     { v: '2.12.0', date: '2026-10-11', emoji: '✨', title: 'Rewards, ball skins and Settings', items: [
       'Unlock rewards by levelling up and earning achievements: 14 glowing auras and 11 animated avatars',
       'Everyone sees your aura and animation in rooms, chat, leaderboards and on your profile',
