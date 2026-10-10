@@ -492,7 +492,7 @@
   document.addEventListener('visibilitychange', () => { if (document.hidden) Music.stop(); else if (S.state === 'play') Music.start(); });
 
   // ------------------------------------------------------------------ game state
-  const S = { state: 'menu', x: 0, y: R, z: 0, vx: 0, vy: 0, speed: START_SPEED, ground: 0, score: 0, best: store.get('slope_best', 0), t: 0, boostT: 0, pad: -1 };
+  const S = { state: 'menu', x: 0, y: R, z: 0, vx: 0, vy: 0, speed: START_SPEED, ground: 0, score: 0, best: store.get('slope_best', 0), t: 0, boostT: 0, pad: -1, air: 0 };
   let input = 0;
   const keys = { left: false, right: false };
   let touchDir = 0;
@@ -505,7 +505,7 @@
     blocks = [];
     pads = [];
     gen = { z: 8, y: 0, x: 0 };
-    Object.assign(S, { x: 0, y: R + 1.3, z: 0, vx: 0, vy: 0, speed: START_SPEED, ground: 0, score: 0, t: 0, boostT: 0, pad: -1 });
+    Object.assign(S, { x: 0, y: R + 1.3, z: 0, vx: 0, vy: 0, speed: START_SPEED, ground: 0, score: 0, t: 0, boostT: 0, pad: -1, air: 0 });
     ensureTrack(0);
     camera.position.set(0, 4, 8);
   }
@@ -586,17 +586,26 @@
     if (t) {
       const gy = heightOn(t, S.z) + R;
       const slopeVy = ((t.y1 - t.y0) / (t.z0 - t.z1)) * S.speed;
-      // stick to the surface if we're on it (or just passed through it this frame). Moving up
-      // faster than the surface (off the top of a ramp) means we're flying, so don't stick.
+      // Stick to the surface if we're on it (or just passed through it this frame). Compare where
+      // we're about to be, not where we were: the track drops away under us every frame, and at
+      // high speed that looked like leaving the ground (and landing, with a "pop") 60 times a second.
+      // Moving up faster than the surface (off the top of a ramp) means we're flying, so don't stick.
       const reach = Math.max(0.7, (Math.abs(S.vy) + Math.abs(slopeVy)) * dt * 1.5);
-      if (S.vy <= slopeVy + 0.5 && S.y <= gy + 0.06 && S.y >= gy - reach) {
+      const yNext = S.y + S.vy * dt;
+      let landed = false;
+      if (S.vy <= slopeVy + 0.5 && yNext <= gy + 0.06 && yNext >= gy - reach) landed = true;
+      else {
+        S.vy -= G * dt;
+        S.y += S.vy * dt;
+        S.air += dt;
+        landed = S.vy <= slopeVy && S.y < gy && S.y >= gy - Math.max(0.7, Math.abs(S.vy) * dt * 1.5);
+      }
+      if (landed) {
+        if (S.air > 0.12) Sfx.play('pop');   // only a real landing makes a sound
         S.y = gy;
         S.vy = slopeVy;
         S.ground = gy;
-      } else {
-        S.vy -= G * dt;
-        S.y += S.vy * dt;
-        if (S.vy <= slopeVy && S.y < gy && S.y >= gy - Math.max(0.7, Math.abs(S.vy) * dt * 1.5)) { S.y = gy; S.vy = slopeVy; S.ground = gy; Sfx.play('pop'); }
+        S.air = 0;
       }
       // speed-up pads
       if (S.y - gy < 0.3) {
@@ -610,6 +619,7 @@
     } else {
       S.vy -= G * dt;
       S.y += S.vy * dt;
+      S.air += dt;
     }
     // fell: well below the track we're over, or (beside the track) far below where we last rolled
     if (t ? S.y < heightOn(t, S.z) + R - 3 : S.y < S.ground - 12) { crash('You fell off the slope!'); return; }
