@@ -392,3 +392,29 @@ label.field { display: flex; flex-direction: column; gap: 6px; font-weight: 600;
 .pop { animation: pop-in 0.3s cubic-bezier(0.2, 1.4, 0.4, 1); }
 .scroll-y { overflow-y: auto; }
 .footer { text-align: center; color: var(--faint); font-size: 0.85rem; padding: 30px 16px 40px; }
+
+/* ---------- GSAP motion (fx.js adds .fx-on to <html> when it runs) ---------- */
+.fx-on .modal, .fx-on .modal-backdrop, .fx-on .toast, .fx-on .toast.out,
+.fx-on .countdown span, .fx-on .entry.pop, .fx-on .entry .game-icon,
+.fx-on .chat-msg, .fx-on .podium .p1 .avatar,
+.fx-on .title-card .emoji, .fx-on .res-row, .fx-on .award, .fx-on .req, .fx-on .event-card, .fx-on .res-hero .crown { animation: none; }
+.fx-word, .fx-char { display: inline-block; }
+.fx-on .sb-row { transition-property: background-color, border-color, opacity; }
+.fx-glow {
+  position: fixed; left: 0; top: 0; z-index: -1; width: 520px; height: 520px; margin: -260px 0 0 -260px;
+  border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 79, 216, 0.16), rgba(139, 92, 246, 0.08) 40%, transparent 70%);
+}
+.fx-banner {
+  position: fixed; inset: 0; z-index: 180; display: grid; place-items: center; pointer-events: none; overflow: hidden;
+}
+.fx-banner-inner {
+  --fx-c: var(--pink);
+  width: 100%; padding: 22px 16px; text-align: center;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--fx-c) 70%, #0b0920) 18%, color-mix(in srgb, var(--fx-c) 70%, #0b0920) 82%, transparent);
+  box-shadow: 0 0 60px color-mix(in srgb, var(--fx-c) 55%, transparent);
+}
+.fx-banner .t { font-family: var(--font-display); font-size: clamp(1.7rem, 7vw, 4.4rem); line-height: 1.05; text-shadow: 0 5px 0 rgba(0, 0, 0, 0.3); overflow-wrap: anywhere; }
+.fx-banner .s { font-weight: 700; font-size: clamp(1rem, 3vw, 1.3rem); margin-top: 6px; opacity: 0.9; }
+.fx-drop { position: fixed; top: -60px; z-index: 390; pointer-events: none; line-height: 1; will-change: transform; }
+.fx-ghost { position: fixed !important; z-index: 390; pointer-events: none; will-change: transform; }

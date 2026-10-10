@@ -669,7 +669,18 @@
   }
 
   // ------------------------------------------------------------------ HUD
-  function showBanner(...kids) { const b = $('#banner'); fill(b, ...kids.map((k) => (typeof k === 'string' ? h('div', {}, k) : k))); b.classList.remove('hidden'); }
+  function showBanner(...kids) {
+    const b = $('#banner');
+    fill(b, ...kids.map((k) => (typeof k === 'string' ? h('div', {}, k) : k)));
+    b.classList.remove('hidden');
+    const FX = PA.FX;
+    if (FX && FX.on) {
+      FX.gsap.fromTo(b, { xPercent: -50, x: 0, y: -40, scale: 0.4, rotation: -6, autoAlpha: 0 },
+        { xPercent: -50, x: 0, y: 0, scale: 1, rotation: 0, autoAlpha: 1, duration: 0.8, ease: 'elastic.out(1, 0.55)', clearProps: 'transform' });
+      const big = b.querySelector('.big');
+      if (big) FX.gsap.fromTo(big, { letterSpacing: '0.5em' }, { letterSpacing: '0em', duration: 0.7, ease: 'power3.out', clearProps: 'letterSpacing' });
+    }
+  }
   function hideBanner() { $('#banner').classList.add('hidden'); }
 
   function renderTrack() {
@@ -700,6 +711,7 @@
   function showScreen(name) {
     for (const s of screens) $('#' + s).classList.toggle('hidden', s !== name);
     if (name !== 'play') { stopSession(); }
+    if (name === 'solo' && PA.FX && PA.FX.list) PA.FX.list($('#solo').children, { y: 30, stagger: 0.08, duration: 0.55, ease: 'back.out(1.5)' });
     window.scrollTo({ top: 0 });
   }
 

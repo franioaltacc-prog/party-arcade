@@ -2,6 +2,10 @@
 (() => {
   'use strict';
   const { $, h, fill, Net, Sfx, UI } = PA;
+  const FX = PA.FX || {};
+  const G = FX.on ? FX.gsap : null;
+  let lastStatus = '';
+  let lastTurn = null;
   const ROWS = 6;
   const COLS = 7;
   const COLORS = ['#f43f5e', '#facc15'];
@@ -23,6 +27,8 @@
     else if (S.winner === -1) status = '🤝 It’s a draw!';
     else if (S.winner != null) status = S.seats[S.winner] === Net.id ? '🏆 You win!' : `${player(S.seats[S.winner]).avatar} ${player(S.seats[S.winner]).name} wins!`;
     $('#status').textContent = status;
+    if (G && status !== lastStatus) G.fromTo('#status', { y: 10, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.35, ease: 'back.out(2)', clearProps: 'transform' });
+    lastStatus = status;
     if (mySeat() === -1 && S.phase !== 'waiting') $('#status').append(h('div', { class: 'small muted' }, '👀 You are spectating'));
 
     // board
@@ -40,11 +46,19 @@
       const v = S.board[r] ? S.board[r][c] : 0;
       const isLast = S.last && S.last[0] === r && S.last[1] === c;
       return h('div', { class: 'cell' }, v ? h('div', {
-        class: `pc p${v}` + (isLast && animate ? ' drop' : '') + (wins.has(`${r},${c}`) ? ' win' : ''),
-        style: isLast && animate ? { '--from': `-${(r + 1) * 115}%`, '--dur': `${0.18 + r * 0.06}s` } : null,
+        class: `pc p${v}` + (isLast && animate ? (G ? ' gdrop' : ' drop') : '') + (wins.has(`${r},${c}`) ? ' win' : ''),
+        style: isLast && animate && !G ? { '--from': `-${(r + 1) * 115}%`, '--dur': `${0.18 + r * 0.06}s` } : null,
       }) : null);
     }))));
-    if (animate) setTimeout(() => Sfx.play('pop'), 180 + (S.last ? S.last[0] : 0) * 60);
+    const dropEl = G && animate ? $('#board .gdrop') : null;
+    if (dropEl) {
+      const r = S.last[0];
+      const dur = 0.4 + r * 0.08;
+      G.from(dropEl, { yPercent: -(r + 1) * 118, duration: dur, ease: 'bounce.out' });
+      setTimeout(() => Sfx.play('pop'), dur * 360);
+    } else if (animate) setTimeout(() => Sfx.play('pop'), 180 + (S.last ? S.last[0] : 0) * 60);
+    if (G && S.phase === 'playing' && S.turn !== lastTurn) FX.bump($('#versus .seat.turn'));
+    lastTurn = S.phase === 'playing' ? S.turn : null;
 
     // after-game buttons
     const btns = [];
@@ -80,6 +94,8 @@
     render();
     Lobby.refreshPlayers();
     if (before !== 'over' && S.phase === 'over') {
+      if (G && S.winner != null && S.winner !== -1) setTimeout(() => FX.jelly($('#board')), 450);
+      if (G && S.winner === -1) FX.shake($('#board'));
       if (S.winner != null && S.seats[S.winner] === Net.id) { setTimeout(() => { UI.confetti(); Sfx.play('win'); }, 500); }
       else if (mySeat() !== -1 && S.winner !== -1) setTimeout(() => Sfx.play('lose'), 500);
     }

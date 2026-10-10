@@ -50,6 +50,7 @@ Casino.register('roulette', (() => {
     if (!els.result) return;
     els.result.textContent = n == null ? '' : n;
     els.result.style.background = n == null ? 'transparent' : { red: '#b91c1c', black: '#111827', green: '#15803d' }[colorOf(n)];
+    if (n != null && C && C.fx && C.fx.pop) C.fx.pop(els.result, { from: 0.2, duration: 0.7 });
   }
 
   function spinTo(n, seconds) {
@@ -147,7 +148,7 @@ Casino.register('roulette', (() => {
       const p = state.payouts[ctx.me];
       if (p && soundRound !== state.round) {
         soundRound = state.round;
-        if (p.returned > 0) { Sfx.play('win'); if (p.returned - p.staked >= 500) PA.UI.confetti(120); } else Sfx.play('lose');
+        if (p.returned > 0) { Sfx.play('win'); if (p.returned - p.staked >= 500) PA.UI.confetti(120); if (ctx.fx.rain) ctx.fx.rain('🪙', 16); } else Sfx.play('lose');
       }
     }
     fill(els.history, (state.history || []).map((r) => h('span', { class: 'h-' + r.color }, r.number)));

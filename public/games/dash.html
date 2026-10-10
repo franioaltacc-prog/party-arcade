@@ -36,6 +36,7 @@
       font-weight: 700; font-size: 1.15rem; pointer-events: none; animation: pop-in .3s cubic-bezier(.2,1.4,.4,1); max-width: 90%;
     }
     .banner .big { font-family: var(--font-display); font-size: 2rem; display: block; }
+    .fx-on .banner { animation: none; }
     .dash-bottom { display: flex; gap: 12px; justify-content: space-between; align-items: center; margin-top: 10px; flex-wrap: wrap; color: var(--muted); font-size: .92rem; }
     .standings { display: flex; gap: 8px; flex-wrap: wrap; }
     .standings .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border-radius: 999px; background: var(--panel); border: 1px solid var(--border); font-weight: 600; font-size: .85rem; }
@@ -89,6 +90,11 @@
   </main>
 
   <script src="/js/core.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollTrigger.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/Flip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/SplitText.min.js"></script>
+  <script src="/js/fx.js"></script>
   <script src="/js/lobby.js"></script>
   <script src="/js/games/dash.js"></script>
 </body>

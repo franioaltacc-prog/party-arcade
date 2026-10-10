@@ -2,6 +2,8 @@
 (() => {
   'use strict';
   const { $, h, fill, Net, UI, Profile, Sfx, rand } = PA;
+  const FX = PA.FX || {};
+  const G = FX.on ? FX.gsap : null;
 
   // ---------------------------------------------------------------- art
   const svg = (id, body, from, to) => `<svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">
@@ -119,13 +121,14 @@
   $('#cards-solo').append(...SOLO.map((g) => card(g, 'solo')));
   $('#cards-fun').append(...FUN.map((g) => card(g, 'fun')));
   $('#stat-games').textContent = ALL.length;
+  if (G) FX.count($('#stat-games'), ALL.length, { from: 0, duration: 1.6 });
 
   // ---------------------------------------------------------------- top bar
   UI.topbar({ back: false });
 
   // ---------------------------------------------------------------- live counts
   Net.on('online', (m) => {
-    $('#stat-online').textContent = m.count;
+    if (G) FX.count($('#stat-online'), m.count, { duration: 1.2 }); else $('#stat-online').textContent = m.count;
     document.querySelectorAll('[data-live]').forEach((el) => {
       const n = (m.games || {})[el.dataset.live] || 0;
       el.classList.toggle('on', n > 0);
@@ -138,6 +141,7 @@
   joinForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const code = $('#join-code').value.trim().toUpperCase();
+    if (code.length !== 4 && G) { UI.toast('Room codes have 4 characters 🔑', 'bad'); FX.shake($('#join-code')); return; }
     if (code.length !== 4) { UI.toast('Room codes have 4 characters 🔑', 'bad'); $('#join-code').classList.add('shake'); setTimeout(() => $('#join-code').classList.remove('shake'), 400); return; }
     Net.send('room:find', { code });
   });
@@ -150,13 +154,16 @@
     Sfx.play('boing');
     const g = rand(ALL);
     UI.toast(`${g.icon} ${g.title}!`, 'good', 900);
+    if (G) G.to('.hero-art', { rotation: '+=720', scale: 1.15, duration: 0.65, ease: 'power2.in' });
     setTimeout(() => { location.href = g.href || `/games/${g.key}`; }, 650);
   });
 
   // ---------------------------------------------------------------- open rooms
   const roomsPanel = $('#rooms-panel');
+  const seenRooms = new Set();
   function renderRooms(rooms) {
-    $('#stat-rooms').textContent = rooms.length;
+    if (G) { if (String(rooms.length) !== $('#stat-rooms').textContent) FX.count($('#stat-rooms'), rooms.length); }
+    else $('#stat-rooms').textContent = rooms.length;
     const info = Lobby.GAME_INFO;
     fill(roomsPanel, 
       h('div', { class: 'panel-title' }, '🔥 Open rooms', h('span', { class: 'count' }, rooms.length ? `${rooms.length} live` : '')),
@@ -169,6 +176,14 @@
           h('a', { class: 'btn btn-lime btn-sm', href: `/games/${r.game}?room=${r.code}` }, 'Join'))))
         : h('div', { class: 'empty' }, 'No open rooms yet.', h('br'), 'Start one and invite your friends! 🎈'),
     );
+    if (!G) return;
+    const fresh = [...roomsPanel.querySelectorAll('.room-item')].filter((el, i) => {
+      const key = rooms[i].code;
+      if (seenRooms.has(key)) return false;
+      seenRooms.add(key);
+      return true;
+    });
+    if (fresh.length) G.from(fresh, { x: 50, scale: 0.8, autoAlpha: 0, stagger: 0.08, duration: 0.6, ease: 'back.out(2)', clearProps: 'transform,opacity,visibility' });
   }
   renderRooms([]);
   Net.on('rooms:list', (m) => renderRooms(m.rooms));
@@ -180,6 +195,68 @@
   Net.on('chat', (m) => { chat.add(m); if (m.from && m.from.id !== Net.id) Sfx.play('message'); });
   Net.on('chat:history', (m) => { chat.clear(); m.messages.forEach((x) => chat.add(x)); if (!m.messages.length) chat.add({ sys: true, placeholder: true, text: 'Be the first to say something! 👋' }); });
   Net.on('welcome', () => { Net.send('chat:history'); poll(); });
+
+  // ---------------------------------------------------------------- motion
+  if (G) {
+    const hero = $('.hero');
+    const art = $('.hero-art');
+    const bubbles = [...document.querySelectorAll('.hero-bubble')];
+    // split the plain first line into words (the gradient part animates as one piece)
+    const h1 = $('.hero h1');
+    const first = h1.firstChild;
+    let words = [];
+    if (first && first.nodeType === 3) {
+      const span = h('span', {}, first.textContent);
+      h1.replaceChild(span, first);
+      words = FX.split(span, 'words');
+    }
+    const grad = $('.hero .gradient-text');
+    grad.style.display = 'inline-block';
+    const tl = G.timeline({ defaults: { ease: 'power3.out' } });
+    tl.from('.hero .badge.new', { y: -30, scale: 0.5, autoAlpha: 0, duration: 0.6, ease: 'back.out(2.5)' })
+      .from(words, { y: 60, rotationX: -90, autoAlpha: 0, transformOrigin: '50% 100%', transformPerspective: 600, stagger: 0.08, duration: 0.7, ease: 'back.out(1.8)' }, 0.1)
+      .from(grad, { scale: 0, rotation: -10, autoAlpha: 0, duration: 1.1, ease: 'elastic.out(1, 0.5)' }, '-=0.35')
+      .from('.hero .lead', { y: 20, autoAlpha: 0, duration: 0.5 }, '-=0.8')
+      .from('.hero-actions > *', { y: 24, autoAlpha: 0, stagger: 0.1, duration: 0.5, ease: 'back.out(2)', clearProps: 'transform' }, '-=0.55')
+      .from('.hero-stats > div', { y: 24, autoAlpha: 0, stagger: 0.1, duration: 0.5 }, '-=0.35')
+      .from(art, { scale: 0.2, rotation: -120, autoAlpha: 0, duration: 1.3, ease: 'elastic.out(1, 0.6)' }, 0.15)
+      .from(bubbles, {
+        x: (i, el) => art.clientWidth / 2 - (el.offsetLeft + el.offsetWidth / 2),
+        y: (i, el) => art.clientHeight / 2 - (el.offsetTop + el.offsetHeight / 2),
+        scale: 0, autoAlpha: 0, stagger: 0.07, duration: 0.8, ease: 'back.out(1.8)',
+      }, 0.65);
+    // after the intro: bubbles float, react to hover, and the art follows the mouse
+    tl.call(() => {
+      bubbles.forEach((b, i) => {
+        G.to(b, { y: i % 2 ? 12 : -12, rotation: i % 2 ? -6 : 6, duration: 2 + (i % 3) * 0.5, ease: 'sine.inOut', yoyo: true, repeat: -1 });
+        const sc = G.quickTo(b, 'scale', { duration: 0.4, ease: 'back.out(3)' });
+        b.addEventListener('pointerenter', () => sc(1.2));
+        b.addEventListener('pointerleave', () => sc(1));
+      });
+      if (!matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+      G.set(art, { transformPerspective: 900 });
+      const rx = G.quickTo(art, 'rotationX', { duration: 0.8, ease: 'power3' });
+      const ry = G.quickTo(art, 'rotationY', { duration: 0.8, ease: 'power3' });
+      const bx = bubbles.map((b) => G.quickTo(b, 'x', { duration: 1, ease: 'power3' }));
+      hero.addEventListener('pointermove', (e) => {
+        const r = art.getBoundingClientRect();
+        const nx = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / r.width));
+        const ny = Math.max(-1, Math.min(1, (e.clientY - (r.top + r.height / 2)) / r.height));
+        ry(nx * 16); rx(-ny * 12);
+        bx.forEach((q, i) => q(nx * (10 + (i % 3) * 8)));
+      });
+      hero.addEventListener('pointerleave', () => { rx(0); ry(0); bx.forEach((q) => q(0)); });
+    });
+    if (window.ScrollTrigger) {
+      G.to(art, { yPercent: 16, ease: 'none', scrollTrigger: { trigger: hero, start: 'top top', end: 'bottom top', scrub: 0.6 } });
+    }
+    // game cards, section titles, side panels
+    FX.reveal('.section-head', { y: 30 });
+    FX.reveal('.game-card', { rotate: true });
+    FX.tilt('.game-card', 6);
+    G.from('.hub-side > *', { x: 60, autoAlpha: 0, stagger: 0.15, duration: 0.8, ease: 'power3.out', delay: 0.5, clearProps: 'transform,opacity,visibility' });
+    FX.reveal('.footer', { y: 20 });
+  }
 
   Net.connect();
   if (!Profile.isSet()) setTimeout(() => Profile.ensure(), 400);

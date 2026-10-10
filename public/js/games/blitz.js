@@ -2,6 +2,8 @@
 (() => {
   'use strict';
   const { $, h, fill, Net, Sfx, UI } = PA;
+  const FX = PA.FX || {};
+  const G = FX.on ? FX.gsap : null;
 
   const S = { phase: 'lobby', settings: { rounds: 8 }, scores: {}, round: null, final: null };
   let cur = null;
@@ -31,7 +33,8 @@
 
   function renderScores() {
     const rows = Object.entries(S.scores).sort((a, b) => b[1] - a[1]);
-    fill($('#sb'), rows.map(([id, pts], i) => { const p = player(id); return h('div', { class: 'sb-row' + (id === Net.id ? ' me' : '') }, h('span', { style: { width: '22px' } }, ['🥇', '🥈', '🥉'][i] || i + 1), UI.avatar(p, 'sm'), h('span', { class: 'bold' }, p.name), h('span', { class: 'pts' }, pts)); }));
+    if (FX.board) FX.board($('#sb'), draw); else draw();
+    function draw() { fill($('#sb'), rows.map(([id, pts], i) => { const p = player(id); return h('div', { class: 'sb-row' + (id === Net.id ? ' me' : ''), 'data-flip-id': id }, h('span', { style: { width: '22px' } }, ['🥇', '🥈', '🥉'][i] || i + 1), UI.avatar(p, 'sm'), h('span', { class: 'bold' }, p.name), h('span', { class: 'pts' }, pts)); })); }
   }
 
   // ------------------------------------------------------------ challenges
@@ -64,7 +67,7 @@
         let count = 0;
         const counter = h('div', { class: 'mash-count' }, '0');
         const secs = h('div', { class: 'muted bold' }, `${d.duration}s`);
-        const tap = () => { if (r.answered) return; count++; counter.textContent = count; Sfx.play('click'); };
+        const tap = () => { if (r.answered) return; count++; counter.textContent = count; Sfx.play('click'); if (G) FX.bump(counter); };
         const btn = h('button', { class: 'mash-btn', onpointerdown: (e) => { e.preventDefault(); tap(); } }, 'TAP!');
         const key = (e) => { if (e.code === 'Space' && !e.repeat) { e.preventDefault(); tap(); } };
         addEventListener('keydown', key);
@@ -157,11 +160,12 @@
     const mine = m.results.find((r) => r.id === Net.id);
     Sfx.play(mine && mine.points ? 'coin' : 'lose');
     fill(arena, h('div', { style: { width: '100%', display: 'grid', placeItems: 'center' } },
-      h('h2', { style: { marginBottom: '6px' } }, mine && mine.points ? `+${mine.points} points! 🎉` : 'Round over'),
+      h('h2', { class: 'res-head', style: { marginBottom: '6px' } }, mine && mine.points ? `+${mine.points} points! 🎉` : 'Round over'),
       sol ? h('p', { class: 'muted', style: { marginBottom: '14px' } }, sol) : null,
       h('div', { class: 'res-list' },
         m.results.map((r, i) => { const p = player(r.id); return h('div', { class: 'res-row' + (r.points ? '' : ' bad'), style: { animationDelay: i * 0.07 + 's' } }, UI.avatar(p, 'sm'), h('b', {}, p.name), h('span', { class: 'muted small' }, detail(m.kind, r)), h('span', { class: 'pts' }, r.points ? `+${r.points}` : '0')); }),
         missing.map((id) => { const p = player(id); return h('div', { class: 'res-row bad' }, UI.avatar(p, 'sm'), h('b', {}, p.name), h('span', { class: 'muted small' }, 'no answer 💤'), h('span', { class: 'pts' }, '0')); }))));
+    if (G) { FX.pop($('.res-head', arena), { from: 0.3 }); if (mine && mine.points) FX.rain('⭐', 14); }
   }
 
   // ------------------------------------------------------------ lobby

@@ -254,6 +254,9 @@
   })();
 
   // ---------------------------------------------------------------- UI
+  // motion helpers from fx.js (loaded after this file; may be missing)
+  const fx = () => (window.PA && window.PA.FX && window.PA.FX.on ? window.PA.FX : null);
+
   const UI = {
     toast(text, type = '', ms = 2600) {
       let stack = $('.toast-stack');
@@ -261,7 +264,12 @@
       const t = h('div', { class: 'toast ' + type }, text);
       stack.append(t);
       while (stack.children.length > 4) stack.firstChild.remove();
-      setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 260); }, ms);
+      const f = fx();
+      if (f) f.toastIn(t);
+      setTimeout(() => {
+        if (f) f.toastOut(t, () => t.remove());
+        else { t.classList.add('out'); setTimeout(() => t.remove(), 260); }
+      }, ms);
     },
 
     /** Show a modal; returns a close() function. */
@@ -274,7 +282,8 @@
       const close = (silent) => {
         if (closed) return;
         closed = true;
-        back.remove();
+        const f = fx();
+        if (f) f.modalOut(back, box, () => back.remove()); else back.remove();
         document.removeEventListener('keydown', onKey);
         if (!silent && onClose) onClose();
       };
@@ -282,6 +291,8 @@
       if (dismissable) back.addEventListener('mousedown', (e) => { if (e.target === back) close(); });
       document.addEventListener('keydown', onKey);
       document.body.append(back);
+      const f = fx();
+      if (f) f.modalIn(back, box);
       return close;
     },
 
@@ -334,8 +345,9 @@
       let timer;
       const step = () => {
         el.innerHTML = '';
-        if (n > 0) { el.append(h('span', {}, n)); Sfx.play('tick'); n--; timer = setTimeout(step, 1000); }
-        else { el.append(h('span', { style: { color: 'var(--lime)' } }, 'GO!')); Sfx.play('go'); timer = setTimeout(() => el.remove(), 800); if (onDone) onDone(); }
+        const f = fx();
+        if (n > 0) { const s = h('span', {}, n); el.append(s); if (f) f.countNum(s, false); Sfx.play('tick'); n--; timer = setTimeout(step, 1000); }
+        else { const s = h('span', { style: { color: 'var(--lime)' } }, 'GO!'); el.append(s); if (f) f.countNum(s, true); Sfx.play('go'); timer = setTimeout(() => el.remove(), 800); if (onDone) onDone(); }
       };
       timer = setTimeout(step, (seconds - Math.floor(seconds)) * 1000);
       return () => { clearTimeout(timer); el.remove(); };

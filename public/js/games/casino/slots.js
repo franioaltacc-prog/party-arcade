@@ -50,6 +50,10 @@ Casino.register('slots', (() => {
         els.win.textContent = `${m.mult >= 20 ? '🎉 JACKPOT! ' : '✨ '}+${ctx.fmt(m.win)} (×${m.mult})`;
         Sfx.play(m.mult >= 20 ? 'win' : 'coin');
         if (m.mult >= 20) UI.confetti(180);
+        const fx = ctx.fx || {};
+        if (fx.pop) fx.pop(els.win, { from: 0.3 });
+        if (m.mult >= 20 && fx.banner) fx.banner('🎰 JACKPOT!', `+${ctx.fmt(m.win)} coins`, { color: '#facc15' });
+        if (m.mult >= 5 && fx.rain) fx.rain('🪙', m.mult >= 20 ? 40 : 14);
       } else {
         els.win.textContent = 'No luck this time…';
       }

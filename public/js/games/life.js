@@ -2,6 +2,13 @@
 (() => {
   'use strict';
   const { $, $$, h, fill, Net, Sfx, UI, fmtMoney } = PA;
+  const FX = PA.FX || {};
+  const G = FX.on ? FX.gsap : null;
+  const SEASON_COLORS = { 1: '#22d3ee', 2: '#ff4fd8', 3: '#facc15', 4: '#fb923c' };
+  let lastWhen = null;
+  let lastMoney = null;
+  const prevStats = {};
+  const seenReq = new Set();
 
   let S = { phase: 'lobby', settings: { rules: {} }, chars: {}, groupInfo: [], family: null };
   let tab = 'sibs';
@@ -170,6 +177,38 @@
     renderSide();
     updateVote();
     maybeAutoVote();
+    animatePlay(m);
+  }
+
+  /** Motion for the play screen: season banner, money count, stat bumps. */
+  function animatePlay(m) {
+    if (!G) return;
+    const when = S.year + ':' + (S.q || 0);
+    if (lastWhen && when !== lastWhen) {
+      const newYear = !S.quarterly || S.q === 1;
+      const title = S.quarterly ? `${SEASONS[S.q]} ${S.year}` : `🎂 ${S.year}`;
+      const sub = m && m.alive ? `${m.first} · age ${m.age}` : `The ${S.family ? S.family.last : ''} family`;
+      FX.banner(title, sub, { color: S.quarterly ? SEASON_COLORS[S.q] : '#84cc16', hold: newYear ? 1.4 : 0.9 });
+      if (m) { FX.bump($('#m-head .me-age .n')); FX.jelly($('#m-head .me-emoji')); }
+    }
+    lastWhen = when;
+    if (!m) return;
+    const money = $('#m-head .money-box .v');
+    if (m.age >= 5 && money && lastMoney != null && lastMoney !== m.money) {
+      FX.count(money, m.money, { from: lastMoney, format: fmtMoney });
+      FX.bump(money);
+    }
+    lastMoney = m.age >= 5 ? m.money : null;
+    $$('#m-head .stat').forEach((el, i) => {
+      const k = STATS[i][0];
+      const v = m.stats[k];
+      if (prevStats[k] != null && prevStats[k] !== v) {
+        const b = el.querySelector('.lbl b');
+        FX.count(b, v, { from: prevStats[k], duration: 0.7 });
+        FX.bump(b);
+      }
+      prevStats[k] = v;
+    });
   }
 
   function renderHead(m) {
@@ -220,13 +259,14 @@
         m && v.voters.includes(m.cid) && !v.votes[m.cid] ? h('span', { class: 'btn btn-yellow btn-sm' }, 'Vote!') : h('span', { class: 'small muted' }, 'view')));
     }
     if (m) {
-      m.requests.forEach((r) => kids.push(h('div', { class: 'req' },
+      m.requests.forEach((r) => kids.push(h('div', { class: 'req', 'data-rid': r.id },
         h('span', { style: { fontSize: '1.5rem' } }, r.emoji), h('div', { class: 'grow bold' }, r.text),
         h('button', { class: 'btn btn-green btn-sm', onclick: () => { Net.send('g:respond', { rid: r.id, accept: true }); Sfx.play('click'); } }, '✅ Accept'),
         h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { Net.send('g:respond', { rid: r.id, accept: false }); Sfx.play('click'); } }, 'Decline'))));
       if (m.outgoing.length) kids.push(h('div', { class: 'chips', style: { marginTop: 0, marginBottom: '10px' } }, m.outgoing.map((o) => { const t = sib(o.to); return h('span', { class: 'chip' }, `⏳ Waiting for ${t ? t.first : '…'} (${SIB_LABELS[o.kind] || o.kind})`); })));
     }
     fill(el, kids);
+    if (G) el.querySelectorAll('.req').forEach((r) => { if (!seenReq.has(r.dataset.rid)) { seenReq.add(r.dataset.rid); FX.pop(r, { from: 0.7 }); Sfx.play('boing'); } });
   }
 
   function renderEvent(m) {
@@ -263,6 +303,7 @@
     if (m.alive && last !== m.age + ':' + (S.quarterly ? S.q : '')) rows.push(h('div', { class: 'age-h' }, label(m.age, S.q)));
     fill(log, rows);
     log.scrollTop = log.scrollHeight;
+    if (G && fresh) G.from(log.querySelectorAll('.lentry.new'), { x: -26, scale: 0.95, transformOrigin: '0% 50%', stagger: 0.07, duration: 0.45, ease: 'back.out(2)', clearProps: 'transform' });
   }
 
   function renderActs(m) {
@@ -287,7 +328,7 @@
         h('span', { class: 'e' }, a.emoji), h('span', {}, a.label + (a.done ? ' ✓' : ''))));
     }
     fill(el,
-      h('div', { class: 'act-tabs' }, tabs.map(([k, l]) => h('button', { class: k === actTab ? 'on' : '', onclick: () => { actTab = k; renderActs(S.me); Sfx.play('click'); } }, l))),
+      h('div', { class: 'act-tabs' }, tabs.map(([k, l]) => h('button', { class: k === actTab ? 'on' : '', onclick: () => { actTab = k; renderActs(S.me); Sfx.play('click'); if (FX.list) FX.list($$('#m-acts .act-grid > *'), { y: 14, scale: 0.9, stagger: 0.025, duration: 0.3, ease: 'back.out(2)' }); } }, l))),
       out && actTab !== 'group' ? h('div', { class: 'chip', style: { marginBottom: '8px' } }, '😴 No energy left this year — start an age vote when you’re ready!') : null,
       h('div', { class: 'act-grid' }, grid.length ? grid : h('p', { class: 'muted small' }, 'Nothing here right now.')));
   }
@@ -515,7 +556,13 @@
   Net.on('g:state', (m) => {
     const was = S.phase;
     S = m.state;
-    if (was !== S.phase && S.phase === 'playing') { seenLog = -1; seenFamLog = -1; for (const k of Object.keys(prevBars)) delete prevBars[k]; setTab('sibs'); }
+    if (was !== S.phase && S.phase === 'playing') {
+      seenLog = -1; seenFamLog = -1; lastWhen = null; lastMoney = null;
+      for (const k of Object.keys(prevBars)) delete prevBars[k];
+      for (const k of Object.keys(prevStats)) delete prevStats[k];
+      setTab('sibs');
+      if (G) setTimeout(() => FX.banner(`🍼 The ${S.family ? S.family.last : ''} family`, 'A new life begins!', { color: '#a3e635', hold: 1.6 }), 300);
+    }
     route();
   });
   const deltaChips = (delta) => (delta || []).map((d) => h('span', { class: 'delta' + (d.d < 0 ? ' neg' : '') }, `${d.d > 0 ? '+' : ''}${d.k === 'money' ? fmtMoney(d.d) : d.d} ${d.icon}`));

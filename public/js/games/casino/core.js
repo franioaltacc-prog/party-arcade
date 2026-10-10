@@ -3,6 +3,8 @@
 (() => {
   'use strict';
   const { $, h, fill, Net, Sfx, UI, store } = PA;
+  const FX = PA.FX || {};
+  const G = FX.on ? FX.gsap : null;
 
   const modules = {};
   let S = { phase: 'lobby', settings: { games: {} }, games: [], allowed: [], scores: [], info: {}, feed: [], tables: {}, summaries: {}, results: null, spectator: false };
@@ -90,7 +92,7 @@
   function rollDice(els, finals, ms) {
     els.forEach((e) => e.classList.add('rolling'));
     const t = setInterval(() => els.forEach((e) => setDie(e, 1 + Math.floor(Math.random() * 6))), 90);
-    setTimeout(() => { clearInterval(t); els.forEach((e, i) => { e.classList.remove('rolling'); setDie(e, finals[i]); }); }, Math.max(0, ms));
+    setTimeout(() => { clearInterval(t); els.forEach((e, i) => { e.classList.remove('rolling'); setDie(e, finals[i]); if (G) FX.jelly(e); }); }, Math.max(0, ms));
   }
 
   function left(remaining, key) {
@@ -104,7 +106,7 @@
     get scores() { return S.scores; },
     send: (game, a, data = {}) => Net.send('g:tbl', { game, a, ...data }),
     bet, coins, chips, card, die, setDie, rollDice, player, fmt, left, canPlay,
-    toast: UI.toast, sfx: Sfx, h, fill,
+    toast: UI.toast, sfx: Sfx, h, fill, fx: FX,
   };
 
   function register(key, mod) { modules[key] = mod; }
@@ -158,7 +160,7 @@
         card2('💸 Biggest loss', r.biggestLoss, r.biggestLoss ? `-${fmt(r.biggestLoss.value)}` : ''),
         card2('🎲 Most games played', r.mostPlayed, r.mostPlayed ? `${r.mostPlayed.value} games` : ''),
         h('div', { class: 'res-card' }, h('div', { class: 't' }, '⏱ Match'), h('div', { class: 'v' }, `${Math.floor(r.duration / 60)}m ${r.duration % 60}s`), h('div', { class: 'small muted' }, `${r.rounds} rounds`))),
-      h('table', { class: 'table' }, h('thead', {}, h('tr', {}, h('th', {}, '#'), h('th', {}, 'Player'), h('th', {}, 'Coins'), h('th', {}, 'Games'))),
+      h('table', { class: 'table results-box' }, h('thead', {}, h('tr', {}, h('th', {}, '#'), h('th', {}, 'Player'), h('th', {}, 'Coins'), h('th', {}, 'Games'))),
         h('tbody', {}, r.ranking.map((p, i) => h('tr', {}, h('td', {}, ['🥇', '🥈', '🥉'][i] || i + 1), h('td', {}, h('div', { class: 'row' }, UI.avatar(p, 'sm'), h('b', {}, p.name), p.out ? ' 💀' : '')), h('td', { class: 'mono bold', style: { color: 'var(--gold)' } }, fmt(p.coins)), h('td', {}, p.played))))),
       h('hr', { style: { border: 0, borderTop: '1px solid var(--border)', margin: '20px 0 6px' } }));
   }
@@ -196,6 +198,10 @@
       h('div', { class: 'match-status' }, h('div', {}, status), h('div', { class: 'sub' }, `${S.info.rounds || 0} rounds played · ${alive} player${alive === 1 ? '' : 's'} in`)),
       Room.isHost ? h('button', { class: 'btn btn-ghost btn-sm', onclick: confirmEnd }, '⏹ End match') : null);
     tickClock();
+    if (G && old != null && n !== old) {
+      FX.count(num, n, { from: old, format: fmt });
+      if (n - old >= Math.max(300, 10 * bet())) { FX.rain('🪙', 26); Sfx.play('coin'); }
+    }
   }
 
   function tickClock() {
@@ -217,13 +223,14 @@
       prevCoins[r.id] = r.coins;
       const flash = prev != null && r.coins !== prev ? (r.coins > prev ? ' flash-up' : ' flash-down') : '';
       const g = r.viewing ? gameInfo(r.viewing) : null;
-      return h('div', { class: 'sb-row' + (r.id === Net.id ? ' me' : '') + (r.out ? ' out' : '') + flash },
+      return h('div', { class: 'sb-row' + (r.id === Net.id ? ' me' : '') + (r.out ? ' out' : '') + flash, 'data-flip-id': r.id },
         h('span', { class: 'bold' }, ['🥇', '🥈', '🥉'][i] || i + 1), UI.avatar(r, 'sm'),
         h('div', { style: { minWidth: 0 } }, h('div', { class: 'nm' }, r.name, r.id === Net.id ? ' (you)' : ''),
           h('div', { class: 'sub' }, r.out ? '💀 out' : !r.online ? '📴 away' : `${g ? g.emoji + ' ' + g.title : 'browsing'}${r.inPlay ? ` · 🎲 ${fmt(r.inPlay)} in play` : ''}`)),
-        h('div', { class: 'c' }, fmt(r.coins), Room.isHost && r.id !== Net.id ? h('button', { class: 'icon-btn', style: { width: '26px', height: '26px', fontSize: '.75rem', marginLeft: '4px', display: 'inline-grid' }, title: 'Kick player', onclick: () => kick(r) }, '👢') : null));
+        h('div', { class: 'c' }, h('span', { class: 'cn' }, fmt(r.coins)), Room.isHost && r.id !== Net.id ? h('button', { class: 'icon-btn', style: { width: '26px', height: '26px', fontSize: '.75rem', marginLeft: '4px', display: 'inline-grid' }, title: 'Kick player', onclick: () => kick(r) }, '👢') : null));
     });
-    fill($('#scoreboard'), rows.length ? rows : h('p', { class: 'muted small' }, 'No players yet.'));
+    const draw = () => fill($('#scoreboard'), rows.length ? rows : h('p', { class: 'muted small' }, 'No players yet.'));
+    if (FX.board) FX.board($('#scoreboard'), draw, '.cn'); else draw();
     setTimeout(() => document.querySelectorAll('.sb-row.flash-up, .sb-row.flash-down').forEach((e) => e.classList.remove('flash-up', 'flash-down')), 700);
   }
 
@@ -265,6 +272,7 @@
       if (S.tables[key]) mod.update(S.tables[key], ctx, key);
     } else fill(body, h('p', { class: 'muted' }, 'This game is coming soon.'));
     renderMenu();
+    if (G) FX.list($('#table').children, { y: 20, stagger: 0.06, duration: 0.45, ease: 'back.out(1.6)' });
     Net.send('g:view', { game: key });
   }
 
@@ -311,7 +319,7 @@
       const was = S.phase;
       S = m.state;
       route();
-      if (was !== 'playing' && S.phase === 'playing') { UI.toast('🎲 The match has started! Good luck!', 'good'); Sfx.play('win'); }
+      if (was !== 'playing' && S.phase === 'playing') { UI.toast('🎲 The match has started! Good luck!', 'good'); Sfx.play('win'); if (FX.banner) FX.banner('🎰 Casino Night', 'Most coins wins!', { color: '#facc15' }); }
     });
     Net.on('g:table', (m) => {
       S.tables[m.game] = m.state;
@@ -332,7 +340,17 @@
       chipRows.forEach(renderChips);
       if (mounted && mounted.mod.onScores) mounted.mod.onScores(ctx);
     });
-    Net.on('g:feed', (m) => { S.feed.push(m.item); if (S.feed.length > 40) S.feed.shift(); renderFeed(); });
+    Net.on('g:feed', (m) => {
+      S.feed.push(m.item); if (S.feed.length > 40) S.feed.shift(); renderFeed();
+      if (G && $('#feed').firstElementChild) G.from($('#feed').firstElementChild, { x: -30, scale: 0.9, autoAlpha: 0, duration: 0.45, ease: 'back.out(2)', clearProps: 'transform,opacity,visibility' });
+    });
+    // a chip flies onto the table when you bet
+    document.addEventListener('click', (e) => {
+      if (!G || !canPlay()) return;
+      const target = e.target.closest('#table .rl-cell, #table .bet-btn');
+      const chip = document.querySelector('#table .chip-btn.on');
+      if (target && chip && coins() >= bet()) FX.fly(chip, target);
+    }, true);
     Net.on('g:toast', (m) => { UI.toast(m.text, m.bad ? 'bad' : 'good', 2800); Sfx.play(m.bad ? 'wrong' : 'pop'); });
     Net.on('g:over', () => {
       setTimeout(() => {

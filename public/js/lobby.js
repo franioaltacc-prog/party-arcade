@@ -2,6 +2,8 @@
 (() => {
   'use strict';
   const { $, h, fill, Net, Sfx, UI, Profile } = PA;
+  const FX = PA.FX || {};
+  const G = FX.on ? FX.gsap : null;
 
   const GAME_INFO = {
     dash: { title: 'Neon Dash', emoji: '🟪' },
@@ -65,6 +67,7 @@
             h('div', { class: 'bubble' }, h('div', { class: 'who', style: { color: who.color } }, who.name, m.secret ? ' 🤫' : ''), m.text));
         }
         log.append(row);
+        if (G && !m.placeholder) G.from(row, { x: -18, scale: 0.92, autoAlpha: 0, transformOrigin: '0% 50%', duration: 0.35, ease: 'back.out(2)', clearProps: 'transform,opacity,visibility' });
         while (log.children.length > 150) log.firstChild.remove();
         if (atBottom || (m.from && m.from.id === Net.id)) log.scrollTop = log.scrollHeight;
       },
@@ -89,7 +92,11 @@
       );
     };
     render();
-    on('joined', render);
+    on('joined', () => {
+      render();
+      const code = el.querySelector('.code');
+      if (G && code) G.fromTo(code, { rotationX: -100, scale: 0.4, autoAlpha: 0, transformPerspective: 600 }, { rotationX: 0, scale: 1, autoAlpha: 1, duration: 0.9, ease: 'elastic.out(1, 0.55)', delay: 0.2, clearProps: 'transform' });
+    });
   }
 
   function renderPlayers(el, { extra, title = '👥 Players' } = {}) {
@@ -99,7 +106,9 @@
     return () => drawPlayers(panel);
   }
   function drawPlayers(panel) {
-    const list = h('div', { class: 'player-list' }, Room.players.map((p) => h('div', { class: 'player-row' + (p.id === Net.id ? ' me' : '') },
+    const fresh = [];
+    const seen = panel.seen || (panel.seen = new Set());
+    const list = h('div', { class: 'player-list' }, Room.players.map((p) => h('div', { class: 'player-row' + (p.id === Net.id ? ' me' : ''), 'data-pid': p.id },
       UI.avatar(p),
       h('div', { class: 'grow' },
         h('div', { class: 'pname' }, p.name, p.id === Net.id ? h('span', { class: 'faint small' }, ' (you)') : null),
@@ -107,6 +116,8 @@
       h('div', { class: 'pmeta' }, panel.extra ? panel.extra(p) : null, p.id === Room.host ? h('span', { title: 'Host' }, '👑') : null),
     )));
     fill(panel.el, h('div', { class: 'panel-title' }, panel.title, h('span', { class: 'count' }, `${Room.players.filter((p) => p.online).length} online`)), list);
+    for (const row of list.children) if (!seen.has(row.dataset.pid)) { seen.add(row.dataset.pid); fresh.push(row); }
+    if (G && fresh.length) G.from(fresh, { x: 40, scale: 0.8, autoAlpha: 0, stagger: 0.08, duration: 0.55, ease: 'back.out(2)', clearProps: 'transform,opacity,visibility' });
   }
   function refreshPlayers() { playerPanels.forEach(drawPlayers); }
 
@@ -132,6 +143,7 @@
   function showEntry() {
     const entry = $('#entry');
     if (entry) entry.classList.remove('hidden');
+    if (FX.entry && entry) FX.entry(entry.querySelector('.entry'));
     emit('entry');
   }
   function hideEntry() { const entry = $('#entry'); if (entry) entry.classList.add('hidden'); }
@@ -169,9 +181,10 @@
       autoJoining = false;
       setUrlRoom(m.code);
       hideEntry();
-      if (fresh) { chatBoxes.forEach((b) => b.clear()); Sfx.play('coin'); }
+      if (fresh) { chatBoxes.forEach((b) => b.clear()); playerPanels.forEach((pp) => pp.seen && pp.seen.clear()); Sfx.play('coin'); }
       refreshPlayers();
       emit('joined', m);
+      if (fresh && G) requestAnimationFrame(() => FX.list(document.querySelectorAll('#room > *:not(.hidden)'), { y: 40, scale: 0.96, stagger: 0.09, duration: 0.6, ease: 'back.out(1.4)' }));
     });
     Net.on('room:players', (m) => {
       const wasHost = Room.isHost;

@@ -70,7 +70,13 @@
   renderTools();
 
   // ------------------------------------------------------------ UI pieces
-  function overlay(...kids) { const o = $('#overlay'); fill(o, h('div', {}, ...kids)); o.classList.remove('hidden'); }
+  function overlay(...kids) {
+    const o = $('#overlay');
+    const was = o.classList.contains('hidden');
+    fill(o, h('div', {}, ...kids));
+    o.classList.remove('hidden');
+    if (PA.FX && PA.FX.on && was) PA.FX.gsap.fromTo(o, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3, clearProps: 'opacity,visibility' });
+  }
   function hideOverlay() { $('#overlay').classList.add('hidden'); }
 
   function renderScores() {
@@ -78,12 +84,12 @@
       const p = Room.player(id) || { name: '?', avatar: '❓', color: '#888' };
       const isD = S.turn && S.turn.drawer === id && (S.phase === 'drawing' || S.phase === 'choosing');
       const got = S.turn && (S.turn.guessed || []).includes(id);
-      return h('div', { class: 'score-row' + (isD ? ' drawer' : '') + (got ? ' got' : '') },
+      return h('div', { class: 'score-row' + (isD ? ' drawer' : '') + (got ? ' got' : ''), 'data-flip-id': id },
         UI.avatar(p, 'sm'), h('span', { class: 'bold grow', style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, p.name, id === Net.id ? ' (you)' : ''),
         isD ? h('span', { title: 'Drawing' }, '✏️') : got ? h('span', { title: 'Guessed it' }, '✅') : null,
         h('span', { class: 'pts' }, pts));
     });
-    fill($('#scores'), rows);
+    if (PA.FX && PA.FX.board) PA.FX.board($('#scores'), () => fill($('#scores'), rows)); else fill($('#scores'), rows);
   }
 
   function renderHeader() {
@@ -206,7 +212,7 @@
     S.scores = m.scores;
     if (S.turn) S.turn.guessed = m.guessed;
     guessBox.add({ from: { id: m.id, name: m.name, avatar: m.avatar, color: '#22c55e' }, text: `guessed the word! +${m.points} 🎉`, good: true });
-    if (m.id === Net.id) { Sfx.play('right'); UI.toast(`🎉 Correct! +${m.points}`, 'good'); } else Sfx.play('coin');
+    if (m.id === Net.id) { Sfx.play('right'); UI.toast(`🎉 Correct! +${m.points}`, 'good'); if (PA.FX && PA.FX.rain) PA.FX.rain('🎉', 18); } else Sfx.play('coin');
     renderScores();
   });
   Net.on('g:reveal', (m) => {

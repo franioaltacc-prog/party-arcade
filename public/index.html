@@ -85,6 +85,8 @@
     .room-item .ri-sub { font-size: .8rem; color: var(--muted); }
     .empty { text-align: center; color: var(--muted); padding: 14px 6px; font-size: .92rem; }
     #lobby-chat { height: 420px; }
+    .fx-on .game-card { transition: box-shadow .2s, border-color .2s; }
+    .fx-on .hero-bubble { animation: none; transition: none; }
 
     @media (max-width: 1020px) {
       .hub-grid { grid-template-columns: 1fr; }
@@ -152,6 +154,11 @@
   <footer class="footer">🕹️ Party Arcade · made for playing with friends · runs on your own computer</footer>
 
   <script src="/js/core.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollTrigger.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/Flip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/SplitText.min.js"></script>
+  <script src="/js/fx.js"></script>
   <script src="/js/lobby.js"></script>
   <script src="/js/hub.js"></script>
 </body>
