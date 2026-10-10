@@ -37,6 +37,8 @@ PORT = int(os.environ.get("PORT", "8000"))
 WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 MAX_MESSAGE = 1 << 20          # 1 MB per websocket message
 OFFLINE_GRACE = 40             # seconds a disconnected player keeps their seat
+PING_EVERY = 25                # the server pings every connection this often...
+DEAD_AFTER = 75                # ...and drops ones that haven't answered for this long
 EMPTY_ROOM_TTL = 90            # seconds an empty room survives
 CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -89,6 +91,8 @@ class Client:
         self.last_chat = 0.0
         self.voted = set()
         self.account = None     # {"id", "name", "admin"} when logged in
+        self.device = None      # one id per browser, shared by its tabs
+        self.heard = time.time()
         self.ip = "?"
         self.solo_at = 0.0
         self.search_at = 0.0
@@ -104,6 +108,19 @@ class Client:
                 self.close()  # client is not reading; drop it
         except Exception:
             self.close()
+
+    def person(self):
+        """Who this is, so several tabs of one person count once."""
+        if self.account:
+            return f"acct:{self.account['id']}"
+        return f"dev:{self.device or self.uid}"
+
+    def ping(self):
+        if self.open:
+            try:
+                self.writer.write(ws_frame(b"", 0x9))
+            except Exception:
+                self.close()
 
     def close(self):
         if self.open:
@@ -319,7 +336,8 @@ class Hub:
         games = {}
         for r in self.rooms.values():
             games[r.game_key] = games.get(r.game_key, 0) + len(r.online_members())
-        return {"count": len(self.clients), "games": games}
+        people = {c.person() for c in self.clients if c.uid}
+        return {"count": len(people), "games": games}
 
     def online_changed(self):
         if self._online_scheduled:
@@ -387,6 +405,8 @@ class Hub:
         if t == "hello":
             uid = str(msg.get("id") or "")
             c.uid = uid if UID_RE.match(uid) else secrets.token_urlsafe(9)
+            device = str(msg.get("device") or "")
+            c.device = device if UID_RE.match(device) else None
             self.set_profile(c, msg)
             c.send("welcome", id=c.uid, online=self.online_payload())
             self.online_changed()
@@ -568,6 +588,19 @@ class Hub:
             traceback.print_exc()
             c.send("res", rid=rid, ok=False, error="Something went wrong 😵")
 
+    def people_online(self):
+        """Everyone online, with all of one person's tabs grouped together."""
+        people = {}
+        for x in list(self.clients):
+            if not x.uid:
+                continue
+            p = people.setdefault(x.person(), {"name": x.name, "avatar": x.avatar, "acct": x.account["name"] if x.account else None,
+                                               "tabs": 0, "where": []})
+            p["tabs"] += 1
+            if x.room:
+                p["where"].append({"room": x.room.code, "game": x.room.game_key})
+        return sorted(people.values(), key=lambda p: (not p["where"], p["name"].lower()))
+
     def need_login(self, c):
         if not c.account:
             raise AuthError("You need to log in first.")
@@ -651,9 +684,7 @@ class Hub:
         if t == "admin:overview":
             return {"users": await acc.count_users(), "storage": acc.store.kind, "where": acc.store.where,
                     "uptime": int(time.time() - self.started), "adminCode": len(acc.admin_code) >= 8,
-                    "clients": [{"name": x.name, "avatar": x.avatar, "acct": x.account["name"] if x.account else None,
-                                 "room": x.room.code if x.room else None, "game": x.room.game_key if x.room else None}
-                                for x in list(self.clients) if x.uid],
+                    "clients": self.people_online(),
                     "rooms": [{"code": r.code, "game": r.game_key, "phase": r.game.phase, "tainted": r.game.tainted,
                                "players": [{"id": m.uid, "name": m.name, "avatar": m.avatar, "online": m.online,
                                             "acct": m.account["name"] if m.account else None} for m in r.members.values()]}
@@ -713,9 +744,19 @@ class Hub:
 
     # -- housekeeping ----------------------------------------------------
     async def janitor(self):
+        last_ping = 0.0
         while True:
             await asyncio.sleep(5)
             now = time.time()
+            # drop connections that stopped answering (closed laptop, lost Wi-Fi...)
+            ping = now - last_ping >= PING_EVERY
+            if ping:
+                last_ping = now
+            for c in list(self.clients):
+                if now - c.heard > DEAD_AFTER:
+                    c.close()
+                elif ping:
+                    c.ping()
             for code, room in list(self.rooms.items()):
                 for uid, m in list(room.members.items()):
                     grace = getattr(room.game, "offline_grace", OFFLINE_GRACE)
@@ -829,6 +870,7 @@ async def websocket_session(reader, writer, headers):
                 break
             mask = await reader.readexactly(4) if masked else b""
             data = await reader.readexactly(n)
+            client.heard = time.time()
             if masked:
                 data = unmask(data, mask)
 

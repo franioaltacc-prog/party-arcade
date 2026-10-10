@@ -165,6 +165,10 @@
       try { sessionStorage.setItem('pa_uid', uid); } catch { /* ignore */ }
     }
 
+    // one id per browser (shared by all its tabs) so the server can count people, not tabs
+    let device = store.get('pa_device', null);
+    if (!device) { device = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)).replace(/[^a-zA-Z0-9]/g, '').slice(0, 20); store.set('pa_device', device); }
+
     function fire(t, m) { (handlers[t] || []).slice().forEach((fn) => { try { fn(m); } catch (e) { console.error(e); } }); }
 
     function connect() {
@@ -173,7 +177,7 @@
       ws = new WebSocket(`${proto}://${location.host}/ws`);
       ws.onopen = () => {
         const p = Profile.get();
-        ws.send(JSON.stringify({ t: 'hello', id: uid, name: p.name, avatar: p.avatar, color: p.color, token: Account.token }));
+        ws.send(JSON.stringify({ t: 'hello', id: uid, device, name: p.name, avatar: p.avatar, color: p.color, token: Account.token }));
       };
       ws.onmessage = (e) => {
         let m;

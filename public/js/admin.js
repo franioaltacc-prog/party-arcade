@@ -143,7 +143,9 @@
 
     fill($('#adm-online'), o.clients.length ? h('div', { class: 'adm-online' }, o.clients.map((c) => h('div', { class: 'adm-on' },
       h('span', {}, c.avatar), c.acct ? h('a', { href: '/profile?u=' + encodeURIComponent(c.acct) }, c.name, ' ✔') : h('span', {}, c.name, h('span', { class: 'tiny faint' }, ' guest')),
-      h('span', { class: 'tiny muted', style: { marginLeft: 'auto' } }, c.room ? `${(GAMES[c.game] || ['🎲'])[0]} ${c.room}` : 'browsing'))))
+      c.tabs > 1 ? h('span', { class: 'tiny faint' }, `${c.tabs} tabs`) : null,
+      h('span', { class: 'tiny muted', style: { marginLeft: 'auto', textAlign: 'right' } },
+        c.where.length ? c.where.map((w) => `${(GAMES[w.game] || ['🎲'])[0]} ${w.room}`).join(' · ') : 'browsing'))))
       : h('p', { class: 'muted small' }, 'Nobody (except you?)'));
   }
 
