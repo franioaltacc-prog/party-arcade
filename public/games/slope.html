@@ -23,6 +23,11 @@
     .sl-msg { padding: 40px; text-align: center; color: var(--muted); }
     .sl-touch { position: absolute; bottom: 14px; display: none; gap: 10px; left: 14px; right: 14px; justify-content: space-between; pointer-events: none; opacity: .55; font-size: 2rem; }
     @media (pointer: coarse) { .sl-touch { display: flex; } }
+    .sl-music { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 2; }
+    .sl-boost { position: absolute; top: 22%; left: 0; right: 0; text-align: center; pointer-events: none; font-family: var(--font-display); font-size: clamp(1.6rem, 6vw, 3.2rem); color: #7df9ff; text-shadow: 0 0 24px rgba(0,229,255,.9); opacity: 0; }
+    .sl-boost.on { animation: sl-boost .9s ease-out; }
+    @keyframes sl-boost { 0% { opacity: 0; transform: scale(.6); } 18% { opacity: 1; transform: scale(1.12); } 70% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.05) translateY(-10px); } }
+    @media (prefers-reduced-motion: reduce) { .sl-boost.on { animation-duration: .01s; } }
   </style>
 </head>
 <body>
@@ -31,6 +36,8 @@
       <div class="sl-stage" id="stage">
         <div class="sl-hud"><div><small>DISTANCE</small><span id="score">0</span></div><div style="text-align:right"><small>BEST</small><span id="best">0</span></div></div>
         <div class="sl-touch"><span>⬅️</span><span>➡️</span></div>
+        <button class="icon-btn sl-music" id="btn-music" title="Music on/off" aria-label="Music on/off">🎵</button>
+        <div class="sl-boost" id="boost">⚡ SPEED UP!</div>
         <div class="sl-over" id="over"></div>
       </div>
     </section>
