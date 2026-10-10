@@ -13,6 +13,7 @@
     connect4: { title: 'Connect 4', emoji: '🔴' },
     casino: { title: 'Casino Night', emoji: '🎰' },
     impostor: { title: 'Impostor', emoji: '🕵️' },
+    mines: { title: 'Minesweeper', emoji: '💣' },
   };
 
   const Room = {
@@ -186,6 +187,7 @@
     connect4: [['win', '🏆 Win this game'], ['undo', '↩️ Undo last move'], ['reset', '🔄 New board']],
     dash: [['god', '😇 God mode (no deaths)', true], ['skip', '⏩ Teleport to the finish', true]],
     impostor: [['reveal', '🔎 Show impostor & word'], ['skip', '⏭️ Skip this phase'], ['end', '🏁 End the game']],
+    mines: [['mines', '💣 X-ray: see all mines'], ['clear', '🧹 Clear the board for me'], ['end', '🏁 End the game']],
   };
   let adminFab = null;
   let adminPanel = null;

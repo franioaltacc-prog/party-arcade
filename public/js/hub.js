@@ -47,6 +47,16 @@
       ${[[45, '😎'], [100, '🕵️'], [155, '🤠']].map(([x, e]) => `<circle cx="${x}" cy="76" r="22" fill="rgba(255,255,255,.16)"/>${emoji(x, 77, 26, e)}`).join('')}
       ${[[45, '🍕'], [100, '❓'], [155, '🍕']].map(([x, e]) => `<rect x="${x - 17}" y="14" width="34" height="28" rx="10" fill="#fff"/><path d="M${x - 5} 41 l5 8 l5 -8z" fill="#fff"/>${emoji(x, 28, 16, e)}`).join('')}
       ${emoji(100, 110, 12, '🗳️ ? 🗳️')}`, '#4c0519', '#5b21b6'),
+    mines: svg('mines', `
+      <g transform="translate(46 10)">${Array.from({ length: 30 }, (_, k) => {
+        const r = Math.floor(k / 6); const c = k % 6; const x = c * 18; const y = r * 20;
+        const open = { 7: '1', 8: '1', 9: '2', 13: '1', 14: '', 15: '3', 19: '1', 20: '', 21: '2', 25: '', 26: '1' }[k];
+        if (k === 16) return `<rect x="${x}" y="${y}" width="16" height="18" rx="3" fill="#7f1d1d"/>${emoji(x + 8, y + 10, 11, '💥')}`;
+        if (k === 10 || k === 22) return `<rect x="${x}" y="${y}" width="16" height="18" rx="3" fill="#3d3480"/>${emoji(x + 8, y + 10, 10, '🚩')}`;
+        if (open !== undefined) return `<rect x="${x}" y="${y}" width="16" height="18" rx="3" fill="rgba(255,255,255,.08)"/>${open ? `<text x="${x + 8}" y="${y + 10}" text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="800" fill="${{ 1: '#60a5fa', 2: '#4ade80', 3: '#f87171' }[open]}" font-family="Fredoka, sans-serif">${open}</text>` : ''}`;
+        return `<rect x="${x}" y="${y}" width="16" height="18" rx="3" fill="#3d3480"/>`;
+      }).join('')}</g>
+      ${emoji(24, 30, 22, '💣')}${emoji(178, 92, 22, '😎')}`, '#0f172a', '#4338ca'),
     connect4: svg('c4', `
       <rect x="38" y="12" width="124" height="100" rx="12" fill="#2563eb" stroke="#1d4ed8" stroke-width="3"/>
       ${[0, 1, 2, 3, 4].map((r) => [0, 1, 2, 3, 4, 5].map((c) => {
@@ -86,6 +96,7 @@
       <circle cx="100" cy="60" r="44" fill="#111"/><circle cx="86" cy="44" r="16" fill="rgba(255,255,255,.12)"/>
       <circle cx="100" cy="60" r="18" fill="#fff"/><text x="100" y="61" text-anchor="middle" dominant-baseline="central" font-size="20" font-weight="800" fill="#111" font-family="Fredoka, sans-serif">8</text>`, '#1e1b4b', '#312e81'),
   };
+  ART['mines-solo'] = ART.mines.replaceAll('g-mines', 'g-mines2').replace('#0f172a', '#14532d').replace('#4338ca', '#0d9488');
   ART['dash-solo'] = ART.dash.replaceAll('g-dash', 'g-dash2').replace('#2e1065', '#082f49').replace('#9333ea', '#0891b2');
 
   // ---------------------------------------------------------------- cards
@@ -94,12 +105,14 @@
     { key: 'life', title: 'Family Life', icon: '🏡', desc: 'A multiplayer BitLife where you and your friends are siblings in one family. Vote to age up, plan family trips, prank each other. Best life wins!', players: '1–4 siblings', glow: 'rgba(34,197,94,.6)', feature: true },
     { key: 'doodle', title: 'Doodle Guess', icon: '🎨', desc: 'One person draws, everyone guesses. Fast fingers win!', players: '2–12 players', glow: 'rgba(244,63,94,.6)' },
     { key: 'impostor', title: 'Impostor', icon: '🕵️', desc: 'Everyone knows the secret word… except the impostor. Give one clue each, argue it out, and vote out the faker!', players: '3–10 players', glow: 'rgba(244,63,94,.6)', isNew: true },
+    { key: 'mines', title: 'Minesweeper', icon: '💣', desc: 'Race your friends on the same board, or battle on one shared board for the most squares!', players: '1–8 players', glow: 'rgba(99,102,241,.6)', isNew: true },
     { key: 'blitz', title: 'Party Blitz', icon: '⚡', desc: 'Rapid-fire minigames: reaction, mashing, math, memory and more.', players: '1–12 players', glow: 'rgba(250,204,21,.6)' },
     { key: 'casino', title: 'Casino Night', icon: '🎰', desc: 'Fake-coin casino party: roulette, blackjack, slots, dice, poker and 1v1 duels. Most coins wins!', players: '1–6 players', glow: 'rgba(251,191,36,.6)' },
     { key: 'connect4', title: 'Connect 4', icon: '🔴', desc: 'The classic. Drop discs, get four in a row, talk trash in chat.', players: '2 + spectators', glow: 'rgba(59,130,246,.6)' },
   ];
   const SOLO = [
     { key: 'dash-solo', href: '/games/dash?solo=1', title: 'Neon Dash Practice', icon: '🟦', desc: 'Train on random levels and chase your best times.', players: 'Solo' },
+    { key: 'mines-solo', href: '/games/mines?solo=1', title: 'Minesweeper', icon: '💣', desc: 'The classic! Easy, Medium and Hard boards. Your first click is always safe.', players: 'Solo' },
     { key: 'snake', title: 'Neon Snake', icon: '🐍', desc: 'Eat, grow, don’t bite yourself. Gets faster every apple.', players: 'Solo' },
     { key: '2048', title: '2048', icon: '🔢', desc: 'Slide and merge tiles. Can you reach 2048?', players: 'Solo' },
     { key: 'memory', title: 'Memory Flip', icon: '🃏', desc: 'Flip cards and find all the emoji pairs.', players: 'Solo' },

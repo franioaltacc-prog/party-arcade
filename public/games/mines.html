@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Minesweeper · Party Arcade</title>
+  <meta name="theme-color" content="#0b0920">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .ms-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+    .ms-bar .grow { flex: 1; }
+    .ms-stat { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 12px; background: rgba(0,0,0,.3); font-family: var(--font-display); font-size: 1.05rem; min-width: 74px; justify-content: center; }
+    .ms-face { width: 46px; height: 46px; border-radius: 14px; border: 1px solid var(--border-strong); background: linear-gradient(180deg, #fde047, #f59e0b); font-size: 1.6rem; cursor: pointer; box-shadow: 0 4px 0 #b45309; }
+    .ms-face:active { transform: translateY(3px); box-shadow: 0 1px 0 #b45309; }
+    .flag-toggle.on { background: rgba(244,63,94,.35); border-color: rgba(244,63,94,.7); box-shadow: 0 0 14px rgba(244,63,94,.5); }
+    .ms-wrap { position: relative; overflow-x: auto; padding-bottom: 4px; }
+    .ms-board { --cols: 9; --size: 34px; display: grid; grid-template-columns: repeat(var(--cols), var(--size)); gap: 3px; width: max-content; margin: 0 auto; padding: 8px; border-radius: 16px; background: rgba(0,0,0,.35); user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+    .ms-cell { width: var(--size); height: var(--size); border-radius: 7px; display: grid; place-items: center; font-weight: 800; font-size: calc(var(--size) * .52); line-height: 1; cursor: pointer; }
+    .ms-cell.h { background: linear-gradient(160deg, #3d3480, #2a2361); box-shadow: inset 0 2px 0 rgba(255,255,255,.18), inset 0 -3px 0 rgba(0,0,0,.35); }
+    .ms-cell.h:hover { background: linear-gradient(160deg, #4c41a0, #352c78); }
+    .ms-cell.f { font-size: calc(var(--size) * .5); }
+    .ms-cell.o { background: rgba(255,255,255,.05); cursor: default; box-shadow: inset 0 0 0 1px rgba(255,255,255,.04); }
+    .ms-cell.o.owned { background: color-mix(in srgb, var(--oc) 22%, rgba(255,255,255,.03)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--oc) 45%, transparent); }
+    .ms-cell.n1 { color: #60a5fa; } .ms-cell.n2 { color: #4ade80; } .ms-cell.n3 { color: #f87171; } .ms-cell.n4 { color: #c4b5fd; }
+    .ms-cell.n5 { color: #fb923c; } .ms-cell.n6 { color: #22d3ee; } .ms-cell.n7 { color: #f472b6; } .ms-cell.n8 { color: #e5e7eb; }
+    .ms-cell.n1, .ms-cell.n2, .ms-cell.n3, .ms-cell.n4, .ms-cell.n5, .ms-cell.n6, .ms-cell.n7, .ms-cell.n8 { cursor: pointer; text-shadow: 0 0 10px currentColor; }
+    .ms-cell.x { background: radial-gradient(circle, #f43f5e, #7f1d1d); box-shadow: 0 0 16px rgba(244,63,94,.7); }
+    .ms-cell.m { background: rgba(244,63,94,.12); font-size: calc(var(--size) * .5); }
+    .ms-cell.wf { background: rgba(250,204,21,.15); font-size: calc(var(--size) * .45); }
+    .ms-cell.xr::after { content: "💣"; opacity: .45; font-size: calc(var(--size) * .45); }
+    .ms-stun { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(11,9,32,.6); font-family: var(--font-display); font-size: 2rem; border-radius: 16px; pointer-events: none; }
+    .ms-help { margin-top: 10px; text-align: center; }
+    .ms-grid { display: grid; grid-template-columns: 250px minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+    .ms-grid > * { min-width: 0; }
+    .mp-row { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 10px; align-items: center; padding: 8px 10px; border-radius: 14px; background: rgba(255,255,255,.04); margin-bottom: 7px; }
+    .mp-row.me { border: 1px solid rgba(250,204,21,.4); }
+    .mp-row .nm { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mp-row .val { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .mp-row .bar { grid-column: 1 / -1; height: 7px; border-radius: 999px; background: rgba(0,0,0,.35); overflow: hidden; }
+    .mp-row .bar i { display: block; height: 100%; border-radius: inherit; background: var(--c, var(--cyan)); transition: width .3s; }
+    .mp-row .sub { grid-column: 2 / -1; font-size: .78rem; color: var(--muted); }
+    .ms-result { margin-bottom: 12px; padding: 14px; border-radius: 18px; background: linear-gradient(160deg, rgba(250,204,21,.16), rgba(255,79,216,.1)); border: 1px solid rgba(250,204,21,.4); }
+    .ms-result h3 { font-family: var(--font-display); font-weight: 400; font-size: 1.4rem; margin-bottom: 8px; text-align: center; }
+    .ms-result .rr { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 12px; }
+    .ms-result .rr:nth-child(2) { background: rgba(250,204,21,.14); }
+    .ms-result .rr .grow { font-weight: 700; }
+    .set-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .mode-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .mode-card { text-align: left; padding: 14px; border-radius: 18px; border: 2px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; }
+    .mode-card b { display: block; font-size: 1.1rem; margin-bottom: 4px; }
+    .mode-card span { font-size: .85rem; color: var(--muted); }
+    .mode-card.on { border-color: var(--pink); background: rgba(255,79,216,.14); }
+    .mode-card:disabled { cursor: default; }
+    .solo-best { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px; }
+    .solo-best span { padding: 5px 12px; border-radius: 999px; background: var(--panel-2); font-weight: 600; font-size: .85rem; }
+    #play-chat { height: 560px; }
+    @media (max-width: 1100px) { .ms-grid { grid-template-columns: minmax(0, 1fr) 280px; } .ms-grid #ms-players { grid-column: 1 / -1; order: 3; } }
+    @media (max-width: 760px) { .ms-grid, .set-grid, .mode-cards { grid-template-columns: 1fr; } #play-chat { height: 340px; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div id="entry"></div>
+
+    <section id="solo" class="hidden">
+      <div class="panel">
+        <div class="ms-bar">
+          <button class="btn btn-ghost btn-sm" id="solo-back">← Back</button>
+          <div class="seg" id="solo-diff"></div>
+          <span class="grow"></span>
+          <span class="ms-stat" title="Mines left">💣 <b id="solo-left">0</b></span>
+          <button class="ms-face" id="solo-face" title="New game">🙂</button>
+          <span class="ms-stat" title="Time">⏱ <b id="solo-time">0</b></span>
+          <button class="icon-btn flag-toggle" id="solo-flag" title="Flag mode (for touch screens)">🚩</button>
+        </div>
+        <div class="ms-wrap"><div id="solo-board"></div></div>
+        <p class="tiny muted ms-help">Click to open · Right-click, long-press or 🚩 mode to flag · Click a number to open around it · First click is always safe</p>
+        <div class="solo-best" id="solo-best"></div>
+      </div>
+    </section>
+
+    <section id="room" class="hidden room-layout">
+      <div class="col">
+        <div class="panel" id="room-code"></div>
+        <div class="panel" id="room-players"></div>
+      </div>
+      <div class="panel room-main" id="room-main"></div>
+      <div class="panel chat-panel" id="room-chat"></div>
+    </section>
+
+    <section id="play" class="hidden ms-grid">
+      <aside class="panel" id="ms-players"></aside>
+      <div class="panel">
+        <div class="ms-bar">
+          <b id="ms-mode"></b>
+          <span class="grow"></span>
+          <span class="ms-stat" title="Mines left">💣 <b id="ms-left">0</b></span>
+          <span class="ms-stat" title="Time">⏱ <b id="ms-time">0</b></span>
+          <button class="icon-btn flag-toggle" id="ms-flag" title="Flag mode (for touch screens)">🚩</button>
+        </div>
+        <div id="ms-result"></div>
+        <div class="ms-wrap"><div id="ms-board"></div><div class="ms-stun hidden" id="ms-stun">💫 Stunned!</div></div>
+        <p class="tiny muted ms-help" id="ms-help"></p>
+      </div>
+      <div class="panel" id="play-chat"></div>
+    </section>
+  </main>
+  <script src="/js/core.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollTrigger.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/Flip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/SplitText.min.js"></script>
+  <script src="/js/fx.js"></script>
+  <script src="/js/lobby.js"></script>
+  <script src="/js/games/mines.js"></script>
+</body>
+</html>

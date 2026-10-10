@@ -49,10 +49,13 @@ BOARDS = {
     "c4": ("🔴 Connect 4 wins", "c4.wins", "desc", "int"),
     "impostor": ("🕵️ Impostor wins", "impostor.wins", "desc", "int"),
     "impostor_rounds": ("🎭 Rounds won as the impostor", "impostor.imp_wins", "desc", "int"),
+    "mines": ("💣 Minesweeper wins", "mines.wins", "desc", "int"),
     "snake": ("🐍 Snake high score", "snake.best", "desc", "int"),
     "2048": ("🔢 2048 best score", "2048.best", "desc", "int"),
     "memory": ("🃏 Memory Flip fastest (Normal)", "memory.best", "asc", "time"),
     "dash_solo": ("🟦 Dash practice levels beaten", "dashsolo.levels", "desc", "int"),
+    "mines_medium": ("💣 Minesweeper fastest (Medium)", "mines_medium.best", "asc", "time"),
+    "mines_hard": ("💣 Minesweeper fastest (Hard)", "mines_hard.best", "asc", "time"),
 }
 
 # Scores the browser reports for solo games: game -> (stat ops, lowest, highest)
@@ -61,7 +64,11 @@ SOLO = {
     "2048": ("2048", 4, 5_000_000),
     "memory": ("memory", 3000, 3_600_000),   # milliseconds
     "dash-solo": ("dashsolo", 1000, 3_600_000),
+    "mines-easy": ("mines_easy", 1000, 3_600_000),     # milliseconds; lower is better
+    "mines-medium": ("mines_medium", 5000, 3_600_000),
+    "mines-hard": ("mines_hard", 20000, 3_600_000),
 }
+FASTEST = {"memory", "dash-solo", "mines-easy", "mines-medium", "mines-hard"}   # solo games where a lower time wins
 
 SCHEMA = [
     """CREATE TABLE IF NOT EXISTS users (
@@ -513,21 +520,21 @@ class Accounts:
         value = int(value)
         if not lo <= value <= hi:
             raise AuthError("That score doesn't look right 🤔")
-        if game == "memory":
-            stats = {"memory.best": ("min", value), "memory.wins": ("add", 1)}
-        elif game == "dash-solo":
+        if game == "dash-solo":
             stats = {"dashsolo.levels": ("add", 1), "dashsolo.best": ("min", value)}
+        elif game in FASTEST:
+            stats = {f"{prefix}.best": ("min", value), f"{prefix}.wins": ("add", 1)}
         else:
             stats = {f"{prefix}.best": ("max", value)}
         before = await self.q("SELECT value FROM stats WHERE user_id = ? AND key = ?", user_id, f"{prefix}.best")
         old = before["rows"][0]["value"] if before["rows"] else None
         gained, xp_before, xp_after = await self.record(user_id, prefix, "play", stats, self.solo_detail(game, value), xp=5, totals=False)
-        better = old is None or (value < old if game in ("memory", "dash-solo") else value > old)
+        better = old is None or (value < old if game in FASTEST else value > old)
         return {"best": better, "old": tidy(old), "gained": gained, "before": xp_before, "after": xp_after}
 
     @staticmethod
     def solo_detail(game, value):
-        if game in ("memory", "dash-solo"):
+        if game in FASTEST:
             return f"Finished in {value / 1000:.2f}s"
         return f"Scored {value:,}"
 

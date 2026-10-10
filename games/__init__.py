@@ -5,5 +5,6 @@ from .dash import Dash
 from .doodle import Doodle
 from .impostor import Impostor
 from .life import Life
+from .mines import Minesweeper
 
-GAMES = {g.key: g for g in (Dash, Life, Doodle, Blitz, Connect4, Casino, Impostor)}
+GAMES = {g.key: g for g in (Dash, Life, Doodle, Blitz, Connect4, Casino, Impostor, Minesweeper)}

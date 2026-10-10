@@ -41,13 +41,23 @@ online game (casino coins, Family Life money/stats/time skip, Neon Dash god mode
 A game where an admin used a cheat doesn't count for anyone's stats or leaderboards.
 
 ## Games
-- **Online:** Neon Dash (mini Geometry Dash race), Family Life (multiplayer BitLife with siblings), Doodle Guess, Impostor, Party Blitz, Connect 4
-- **Solo:** Neon Dash practice, Snake, 2048, Memory Flip
+- **Online:** Neon Dash (mini Geometry Dash race), Family Life (multiplayer BitLife with siblings), Doodle Guess, Impostor, Minesweeper (Race / Battle), Party Blitz, Connect 4
+- **Solo:** Neon Dash practice, Minesweeper (Easy / Medium / Hard), Snake, 2048, Memory Flip
 - **Fun:** Spin the Wheel, Would You Rather (global votes), Magic 8-Ball
 - **Casino Night (fake coins only):** every match everyone starts with the same coins; most coins at the end wins.
   - VS HOUSE: Roulette, Lucky Dice, Blackjack, Slots. VS PLAYERS: Texas Hold'em, Coinflip, High Card and Dice duels.
   - Host settings: starting coins, win condition (time / rounds / first to a target), min/max bet, allowed games, comeback coins.
   - All cards, spins and rolls happen on the server. Disconnected players auto-stand/fold and keep their seat and coins for 60s.
+
+## Minesweeper
+- **Solo** (`/games/mines?solo=1`): classic Easy 9×9, Medium 16×16, Hard 30×16; the first click is always safe. Medium and Hard times have leaderboards.
+- **Race**: everyone gets the same board (with a free opening); fastest clear wins; mines add a time penalty.
+- **Battle**: one shared board; each opened square is a point; mines cost 10 points and stun you for 3s.
+- The board lives on the server and flags are private, so nobody can peek.
+
+## Credits
+`/credits` lists who made the site (made by Franio & Claude, ideas by Franio, Jan & Claude, design by Claude, and the rest),
+the tools and fonts used, and the games that inspired ours — plus a movie-style "Roll the credits" button.
 
 ## Impostor: adding words
 Everyone gets the secret word except the impostor (who only sees the category, if the host allows it). Each player gives

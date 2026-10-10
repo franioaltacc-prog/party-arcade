@@ -702,6 +702,7 @@
             { label: '🎨 Edit my look', onClick: () => Profile.edit() },
             { label: '🏆 Leaderboards', href: '/leaderboards' },
             { label: '🔎 Find players', href: '/players' },
+            { label: '🎬 Credits', href: '/credits' },
             u.admin ? { label: '🛡️ Admin panel', href: '/admin' } : null,
             '-',
             { label: '🚪 Log out', onClick: async () => { await Account.logout(); UI.toast('Logged out. See you soon! 👋'); } }];
@@ -711,7 +712,8 @@
           { label: '🔑 Log in', onClick: () => UI.accountModal({ view: 'login' }) },
           { label: '🎨 Edit my look', onClick: () => Profile.edit() },
           { label: '🏆 Leaderboards', href: '/leaderboards' },
-          { label: '🔎 Find players', href: '/players' }];
+          { label: '🔎 Find players', href: '/players' },
+          { label: '🎬 Credits', href: '/credits' }];
       };
       const lbBtn = h('a', { class: 'icon-btn hide-sm', href: '/leaderboards', title: 'Leaderboards', 'aria-label': 'Leaderboards' }, '🏆');
       const muteBtn = h('button', { class: 'icon-btn', title: 'Sound on/off', 'aria-label': 'Toggle sound', onclick: () => Sfx.setMuted(!Sfx.muted) }, Sfx.muted ? '🔇' : '🔊');

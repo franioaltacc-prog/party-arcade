@@ -77,7 +77,9 @@ class Game:
                 outcome = "win" if len(leaders) == 1 else "draw"
             else:
                 outcome = "loss"
-            stats = {f"{prefix}.points": ("add", pts), f"{prefix}.best": ("max", pts)}
+            stats = {f"{prefix}.points": ("add", max(0, pts))}
+            if pts > 0:
+                stats[f"{prefix}.best"] = ("max", pts)
             if outcome == "win":
                 stats[f"{prefix}.wins"] = ("add", 1)
             stats.update((extra or {}).get(r["id"], {}))

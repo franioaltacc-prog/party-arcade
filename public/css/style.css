@@ -630,3 +630,33 @@ label.field { display: flex; flex-direction: column; gap: 6px; font-weight: 600;
 .pl-bio { font-size: 0.8rem; font-style: italic; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .find-link { display: block; margin-bottom: 10px; padding: 9px 12px; border-radius: 12px; border: 1px dashed var(--border-strong); color: var(--muted); font-weight: 600; text-decoration: none !important; }
 .find-link:hover { color: var(--text); background: var(--panel); }
+
+/* credits */
+.credits-page { width: min(1000px, 100%); }
+.cr-main { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 10px 0 26px; }
+.cr-big { text-align: center; padding: 26px 16px; border-radius: 26px; border: 2px solid color-mix(in srgb, var(--c) 60%, transparent);
+  background: linear-gradient(170deg, color-mix(in srgb, var(--c) 28%, transparent), rgba(255, 255, 255, 0.03) 75%); box-shadow: 0 20px 40px -24px var(--c); }
+.cr-big .cr-e { font-size: 3rem; display: inline-block; }
+.cr-big .cr-role { font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.85rem; margin-top: 6px; }
+.cr-big .cr-who { font-family: var(--font-display); font-size: clamp(1.3rem, 3vw, 1.7rem); margin-top: 6px; }
+.cr-h { font-size: 1.4rem; margin: 26px 0 12px; text-align: center; }
+.cr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.cr-card { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 18px; background: var(--panel); border: 1px solid var(--border); }
+.cr-card .cr-e { font-size: 1.7rem; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 14px; background: rgba(0, 0, 0, 0.25); flex: none; }
+.cr-card .cr-role { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
+.cr-card .cr-who { font-weight: 700; }
+.cr-games { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.cr-chip { padding: 7px 13px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--border); font-weight: 600; }
+.cr-thanks { text-align: center; margin-top: 30px; padding: 26px; }
+.cr-thanks .cr-e { font-size: 3rem; }
+.cr-thanks h2 { font-family: var(--font-display); font-weight: 400; margin: 6px 0; }
+.roll { position: fixed; inset: 0; z-index: 400; overflow: hidden; background: radial-gradient(ellipse at center, #120e2e, #05030f); cursor: pointer; }
+.roll-x { position: absolute; top: 16px; right: 16px; z-index: 2; }
+.roll-track { position: absolute; left: 0; right: 0; top: 0; text-align: center; padding: 0 20px; }
+.roll-title { font-family: var(--font-display); font-size: clamp(2rem, 7vw, 3.6rem); background: linear-gradient(90deg, var(--pink), var(--yellow), var(--cyan)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.roll-sub { color: var(--muted); font-size: 1.2rem; margin-top: 6px; }
+.roll-gap { height: 18vh; }
+.roll-role { color: var(--muted); text-transform: uppercase; letter-spacing: 0.16em; font-size: 0.9rem; font-weight: 700; margin-top: 34px; }
+.roll-who { font-family: var(--font-display); font-size: clamp(1.4rem, 4.5vw, 2.2rem); margin-top: 6px; }
+.roll-who.small { font-family: var(--font); font-weight: 700; font-size: clamp(1rem, 3vw, 1.3rem); }
+@media (max-width: 760px) { .cr-main { grid-template-columns: 1fr; } }
