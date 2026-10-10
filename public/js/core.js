@@ -884,6 +884,7 @@
       }, 700);
     }
   });
+  Net.on('server:restart', () => UI.toast('🔄 The arcade is updating. Hang on, you’ll be back in your room in a moment!', '', 9000));
   Net.on('announce', (m) => {
     UI.toast(`📢 ${m.text}`, '', 9000);
     Sfx.play('boing');

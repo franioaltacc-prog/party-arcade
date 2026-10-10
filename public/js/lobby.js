@@ -33,6 +33,7 @@
   const playerPanels = new Set();
   let opts = {};
   let autoJoining = false;
+  let rejoining = false;   // asked to get back into our room after the connection dropped
 
   function setUrlRoom(code) {
     const url = new URL(location.href);
@@ -236,6 +237,7 @@
       const fresh = Room.code !== m.code;
       Object.assign(Room, { code: m.code, game: m.game, host: m.host, players: m.players });
       autoJoining = false;
+      rejoining = false;
       setUrlRoom(m.code);
       hideEntry();
       if (fresh) { chatBoxes.forEach((b) => b.clear()); playerPanels.forEach((pp) => pp.seen && pp.seen.clear()); Sfx.play('coin'); }
@@ -257,8 +259,9 @@
       if (m.code === 'wronggame' && m.game) { location.href = `/games/${m.game}?room=${m.room}`; return; }
       UI.toast(m.msg || 'Something went wrong', 'bad');
       if (m.code === 'noroom' && autoJoining) { autoJoining = false; setUrlRoom(null); showEntry(); }
+      else if (m.code === 'noroom' && rejoining) { rejoining = false; Room.code = null; setUrlRoom(null); emit('left'); showEntry(); }
     });
-    Net.on('reconnect', () => { if (Room.code) Net.send('room:join', { code: Room.code, game: opts.game }); });
+    Net.on('reconnect', () => { if (Room.code) { rejoining = true; Net.send('room:join', { code: Room.code, game: opts.game }); } });
 
     const code = new URLSearchParams(location.search).get('room');
     if (code) {

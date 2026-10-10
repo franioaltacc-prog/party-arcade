@@ -18,6 +18,7 @@ import os
 import random
 import re
 import secrets
+import signal
 import socket
 import struct
 import time
@@ -163,12 +164,14 @@ class Member:
 
 
 class Room:
-    def __init__(self, hub, game_key):
+    def __init__(self, hub, game_key, code=None):
         self.hub = hub
-        self.code = hub.new_code()
+        self.code = code or hub.new_code()
         self.game_key = game_key
         self.members = {}
         self.host = None
+        self.prev_host = None   # host before a restart; gets the crown back on return
+        self.waiting = False    # brought back after a restart, nobody has rejoined yet
         self.timers = set()
         self.banned = set()
         self.empty_since = time.time()
@@ -239,8 +242,11 @@ class Room:
             self.members[client.uid] = member
         client.room = self
         self.empty_since = None
+        self.waiting = False
         if self.host not in self.members:
             self.host = client.uid
+        if client.uid == self.prev_host:
+            self.host, self.prev_host = client.uid, None
         self.pick_host()
         client.send("room:joined", code=self.code, game=self.game_key, me=client.uid,
                     host=self.host, players=self.players(), state=self.game.state_for(member))
@@ -310,6 +316,8 @@ class Hub:
         self.accounts = Accounts(DATA)
         self.tasks = set()
         self.started = time.time()
+        self.restoring = {}     # room code -> task looking it up in saved rooms
+        self.closing = False
 
     # -- persistence -----------------------------------------------------
     def load_json(self, name, default):
@@ -380,6 +388,71 @@ class Hub:
         self.rooms[room.code] = room
         return room
 
+    async def restore_room(self, code):
+        """Bring back a room the previous server saved when it shut down (a redeploy)."""
+        if code in self.rooms or len(code) != 4 or any(ch not in CODE_ALPHABET for ch in code):
+            return
+        task = self.restoring.get(code)
+        if task is None:
+            task = asyncio.get_running_loop().create_task(self._restore_room(code))
+            self.restoring[code] = task
+            task.add_done_callback(lambda _: self.restoring.pop(code, None))
+        await asyncio.shield(task)
+
+    async def _restore_room(self, code):
+        try:
+            saved = await self.accounts.take_room(code)
+        except Exception:
+            traceback.print_exc()
+            return
+        if not saved or saved["game"] not in GAMES or code in self.rooms:
+            return
+        room = Room(self, saved["game"], code)
+        room.prev_host = saved["host"]
+        room.banned = saved["banned"]
+        room.waiting = True
+        self.rooms[code] = room
+
+    async def join_saved(self, c, code, game):
+        await self.restore_room(code)
+        if c.open:
+            self.join_code(c, code, game)
+
+    async def find_saved(self, c, code):
+        await self.restore_room(code)
+        room = self.rooms.get(code)
+        c.send("room:found", code=code, game=room.game_key if room else None)
+
+    def join_code(self, c, code, game):
+        room = self.rooms.get(code)
+        if not room:
+            c.send("error", msg=f"No room with code {code or '????'} 🤔", code="noroom")
+        elif game and game != room.game_key:
+            c.send("error", msg="That code is for a different game", code="wronggame",
+                   game=room.game_key, room=room.code)
+        else:
+            self.join(c, room)
+
+    async def shutdown(self):
+        """Render (or Ctrl+C) is stopping this server: warn everyone and save the rooms
+        so the next server can bring them back when players reconnect."""
+        if self.closing:
+            return
+        self.closing = True
+        for c in list(self.clients):
+            c.send("server:restart")
+        rooms = [(r.code, r.game_key, r.host, r.banned) for r in self.rooms.values() if r.members]
+        if rooms:
+            try:
+                await asyncio.wait_for(self.accounts.save_rooms(rooms), 15)
+                print(f"  💾 Saved {len(rooms)} room(s) for the next start")
+            except Exception:
+                traceback.print_exc()
+        if self.wyr_dirty:
+            self.save_json("wyr.json", self.wyr)
+        for c in list(self.clients):
+            c.close()
+
     def join(self, c, room):
         if c.room is not None and c.room is not room:
             c.room.remove(c.uid)
@@ -434,14 +507,10 @@ class Hub:
                 self.join(c, self.create_room(game))
         elif t == "room:join":
             code = clean_text(msg.get("code"), 8).upper()
-            room = self.rooms.get(code)
-            if not room:
-                c.send("error", msg=f"No room with code {code or '????'} 🤔", code="noroom")
-            elif msg.get("game") and msg.get("game") != room.game_key:
-                c.send("error", msg="That code is for a different game", code="wronggame",
-                       game=room.game_key, room=room.code)
+            if code in self.rooms:
+                self.join_code(c, code, msg.get("game"))
             else:
-                self.join(c, room)
+                self.spawn(self.join_saved(c, code, msg.get("game")))
         elif t == "room:quick":
             game = msg.get("game")
             if game not in GAMES:
@@ -457,8 +526,7 @@ class Hub:
             c.send("room:left")
         elif t == "room:find":
             code = clean_text(msg.get("code"), 8).upper()
-            room = self.rooms.get(code)
-            c.send("room:found", code=code, game=room.game_key if room else None)
+            self.spawn(self.find_saved(c, code))
         elif t == "rooms:list":
             c.send("rooms:list", rooms=self.room_list())
         elif t == "chat":
@@ -762,7 +830,7 @@ class Hub:
                     grace = getattr(room.game, "offline_grace", OFFLINE_GRACE)
                     if not m.online and m.offline_since and now - m.offline_since > grace:
                         room.remove(uid)
-                if not room.members or (room.empty_since and now - room.empty_since > EMPTY_ROOM_TTL):
+                if (not room.members and not room.waiting) or (room.empty_since and now - room.empty_since > EMPTY_ROOM_TTL):
                     room.close()
                     del self.rooms[code]
             if self.wyr_dirty:
@@ -985,8 +1053,17 @@ async def main():
     if lan:
         print(f"  Friends on Wi-Fi:   http://{lan}:{PORT}")
     print("\n  Press Ctrl+C to stop.\n", flush=True)
-    async with server:
-        await server.serve_forever()
+    stop = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        try:
+            loop.add_signal_handler(sig, stop.set)
+        except (NotImplementedError, AttributeError, ValueError):
+            pass  # Windows: Ctrl+C still stops the server, just without saving rooms
+    await stop.wait()
+    server.close()
+    await hub.shutdown()
+    print("\n  Bye! 👋")
 
 
 if __name__ == "__main__":

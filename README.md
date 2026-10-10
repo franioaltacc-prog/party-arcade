@@ -16,7 +16,7 @@ There's nothing to install: the server uses only Python's standard library (3.9+
 
 Render sets `PORT` for you and gives you a public `https://….onrender.com` link (WebSockets work over `wss://`).
 On the free plan the site sleeps after 15 minutes with no visitors and takes about a minute to wake up.
-Game state lives in memory, so a restart or redeploy resets open rooms. To keep accounts, see the Turso steps below.
+Game state lives in memory. On a redeploy the server saves each open room's code and host to the database, and players are put back into the same room automatically (a round in progress starts over from the room's lobby). To keep accounts, see the Turso steps below.
 To update the site, upload the changed files to GitHub — Render redeploys automatically.
 
 ## Accounts, stats and leaderboards
