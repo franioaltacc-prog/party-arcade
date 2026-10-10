@@ -395,6 +395,8 @@ label.field { display: flex; flex-direction: column; gap: 6px; font-weight: 600;
 .pop { animation: pop-in 0.3s cubic-bezier(0.2, 1.4, 0.4, 1); }
 .scroll-y { overflow-y: auto; }
 .footer { text-align: center; color: var(--faint); font-size: 0.85rem; padding: 30px 16px 40px; }
+.footer a { color: var(--muted); white-space: nowrap; }
+.footer a:hover { color: var(--text); }
 
 /* ---------- GSAP motion (fx.js adds .fx-on to <html> when it runs) ---------- */
 .fx-on .modal, .fx-on .modal-backdrop, .fx-on .toast, .fx-on .toast.out,
@@ -469,6 +471,10 @@ label.field { display: flex; flex-direction: column; gap: 6px; font-weight: 600;
 .acct-me { display: grid; gap: 12px; margin-bottom: 16px; text-align: center; }
 .acct-links { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 16px; }
 .danger-link { color: #fda4af; }
+.acct-del { color: #fda4af; border-color: rgba(244, 63, 94, 0.45); }
+.acct-del:hover { background: rgba(244, 63, 94, 0.14); }
+.acct-legal { text-align: center; margin: 10px 0 0; }
+.acct-legal a { color: var(--cyan); }
 .btn.busy { opacity: 0.7; pointer-events: none; }
 .btn.busy::after { content: ""; width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin 0.7s linear infinite; }
 

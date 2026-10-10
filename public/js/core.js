@@ -3,6 +3,10 @@
 (() => {
   'use strict';
 
+  // The site's version. Bump it with every update, together with a new entry at the
+  // top of public/js/changelog.js (the /changelog page).
+  const VERSION = '2.10.0';
+
   // ---------------------------------------------------------------- helpers
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -556,6 +560,8 @@
                   h('button', { class: 'icon-btn', type: 'button', title: 'Random name', 'aria-label': 'Random name', onclick: () => { name.value = rand(ADJ) + rand(NOUN); Sfx.play('pop'); } }, icon('dice-five'))),
                 UI.lookPicker(look),
                 h('button', { class: 'btn btn-pink btn-block btn-lg', type: 'submit', style: { marginTop: '18px' } }, first ? "Let's go! 🚀" : 'Save')),
+              h('p', { class: 'tiny faint acct-legal' }, 'Guests: your nickname and look are only kept while you play (and remembered in this browser). See the ',
+                h('a', { href: '/privacy', target: '_blank', rel: 'noopener' }, 'Privacy Policy'), '.'),
               h('p', { class: 'small muted acct-foot' }, 'Want your wins to count? ', h('a', { href: '#', onclick: (e) => { e.preventDefault(); go('signup'); } }, 'Create a free account ✨')),
             ];
           },
@@ -586,6 +592,8 @@
                   const sum = box.querySelector('.acct-look summary .avatar'); if (sum) { sum.textContent = look.avatar; sum.style.setProperty('--c', look.color); }
                 })),
                 err,
+                h('p', { class: 'tiny faint acct-legal' }, 'By creating an account you agree to the ',
+                  h('a', { href: '/privacy', target: '_blank', rel: 'noopener' }, 'Privacy Policy'), '.'),
                 h('button', { class: 'btn btn-pink btn-block btn-lg', type: 'submit' }, 'Create account 🚀')),
               h('p', { class: 'small muted acct-foot' }, 'Already have one? ', h('a', { href: '#', onclick: (e) => { e.preventDefault(); go('login'); } }, 'Log in')),
             ];
@@ -630,7 +638,10 @@
                 u.admin ? h('a', { class: 'btn btn-ghost btn-sm', href: '/admin' }, icon('shield-star'), 'Admin') : null,
                 h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: () => go('password') }, icon('lock-key'), 'Password'),
                 h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: async () => { await Account.logout(); UI.toast('Logged out. See you soon! 👋'); done(null); } }, icon('sign-out'), 'Log out')),
-              h('p', { class: 'tiny acct-foot' }, h('a', { href: '#', class: 'danger-link', onclick: (e) => { e.preventDefault(); go('delete'); } }, 'Delete my account')),
+              h('div', { class: 'acct-foot' },
+                h('button', { class: 'btn btn-ghost btn-sm acct-del', type: 'button', onclick: () => go('delete') }, '🗑️ Delete my account'),
+                h('p', { class: 'tiny faint', style: { marginTop: '6px' } }, 'Removes your account, stats and match history. ',
+                  h('a', { href: '/privacy#rights', target: '_blank', rel: 'noopener' }, 'Your privacy rights'))),
             ];
           },
 
@@ -897,5 +908,15 @@
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startArt); else startArt();
 
-  window.PA = { $, $$, h, fill, esc, rand, clamp, sleep, fmtMoney, fmtTime, store, on, emit, Profile, Account, Net, Sfx, UI, Emoji, icon, AVATARS, COLORS };
+  // ---------------------------------------------------------------- footer
+  // Every page gets the version and links to the privacy policy and changelog. A page with
+  // its own footer (the home page) gets the links added to it.
+  (function footer() {
+    const links = [' · ', h('a', { href: '/privacy' }, '🔒 Privacy'), ' · ', h('a', { href: '/changelog' }, `📜 What’s new · v${VERSION}`)];
+    const own = $('footer.footer');
+    if (own) { own.append(...links); return; }
+    document.body.append(h('footer', { class: 'footer' }, '🕹️ Party Arcade · ', h('a', { href: '/credits' }, '🎬 Credits'), ...links));
+  })();
+
+  window.PA = { $, $$, h, fill, esc, rand, clamp, sleep, fmtMoney, fmtTime, store, on, emit, Profile, Account, Net, Sfx, UI, Emoji, icon, AVATARS, COLORS, VERSION };
 })();

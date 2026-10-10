@@ -59,6 +59,16 @@ A game where an admin used a cheat doesn't count for anyone's stats or leaderboa
 `/credits` lists who made the site (made by Franio & Claude, ideas by Franio, Jan & Claude, design by Claude, and the rest),
 the tools and fonts used, and the games that inspired ours — plus a movie-style "Roll the credits" button.
 
+## Privacy policy, versions and the changelog
+- `/privacy` is the privacy policy (`public/privacy.html`, plain HTML). Parts still to fill in are
+  marked like `<mark class="todo">[...]</mark>` and show up highlighted in yellow. Update the
+  "Last updated" date at the top whenever you change it.
+- Every page's footer shows the version and links to the privacy policy and `/changelog`.
+- **Releasing an update:** bump `VERSION` at the top of `public/js/core.js`, and add an entry at the top of
+  the list in `public/js/changelog.js` (big new things = next minor version like 2.11.0, small fixes = 2.10.1).
+- Players can delete their own account (Account → Delete my account, password needed); it removes the
+  account, stats and match history.
+
 ## Impostor: adding words
 Everyone gets the secret word except the impostor (who only sees the category, if the host allows it). Each player gives
 one clue per clue round in the chat, then everyone discusses and votes. A caught impostor gets one guess at the word.
