@@ -49,6 +49,22 @@ A game where an admin used a cheat doesn't count for anyone's stats or leaderboa
   - Host settings: starting coins, win condition (time / rounds / first to a target), min/max bet, allowed games, comeback coins.
   - All cards, spins and rolls happen on the server. Disconnected players auto-stand/fold and keep their seat and coins for 60s.
 
+## Friends, party mode, votes and watching
+- **Friends** (accounts only): the 👥 button in every top bar opens your friends list. Add people by name or with
+  “➕ Add friend” on their profile; adding someone who already asked you accepts it. Friends show who's online, what
+  they're playing (rooms, and solo games via the `page` sent in `hello`), with one-click **Join** / **👀 Watch** links.
+  Stored in the `friends` table: a `req` row is a request, accepted friends have an `ok` row each way.
+- **Watching:** `/games/<game>?room=CODE&watch=1` joins as a watcher. Watchers are in the room and chat but games
+  pick their players from `room.players_now()`, which skips them. “✋ Join in” turns a watcher into a player (games
+  that allow joining mid-round add them right away). Full rooms can still be watched (up to 20 extra people).
+  The home page lists open rooms and **📺 Live games** (rooms where a game is running).
+- **Play-again vote:** when a game ends (`Game.finished(groups)`, called by every online game), players vote
+  🔁 again or 🎮 new game for 20 s; “new” starts a second vote on which game, and the whole room moves there with the
+  same code (`room:goto`). The host pressing start still works and ends the vote.
+- **Party mode:** the host picks 2–8 games. Each game's places turn into party points (10, 7, 5, 3, then 1), the room
+  moves to the next game 10 s later, and the final standings are saved as a `party` game (it doesn't add to the
+  all-games totals, since those games were already counted). Hosts can also **🔀 switch game** at any time.
+
 ## Minesweeper
 - **Solo** (`/games/mines?solo=1`): classic Easy 9×9, Medium 16×16, Hard 30×16; the first click is always safe. Medium and Hard times have leaderboards.
 - **Race**: everyone gets the same board (with a free opening); fastest clear wins; mines add a time penalty.
@@ -67,7 +83,7 @@ the tools and fonts used, and the games that inspired ours — plus a movie-styl
 - **Releasing an update:** bump `VERSION` at the top of `public/js/core.js`, and add an entry at the top of
   the list in `public/js/changelog.js` (big new things = next minor version like 2.11.0, small fixes = 2.10.1).
 - Players can delete their own account (Account → Delete my account, password needed); it removes the
-  account, stats and match history.
+  account, stats, match history and friends list.
 
 ## Impostor: adding words
 Everyone gets the secret word except the impostor (who only sees the category, if the host allows it). Each player gives

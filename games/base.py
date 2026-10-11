@@ -63,6 +63,29 @@ class Game:
         if not self.tainted:
             self.room.hub.record(self.room, uid, self.key, outcome, stats, detail, xp)
 
+    def restart(self, host):
+        """Everyone voted "play again": same as the host pressing start."""
+        self.on_message(host, "start", {})
+
+    def finished(self, groups):
+        """The game ended. groups: lists of player ids from first place down (a tie shares a group).
+        The room uses this for party points and the "play again?" vote."""
+        fn = getattr(self.room, "game_over", None)
+        if fn:
+            fn([list(g) for g in groups if g])
+
+    @staticmethod
+    def groups_by(rows, key, id_key="id"):
+        """Rows already sorted best-first -> groups of ids, with equal `key` values sharing a place."""
+        groups, last = [], object()
+        for r in rows:
+            if groups and r[key] == last:
+                groups[-1].append(r[id_key])
+            else:
+                groups.append([r[id_key]])
+            last = r[key]
+        return groups
+
     def record_ranking(self, ranking, prefix, unit="pts", value="points", extra=None):
         """Save a points game: the single top scorer wins, a shared top is a draw.
         Playing alone never counts as a win. extra: {uid: {stat: (op, n)}} added per player."""
@@ -84,6 +107,7 @@ class Game:
                 stats[f"{prefix}.wins"] = ("add", 1)
             stats.update((extra or {}).get(r["id"], {}))
             self.record(r["id"], outcome, stats, f"#{i + 1} of {n} · {pts:,} {unit}")
+        self.finished(self.groups_by(ranking, value))
 
     def on_chat(self, m, entry):
         """Return True if the game handled this room chat message itself."""

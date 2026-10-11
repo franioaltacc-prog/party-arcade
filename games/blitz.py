@@ -135,7 +135,7 @@ class Blitz(Game):
                 self.timer = self.room.later(0.6, self.end_round)
 
     def on_join(self, m, rejoin):
-        if self.phase == "playing" and m.uid not in self.scores:
+        if self.phase == "playing" and m.uid not in self.scores and not m.watching:
             self.scores[m.uid] = 0
             self.broadcast("scores", scores=self.scores)
 
@@ -143,7 +143,7 @@ class Blitz(Game):
         self.phase = "playing"
         self.final = None
         self.tainted = False
-        self.scores = {u.uid: 0 for u in self.room.online_members()}
+        self.scores = {u.uid: 0 for u in self.room.players_now()}
         self.round_no = 0
         self.last_kind = None
         self.broadcast("begin", scores=self.scores, total=self.settings["rounds"])

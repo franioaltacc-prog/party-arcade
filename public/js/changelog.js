@@ -6,6 +6,15 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '2.14.0', date: '2026-10-11', emoji: '👥', title: 'Friends, party mode, votes and watching', items: [
+      'Friends: press 👥 in the top bar to add friends by name (or press “➕ Add friend” on a profile), and accept requests',
+      'See which friends are online and what they’re playing, then join their room or watch their game in one click',
+      'Party mode: the host picks a playlist of games, places turn into party points (10, 7, 5, 3…) that carry over, everyone moves to the next game together, and the winner gets a podium',
+      'After a game, everyone votes “🔁 Play again” or “🎮 New game” (then votes on which game), so nobody waits for the host',
+      'Watch any game in progress from “📺 Live games” on the home page. Watchers don’t join rounds unless they press “✋ Join in”',
+      'Hosts can switch the whole room to another game with the same code',
+      'A Party mode leaderboard, party stats on profiles and a new “Party animal” achievement',
+    ] },
     { v: '2.13.0', date: '2026-10-11', emoji: '🌍', title: 'Front Wars: alliances, warships and replays', items: [
       'Team up in free-for-all: click a name in the leaderboard (or right-click their land) to ask. Allies can’t attack or nuke each other',
       'Break an alliance whenever you like, but bots remember: hard bots might betray you too!',

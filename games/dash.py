@@ -76,7 +76,7 @@ class Dash(Game):
         self.results = None
         self.tainted = False
         runners = {u.uid: {"done": False, "time": None, "place": None, "p": 0.0, "attempts": 1}
-                   for u in self.room.online_members()}
+                   for u in self.room.players_now()}
         self.race = {"id": (self.race["id"] + 1) if self.race else 1,
                      "seed": random.randrange(1, 2 ** 31), "settings": dict(self.settings),
                      "start": time.time() + COUNTDOWN, "runners": runners, "finished": 0}
@@ -137,6 +137,7 @@ class Dash(Game):
 
     def save_results(self, rows):
         n = len(rows)
+        self.finished([[r["id"]] for r in rows])
         level = f"{self.race['settings']['difficulty']} {self.race['settings']['length']}"
         for r in rows:
             won = n >= 2 and r["done"] and r["place"] == 1

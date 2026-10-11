@@ -259,7 +259,7 @@ class Impostor(Game):
 
     # ------------------------------------------------------------------ flow
     def start(self, m):
-        online = [mm.uid for mm in self.room.members.values() if mm.online]
+        online = [mm.uid for mm in self.room.members.values() if mm.plays]
         if len(online) < MIN_PLAYERS:
             m.send("error", msg=f"Impostor needs at least {MIN_PLAYERS} players! Invite more friends 🕵️")
             return

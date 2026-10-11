@@ -587,7 +587,7 @@ class Life(Game):
 
     # ------------------------------------------------------------------ lobby flow
     def on_join(self, m, rejoin):
-        if self.phase in ("lobby", "over") and m.uid not in self.chars:
+        if self.phase in ("lobby", "over") and m.uid not in self.chars and not m.watching:
             self.chars[m.uid] = self.default_char()
         s = self.sib_of(m.uid)
         if s:
@@ -611,7 +611,7 @@ class Life(Game):
 
     def start(self, m):
         reload_data()
-        players = self.room.online_members()
+        players = self.room.players_now()
         waiting = [p.name for p in players if not self.chars.get(p.uid, {}).get("ready")]
         if waiting:
             m.send("error", msg="Waiting for " + join_names(waiting) + " to press Ready ✋")
@@ -1582,6 +1582,7 @@ class Life(Game):
 
     def save_results(self, sibs):
         ordered = sorted(sibs, key=lambda x: -x.score["total"])
+        self.finished(self.groups_by([{"id": s.owner, "t": s.score["total"]} for s in ordered if s.owner], "t"))
         n = len(ordered)
         best = ordered[0].score["total"] if ordered else 0
         leaders = sum(1 for x in ordered if x.score["total"] == best)

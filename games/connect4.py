@@ -35,6 +35,7 @@ class Connect4(Game):
         a, b = self.seats
         if not a or not b:
             return
+        self.finished([[a, b]] if self.winner == -1 else ([[a], [b]] if self.winner == 0 else [[b], [a]]))
         if self.winner == -1:
             for uid in (a, b):
                 self.record(uid, "draw", {"c4.draws": ("add", 1)}, f"Draw after {self.moves} moves")
@@ -42,6 +43,12 @@ class Connect4(Game):
         win, lose = (a, b) if self.winner == 0 else (b, a)
         self.record(win, "win", {"c4.wins": ("add", 1)}, f"Won in {self.moves} moves")
         self.record(lose, "loss", {"c4.losses": ("add", 1)}, f"Lost in {self.moves} moves")
+
+    def restart(self, host):
+        if self.phase == "over":
+            self.starter ^= 1
+            self.new_game()
+            self.push()
 
     def on_admin(self, m, action, msg):
         if action == "win" and m.uid in self.seats and self.phase == "playing":
@@ -78,12 +85,12 @@ class Connect4(Game):
         for i in (0, 1):
             if self.seats[i] is None:
                 for uid, mm in self.room.members.items():
-                    if mm.online and uid not in self.seats:
+                    if mm.plays and uid not in self.seats:
                         self.seats[i] = uid
                         break
 
     def on_join(self, m, rejoin):
-        if m.uid not in self.seats and None in self.seats:
+        if m.uid not in self.seats and None in self.seats and not m.watching:
             self.fill_seats()
             if None not in self.seats:
                 self.new_game()
@@ -133,7 +140,7 @@ class Connect4(Game):
             self.push()
         elif t == "swap" and self.phase != "playing" and self.is_host(m):
             # host rotates a spectator into play
-            others = [u for u, mm in self.room.members.items() if mm.online and u not in self.seats]
+            others = [u for u, mm in self.room.members.items() if mm.plays and u not in self.seats]
             if others and None not in self.seats:
                 loser = self.seats[1] if self.winner == 0 else self.seats[0]
                 self.seats[self.seats.index(loser)] = others[0]

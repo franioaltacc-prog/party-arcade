@@ -60,6 +60,7 @@ BOARDS = {
     "slope": ("🛝 Slope best distance", "slope.best", "desc", "int"),
     "front": ("🌍 Front Wars wins", "front.wins", "desc", "int"),
     "front_solo": ("🤖 Front Wars solo wins (vs bots)", "frontsolo.wins", "desc", "int"),
+    "party": ("🎉 Party mode wins", "party.wins", "desc", "int"),
 }
 
 # Scores the browser reports for solo games: game -> (stat ops, lowest, highest)
@@ -114,6 +115,13 @@ SCHEMA = [
     """CREATE TABLE IF NOT EXISTS looks (
         user_id INTEGER PRIMARY KEY,
         data TEXT NOT NULL DEFAULT '{}')""",
+    """CREATE TABLE IF NOT EXISTS friends (
+        user_id INTEGER NOT NULL,
+        friend_id INTEGER NOT NULL,
+        state TEXT NOT NULL,
+        since INTEGER NOT NULL,
+        PRIMARY KEY (user_id, friend_id))""",
+    "CREATE INDEX IF NOT EXISTS friends_back ON friends(friend_id)",
     """CREATE TABLE IF NOT EXISTS saved_rooms (
         code TEXT PRIMARY KEY,
         game TEXT NOT NULL,
@@ -579,6 +587,74 @@ class Accounts:
                      user_id, json.dumps(current, separators=(",", ":")))
         return await self.user_by_id(user_id)
 
+    # -- friends: a row (me, them, "req") is a request I sent; accepted friends have "ok" rows both ways
+    MAX_FRIENDS = 200
+
+    async def friends(self, user_id):
+        """Friends (with what they look like), requests to me, and requests I sent."""
+        res = await self.many([
+            (f"SELECT f.state, f.since, {USER_COLS} FROM friends f JOIN users u ON u.id = f.friend_id "
+             "LEFT JOIN looks l ON l.user_id = u.id WHERE f.user_id = ?", (user_id,)),
+            (f"SELECT f.since, {USER_COLS} FROM friends f JOIN users u ON u.id = f.user_id "
+             "LEFT JOIN looks l ON l.user_id = u.id WHERE f.friend_id = ? AND f.state = 'req'", (user_id,)),
+        ])
+        out = {"friends": [], "incoming": [], "outgoing": []}
+        for r in res[0]["rows"]:
+            (out["friends"] if r["state"] == "ok" else out["outgoing"]).append({**self.public(r), "since": r["since"]})
+        for r in res[1]["rows"]:
+            out["incoming"].append({**self.public(r), "since": r["since"]})
+        out["friends"].sort(key=lambda f: f["name"].lower())
+        return out
+
+    async def friend_add(self, user_id, name):
+        """Send a friend request, or accept one if they already asked you. Returns (them, "sent"|"friends")."""
+        them = await self.user_by_name(name)
+        if not them or them["banned"]:
+            raise AuthError("No player with that name.")
+        if them["id"] == user_id:
+            raise AuthError("You can’t add yourself 🙃")
+        res = await self.many([
+            ("SELECT user_id, state FROM friends WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)",
+             (user_id, them["id"], them["id"], user_id)),
+            ("SELECT COUNT(*) AS n FROM friends WHERE user_id = ?", (user_id,)),
+        ])
+        rows = res[0]["rows"]
+        if any(r["state"] == "ok" for r in rows):
+            raise AuthError(f"You’re already friends with {them['name']}.")
+        if any(r["user_id"] == them["id"] and r["state"] == "req" for r in rows):
+            t = now()
+            await self.many([("DELETE FROM friends WHERE user_id = ? AND friend_id = ?", (them["id"], user_id)),
+                             ("INSERT OR REPLACE INTO friends (user_id, friend_id, state, since) VALUES (?, ?, 'ok', ?)", (user_id, them["id"], t)),
+                             ("INSERT OR REPLACE INTO friends (user_id, friend_id, state, since) VALUES (?, ?, 'ok', ?)", (them["id"], user_id, t))])
+            return them, "friends"
+        if res[1]["rows"][0]["n"] >= self.MAX_FRIENDS:
+            raise AuthError("Your friends list is full.")
+        await self.q("INSERT OR IGNORE INTO friends (user_id, friend_id, state, since) VALUES (?, ?, 'req', ?)", user_id, them["id"], now())
+        return them, "sent"
+
+    async def friend_remove(self, user_id, name):
+        """Unfriend, decline a request, or cancel one you sent."""
+        them = await self.user_by_name(name)
+        if not them:
+            raise AuthError("No player with that name.")
+        await self.q("DELETE FROM friends WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)",
+                     user_id, them["id"], them["id"], user_id)
+        return them
+
+    async def friend_state(self, user_id, other_id):
+        """"ok" (friends), "sent" (I asked them), "incoming" (they asked me) or None."""
+        rows = (await self.q("SELECT user_id, state FROM friends WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)",
+                             user_id, other_id, other_id, user_id))["rows"]
+        if any(r["state"] == "ok" for r in rows):
+            return "ok"
+        if any(r["user_id"] == user_id for r in rows):
+            return "sent"
+        return "incoming" if rows else None
+
+    async def friend_ids(self, user_id):
+        rows = (await self.q("SELECT friend_id FROM friends WHERE user_id = ? AND state = 'ok'", user_id))["rows"]
+        return [r["friend_id"] for r in rows]
+
     async def delete_account(self, user_id, password):
         user = await self.user_by_id(user_id)
         if not user or not await asyncio.to_thread(check_password, str(password or ""), user["pw"]):
@@ -586,8 +662,8 @@ class Accounts:
         await self.wipe(user_id)
 
     async def wipe(self, user_id):
-        await self.many([(f"DELETE FROM {table} WHERE user_id = ?", (user_id,)) for table in ("sessions", "stats", "matches", "looks")]
-                        + [("DELETE FROM users WHERE id = ?", (user_id,))])
+        await self.many([(f"DELETE FROM {table} WHERE user_id = ?", (user_id,)) for table in ("sessions", "stats", "matches", "looks", "friends")]
+                        + [("DELETE FROM friends WHERE friend_id = ?", (user_id,)), ("DELETE FROM users WHERE id = ?", (user_id,))])
         self.board_cache.clear()
 
     # -- stats ---------------------------------------------------------------

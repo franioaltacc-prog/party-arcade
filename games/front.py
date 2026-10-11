@@ -92,7 +92,7 @@ class Front(Game):
             self.report(m, msg)
 
     def start(self, m):
-        humans = self.room.online_members()[:self.max_players]
+        humans = self.room.players_now()[:self.max_players]
         s = dict(self.settings)
         if len(humans) + s["bots"] < 2:
             m.send("chat", sys=True, text="🤖 Add some bots (or friends) first — you need someone to fight!")
@@ -245,6 +245,8 @@ class Front(Game):
                         "bots": s["bots"], "mode": s["mode"]}
         self.broadcast("over", results=self.results)
         self.push_state()
+        ranked = sorted(rows, key=lambda r: (not r["won"], -r["share"]))
+        self.finished([[r["id"] for r in ranked if r["won"]]] + [[r["id"]] for r in ranked if not r["won"]])
         for r in rows:
             outcome = ("win" if r["won"] else "loss") if total >= 2 else "play"
             stats = {}

@@ -203,24 +203,36 @@
   // ---------------------------------------------------------------- open rooms
   const roomsPanel = $('#rooms-panel');
   const seenRooms = new Set();
-  function renderRooms(rooms) {
+  function renderRooms(all) {
+    const rooms = all.filter((r) => !r.live);
+    const live = all.filter((r) => r.live);
     if (G) { if (String(rooms.length) !== $('#stat-rooms').textContent) FX.count($('#stat-rooms'), rooms.length); }
     else $('#stat-rooms').textContent = rooms.length;
     const info = Lobby.GAME_INFO;
-    fill(roomsPanel, 
-      h('div', { class: 'panel-title' }, '🔥 Open rooms', h('span', { class: 'count' }, rooms.length ? `${rooms.length} live` : '')),
+    const link = (r, watch) => `/games/${r.game}?room=${r.code}${watch ? '&watch=1' : ''}`;
+    const item = (r) => h('div', { class: 'room-item', 'data-code': r.code + (r.live ? 'L' : '') },
+      h('div', { class: 'ri-emoji' }, (info[r.game] || {}).emoji || '🎮'),
+      h('div', { class: 'grow' },
+        h('div', { class: 'ri-title' }, (info[r.game] || {}).title || r.game, r.party ? h('span', { class: 'ri-tag', title: 'Party mode' }, '🎉') : null),
+        h('div', { class: 'ri-sub' }, `${r.hostAvatar} ${r.host} · ${r.players}/${r.max}${r.watchers ? ` · 👀 ${r.watchers}` : ''} · ${r.code}`)),
+      r.live
+        ? h('a', { class: 'btn btn-cyan btn-sm', href: link(r, true), title: 'Watch this game' }, '👀 Watch')
+        : r.players >= r.max
+          ? h('a', { class: 'btn btn-ghost btn-sm', href: link(r, true), title: 'This room is full — you can watch' }, '👀 Full')
+          : h('a', { class: 'btn btn-lime btn-sm', href: link(r) }, 'Join'));
+    fill(roomsPanel,
+      h('div', { class: 'panel-title' }, '🔥 Open rooms', h('span', { class: 'count' }, rooms.length ? `${rooms.length} open` : '')),
       rooms.length
-        ? h('div', {}, rooms.map((r) => h('div', { class: 'room-item' },
-          h('div', { class: 'ri-emoji' }, (info[r.game] || {}).emoji || '🎮'),
-          h('div', { class: 'grow' },
-            h('div', { class: 'ri-title' }, (info[r.game] || {}).title || r.game),
-            h('div', { class: 'ri-sub' }, `${r.hostAvatar} ${r.host} · ${r.players}/${r.max} · ${r.code}`)),
-          h('a', { class: 'btn btn-lime btn-sm', href: `/games/${r.game}?room=${r.code}` }, 'Join'))))
+        ? h('div', {}, rooms.map(item))
         : h('div', { class: 'empty' }, 'No open rooms yet.', h('br'), 'Start one and invite your friends! 🎈'),
+      h('div', { class: 'panel-title live-title' }, '📺 Live games', h('span', { class: 'count' }, live.length ? `${live.length} playing` : '')),
+      live.length
+        ? h('div', {}, live.map(item))
+        : h('div', { class: 'empty' }, 'Nobody is mid-game right now.', h('br'), 'Games being played show up here so you can watch 👀'),
     );
     if (!G) return;
-    const fresh = [...roomsPanel.querySelectorAll('.room-item')].filter((el, i) => {
-      const key = rooms[i].code;
+    const fresh = [...roomsPanel.querySelectorAll('.room-item')].filter((el) => {
+      const key = el.dataset.code;
       if (seenRooms.has(key)) return false;
       seenRooms.add(key);
       return true;

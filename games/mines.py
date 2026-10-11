@@ -194,7 +194,7 @@ class Minesweeper(Game):
 
     # ------------------------------------------------------------------ flow
     def start(self):
-        online = [mm.uid for mm in self.room.members.values() if mm.online]
+        online = [mm.uid for mm in self.room.members.values() if mm.plays]
         if not online:
             return
         self.tainted = False
@@ -312,6 +312,7 @@ class Minesweeper(Game):
             self.record_ranking(rows, "mines", value="points", extra=extra)
             return
         n = len(rows)
+        self.finished([[r["id"]] for r in rows])
         for i, r in enumerate(rows):
             won = n >= 2 and r["done"] and i == 0
             stats = {}

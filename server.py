@@ -41,6 +41,11 @@ OFFLINE_GRACE = 40             # seconds a disconnected player keeps their seat
 PING_EVERY = 25                # the server pings every connection this often...
 DEAD_AFTER = 75                # ...and drops ones that haven't answered for this long
 EMPTY_ROOM_TTL = 90            # seconds an empty room survives
+VOTE_SECONDS = 20              # "play again?" and "which game next?" votes
+PARTY_NEXT = 10                # seconds of party standings before the next game
+PARTY_POINTS = (10, 7, 5, 3)   # 1st, 2nd, 3rd, 4th in each party game; everyone else gets 1
+PARTY_GAMES = ("dash", "doodle", "blitz", "impostor", "mines", "front", "casino", "life")   # games that work for groups
+WATCHERS_EXTRA = 20            # watchers allowed on top of a game's player limit
 CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 UID_RE = re.compile(r"^[A-Za-z0-9_-]{6,40}$")
@@ -98,6 +103,7 @@ class Client:
         self.solo_at = 0.0
         self.search_at = 0.0
         self.look = {}          # rewards a logged-in player is wearing (aura, avatar animation)
+        self.page = None        # which game page this tab is on (for solo games, so friends can see it)
 
     def send(self, t, **data):
         if not self.open:
@@ -150,6 +156,13 @@ class Member:
         self.offline_since = None
         self.copy_profile(client)
 
+    watching = False   # here to watch, not to play (joined with 👀 Watch)
+
+    @property
+    def plays(self):
+        """Online and here to play (not just watching)."""
+        return self.client is not None and not self.watching
+
     def copy_profile(self, client):
         self.name, self.avatar, self.color = client.name, client.avatar, client.color
         self.account = client.account
@@ -166,7 +179,7 @@ class Member:
     def info(self):
         acct = self.account
         return {"id": self.uid, "name": self.name, "avatar": self.avatar,
-                "color": self.color, "online": self.online, **shown_look(self.look),
+                "color": self.color, "online": self.online, **shown_look(self.look), **({"watch": True} if self.watching else {}),
                 "acct": acct["name"] if acct else None, "adm": bool(acct and acct["admin"])}
 
 
@@ -183,6 +196,10 @@ class Room:
         self.banned = set()
         self.empty_since = time.time()
         self.game = GAMES[game_key](self)
+        self.party = None   # {"list": [games], "i": index, "scores": {uid: pts}, "names": {uid: name}, "done": bool}
+        self.vote = None    # {"kind": "next"|"pick", "votes": {uid: choice}, "ends": time, "options": [...]}
+        self.vote_timer = None
+        self.party_timer = None
 
     # -- messaging -------------------------------------------------------
     def broadcast(self, t, exclude=None, **data):
@@ -200,6 +217,178 @@ class Room:
 
     def online_members(self):
         return [m for m in self.members.values() if m.online]
+
+    def players_now(self):
+        """Online members who are here to play (not watching). Games pick their players from these."""
+        return [m for m in self.members.values() if m.plays]
+
+    # -- what happens after a game: party points, "play again?" vote, switching games --------
+    def switch_game(self, key):
+        """Everyone moves to another game in this same room (same code)."""
+        if key not in GAMES or key == self.game_key:
+            return
+        self.close()   # stop the old game's timers
+        self.vote = None
+        self.game_key = key
+        self.game = GAMES[key](self)
+        self.broadcast("room:goto", game=key, code=self.code)
+        self.hub.online_changed()
+
+    def game_over(self, groups):
+        """A game finished. groups: player ids from first place down (ties share a group)."""
+        if self.party and not self.party["done"]:
+            self.party_points(groups)
+            return
+        if self.players_now():
+            self.start_vote("next")
+
+    def party_public(self):
+        p = self.party
+        if not p:
+            return None
+        board = sorted(p["scores"].items(), key=lambda kv: -kv[1])
+        return {"list": p["list"], "i": p["i"], "done": p["done"], "next": p.get("next"),
+                "nextIn": max(0, round(p.get("next_at", 0) - time.time())) if p.get("next") else None,
+                "board": [{"id": uid, "name": p["names"].get(uid, "?"), "points": pts} for uid, pts in board],
+                "last": p.get("last")}
+
+    def push_party(self):
+        self.broadcast("party:state", party=self.party_public())
+
+    def start_party(self, games):
+        self.party = {"list": games, "i": 0, "scores": {}, "names": {}, "done": False}
+        for m in self.players_now():
+            self.party["scores"][m.uid] = 0
+            self.party["names"][m.uid] = m.name
+        self.end_vote()
+        self.system(f"🎉 Party mode! {len(games)} games: " + " → ".join(GAME_TITLES.get(g, g) for g in games))
+        if self.game_key != games[0]:
+            self.switch_game(games[0])
+        self.push_party()
+
+    def party_points(self, groups):
+        p = self.party
+        place = 0
+        gained = {}
+        for g in groups:
+            pts = PARTY_POINTS[place] if place < len(PARTY_POINTS) else 1
+            for uid in g:
+                gained[uid] = pts
+                p["scores"][uid] = p["scores"].get(uid, 0) + pts
+                m = self.members.get(uid)
+                if m:
+                    p["names"][uid] = m.name
+            place += len(g)
+        p["last"] = {"game": self.game_key, "gained": gained}
+        if p["i"] + 1 < len(p["list"]):
+            p["next"] = p["list"][p["i"] + 1]
+            p["next_at"] = time.time() + PARTY_NEXT
+            self.push_party()
+            self.system(f"🎉 Party: next up is {GAME_TITLES.get(p['next'], p['next'])} in {PARTY_NEXT} seconds!")
+            self.cancel(self.party_timer)
+            self.party_timer = self.later(PARTY_NEXT, self.party_next)
+        else:
+            p["done"] = True
+            p["next"] = None
+            self.push_party()
+            board = sorted(p["scores"].items(), key=lambda kv: -kv[1])
+            if board:
+                self.system(f"🏆 {p['names'].get(board[0][0], '?')} wins the party with {board[0][1]} points!")
+            self.save_party(board)
+
+    def party_next(self):
+        p = self.party
+        if not p or p["done"]:
+            return
+        p["i"] += 1
+        p["next"] = None
+        self.switch_game(p["list"][p["i"]])
+        self.push_party()
+
+    def save_party(self, board):
+        top = board[0][1] if board else 0
+        leaders = [uid for uid, pts in board if pts == top]
+        for uid, pts in board:
+            won = len(board) >= 2 and pts == top and len(leaders) == 1
+            outcome = "win" if won else ("draw" if pts == top and len(board) >= 2 else ("loss" if len(board) >= 2 else "play"))
+            stats = {"party.points": ("add", pts)}
+            if won:
+                stats["party.wins"] = ("add", 1)
+            # a party is made of games that were already counted, so it stays out of the all-games totals
+            self.hub.record(self, uid, "party", outcome, stats, f"{pts} party points · {len(self.party['list'])} games", 50 if won else 20, totals=False)
+
+    def stop_party(self):
+        self.cancel(self.party_timer)
+        self.party = None
+        self.push_party()
+
+    def vote_public(self):
+        v = self.vote
+        if not v:
+            return None
+        counts = {}
+        for choice in v["votes"].values():
+            counts[choice] = counts.get(choice, 0) + 1
+        return {"kind": v["kind"], "left": max(0, round(v["ends"] - time.time())), "counts": counts,
+                "options": v.get("options"), "voters": len(self.players_now())}
+
+    def start_vote(self, kind):
+        self.cancel(self.vote_timer)
+        self.vote = {"kind": kind, "votes": {}, "ends": time.time() + VOTE_SECONDS}
+        if kind == "pick":
+            self.vote["options"] = [g for g in PARTY_GAMES if g in GAMES] + ["connect4"]
+        self.vote_timer = self.later(VOTE_SECONDS, self.decide_vote)
+        self.broadcast("room:vote", vote=self.vote_public())
+
+    def end_vote(self):
+        if self.vote:
+            self.cancel(self.vote_timer)
+            self.vote = None
+            self.broadcast("room:vote", vote=None)
+
+    def cast_vote(self, m, choice):
+        v = self.vote
+        if not v or not m.plays:
+            return
+        valid = ("again", "new") if v["kind"] == "next" else tuple(v["options"])
+        if choice not in valid:
+            return
+        v["votes"][m.uid] = choice
+        voters = len(self.players_now())
+        counts = {}
+        for c in v["votes"].values():
+            counts[c] = counts.get(c, 0) + 1
+        if len(v["votes"]) >= voters or (v["kind"] == "next" and max(counts.values()) * 2 > voters):
+            self.decide_vote()
+        else:
+            self.broadcast("room:vote", vote=self.vote_public())
+
+    def decide_vote(self):
+        v = self.vote
+        if not v:
+            return
+        self.cancel(self.vote_timer)
+        self.vote = None
+        counts = {}
+        for c in v["votes"].values():
+            counts[c] = counts.get(c, 0) + 1
+        self.broadcast("room:vote", vote=None)
+        if v["kind"] == "next":
+            if counts.get("again", 0) > counts.get("new", 0):
+                host = self.members.get(self.host)
+                if host:
+                    self.system("🔁 Everyone voted: play again!")
+                    self.game.restart(host)
+            elif counts.get("new", 0):
+                self.system("🎮 Let's pick a new game!")
+                self.start_vote("pick")
+        elif counts:
+            best = max(v["options"], key=lambda g: (counts.get(g, 0), -v["options"].index(g)))
+            if counts.get(best):
+                self.system(f"🎮 Next game: {GAME_TITLES.get(best, best)}!")
+                if best == self.game_key:
+                    return
+                self.switch_game(best)
 
     def players(self):
         return [m.info() for m in self.members.values()]
@@ -233,7 +422,7 @@ class Room:
         self.timers.clear()
 
     # -- membership ------------------------------------------------------
-    def add(self, client):
+    def add(self, client, watch=False):
         member = self.members.get(client.uid)
         rejoin = member is not None
         if rejoin:
@@ -246,6 +435,7 @@ class Room:
             member.copy_profile(client)
         else:
             member = Member(client)
+            member.watching = bool(watch)
             self.members[client.uid] = member
         client.room = self
         self.empty_since = None
@@ -255,11 +445,11 @@ class Room:
         if client.uid == self.prev_host:
             self.host, self.prev_host = client.uid, None
         self.pick_host()
-        client.send("room:joined", code=self.code, game=self.game_key, me=client.uid,
+        client.send("room:joined", code=self.code, game=self.game_key, me=client.uid, party=self.party_public(), vote=self.vote_public(),
                     host=self.host, players=self.players(), state=self.game.state_for(member))
         self.sync_players()
         if not rejoin:
-            self.system(f"{member.avatar} {member.name} joined the room")
+            self.system(f"{member.avatar} {member.name} {'is watching 👀' if member.watching else 'joined the room'}")
         self.game.on_join(member, rejoin)
         self.hub.online_changed()
 
@@ -368,16 +558,20 @@ class Hub:
         asyncio.get_running_loop().call_later(1.0, push)
 
     def room_list(self):
+        """Open rooms you can join, and games in progress you can watch (live)."""
         out = []
         for r in self.rooms.values():
-            online = r.online_members()
-            if online and r.game.listed():
-                host = r.members.get(r.host)
-                out.append({"code": r.code, "game": r.game_key, "players": len(online),
-                            "max": r.game.max_players, "host": host.name if host else "?",
-                            "hostAvatar": host.avatar if host else "🎮"})
-        out.sort(key=lambda x: -x["players"])
-        return out[:30]
+            playing = r.players_now()
+            if not playing:
+                continue
+            host = r.members.get(r.host)
+            out.append({"code": r.code, "game": r.game_key, "players": len(playing),
+                        "watchers": sum(1 for m in r.online_members() if m.watching),
+                        "max": r.game.max_players, "host": host.name if host else "?",
+                        "hostAvatar": host.avatar if host else "🎮", "live": not r.game.listed(),
+                        "party": bool(r.party and not r.party["done"])})
+        out.sort(key=lambda x: (x["live"], -x["players"]))
+        return out[:40]
 
     def set_profile(self, c, msg):
         name = clean_text(msg.get("name"), 16)
@@ -420,17 +614,17 @@ class Hub:
         room.waiting = True
         self.rooms[code] = room
 
-    async def join_saved(self, c, code, game):
+    async def join_saved(self, c, code, game, watch=False):
         await self.restore_room(code)
         if c.open:
-            self.join_code(c, code, game)
+            self.join_code(c, code, game, watch)
 
     async def find_saved(self, c, code):
         await self.restore_room(code)
         room = self.rooms.get(code)
         c.send("room:found", code=code, game=room.game_key if room else None)
 
-    def join_code(self, c, code, game):
+    def join_code(self, c, code, game, watch=False):
         room = self.rooms.get(code)
         if not room:
             c.send("error", msg=f"No room with code {code or '????'} 🤔", code="noroom")
@@ -438,7 +632,7 @@ class Hub:
             c.send("error", msg="That code is for a different game", code="wronggame",
                    game=room.game_key, room=room.code)
         else:
-            self.join(c, room)
+            self.join(c, room, watch)
 
     async def shutdown(self):
         """Render (or Ctrl+C) is stopping this server: warn everyone and save the rooms
@@ -460,16 +654,21 @@ class Hub:
         for c in list(self.clients):
             c.close()
 
-    def join(self, c, room):
+    def join(self, c, room, watch=False):
         if c.room is not None and c.room is not room:
             c.room.remove(c.uid)
         if c.uid in room.banned:
             c.send("error", msg="You were removed from that room. 🚫")
             return
-        if c.uid not in room.members and len(room.members) >= room.game.max_players:
-            c.send("error", msg="That room is full!")
-            return
-        room.add(c)
+        if c.uid not in room.members:
+            players = sum(1 for m in room.members.values() if not m.watching)
+            if watch and len(room.members) >= room.game.max_players + WATCHERS_EXTRA:
+                c.send("error", msg="Too many people are watching that room right now!")
+                return
+            if not watch and players >= room.game.max_players:
+                c.send("error", msg="That room is full! You can still watch it from the home page 👀")
+                return
+        room.add(c, watch)
 
     def disconnect(self, c):
         self.clients.discard(c)
@@ -488,6 +687,8 @@ class Hub:
             device = str(msg.get("device") or "")
             c.device = device if UID_RE.match(device) else None
             self.set_profile(c, msg)
+            page = str(msg.get("page") or "")
+            c.page = page if page in GAME_TITLES else None
             c.send("welcome", id=c.uid, online=self.online_payload())
             self.online_changed()
             token = msg.get("token")
@@ -514,17 +715,20 @@ class Hub:
                 self.join(c, self.create_room(game))
         elif t == "room:join":
             code = clean_text(msg.get("code"), 8).upper()
+            watch = bool(msg.get("watch"))
             if code in self.rooms:
-                self.join_code(c, code, msg.get("game"))
+                self.join_code(c, code, msg.get("game"), watch)
             else:
-                self.spawn(self.join_saved(c, code, msg.get("game")))
+                self.spawn(self.join_saved(c, code, msg.get("game"), watch))
+        elif t in ("room:watch", "room:vote", "party:start", "party:stop", "room:switch") and c.room:
+            self.room_action(c, t, msg)
         elif t == "room:quick":
             game = msg.get("game")
             if game not in GAMES:
                 return
             options = [r for r in self.rooms.values()
                        if r.game_key == game and r.online_members() and r.game.listed()
-                       and len(r.members) < r.game.max_players and r is not c.room]
+                       and sum(1 for m in r.members.values() if not m.watching) < r.game.max_players and r is not c.room]
             room = max(options, key=lambda r: len(r.online_members())) if options else self.create_room(game)
             self.join(c, room)
         elif t == "room:leave":
@@ -550,7 +754,45 @@ class Hub:
         elif t.startswith("g:") and c.room:
             member = c.room.members.get(c.uid)
             if member and member.client is c:
+                if t == "g:start" and c.room.vote and member.uid == c.room.host:
+                    c.room.end_vote()   # the host started a game: no need to vote
                 c.room.game.on_message(member, t[2:], msg)
+
+    def room_action(self, c, t, msg):
+        """Room-wide things that work in every game: watching, votes, party mode, switching game."""
+        room = c.room
+        m = room.members.get(c.uid)
+        if not m or m.client is not c:
+            return
+        host = room.host == m.uid
+        if t == "room:watch":
+            want = bool(msg.get("watch"))
+            if want != m.watching:
+                if not want and sum(1 for x in room.members.values() if not x.watching) >= room.game.max_players:
+                    c.send("error", msg="The room is full of players right now.")
+                    return
+                m.watching = want
+                room.system(f"{m.avatar} {m.name} " + ("is just watching now 👀" if want else "joined in! ✋"))
+                room.sync_players()
+                if not want:
+                    room.game.on_join(m, True)   # games that let people join mid-round add them now
+        elif t == "room:vote":
+            room.cast_vote(m, str(msg.get("choice") or ""))
+        elif t == "party:start" and host:
+            games = msg.get("games")
+            if isinstance(games, list) and 2 <= len(games) <= 8 and all(g in PARTY_GAMES and g in GAMES for g in games):
+                room.start_party(list(games))
+            else:
+                c.send("error", msg="Pick 2 to 8 games for the party.")
+        elif t == "party:stop" and host and room.party:
+            room.system("🛑 The host ended party mode.")
+            room.stop_party()
+        elif t == "room:switch" and host:
+            game = msg.get("game")
+            if game in GAMES and game != room.game_key:
+                room.end_vote()
+                room.system(f"🔀 The host switched to {GAME_TITLES.get(game, game)}!")
+                room.switch_game(game)
 
     def chat(self, c, msg):
         text = clean_text(msg.get("text"), 200)
@@ -630,16 +872,16 @@ class Hub:
         else:
             c.send("auth:state", user=None, expired=True)
 
-    def record(self, room, uid, game, outcome, stats=None, detail="", xp=None):
+    def record(self, room, uid, game, outcome, stats=None, detail="", xp=None, totals=True):
         """Save a finished game for a player if they are logged in."""
         member = room.members.get(uid)
         acct = member.account if member else None
         if acct:
-            self.spawn(self._record(room, uid, acct, game, outcome, stats, detail, xp))
+            self.spawn(self._record(room, uid, acct, game, outcome, stats, detail, xp, totals))
 
-    async def _record(self, room, uid, acct, game, outcome, stats, detail, xp):
+    async def _record(self, room, uid, acct, game, outcome, stats, detail, xp, totals=True):
         try:
-            gained, before, after = await self.accounts.record(acct["id"], game, outcome, stats, detail, xp)
+            gained, before, after = await self.accounts.record(acct["id"], game, outcome, stats, detail, xp, totals)
         except StoreError:
             traceback.print_exc()
             return
@@ -677,6 +919,26 @@ class Hub:
             if x.room:
                 p["where"].append({"room": x.room.code, "game": x.room.game_key})
         return sorted(people.values(), key=lambda p: (not p["where"], p["name"].lower()))
+
+    def presence(self, user_id):
+        """Is a player online, and what are they playing? Used by the friends list."""
+        live = self.clients_of(user_id)
+        out = {"online": bool(live), "room": None, "page": None}
+        for x in live:
+            r = x.room
+            m = r.members.get(x.uid) if r else None
+            if r and m and m.client is x and not out["room"]:
+                players = sum(1 for y in r.members.values() if not y.watching)
+                out["room"] = {"code": r.code, "game": r.game_key, "title": GAME_TITLES.get(r.game_key, r.game_key),
+                               "live": not r.game.listed(), "full": players >= r.game.max_players,
+                               "watching": m.watching, "party": bool(r.party and not r.party.get("done"))}
+            elif x.page and not out["page"]:
+                out["page"] = {"game": x.page, "title": GAME_TITLES.get(x.page, x.page)}
+        return out
+
+    def friend_ping(self, user_id, **data):
+        for x in self.clients_of(user_id):
+            x.send("friends:ping", **data)
 
     def need_login(self, c):
         if not c.account:
@@ -727,6 +989,10 @@ class Hub:
             prof["online"] = bool(live)
             rooms = [x.room for x in live if x.room]
             prof["playing"] = GAME_TITLES.get(rooms[0].game_key) if rooms else None
+            if c.account and c.account["id"] != prof["id"]:
+                prof["friend"] = await acc.friend_state(c.account["id"], prof["id"])
+                if prof["friend"] == "ok":
+                    prof["where"] = self.presence(prof["id"])
             return {"profile": prof}
         if t == "players:find":
             if time.time() - c.search_at < 0.25:
@@ -755,6 +1021,26 @@ class Hub:
             result = await acc.solo(uid, game, value)
             self.tell_xp(uid, result["gained"], result["before"], result["after"], GAME_TITLES.get(game, game))
             return result
+        if t == "friends:list":
+            out = await acc.friends(self.need_login(c))
+            for f in out["friends"]:
+                f.update(self.presence(f["id"]))
+            out["friends"].sort(key=lambda f: (not f["online"], not f["room"], f["name"].lower()))
+            return out
+        if t == "friends:add":
+            uid = self.need_login(c)
+            if acc.limited(f"friend:{uid}", 30, 600):
+                raise AuthError("That’s a lot of friend requests — try again in a few minutes.")
+            acc.hit(f"friend:{uid}")
+            them, state = await acc.friend_add(uid, msg.get("name"))
+            me = c.account["name"]
+            self.friend_ping(them["id"], kind="accepted" if state == "friends" else "request", name=me)
+            return {"state": state, "name": them["name"]}
+        if t == "friends:remove":
+            uid = self.need_login(c)
+            them = await acc.friend_remove(uid, msg.get("name"))
+            self.friend_ping(them["id"], kind="removed", name=c.account["name"])
+            return {"name": them["name"]}
         if t == "admin:unlock":
             user = await acc.unlock_admin(self.need_login(c), msg.get("code"))
             for other in self.clients_of(user["id"]):
@@ -856,7 +1142,7 @@ class Hub:
 ACCOUNT_MESSAGES = {
     "auth:signup", "auth:login", "auth:logout", "account:update", "account:look", "account:password", "account:delete",
     "profile:get", "players:find", "lb:boards", "lb:get", "stats:solo", "admin:unlock", "admin:overview", "admin:users",
-    "admin:user", "admin:announce", "admin:room", "admin:cheat",
+    "admin:user", "admin:announce", "admin:room", "admin:cheat", "friends:list", "friends:add", "friends:remove",
 }
 GAME_TITLES = {"dash": "Neon Dash", "life": "Family Life", "doodle": "Doodle Guess", "blitz": "Party Blitz",
                "connect4": "Connect 4", "casino": "Casino Night", "snake": "Neon Snake", "2048": "2048",
@@ -864,7 +1150,8 @@ GAME_TITLES = {"dash": "Neon Dash", "life": "Family Life", "doodle": "Doodle Gue
                "impostor": "Impostor", "mines": "Minesweeper", "mines_easy": "Minesweeper (Easy)",
                "mines_medium": "Minesweeper (Medium)", "mines_hard": "Minesweeper (Hard)", "mines-easy": "Minesweeper (Easy)",
                "mines-medium": "Minesweeper (Medium)", "mines-hard": "Minesweeper (Hard)", "slope": "Slope",
-               "front": "Front Wars", "frontsolo": "Front Wars solo", "front-solo": "Front Wars solo"}
+               "front": "Front Wars", "frontsolo": "Front Wars solo", "front-solo": "Front Wars solo", "party": "Party mode",
+               "eightball": "Magic 8-Ball", "wyr": "Would You Rather", "wheel": "Spin the Wheel"}
 
 hub = Hub()
 

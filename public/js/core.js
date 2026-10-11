@@ -5,7 +5,7 @@
 
   // The site's version. Bump it with every update, together with a new entry at the
   // top of public/js/changelog.js (the /changelog page).
-  const VERSION = '2.13.0';
+  const VERSION = '2.14.0';
 
   // ---------------------------------------------------------------- helpers
   const $ = (s, r = document) => r.querySelector(s);
@@ -303,7 +303,8 @@
       ws = new WebSocket(`${proto}://${location.host}/ws`);
       ws.onopen = () => {
         const p = Profile.get();
-        ws.send(JSON.stringify({ t: 'hello', id: uid, device, name: p.name, avatar: p.avatar, color: p.color, token: Account.token }));
+        const page = (location.pathname.match(/^\/games\/([\w-]+)/) || [])[1] || '';
+        ws.send(JSON.stringify({ t: 'hello', id: uid, device, name: p.name, avatar: p.avatar, color: p.color, token: Account.token, page: page.replace(/\.html$/, '') }));
       };
       ws.onmessage = (e) => {
         let m;
@@ -867,6 +868,7 @@
             { icon: 'palette', label: 'Edit my look', onClick: () => Profile.edit() },
             { icon: 'trophy', label: 'Leaderboards', href: '/leaderboards' },
             { icon: 'magnifying-glass', label: 'Find players', href: '/players' },
+            { icon: 'user-plus', label: 'Friends', onClick: () => Friends.open() },
             { icon: 'gear', label: 'Settings & rewards', href: '/settings' },
             { icon: 'film-strip', label: 'Credits', href: '/credits' },
             u.admin ? { icon: 'shield-star', label: 'Admin panel', href: '/admin' } : null,
@@ -883,6 +885,16 @@
           { icon: 'film-strip', label: 'Credits', href: '/credits' }];
       };
       const lbBtn = h('a', { class: 'icon-btn hide-sm', href: '/leaderboards', title: 'Leaderboards', 'aria-label': 'Leaderboards' }, icon('trophy'));
+      const friendBadge = h('span', { class: 'fr-badge hidden' });
+      const friendBtn = h('button', { class: 'icon-btn friends-btn', title: 'Friends', 'aria-label': 'Friends', onclick: () => Friends.open() }, h('span', { class: 'fr-ico' }, '👥'), friendBadge);
+      const drawBadge = () => {
+        const n = Friends.incoming;
+        friendBadge.textContent = n > 9 ? '9+' : n;
+        friendBadge.classList.toggle('hidden', !n);
+        friendBtn.title = n ? `Friends · ${n} friend request${n === 1 ? '' : 's'}` : 'Friends';
+      };
+      drawBadge();
+      on('friends', drawBadge);
       const muteBtn = h('button', { class: 'icon-btn', title: 'Sound on/off', 'aria-label': 'Toggle sound', onclick: () => Sfx.setMuted(!Sfx.muted) }, icon(Sfx.muted ? 'speaker-slash' : 'speaker-high'));
       on('muted', (m) => { muteBtn.replaceChildren(icon(m ? 'speaker-slash' : 'speaker-high')); });
       const pill = h('span', { class: 'online-pill hide-sm' }, h('span', { class: 'dot' }), h('span', { class: 'txt' }, 'Connecting…'));
@@ -894,12 +906,122 @@
         h('a', { class: 'logo', href: '/' }, h('span', { class: 'logo-mark' }, '🕹️'), h('span', { class: 'logo-word hide-sm' }, h('span', {}, 'PARTY'), h('span', {}, ' ARCADE'))),
         title ? h('div', { class: 'page-title' }, emoji ? h('span', {}, emoji) : null, h('span', {}, title)) : null,
         h('div', { class: 'spacer' }),
-        pill, lbBtn, muteBtn, chip,
+        pill, lbBtn, friendBtn, muteBtn, chip,
       );
       document.body.prepend(bar);
       return bar;
     },
   };
+
+  // ---------------------------------------------------------------- friends
+  /** Friends list: add people, see who's online and what they're playing, join or watch in one click. */
+  const Friends = {
+    incoming: 0,
+    data: null,
+    async refresh() {
+      if (!Account.user) { Friends.data = null; Friends.incoming = 0; emit('friends', null); return null; }
+      try {
+        const d = await Net.request('friends:list');
+        Friends.data = d;
+        Friends.incoming = d.incoming.length;
+        emit('friends', d);
+        return d;
+      } catch { return Friends.data; }
+    },
+    async add(name) {
+      const r = await Net.request('friends:add', { name });
+      UI.toast(r.state === 'friends' ? `🎉 You and ${r.name} are friends now!` : `📨 Friend request sent to ${r.name}`, 'good');
+      Sfx.play('coin');
+      Friends.refresh();
+      return r;
+    },
+    async remove(name, msg) {
+      await Net.request('friends:remove', { name });
+      if (msg) UI.toast(msg);
+      Friends.refresh();
+    },
+    /** Where a friend is: a room link to join or watch. */
+    link(room, watch) { return `/games/${room.game}?room=${room.code}${watch ? '&watch=1' : ''}`; },
+    status(f) {
+      if (!f.online) return h('span', { class: 'faint' }, `Last seen ${UI.timeAgo(f.lastSeen)}`);
+      const r = f.room;
+      if (r) {
+        const doing = r.watching ? 'Watching' : r.live ? 'Playing' : 'In a lobby for';
+        return h('span', { class: 'online-now' }, `🟢 ${doing} ${r.title}${r.party ? ' · 🎉 party' : ''}`);
+      }
+      if (f.page) return h('span', { class: 'online-now' }, `🟢 Playing ${f.page.title}`);
+      return h('span', { class: 'online-now' }, '🟢 Online');
+    },
+    open() {
+      const body = h('div', { class: 'friends-list' });
+      const input = h('input', { class: 'input', maxlength: 16, placeholder: 'Their player name', autocomplete: 'off', 'aria-label': 'Player name' });
+      const addForm = h('form', { class: 'fr-add', onsubmit: async (e) => {
+        e.preventDefault();
+        const name = input.value.trim();
+        if (!name) return;
+        try { await Friends.add(name); input.value = ''; draw(); } catch (err) { UI.toast(err.message, 'bad'); }
+      } }, input, h('button', { class: 'btn btn-pink', type: 'submit' }, icon('user-plus'), 'Add'));
+      const box = h('div', { class: 'friends-box' }, h('h2', {}, '👥 Friends'));
+      let timer = null;
+      const close = UI.modal(box, { onClose: () => { clearInterval(timer); offAuth(); } });
+      const offAuth = on('account', () => draw());
+      const here = () => (window.Room && window.Room.code) || null;
+      const row = (f, actions, sub) => h('div', { class: 'fr-row' + (f.online ? ' on' : '') },
+        h('button', { class: 'fr-who', type: 'button', title: `See ${f.name}'s profile`, onclick: () => { close(); UI.profileCard(f.name); } },
+          UI.avatar({ ...f, online: f.online !== false }, 'sm'),
+          h('span', { class: 'fr-text' }, h('b', {}, f.name, f.admin ? ' 🛡️' : ''), h('span', { class: 'tiny' }, sub))),
+        h('div', { class: 'fr-actions' }, actions));
+      const draw = async (quiet) => {
+        if (!Account.user) {
+          fill(box, h('h2', {}, '👥 Friends'),
+            h('p', { class: 'muted' }, 'Friends need an account, so we know who’s who. Make one — it’s free and takes 10 seconds!'),
+            h('div', { class: 'row', style: { gap: '8px', marginTop: '14px' } },
+              h('button', { class: 'btn btn-pink', onclick: () => { close(); UI.accountModal({ view: 'signup' }); } }, icon('user-plus'), 'Create an account'),
+              h('button', { class: 'btn btn-ghost', onclick: () => { close(); UI.accountModal({ view: 'login' }); } }, icon('sign-in'), 'Log in')));
+          return;
+        }
+        if (!box.contains(addForm)) fill(box, h('h2', {}, '👥 Friends'), addForm, body);
+        if (!quiet && !Friends.data) fill(body, h('div', { class: 'center', style: { padding: '24px' } }, h('span', { class: 'spin', style: { fontSize: '1.8rem' } }, '🌀')));
+        const d = await Friends.refresh();
+        if (!d) { fill(body, h('p', { class: 'muted center' }, 'Couldn’t load your friends right now 😵')); return; }
+        const online = d.friends.filter((f) => f.online).length;
+        fill(body,
+          d.incoming.length ? h('div', { class: 'fr-sec' }, h('div', { class: 'fr-head' }, `👋 Friend requests · ${d.incoming.length}`),
+            d.incoming.map((f) => row(f, [
+              h('button', { class: 'btn btn-lime btn-sm', onclick: async () => { try { await Friends.add(f.name); draw(true); } catch (e) { UI.toast(e.message, 'bad'); } } }, '✓ Accept'),
+              h('button', { class: 'icon-btn', title: 'Decline', 'aria-label': `Decline ${f.name}`, onclick: async () => { await Friends.remove(f.name, 'Request declined'); draw(true); } }, icon('x'))],
+            `Level ${f.level} · wants to be friends`))) : null,
+          h('div', { class: 'fr-sec' }, h('div', { class: 'fr-head' }, `Your friends · ${online} online of ${d.friends.length}`),
+            d.friends.length ? d.friends.map((f) => {
+              const r = f.room;
+              const same = r && r.code === here();
+              const acts = [];
+              if (same) acts.push(h('span', { class: 'fr-tag' }, '🎮 With you'));
+              else if (r) {
+                const join = !r.full ? h('a', { class: 'btn btn-sm ' + (r.live ? 'btn-ghost' : 'btn-lime'), href: Friends.link(r), title: `Join ${f.name}'s room ${r.code}` }, 'Join') : null;
+                const watch = h('a', { class: 'btn btn-sm ' + (r.live ? 'btn-cyan' : 'btn-ghost'), href: Friends.link(r, true), title: `Watch ${f.name}'s game` }, '👀', r.live ? ' Watch' : '');
+                acts.push(...(r.live ? [watch, join] : [join, watch]));
+              }
+              acts.push(h('button', { class: 'icon-btn fr-more', title: 'More', 'aria-label': `More for ${f.name}`, onclick: (e) => UI.menu(e.currentTarget, [
+                { icon: 'user', label: 'View profile', href: '/profile?u=' + encodeURIComponent(f.name) },
+                { icon: 'x', label: `Remove ${f.name}`, danger: true, onClick: async () => { if (confirm(`Remove ${f.name} from your friends?`)) { await Friends.remove(f.name, `Removed ${f.name}`); draw(true); } } }]) }, '⋯'));
+              return row(f, acts, Friends.status(f));
+            }) : h('p', { class: 'muted small fr-empty' }, 'No friends yet. Add someone by their player name above, or press “➕ Add friend” on their profile.')),
+          d.outgoing.length ? h('div', { class: 'fr-sec' }, h('div', { class: 'fr-head' }, '⏳ Waiting for them to accept'),
+            d.outgoing.map((f) => row(f, [h('button', { class: 'btn btn-ghost btn-sm', onclick: async () => { await Friends.remove(f.name, 'Request cancelled'); draw(true); } }, 'Cancel')], `Level ${f.level}`))) : null,
+          h('p', { class: 'tiny faint', style: { marginTop: '12px' } }, 'Friends can see when you’re online and what you’re playing. ', h('a', { href: '/players' }, '🔎 Find players')));
+      };
+      draw();
+      timer = setInterval(() => { if (!document.hidden && Account.user) draw(true); }, 5000);
+      setTimeout(() => { if (Account.user) input.focus(); }, 60);
+    },
+  };
+  Net.on('friends:ping', (m) => {
+    if (m.kind === 'request') { UI.toast(`👋 ${m.name} wants to be friends! Open 👥 to accept.`, 'good', 5000); Sfx.play('message'); }
+    else if (m.kind === 'accepted') { UI.toast(`🎉 ${m.name} accepted your friend request!`, 'good', 4000); Sfx.play('coin'); }
+    Friends.refresh();
+  });
+  on('auth', (u) => { if (u) Friends.refresh(); else { Friends.incoming = 0; emit('friends', null); } });
 
   // ---------------------------------------------------------------- account events
   Net.on('auth:state', (m) => {
@@ -981,5 +1103,5 @@
     document.body.append(h('footer', { class: 'footer' }, '🕹️ Party Arcade · ', h('a', { href: '/credits' }, '🎬 Credits'), ...links));
   })();
 
-  window.PA = { $, $$, h, fill, esc, rand, clamp, sleep, fmtMoney, fmtTime, store, on, emit, Profile, Account, Net, Sfx, UI, Emoji, icon, AVATARS, COLORS, VERSION, Settings, Unlocks };
+  window.PA = { $, $$, h, fill, esc, rand, clamp, sleep, fmtMoney, fmtTime, store, on, emit, Profile, Account, Net, Sfx, UI, Emoji, icon, AVATARS, COLORS, VERSION, Settings, Unlocks, Friends };
 })();

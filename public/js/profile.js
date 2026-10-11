@@ -25,18 +25,42 @@
       ['Solo Easy', 'mines_easy.best', secs], ['Solo Medium', 'mines_medium.best', secs], ['Solo Hard', 'mines_hard.best', secs]]],
     ['Front Wars', '🌍', '#22c55e', [['Games', 'front.games'], ['Wins', 'front.wins'], ['Team wins', 'front.team_wins'], ['Most land', 'front.best', (v) => `${v}%`],
       ['Solo wins vs bots', 'frontsolo.wins'], ['Most bots beaten', 'frontsolo.best']]],
+    ['Party mode', '🎉', '#ff4fd8', [['Parties', 'party.games'], ['Party wins', 'party.wins'], ['Party points', 'party.points']]],
     ['Solo arcade', '🕹️', '#22d3ee', [['🐍 Snake best', 'snake.best'], ['🔢 2048 best', '2048.best'], ['🃏 Memory (Normal)', 'memory.best', secs], ['🟦 Dash levels', 'dashsolo.levels'], ['🛝 Slope best', 'slope.best']]],
   ];
 
   // achievements (and the rewards they unlock) come from /data/unlocks.json, shared with the server
 
-  const GAME_EMOJI = { dash: '🟪', life: '🏡', doodle: '🎨', blitz: '⚡', connect4: '🔴', casino: '🎰', impostor: '🕵️', slope: '🛝', front: '🌍', frontsolo: '🤖', mines: '💣', mines_easy: '💣', mines_medium: '💣', mines_hard: '💣', snake: '🐍', 2048: '🔢', memory: '🃏', dashsolo: '🟦' };
-  const GAME_NAME = { dash: 'Neon Dash', life: 'Family Life', doodle: 'Doodle Guess', blitz: 'Party Blitz', connect4: 'Connect 4', casino: 'Casino Night', impostor: 'Impostor', slope: 'Slope', front: 'Front Wars', frontsolo: 'Front Wars solo', mines: 'Minesweeper', mines_easy: 'Minesweeper Easy', mines_medium: 'Minesweeper Medium', mines_hard: 'Minesweeper Hard', snake: 'Neon Snake', 2048: '2048', memory: 'Memory Flip', dashsolo: 'Dash practice' };
+  const GAME_EMOJI = { dash: '🟪', life: '🏡', doodle: '🎨', blitz: '⚡', connect4: '🔴', casino: '🎰', impostor: '🕵️', slope: '🛝', front: '🌍', frontsolo: '🤖', mines: '💣', mines_easy: '💣', mines_medium: '💣', mines_hard: '💣', snake: '🐍', 2048: '🔢', memory: '🃏', dashsolo: '🟦', party: '🎉' };
+  const GAME_NAME = { dash: 'Neon Dash', life: 'Family Life', doodle: 'Doodle Guess', blitz: 'Party Blitz', connect4: 'Connect 4', casino: 'Casino Night', impostor: 'Impostor', slope: 'Slope', front: 'Front Wars', frontsolo: 'Front Wars solo', mines: 'Minesweeper', mines_easy: 'Minesweeper Easy', mines_medium: 'Minesweeper Medium', mines_hard: 'Minesweeper Hard', snake: 'Neon Snake', 2048: '2048', memory: 'Memory Flip', dashsolo: 'Dash practice', party: 'Party mode' };
   const OUTCOME = { win: ['WIN', 'win'], loss: ['LOSS', 'loss'], draw: ['DRAW', 'draw'], play: ['PLAYED', 'play'] };
 
   function message(emoji, title, text, ...kids) {
     fill(root, h('section', { class: 'entry' }, h('div', { class: 'game-icon' }, emoji), h('h1', {}, title), h('p', { class: 'tagline' }, text), h('div', { class: 'actions' }, kids)));
     if (FX.entry) FX.entry(root.firstChild);
+  }
+
+  /** ➕ Add friend / ✓ Friends, and Join / Watch when a friend is in a room. */
+  function friendButtons(p) {
+    const box = h('div', { class: 'row wrap prof-actions', style: { marginTop: '12px', gap: '8px' } });
+    const draw = (state) => {
+      const btns = [];
+      if (!Account.user) btns.push(h('button', { class: 'btn btn-pink btn-sm', onclick: () => UI.accountModal({ view: 'signup' }) }, '➕ Add friend'));
+      else if (state === 'ok') {
+        btns.push(h('span', { class: 'btn btn-ghost btn-sm is-friend' }, '✓ Friends'));
+        const r = p.where && p.where.room;
+        if (r) {
+          if (!r.full) btns.push(h('a', { class: 'btn btn-lime btn-sm', href: PA.Friends.link(r) }, `🎮 Join ${p.name}`));
+          btns.push(h('a', { class: 'btn btn-cyan btn-sm', href: PA.Friends.link(r, true) }, '👀 Watch'));
+        }
+      } else if (state === 'sent') btns.push(h('button', { class: 'btn btn-ghost btn-sm', onclick: async () => { await PA.Friends.remove(p.name, 'Request cancelled'); draw(null); } }, '⏳ Request sent · cancel'));
+      else btns.push(h('button', { class: 'btn btn-pink btn-sm', onclick: async () => {
+        try { const r = await PA.Friends.add(p.name); draw(r.state === 'friends' ? 'ok' : 'sent'); } catch (e) { UI.toast(e.message, 'bad'); }
+      } }, state === 'incoming' ? '✓ Accept friend request' : '➕ Add friend'));
+      fill(box, btns);
+    };
+    draw(p.friend || null);
+    return box;
   }
 
   function render(p, U, have) {
@@ -62,7 +86,8 @@
             h('button', { class: 'btn btn-pink btn-sm', onclick: () => Profile.edit() }, '🎨 Edit my look'),
             h('a', { class: 'btn btn-yellow btn-sm', href: '/settings#rewards' }, '✨ Wear rewards'),
             h('a', { class: 'btn btn-ghost btn-sm', href: '/leaderboards' }, '🏆 Leaderboards'),
-            h('button', { class: 'btn btn-ghost btn-sm', onclick: async () => { await Account.logout(); UI.toast('Logged out 👋'); } }, '🚪 Log out')) : null)),
+            h('button', { class: 'btn btn-ghost btn-sm', onclick: async () => { await Account.logout(); UI.toast('Logged out 👋'); } }, '🚪 Log out')) : null,
+          !mine && !p.banned ? friendButtons(p) : null)),
 
       h('section', { class: 'prof-highlights' },
         [['🎮', num(games), 'online games'], ['🏆', num(wins), 'wins'], ['📈', games ? Math.round((wins / games) * 100) + '%' : '–', 'win rate'],

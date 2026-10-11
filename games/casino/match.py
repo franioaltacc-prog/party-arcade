@@ -289,7 +289,7 @@ class Casino(Game):
         self.feed = []
         self.started = time.time()
         self.players = {}
-        for m in self.room.online_members():
+        for m in self.room.players_now():
             self.players[m.uid] = {"name": m.name, "avatar": m.avatar, "color": m.color,
                                    "coins": self.settings["startCoins"], "out": False, "comebackUsed": False,
                                    "played": 0, "games": {}, "bestWin": {"amount": 0, "game": None},
@@ -339,6 +339,7 @@ class Casino(Game):
     def save_results(self, rows):
         # this class has its own record() for bets, so call the account one directly
         n = len(rows)
+        Game.finished(self, Game.groups_by(rows, "coins"))
         for i, r in enumerate(rows):
             tied = n >= 2 and rows[0]["coins"] == rows[1]["coins"]
             if n < 2:

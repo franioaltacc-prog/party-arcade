@@ -89,7 +89,7 @@ class Doodle(Game):
             self.settings.update(rounds=rounds, drawTime=draw_time)
             self.broadcast("settings", settings=self.settings)
         elif t == "start" and self.is_host(m) and self.phase in ("lobby", "over"):
-            if len(self.room.online_members()) < 2:
+            if len(self.room.players_now()) < 2:
                 m.send("error", msg="You need at least 2 players for Doodle Guess!")
                 return
             self.start()
@@ -158,7 +158,7 @@ class Doodle(Game):
     def start(self):
         self.final = None
         self.tainted = False
-        self.scores = {u.uid: 0 for u in self.room.online_members()}
+        self.scores = {u.uid: 0 for u in self.room.players_now()}
         self.order = list(self.scores)
         random.shuffle(self.order)
         self.turn_idx = -1
@@ -167,7 +167,7 @@ class Doodle(Game):
         self.next_turn()
 
     def on_join(self, m, rejoin):
-        if self.phase in ("choosing", "drawing", "reveal") and m.uid not in self.scores:
+        if self.phase in ("choosing", "drawing", "reveal") and m.uid not in self.scores and not m.watching:
             self.scores[m.uid] = 0
             self.order.append(m.uid)
             self.broadcast("scores", scores=self.scores)

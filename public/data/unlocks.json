@@ -22,6 +22,7 @@
     {"id": "downhill", "emoji": "🛝", "name": "Downhill legend", "desc": "Roll 1,000 in Slope", "rule": {"stat": "slope.best", "gte": 1000}},
     {"id": "world", "emoji": "🌍", "name": "World conqueror", "desc": "Win a Front Wars game online", "rule": {"stat": "front.wins", "gte": 1}},
     {"id": "bots", "emoji": "🤖", "name": "Bot crusher", "desc": "Beat 20 or more bots in Front Wars solo", "rule": {"stat": "frontsolo.best", "gte": 20}},
+    {"id": "party-animal", "emoji": "🎉", "name": "Party animal", "desc": "Win a party in Party mode", "rule": {"stat": "party.wins", "gte": 1}},
     {"id": "snake", "emoji": "🐍", "name": "Snake charmer", "desc": "Score 40 in Snake", "rule": {"stat": "snake.best", "gte": 40}},
     {"id": "tiles", "emoji": "🔢", "name": "Tile master", "desc": "Score 20,000 in 2048", "rule": {"stat": "2048.best", "gte": 20000}},
     {"id": "memory", "emoji": "🧠", "name": "Elephant memory", "desc": "Beat Memory Flip (Normal) in under 30s", "rule": {"stat": "memory.best", "gt": 0, "lte": 30000}}

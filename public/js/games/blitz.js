@@ -233,7 +233,8 @@
     cur = { ...m.round, answered: false, timers: [], intervals: [], cleanup: null };
     $('#rn').textContent = `Round ${m.round.n}/${m.round.total}`;
     setBar(1);
-    fill(arena, h('div', { class: 'title-card' }, h('div', { class: 'emoji' }, ICONS[m.round.kind] || '🎲'), h('h2', {}, m.round.title.replace(/^\S+\s/, '')), h('p', {}, m.round.help)));
+    fill(arena, h('div', { class: 'title-card' }, h('div', { class: 'emoji' }, ICONS[m.round.kind] || '🎲'), h('h2', {}, m.round.title.replace(/^\S+\s/, '')), h('p', {}, m.round.help),
+      S.scores && !(Net.id in S.scores) ? h('p', { class: 'small muted' }, '👀 You’re watching — play along for fun, it won’t count.') : null));
     Sfx.play('swoosh');
     later(m.intro * 1000, startChallenge);
   });
