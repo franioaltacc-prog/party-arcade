@@ -149,6 +149,20 @@ Everything lives in `games/life/data/*.json`. The files are re-read at the start
 - Conditions and weights are small expressions such as `age >= 18 and money > 500`, `100 - looks` or `rand(3, 8)`. Effects include `health happy smarts looks money fame karma`, `rel_parents`, `sib_rel`, `partner`, `marry`, `kid`, `pet`, `jail`, `ach`, and `log` (a Family Log line).
 - Typos in expressions are printed when the server starts.
 
+## Running the tests
+```
+python3 tests/run_all.py
+```
+It starts a throwaway server (temporary SQLite database, test admin code `test-admin-code-123`) and runs ~400 checks:
+- Websocket bots that play the online games like real players: accounts, friends, invites, votes, party mode, watching,
+  Prop Hunt, tournaments, Poly Racer, Minesweeper, Front Wars, cheats and rewards.
+- In-process tests of the Prop Hunt rules and tournament brackets.
+- If JavaScriptCore (macOS) or Node is installed, an autopilot drives every Poly Racer track.
+
+To run one bot on its own: start a server (`DATA_DIR=/tmp/x ADMIN_CODE=test-admin-code-123 PORT=8012 python3 server.py`),
+then `PORT=8012 python3 tests/gamesbot.py`. `accbot` expects a fresh database. The Doodle "show me the word" cheat check
+fails now and then (a known flaky test) and is reported as a warning.
+
 ## Project layout
 - `server.py`: HTTP + WebSocket server and rooms
 - `accounts.py`: accounts, sessions, stats, XP and leaderboards (SQLite file or Turso over HTTPS, same SQL)
