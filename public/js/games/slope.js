@@ -212,6 +212,24 @@
       });
       return { mat: std({ map, roughness: 0.15, metalness: 0.2, emissive: 0x111111, emissiveIntensity: 0.3 }), glow: 0xffffff };
     },
+    jack: () => {
+      // a pumpkin with a carved face that glows like there's a candle inside (Halloween reward)
+      const face = (g, x, hh) => {
+        g.beginPath(); g.moveTo(x - 22, hh * 0.42); g.lineTo(x - 10, hh * 0.24); g.lineTo(x + 0, hh * 0.42); g.fill();
+        g.beginPath(); g.moveTo(x + 8, hh * 0.42); g.lineTo(x + 20, hh * 0.24); g.lineTo(x + 30, hh * 0.42); g.fill();
+        g.beginPath(); g.moveTo(x - 26, hh * 0.58);
+        for (let i = 0; i <= 8; i++) g.lineTo(x - 26 + i * 7, hh * 0.58 + (i % 2 ? 10 : 0) + Math.sin((i / 8) * Math.PI) * 10);
+        for (let i = 8; i >= 0; i--) g.lineTo(x - 26 + i * 7, hh * 0.72 + Math.sin((i / 8) * Math.PI) * 12);
+        g.fill();
+      };
+      const map = paint((g, w, hh) => {
+        for (let x = 0; x < w; x += 22) { g.fillStyle = '#ea580c'; g.fillRect(x, 0, 18, hh); g.fillStyle = '#c2410c'; g.fillRect(x + 18, 0, 4, hh); }
+        g.fillStyle = '#3f6212'; g.fillRect(0, 0, w, 7);
+        g.fillStyle = '#1c0a00'; face(g, w * 0.25, hh); face(g, w * 0.75, hh);
+      });
+      const glowMap = paint((g, w, hh) => { g.fillStyle = '#000'; g.fillRect(0, 0, w, hh); g.fillStyle = '#fde047'; face(g, w * 0.25, hh); face(g, w * 0.75, hh); });
+      return { mat: std({ map, emissiveMap: glowMap, emissive: 0xffffff, emissiveIntensity: 1.3, roughness: 0.6 }), glow: 0xff8a00 };
+    },
   };
   let skinId = null;
   function applySkin(id) {

@@ -28,6 +28,7 @@ from urllib.parse import unquote, urlsplit
 
 from accounts import Accounts, AuthError, StoreError, level_info, parse_look
 from games import GAMES
+import tournaments
 
 ROOT = Path(__file__).resolve().parent
 PUBLIC = (ROOT / "public").resolve()
@@ -104,6 +105,7 @@ class Client:
         self.search_at = 0.0
         self.look = {}          # rewards a logged-in player is wearing (aura, avatar animation)
         self.page = None        # which game page this tab is on (for solo games, so friends can see it)
+        self.tour_view = None   # the tournament bracket this tab is looking at
 
     def send(self, t, **data):
         if not self.open:
@@ -200,6 +202,7 @@ class Room:
         self.vote = None    # {"kind": "next"|"pick", "votes": {uid: choice}, "ends": time, "options": [...]}
         self.vote_timer = None
         self.party_timer = None
+        self.tour = None    # (Tournament, match) when this room is a tournament match
 
     # -- messaging -------------------------------------------------------
     def broadcast(self, t, exclude=None, **data):
@@ -236,6 +239,9 @@ class Room:
 
     def game_over(self, groups):
         """A game finished. groups: player ids from first place down (ties share a group)."""
+        if self.tour:
+            self.tour[0].report(self.tour[1], groups)
+            return
         if self.party and not self.party["done"]:
             self.party_points(groups)
             return
@@ -390,6 +396,14 @@ class Room:
                     return
                 self.switch_game(best)
 
+    def tour_public(self):
+        if not self.tour:
+            return None
+        t, mt = self.tour
+        name = next((rnd["name"] for rnd in t.public()["rounds"] if any(x["room"] == self.code for x in rnd["matches"])), "")
+        return {"id": t.id, "title": t.title, "round": name, "a": t.players[mt["a"]]["name"], "b": t.players[mt["b"]]["name"],
+                "players": [mt["a"], mt["b"]]}
+
     def players(self):
         return [m.info() for m in self.members.values()]
 
@@ -442,10 +456,12 @@ class Room:
         self.waiting = False
         if self.host not in self.members:
             self.host = client.uid
+        if self.tour and client.uid in (self.tour[1]["a"], self.tour[1]["b"]) and self.host not in (self.tour[1]["a"], self.tour[1]["b"]):
+            self.host = client.uid      # in a tournament match one of the two players is always the host
         if client.uid == self.prev_host:
             self.host, self.prev_host = client.uid, None
         self.pick_host()
-        client.send("room:joined", code=self.code, game=self.game_key, me=client.uid, party=self.party_public(), vote=self.vote_public(),
+        client.send("room:joined", code=self.code, game=self.game_key, me=client.uid, party=self.party_public(), vote=self.vote_public(), tour=self.tour_public(),
                     host=self.host, players=self.players(), state=self.game.state_for(member))
         self.sync_players()
         if not rejoin:
@@ -514,6 +530,7 @@ class Hub:
         self.tasks = set()
         self.started = time.time()
         self.restoring = {}     # room code -> task looking it up in saved rooms
+        self.tournaments = {}   # id -> Tournament
         self.closing = False
 
     # -- persistence -----------------------------------------------------
@@ -569,7 +586,7 @@ class Hub:
                         "watchers": sum(1 for m in r.online_members() if m.watching),
                         "max": r.game.max_players, "host": host.name if host else "?",
                         "hostAvatar": host.avatar if host else "🎮", "live": not r.game.listed(),
-                        "party": bool(r.party and not r.party["done"])})
+                        "party": bool(r.party and not r.party["done"]), "tour": r.tour[0].title if r.tour else None})
         out.sort(key=lambda x: (x["live"], -x["players"]))
         return out[:40]
 
@@ -655,6 +672,8 @@ class Hub:
             c.close()
 
     def join(self, c, room, watch=False):
+        if room.tour and c.uid not in (room.tour[1]["a"], room.tour[1]["b"]):
+            watch = True        # only the two players play a tournament match; everyone else watches
         if c.room is not None and c.room is not room:
             c.room.remove(c.uid)
         if c.uid in room.banned:
@@ -672,6 +691,9 @@ class Hub:
 
     def disconnect(self, c):
         self.clients.discard(c)
+        t = self.tournaments.get(getattr(c, "tour_view", None))
+        if t:
+            t.viewers.discard(c)
         if c.room:
             c.room.disconnect(c)
         self.online_changed()
@@ -720,14 +742,25 @@ class Hub:
                 self.join_code(c, code, msg.get("game"), watch)
             else:
                 self.spawn(self.join_saved(c, code, msg.get("game"), watch))
-        elif t in ("room:watch", "room:vote", "party:start", "party:stop", "room:switch") and c.room:
+        elif t == "tour:view":
+            tour = self.tournaments.get(str(msg.get("id") or "").upper())
+            if not tour:
+                c.send("tour:state", tour=None)
+                return
+            old = self.tournaments.get(getattr(c, "tour_view", None))
+            if old:
+                old.viewers.discard(c)
+            c.tour_view = tour.id
+            tour.viewers.add(c)
+            c.send("tour:state", tour=tour.public())
+        elif t in ("room:watch", "room:vote", "party:start", "party:stop", "room:switch", "tour:start") and c.room:
             self.room_action(c, t, msg)
         elif t == "room:quick":
             game = msg.get("game")
             if game not in GAMES:
                 return
             options = [r for r in self.rooms.values()
-                       if r.game_key == game and r.online_members() and r.game.listed()
+                       if r.game_key == game and r.online_members() and r.game.listed() and not r.tour
                        and sum(1 for m in r.members.values() if not m.watching) < r.game.max_players and r is not c.room]
             room = max(options, key=lambda r: len(r.online_members())) if options else self.create_room(game)
             self.join(c, room)
@@ -739,7 +772,7 @@ class Hub:
             code = clean_text(msg.get("code"), 8).upper()
             self.spawn(self.find_saved(c, code))
         elif t == "rooms:list":
-            c.send("rooms:list", rooms=self.room_list())
+            c.send("rooms:list", rooms=self.room_list(), tours=[t.summary() for t in self.tournaments.values()][:10])
         elif t == "chat":
             self.chat(c, msg)
         elif t == "chat:history":
@@ -765,8 +798,13 @@ class Hub:
         if not m or m.client is not c:
             return
         host = room.host == m.uid
+        if room.tour and t in ("party:start", "room:switch", "tour:start"):
+            return      # a tournament match room stays as it is
         if t == "room:watch":
             want = bool(msg.get("watch"))
+            if not want and room.tour and m.uid not in (room.tour[1]["a"], room.tour[1]["b"]):
+                c.send("error", msg="Only the two players can play a tournament match — you can watch!")
+                return
             if want != m.watching:
                 if not want and sum(1 for x in room.members.values() if not x.watching) >= room.game.max_players:
                     c.send("error", msg="The room is full of players right now.")
@@ -787,6 +825,22 @@ class Hub:
         elif t == "party:stop" and host and room.party:
             room.system("🛑 The host ended party mode.")
             room.stop_party()
+        elif t == "tour:start" and host:
+            game = msg.get("game")
+            players = room.players_now()
+            if game not in tournaments.GAMES or game not in GAMES:
+                c.send("error", msg="Pick a game for the tournament.")
+            elif not tournaments.MIN_PLAYERS <= len(players) <= tournaments.MAX_PLAYERS:
+                c.send("error", msg=f"A tournament needs {tournaments.MIN_PLAYERS} to {tournaments.MAX_PLAYERS} players in the room (watchers don't count).")
+            else:
+                tour = tournaments.Tournament(self, game, GAME_TITLES.get(game, game), players, m.name)
+                self.tournaments[tour.id] = tour
+                room.end_vote()
+                if room.party:
+                    room.stop_party()
+                room.system(f"🏆 {m.name} started a {tour.title} tournament with {len(players)} players!")
+                room.broadcast("tour:go", id=tour.id)
+                tour.start()
         elif t == "room:switch" and host:
             game = msg.get("game")
             if game in GAMES and game != room.game_key:
@@ -836,6 +890,9 @@ class Hub:
                 traceback.print_exception(t.exception())
 
         task.add_done_callback(done)
+
+    def clients_by_uid(self, uid):
+        return [c for c in list(self.clients) if c.uid == uid]
 
     def clients_of(self, user_id):
         return [c for c in list(self.clients) if c.account and c.account["id"] == user_id]
@@ -1169,6 +1226,9 @@ class Hub:
                 if (not room.members and not room.waiting) or (room.empty_since and now - room.empty_since > EMPTY_ROOM_TTL):
                     room.close()
                     del self.rooms[code]
+            for tid, tour in list(self.tournaments.items()):
+                if tour.stale(now):
+                    del self.tournaments[tid]
             if self.wyr_dirty:
                 self.wyr_dirty = False
                 self.save_json("wyr.json", self.wyr)
@@ -1186,7 +1246,7 @@ GAME_TITLES = {"dash": "Neon Dash", "life": "Family Life", "doodle": "Doodle Gue
                "mines_medium": "Minesweeper (Medium)", "mines_hard": "Minesweeper (Hard)", "mines-easy": "Minesweeper (Easy)",
                "mines-medium": "Minesweeper (Medium)", "mines-hard": "Minesweeper (Hard)", "slope": "Slope",
                "front": "Front Wars", "prophunt": "Prop Hunt", "frontsolo": "Front Wars solo", "front-solo": "Front Wars solo", "party": "Party mode",
-               "eightball": "Magic 8-Ball", "wyr": "Would You Rather", "wheel": "Spin the Wheel"}
+               "eightball": "Magic 8-Ball", "wyr": "Would You Rather", "wheel": "Spin the Wheel", "tour": "Tournament"}
 
 hub = Hub()
 

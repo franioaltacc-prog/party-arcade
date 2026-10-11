@@ -25,6 +25,7 @@
     players: [],
     party: null,     // party mode: { list, i, done, next, nextIn, board, last }
     vote: null,      // "play again?" / "pick a game" vote in progress
+    tour: null,      // when this room is a tournament match: { id, title, round, a, b, players }
     get watching() { const p = this.player(Net.id); return !!(p && p.watch); },
     get me() { return Net.id; },
     get isHost() { return this.host === Net.id; },
@@ -166,7 +167,12 @@
   /** Buttons under the room code: watch / join in, and the host's party mode and switch game. */
   function roomTools() {
     const partyOn = Room.party && !Room.party.done;
+    if (Room.tour) {
+      return h('div', { class: 'room-tools' },
+        h('a', { class: 'btn btn-yellow btn-sm btn-block', href: `/tournament?id=${Room.tour.id}` }, `🏆 ${Room.tour.round}: see the bracket`));
+    }
     return h('div', { class: 'room-tools' },
+      Room.isHost ? h('button', { class: 'btn btn-yellow btn-sm btn-block', title: 'Knockout bracket of 1-on-1 matches', onclick: tourPicker }, '🏆 Start a tournament') : null,
       Room.isHost ? h('div', { class: 'rt-row' },
         partyOn
           ? h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { if (confirm('End party mode for everyone?')) Net.send('party:stop'); } }, '🛑 End party')
@@ -210,6 +216,22 @@
       list, grid, startBtn), { wide: true });
   }
 
+  const TOUR_GAMES = ['connect4', 'dash', 'mines', 'blitz', 'prophunt'];
+  function tourPicker() {
+    const players = Room.players.filter((p) => p.online && !p.watch).length;
+    let pick = TOUR_GAMES.includes(Room.game) ? Room.game : 'connect4';
+    const grid = h('div', { class: 'game-grid' });
+    const go = h('button', { class: 'btn btn-yellow btn-lg btn-block', disabled: players < 3, onclick: () => { Net.send('tour:start', { game: pick }); close(); Sfx.play('win'); } }, '🏆 Start the tournament');
+    const draw = () => fill(grid, TOUR_GAMES.map((g) => gameTile(g, { on: g === pick, onClick: () => { pick = g; Sfx.play('pop'); draw(); } })));
+    draw();
+    const close = UI.modal(h('div', {},
+      h('h2', {}, '🏆 Tournament'),
+      h('p', { class: 'muted small' }, 'Everyone playing in this room goes into a knockout bracket of 1-on-1 matches. Winners move on until there’s a champion! Matches in the same round happen at the same time, and anyone can watch.'),
+      grid,
+      h('p', { class: 'small ' + (players < 3 ? 'bad-text' : 'muted') }, players < 3 ? `You need at least 3 players (you have ${players}).` : `${players} players → ${Math.ceil(Math.log2(players))} rounds. The winner gets a 🏆 on their profile.`),
+      go), { wide: true });
+  }
+
   function switchPicker() {
     const close = UI.modal(h('div', {},
       h('h2', {}, '🔀 Switch game'),
@@ -229,12 +251,23 @@
   let watchEl = null;
   function drawWatchChip() {
     const show = !!Room.code && Room.watching;
+    const locked = Room.tour && !Room.tour.players.includes(Net.id);   // tournament matches are just for the two players
     if (show && !watchEl) {
-      watchEl = h('div', { class: 'watch-chip', role: 'status' }, h('span', {}, '👀 You’re watching'),
-        h('button', { class: 'btn btn-lime btn-sm', onclick: () => setWatch(false) }, '✋ Join in'));
+      watchEl = h('div', { class: 'watch-chip', role: 'status' }, h('span', {}, locked ? '👀 Watching a tournament match' : '👀 You’re watching'),
+        locked ? null : h('button', { class: 'btn btn-lime btn-sm', onclick: () => setWatch(false) }, '✋ Join in'));
       getDock().append(watchEl);
       if (G) G.from(watchEl, { y: 30, autoAlpha: 0, duration: 0.4, ease: 'back.out(2)', clearProps: 'transform,opacity,visibility' });
     } else if (!show && watchEl) { watchEl.remove(); watchEl = null; }
+  }
+
+  // tournament matches get a card saying who's playing which round
+  let tourEl = null;
+  function showTourCard() {
+    const t = Room.tour;
+    if (!t) { if (tourEl) { tourEl.remove(); tourEl = null; } return; }
+    if (!tourEl) { tourEl = h('a', { class: 'party-card tour-card' }); getDock().append(tourEl); }
+    tourEl.href = `/tournament?id=${t.id}`;
+    fill(tourEl, h('span', { class: 'pc-head' }, h('span', {}, `🏆 ${t.round} · ${t.title}`), h('span', { class: 'pc-sub' }, `${t.a} vs ${t.b} · see the bracket →`)));
   }
 
   let voteEl = null;
@@ -459,6 +492,9 @@
       if (m.game !== opts.game) { location.href = `/games/${m.game}?room=${m.code}`; return; }
       showVote(m.vote || null);
       showParty(m.party || null, true);
+      Room.tour = m.tour || null;
+      showTourCard();
+      if (watchEl) { watchEl.remove(); watchEl = null; }
       const fresh = Room.code !== m.code;
       Object.assign(Room, { code: m.code, game: m.game, host: m.host, players: m.players });
       autoJoining = false;

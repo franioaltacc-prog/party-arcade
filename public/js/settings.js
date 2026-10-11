@@ -47,12 +47,15 @@
   const me = () => ({ ...Profile.get() });
   function tile(slot, item, wearing, preview) {
     const ok = have && have[slot].has(item.id);
+    const ev = item.event && Unlocks.event(U, item.event);
     const on = wearing === item.id;
     return h('button', {
       class: 'rw' + (on ? ' on' : '') + (ok ? '' : ' locked'), disabled: !ok, title: ok ? item.name : `${item.name}: ${hints[item.id + slot] || ''}`,
       onclick: () => wear(slot, on ? '' : item.id),
     }, on ? h('span', { class: 'tag' }, '✅') : !ok ? h('span', { class: 'tag' }, '🔒') : null,
-    preview, h('b', {}, item.name), ok ? h('span', { class: 'hint' }, on ? 'Wearing' : 'Tap to wear') : h('span', { class: 'hint' }, hints[item.id + slot] || ''));
+    ev ? h('span', { class: 'tag lim', title: `Limited: ${ev.name} event` }, `${ev.emoji} Limited`) : null,
+    preview, h('b', {}, item.name), ok ? h('span', { class: 'hint' }, on ? 'Wearing' : 'Tap to wear')
+      : h('span', { class: 'hint' }, hints[item.id + slot] || '', ev && ev.active ? ` · until ${ev.last}` : ''));
   }
   async function wear(slot, id) {
     if (!Account.user) { UI.toast('✨ Make a free account to unlock and wear rewards!'); UI.accountModal({ view: 'signup' }); return; }
@@ -68,7 +71,11 @@
     const none = (slot, label) => h('button', { class: 'rw' + (!look[slot] ? ' on' : ''), onclick: () => wear(slot, '') },
       !look[slot] ? h('span', { class: 'tag' }, '✅') : null,
       slot === 'ball' ? h('div', { class: 'ballp b-classic', style: { '--c': p.color } }) : UI.avatar({ ...p, aura: null, anim: null }, 'lg'), h('b', {}, label), h('span', { class: 'hint' }, 'The plain one'));
-    const balls = U.balls.filter((b) => b.id !== 'classic');
+    // limited-time rewards you missed disappear once their event is over
+    const keep = (slot) => (x) => !Unlocks.gone(U, x, have && have[slot].has(x.id));
+    const auras = U.auras.filter(keep('aura'));
+    const anims = U.anims.filter(keep('anim'));
+    const balls = U.balls.filter((b) => b.id !== 'classic').filter(keep('ball'));
     const count = (slot, list) => `${list.filter((x) => have && have[slot].has(x.id)).length}/${list.length} unlocked`;
     return h('section', { class: 'panel', id: 'rewards' },
       h('h2', {}, '✨ Rewards'),
@@ -78,10 +85,10 @@
           h('div', {}, h('b', {}, p.name), h('div', { class: 'small muted' }, `Level ${Account.user.level}`), h('a', { class: 'small', href: '/profile' }, 'See your achievements →')))
         : h('div', { class: 'rw-preview' }, h('p', { style: { margin: 0 } }, '🔒 Rewards are for players with an account (it’s free, no email needed).'),
           h('button', { class: 'btn btn-pink btn-sm', onclick: () => UI.accountModal({ view: 'signup' }) }, '✨ Create an account')),
-      h('h3', {}, '✨ Auras', h('small', {}, count('aura', U.auras))),
-      h('div', { class: 'rw-grid' }, none('aura', 'No aura'), U.auras.map((a) => tile('aura', a, look.aura, UI.avatar({ ...p, anim: null, aura: a.id }, 'lg')))),
-      h('h3', {}, '🎭 Animated avatars', h('small', {}, count('anim', U.anims))),
-      h('div', { class: 'rw-grid' }, none('anim', 'Still'), U.anims.map((a) => tile('anim', a, look.anim, UI.avatar({ ...p, aura: null, anim: a.id }, 'lg')))),
+      h('h3', {}, '✨ Auras', h('small', {}, count('aura', auras))),
+      h('div', { class: 'rw-grid' }, none('aura', 'No aura'), auras.map((a) => tile('aura', a, look.aura, UI.avatar({ ...p, anim: null, aura: a.id }, 'lg')))),
+      h('h3', {}, '🎭 Animated avatars', h('small', {}, count('anim', anims))),
+      h('div', { class: 'rw-grid' }, none('anim', 'Still'), anims.map((a) => tile('anim', a, look.anim, UI.avatar({ ...p, aura: null, anim: a.id }, 'lg')))),
       h('h3', {}, '🛝 Slope ball skins', h('small', {}, count('ball', balls))),
       h('div', { class: 'rw-grid' }, none('ball', 'Classic'), balls.map((b) => tile('ball', b, look.ball, h('div', { class: 'ballp b-' + b.id, style: { '--c': p.color } })))));
   }

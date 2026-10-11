@@ -75,9 +75,30 @@ A top-down hide-and-seek shooter in a randomly generated town (`games/prophunt.p
 - Hiders press E next to a prop to turn into it, or hide inside buildings: roofs hide the inside from anyone outside.
 - Points: the 1st caught gets 1, the 2nd 2…; surviving = number of players in the round; the killer gets 2 per catch
   (up to 8), or 10 for catching everyone. Caught players watch the killer and only chat with other watchers.
+- Maps: 🏙️ town, 🏫 school (classrooms along a hallway), 🛍️ mall (shops around a hall, parking outside) and
+  🏠 party house (rooms, a hallway, a garden with a pool you can't walk through), or a mix. Every generated map is
+  checked to be fully walkable and regenerated if not (`connected()`).
+- Power-ups each round: hiders get 2 🪞 decoys (a fake copy that looks just like you to the killer) and a ⚡ 3 s speed
+  burst; the killer gets a 📡 radar (an extra ping) and 2 💣 grenades (thrown where you aim, blast radius 100, walls
+  protect you). Keys 1 and 2, or the buttons.
 - Anti-cheat: browsers send positions, the server checks speed and walls, does all hit detection (with a little lag
   allowance), and only sends each player the people they could see (nobody behind roofs or past 560 px).
   Maps are tested to always connect every building (`make_map`).
+
+## Tournaments
+`tournaments.py`. In any room the host presses “🏆 Start a tournament” and picks Connect 4, Neon Dash, Minesweeper,
+Party Blitz or Prop Hunt (3–16 players; watchers don't count). Everyone goes to the live bracket at
+`/tournament?id=XXXXX` (byes when the numbers don't fill the bracket). Each round, every match gets its own room with
+quick settings and both players are sent there; it starts once both are in, a no-show after 45 s or leaving for 25 s
+loses, ties are replayed twice then decided by a coin flip. Anyone else joining a match room can only watch. The
+champion gets `tour.wins` (the “Cup winner” achievement and the Trophy aura); tournaments live in memory only.
+
+## Limited-time events
+Events are in `public/data/unlocks.json` → `"events"`: an id, name, emoji, `from` and `until` (UTC days; `until` is
+the first day it's over) and `track` (event stat → normal stat). While an event is on, every saved game also adds to
+`ev.<event id>.<name>` (e.g. `ev.halloween26.games`). Give achievements and rewards `"event": "<id>"` and a rule on
+those stats: players keep what they earned, and rewards nobody can get any more are hidden once the event is over.
+The home page shows a banner with your progress while an event runs.
 
 ## Minesweeper
 - **Solo** (`/games/mines?solo=1`): classic Easy 9×9, Medium 16×16, Hard 30×16; the first click is always safe. Medium and Hard times have leaderboards.

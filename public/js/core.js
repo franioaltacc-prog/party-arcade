@@ -5,7 +5,7 @@
 
   // The site's version. Bump it with every update, together with a new entry at the
   // top of public/js/changelog.js (the /changelog page).
-  const VERSION = '2.15.0';
+  const VERSION = '2.16.0';
 
   // ---------------------------------------------------------------- helpers
   const $ = (s, r = document) => r.querySelector(s);
@@ -1084,6 +1084,16 @@
     if (f) f.gsap.from(card, { y: -30, scale: 0.9, autoAlpha: 0, duration: 0.45, ease: 'back.out(2)', clearProps: 'transform,opacity,visibility' });
     Sfx.play('boing');
   });
+  // ---------------------------------------------------------------- tournaments: the server moves players around
+  const tourUrl = (id) => `/tournament?id=${encodeURIComponent(id)}`;
+  Net.on('tour:go', (m) => { UI.toast('🏆 The tournament is starting!', 'good', 2500); setTimeout(() => { location.href = tourUrl(m.id); }, 600); });
+  Net.on('tour:match', (m) => {
+    UI.toast(`🏆 ${m.round}: you vs ${m.vs} — off you go!`, 'good', 3000);
+    Sfx.play('go');
+    setTimeout(() => { location.href = `/games/${m.game}?room=${m.code}`; }, 900);
+  });
+  Net.on('tour:back', (m) => { if (!/^\/tournament/.test(location.pathname)) location.href = tourUrl(m.id); });
+
   Net.on('friends:ping', (m) => {
     if (m.kind === 'declined') { UI.toast(`${m.name} can’t join right now`, '', 3000); return; }
     if (m.kind === 'request') { UI.toast(`👋 ${m.name} wants to be friends! Open 👥 to accept.`, 'good', 5000); Sfx.play('message'); }
@@ -1151,6 +1161,26 @@
       const achs = new Set(d.achievements.filter((a) => Unlocks.ok(a.rule, level, stats, new Set())).map((a) => a.id));
       const has = (list) => new Set(list.filter((c) => Unlocks.ok(c.rule, level, stats, achs)).map((c) => c.id));
       return { achievements: achs, aura: has(d.auras), anim: has(d.anims), ball: has(d.balls) };
+    },
+    /** A limited-time event (dates are UTC days; "until" is the first day it's over), with active/over and a nice end date. */
+    event(d, id) {
+      const ev = ((d && d.events) || []).find((e) => e.id === id);
+      if (!ev) return null;
+      const from = Date.parse(ev.from + 'T00:00:00Z');
+      const until = Date.parse(ev.until + 'T00:00:00Z');
+      const now = Date.now();
+      const last = new Date(until - 86400000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+      return { ...ev, active: now >= from && now < until, over: now >= until, last, daysLeft: Math.max(0, Math.ceil((until - now) / 86400000)) };
+    },
+    /** Events going on right now. */
+    async activeEvents() {
+      const d = await Unlocks.load();
+      return (d.events || []).map((e) => Unlocks.event(d, e.id)).filter((e) => e && e.active);
+    },
+    /** A limited-time item you can't get any more (its event is over and you don't have it). */
+    gone(d, item, has) {
+      const ev = item.event && Unlocks.event(d, item.event);
+      return !!(ev && !has && !ev.active);
     },
     /** "Reach level 10" / "Achievement: Speed demon (Win a Neon Dash race)" */
     async hint(rule) {

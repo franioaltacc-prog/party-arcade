@@ -27,14 +27,15 @@
       ['Solo wins vs bots', 'frontsolo.wins'], ['Most bots beaten', 'frontsolo.best']]],
     ['Prop Hunt', '🔫', '#f43f5e', [['Games', 'prophunt.games'], ['Wins', 'prophunt.wins'], ['Total points', 'prophunt.points'], ['Best game', 'prophunt.best'],
       ['Catches as killer', 'prophunt.catches'], ['Caught everyone', 'prophunt.aces'], ['Rounds survived', 'prophunt.survived']]],
+    ['Tournaments', '🏆', '#facc15', [['Played', 'tour.played'], ['Won', 'tour.wins']]],
     ['Party mode', '🎉', '#ff4fd8', [['Parties', 'party.games'], ['Party wins', 'party.wins'], ['Party points', 'party.points']]],
     ['Solo arcade', '🕹️', '#22d3ee', [['🐍 Snake best', 'snake.best'], ['🔢 2048 best', '2048.best'], ['🃏 Memory (Normal)', 'memory.best', secs], ['🟦 Dash levels', 'dashsolo.levels'], ['🛝 Slope best', 'slope.best']]],
   ];
 
   // achievements (and the rewards they unlock) come from /data/unlocks.json, shared with the server
 
-  const GAME_EMOJI = { dash: '🟪', life: '🏡', doodle: '🎨', blitz: '⚡', connect4: '🔴', casino: '🎰', impostor: '🕵️', slope: '🛝', front: '🌍', frontsolo: '🤖', mines: '💣', mines_easy: '💣', mines_medium: '💣', mines_hard: '💣', snake: '🐍', 2048: '🔢', memory: '🃏', dashsolo: '🟦', party: '🎉', prophunt: '🔫' };
-  const GAME_NAME = { dash: 'Neon Dash', life: 'Family Life', doodle: 'Doodle Guess', blitz: 'Party Blitz', connect4: 'Connect 4', casino: 'Casino Night', impostor: 'Impostor', slope: 'Slope', front: 'Front Wars', frontsolo: 'Front Wars solo', mines: 'Minesweeper', mines_easy: 'Minesweeper Easy', mines_medium: 'Minesweeper Medium', mines_hard: 'Minesweeper Hard', snake: 'Neon Snake', 2048: '2048', memory: 'Memory Flip', dashsolo: 'Dash practice', party: 'Party mode', prophunt: 'Prop Hunt' };
+  const GAME_EMOJI = { dash: '🟪', life: '🏡', doodle: '🎨', blitz: '⚡', connect4: '🔴', casino: '🎰', impostor: '🕵️', slope: '🛝', front: '🌍', frontsolo: '🤖', mines: '💣', mines_easy: '💣', mines_medium: '💣', mines_hard: '💣', snake: '🐍', 2048: '🔢', memory: '🃏', dashsolo: '🟦', party: '🎉', prophunt: '🔫', tour: '🏆' };
+  const GAME_NAME = { dash: 'Neon Dash', life: 'Family Life', doodle: 'Doodle Guess', blitz: 'Party Blitz', connect4: 'Connect 4', casino: 'Casino Night', impostor: 'Impostor', slope: 'Slope', front: 'Front Wars', frontsolo: 'Front Wars solo', mines: 'Minesweeper', mines_easy: 'Minesweeper Easy', mines_medium: 'Minesweeper Medium', mines_hard: 'Minesweeper Hard', snake: 'Neon Snake', 2048: '2048', memory: 'Memory Flip', dashsolo: 'Dash practice', party: 'Party mode', prophunt: 'Prop Hunt', tour: 'Tournament' };
   const OUTCOME = { win: ['WIN', 'win'], loss: ['LOSS', 'loss'], draw: ['DRAW', 'draw'], play: ['PLAYED', 'play'] };
 
   function message(emoji, title, text, ...kids) {
@@ -105,9 +106,11 @@
               h('div', { class: 'gstat-grid' }, items.map(([label, key, f]) => h('div', {}, h('b', {}, st[key] ? (f ? f(st[key]) : num(st[key])) : '–'), h('span', {}, label)))))))
             : h('p', { class: 'muted panel' }, mine ? 'No games saved yet. Finish an online game and your stats show up here!' : 'No games saved yet.'),
           h('h2', { class: 'prof-h' }, '🎖️ Achievements'),
-          h('div', { class: 'achs' }, U.achievements.map((a) => {
+          h('div', { class: 'achs' }, U.achievements.filter((a) => !PA.Unlocks.gone(U, a, have.achievements.has(a.id))).map((a) => {
             const ok = have.achievements.has(a.id);
-            return h('div', { class: 'ach' + (ok ? ' ok' : ''), title: a.desc }, h('span', { class: 'e' }, ok ? a.emoji : '🔒'), h('b', {}, a.name), h('span', {}, a.desc));
+            const ev = a.event && PA.Unlocks.event(U, a.event);
+            return h('div', { class: 'ach' + (ok ? ' ok' : '') + (ev ? ' lim' : ''), title: a.desc }, h('span', { class: 'e' }, ok ? a.emoji : '🔒'), h('b', {}, a.name),
+              h('span', {}, a.desc, ev ? h('em', { class: 'lim-tag' }, ok ? ` · ${ev.emoji} limited` : ev.active ? ` · ${ev.emoji} until ${ev.last}` : '') : null));
           })),
           h('h2', { class: 'prof-h' }, '🎁 Rewards unlocked'),
           h('div', { class: 'prof-rewards panel' },

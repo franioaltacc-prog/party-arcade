@@ -11,6 +11,23 @@
     tree: '🌳', pine: '🌲', bush: '🌿', rock: '🪨', car: '🚗', barrel: '🛢️', crate: '📦', trash: '🗑️', cone: '🚧', hydrant: '🧯',
     mailbox: '📮', bike: '🚲', flower: '🌻', fountain: '⛲', chair: '🪑', couch: '🛋️', bed: '🛏️', plant: '🪴', tv: '📺', gift: '🎁',
     toilet: '🚽', tub: '🛁', guitar: '🎸', teddy: '🧸', basket: '🧺', books: '📚', clock: '🕰️',
+    backpack: '🎒', computer: '🖥️', microscope: '🔬', abacus: '🧮', palette: '🎨', trophy: '🏆', cabinet: '🗄️', piano: '🎹',
+    flask: '🧪', basketball: '🏀', bus: '🚌', soccer: '⚽', slide: '🛝', dress: '👗', shoe: '👟', bag: '🛍️', cart: '🛒',
+    icecream: '🍦', pizza: '🍕', coffee: '☕', camera: '📷', headphones: '🎧', balloon: '🎈', atm: '🏧', pan: '🍳', cake: '🎂',
+    drink: '🥤', speaker: '🔊', disco: '🪩', umbrella: '⛱️', float: '🛟', bbq: '🍖',
+  };
+  const THEMES = {
+    town: { name: '🏙️ Town', ground: '#1c3a2a', dots: 'rgba(80,160,90,.18)', floor: '#4a3a63', roofs: ['#c2417f', '#1f8ea3', '#c46a2b', '#5f8a1f', '#6d46c4', '#b8930f'] },
+    school: { name: '🏫 School', ground: '#24432c', dots: 'rgba(120,190,110,.16)', floor: '#5b6b8c', roofs: ['#9a3b2e', '#b4532a', '#8f3a3a', '#a8642d', '#7c3a2e', '#b0452f'] },
+    mall: { name: '🛍️ Mall', ground: '#2b2a36', dots: 'rgba(255,255,255,.05)', floor: '#5a4f78', roofs: ['#3b82a6', '#4b6fb0', '#2f8f8a', '#5a5fb4', '#3d7d9e', '#4e6a8f'] },
+    house: { name: '🏠 Party house', ground: '#22472b', dots: 'rgba(130,200,100,.18)', floor: '#6b4a32', roofs: ['#8b4a2f', '#a0522d', '#7a3e2a', '#94603c', '#6e3b24', '#9c4f34'] },
+  };
+  const FLOORS = { tile: '#3d4a66', asphalt: '#2a2840', mall: '#4b4469', wood: '#6e4d34' };
+  const POWER_INFO = {
+    decoy: { icon: '🪞', name: 'Decoy', help: 'leave a fake copy of you' },
+    boost: { icon: '⚡', name: 'Speed', help: '3 seconds of extra speed' },
+    radar: { icon: '📡', name: 'Radar', help: 'an extra ping right now' },
+    grenade: { icon: '💣', name: 'Grenade', help: 'throw it where you aim' },
   };
   const VIEW = 560;
   const PLAYER_R = 18;
@@ -22,10 +39,12 @@
   const GUN_RANGE = 720;
   const MAG = 6;
   const ZOOM_W = 1150;            // how much of the town fits across the screen
-  const ROOF = ['#c2417f', '#1f8ea3', '#c46a2b', '#5f8a1f', '#6d46c4', '#b8930f'];
 
   const S = { phase: 'lobby', settings: { hide: 20, time: 120, cycles: 1 }, scores: {}, round: null, final: null, last: null };
-  const me = { x: 0, y: 0, a: 0, role: null, alive: false, prop: null, ammo: MAG, reloading: false };
+  const me = { x: 0, y: 0, a: 0, role: null, alive: false, prop: null, ammo: MAG, reloading: false, powers: {}, boostUntil: 0 };
+  const theme = () => THEMES[(map && map.theme) || 'town'] || THEMES.town;
+  const roofColor = (c) => theme().roofs[c % 6];
+  const grenades = [];
   const ents = new Map();         // id -> { s: [[t, x, y, aim]], prop }
   let map = null;
   let radius = {};
@@ -78,7 +97,7 @@
   function collide(x, y, r) {
     for (let k = 0; k < 4; k++) {
       let moved = false;
-      for (const [rx, ry, rw, rh] of map.walls) {
+      for (const [rx, ry, rw, rh] of map.walls.concat(map.pools || [])) {
         if (x < rx - r || x > rx + rw + r || y < ry - r || y > ry + rh + r) continue;
         const nx = Math.min(Math.max(x, rx), rx + rw);
         const ny = Math.min(Math.max(y, ry), ry + rh);
@@ -175,6 +194,7 @@
     if (k === 'KeyE' || (k === 'Space' && me.role === 'hider')) disguise();
     else if (k === 'KeyQ') undisguise();
     else if (k === 'KeyR') reload();
+    else if (k === 'Digit1' || k === 'Digit2') usePower(Object.keys(me.powers)[k === 'Digit1' ? 0 : 1]);
     else if (k === 'Space' && isKiller()) shoot();
   });
   addEventListener('keyup', (e) => keys.delete(e.code));
@@ -250,6 +270,20 @@
     Net.send('g:reload');
     snd(() => { Sfx.tone(300, 0.06, 'square', 0.04); Sfx.tone(420, 0.06, 'square', 0.04, 0, 0.12); });
   }
+  function usePower(kind) {
+    if (!kind || !inRound() || !me.alive || !(me.powers[kind] > 0)) return;
+    if (me.role === 'killer' && S.phase !== 'hunting') { UI.toast('Wait for the hunt to start!', '', 1500); return; }
+    if (kind === 'grenade') {
+      // throw it where the mouse is (or 300px ahead on a phone)
+      let tx = me.x + Math.cos(me.a) * 300; let ty = me.y + Math.sin(me.a) * 300;
+      if (mouse) {
+        const r = stage.getBoundingClientRect();
+        const z = Math.min(r.width / ZOOM_W, r.height / (ZOOM_W * 0.625));
+        tx = me.x + (mouse.x - r.width / 2) / z; ty = me.y + (mouse.y - r.height / 2) / z;
+      }
+      Net.send('g:power', { p: kind, x: Math.round(tx), y: Math.round(ty) });
+    } else Net.send('g:power', { p: kind });
+  }
   function disguise() {
     if (me.role !== 'hider' || !me.alive || !inRound()) return;
     const i = nearestProp();
@@ -275,7 +309,7 @@
     if (canMove()) {
       const [vx, vy] = inputVector();
       if (vx || vy) {
-        const speed = (me.role === 'killer' ? KILLER_SPEED : HIDER_SPEED) * (me.prop ? DISGUISED : 1);
+        const speed = (me.role === 'killer' ? KILLER_SPEED : HIDER_SPEED) * (me.prop ? DISGUISED : 1) * (performance.now() < me.boostUntil ? 1.6 : 1);
         [me.x, me.y] = collide(me.x + vx * speed * dt, me.y + vy * speed * dt, myR());
       }
     }
@@ -303,19 +337,36 @@
     paint(c.getContext('2d'), size);
     return ctx.createPattern(c, 'repeat');
   }
-  let grass = null;
-  let floor = null;
-  function patterns() {
-    if (grass) return;
-    grass = pattern(96, (g, n) => {
-      g.fillStyle = '#1c3a2a'; g.fillRect(0, 0, n, n);
-      for (let i = 0; i < 70; i++) { g.fillStyle = Math.random() < 0.5 ? 'rgba(80,160,90,.18)' : 'rgba(0,0,0,.12)'; g.fillRect(Math.random() * n, Math.random() * n, 2, 3); }
-    });
-    floor = pattern(48, (g, n) => {
-      g.fillStyle = '#4a3a63'; g.fillRect(0, 0, n, n);
+  const pats = {};
+  function planks(color) {
+    return pattern(48, (g, n) => {
+      g.fillStyle = color; g.fillRect(0, 0, n, n);
       g.strokeStyle = 'rgba(0,0,0,.22)'; g.lineWidth = 2;
       for (let y = 0; y <= n; y += 16) { g.beginPath(); g.moveTo(0, y); g.lineTo(n, y); g.stroke(); }
       for (let y = 0; y < n; y += 16) { const x = (y / 16) % 2 ? 12 : 36; g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + 16); g.stroke(); }
+    });
+  }
+  function tiles(color) {
+    return pattern(40, (g, n) => {
+      g.fillStyle = color; g.fillRect(0, 0, n, n);
+      g.strokeStyle = 'rgba(255,255,255,.08)'; g.lineWidth = 2; g.strokeRect(1, 1, n - 2, n - 2);
+    });
+  }
+  function patterns() {
+    const th = (map && map.theme) || 'town';
+    if (pats.theme === th) return;
+    const t = theme();
+    pats.theme = th;
+    pats.grass = pattern(96, (g, n) => {
+      g.fillStyle = t.ground; g.fillRect(0, 0, n, n);
+      for (let i = 0; i < 70; i++) { g.fillStyle = Math.random() < 0.5 ? t.dots : 'rgba(0,0,0,.12)'; g.fillRect(Math.random() * n, Math.random() * n, 2, 3); }
+    });
+    pats.floor = th === 'school' || th === 'mall' ? tiles(t.floor) : planks(t.floor);
+    pats.tile = tiles(FLOORS.tile); pats.mall = tiles(FLOORS.mall); pats.wood = planks(FLOORS.wood); pats.asphalt = FLOORS.asphalt;
+    pats.water = pattern(64, (g, n) => {
+      g.fillStyle = '#1d8fd6'; g.fillRect(0, 0, n, n);
+      g.strokeStyle = 'rgba(255,255,255,.25)'; g.lineWidth = 2;
+      for (let y = 8; y < n; y += 20) { g.beginPath(); g.moveTo(0, y); g.quadraticCurveTo(16, y - 6, 32, y); g.quadraticCurveTo(48, y + 6, 64, y); g.stroke(); }
     });
   }
 
@@ -403,8 +454,13 @@
     const vy0 = v.y - ch / 2 / z - 60; const vy1 = v.y + ch / 2 / z + 60;
     const onScreen = (x, y, r) => x + r > vx0 && x - r < vx1 && y + r > vy0 && y - r < vy1;
 
-    // ground, streets, plaza
-    ctx.fillStyle = grass; ctx.fillRect(0, 0, map.w, map.h);
+    // ground, streets, floors, pools, plaza
+    ctx.fillStyle = pats.grass; ctx.fillRect(0, 0, map.w, map.h);
+    for (const [x, y, w, hh, kind] of map.floors || []) { ctx.fillStyle = pats[kind] || FLOORS.tile; ctx.fillRect(x, y, w, hh); }
+    for (const [x, y, w, hh] of map.pools || []) {
+      ctx.fillStyle = '#e2e8f0'; ctx.fillRect(x - 10, y - 10, w + 20, hh + 20);
+      ctx.fillStyle = pats.water; ctx.fillRect(x, y, w, hh);
+    }
     ctx.fillStyle = '#2a2840';
     for (const [x, y, w, hh] of map.streets) ctx.fillRect(x, y, w, hh);
     ctx.strokeStyle = 'rgba(250,204,21,.45)'; ctx.lineWidth = 4; ctx.setLineDash([26, 22]);
@@ -414,12 +470,14 @@
       ctx.stroke();
     }
     ctx.setLineDash([]);
-    ctx.fillStyle = '#3a3358';
-    ctx.beginPath(); ctx.arc(map.spawn[0], map.spawn[1], 200, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,.08)'; ctx.lineWidth = 6; ctx.stroke();
+    if (map.theme === 'town' || !map.theme) {
+      ctx.fillStyle = '#3a3358';
+      ctx.beginPath(); ctx.arc(map.spawn[0], map.spawn[1], 200, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,.08)'; ctx.lineWidth = 6; ctx.stroke();
+    }
 
     // insides of buildings
-    for (const [x, y, w, hh] of map.rooms) { if (onScreen(x + w / 2, y + hh / 2, Math.max(w, hh))) { ctx.fillStyle = floor; ctx.fillRect(x, y, w, hh); } }
+    for (const [x, y, w, hh] of map.rooms) { if (onScreen(x + w / 2, y + hh / 2, Math.max(w, hh))) { ctx.fillStyle = pats.floor; ctx.fillRect(x, y, w, hh); } }
     ctx.fillStyle = '#ece6ff';
     for (const [x, y, w, hh] of map.walls) if (onScreen(x + w / 2, y + hh / 2, Math.max(w, hh) / 2)) ctx.fillRect(x, y, w, hh);
 
@@ -441,11 +499,17 @@
       const p = sample(en, rt);
       if (!p) continue;
       if (S.round && id === S.round.killer) { drawPerson(id, p[1], p[2], p[3], true, false); continue; }
+      const as = en.as || id;            // a decoy looks exactly like the person who left it
+      const tag = en.decoy ? ' (decoy)' : '';
       if (en.prop) {
         const r = Math.min(radius[en.prop] || 20, MAX_DISGUISE_R);
         drawProp(en.prop, p[1], p[2], r);
-        if (showNames) { ctx.globalAlpha = 0.75; label(`🫥 ${who(id).name}`, p[1], p[2] - r - 12, '#a5f3fc'); ctx.globalAlpha = 1; }
-      } else drawPerson(id, p[1], p[2], 0, false, false);
+        if (showNames) { ctx.globalAlpha = 0.75; label(`${en.decoy ? '🪞' : '🫥'} ${who(as).name}${tag}`, p[1], p[2] - r - 12, '#a5f3fc'); ctx.globalAlpha = 1; }
+      } else {
+        if (en.decoy && showNames) ctx.globalAlpha = 0.6;
+        drawPerson(as, p[1], p[2], 0, false, false);
+        if (en.decoy && showNames) { label('🪞 decoy', p[1], p[2] + PLAYER_R + 14, '#a5f3fc'); ctx.globalAlpha = 1; }
+      }
     }
     if (me.role && me.alive && inRound()) {
       if (me.prop) {
@@ -455,6 +519,20 @@
         ctx.beginPath(); ctx.arc(me.x, me.y, r + 6, 0, Math.PI * 2); ctx.stroke();
         label('🫥 you', me.x, me.y - r - 14, '#fde68a');
       } else drawPerson(Net.id, me.x, me.y, me.a, me.role === 'killer', true);
+      if (t < me.boostUntil) {           // speed lines
+        ctx.strokeStyle = 'rgba(250,204,21,.7)'; ctx.lineWidth = 3;
+        for (let i = 0; i < 3; i++) { const a = (t / 90 + i * 2.1) % (Math.PI * 2); ctx.beginPath(); ctx.arc(me.x, me.y, myR() + 8 + i * 4, a, a + 0.9); ctx.stroke(); }
+      }
+    }
+
+    // grenades in the air
+    for (let i = grenades.length - 1; i >= 0; i--) {
+      const g = grenades[i]; const k = (t - g.t) / (g.fuse * 1000);
+      if (k > 1.2) { grenades.splice(i, 1); continue; }
+      const kk = Math.min(1, k * 1.6);
+      const x = g.x0 + (g.x1 - g.x0) * kk; const y = g.y0 + (g.y1 - g.y0) * kk - Math.sin(kk * Math.PI) * 60;
+      if (kk >= 1) { ctx.strokeStyle = `rgba(244,63,94,${0.5 + 0.5 * Math.sin(t / 60)})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(g.x1, g.y1, 100, 0, Math.PI * 2); ctx.stroke(); }
+      emoji('💣', x, y, 30);
     }
 
     // shots and puffs
@@ -476,7 +554,7 @@
     const inside = roomOf(v.x, v.y);
     map.rooms.forEach(([x, y, w, hh, c], i) => {
       if (i === inside || !onScreen(x + w / 2, y + hh / 2, Math.max(w, hh))) return;
-      ctx.fillStyle = ROOF[c % ROOF.length];
+      ctx.fillStyle = roofColor(c);
       ctx.fillRect(x - 4, y - 4, w + 8, hh + 8);
       ctx.strokeStyle = 'rgba(0,0,0,.22)'; ctx.lineWidth = 3;
       for (let yy = y + 14; yy < y + hh; yy += 18) { ctx.beginPath(); ctx.moveTo(x - 4, yy); ctx.lineTo(x + w + 4, yy); ctx.stroke(); }
@@ -536,7 +614,9 @@
     mctx.fillStyle = 'rgba(28,58,42,.85)'; mctx.fillRect(ox, oy, map.w * k, map.h * k);
     mctx.fillStyle = 'rgba(42,40,64,.9)';
     for (const [x, y, w, hh] of map.streets) mctx.fillRect(ox + x * k, oy + y * k, w * k, hh * k);
-    map.rooms.forEach(([x, y, w, hh, c]) => { mctx.fillStyle = ROOF[c % ROOF.length]; mctx.fillRect(ox + x * k, oy + y * k, w * k, hh * k); });
+    for (const [x, y, w, hh] of map.floors || []) { mctx.fillStyle = 'rgba(80,80,110,.9)'; mctx.fillRect(ox + x * k, oy + y * k, w * k, hh * k); }
+    for (const [x, y, w, hh] of map.pools || []) { mctx.fillStyle = '#1d8fd6'; mctx.fillRect(ox + x * k, oy + y * k, w * k, hh * k); }
+    map.rooms.forEach(([x, y, w, hh, c]) => { mctx.fillStyle = roofColor(c); mctx.fillRect(ox + x * k, oy + y * k, w * k, hh * k); });
     for (const p of pings) {
       mctx.fillStyle = 'rgba(244,63,94,.5)';
       for (const [x, y] of p.spots) { mctx.beginPath(); mctx.arc(ox + x * k, oy + y * k, Math.max(5, p.r * k), 0, Math.PI * 2); mctx.fill(); }
@@ -606,6 +686,13 @@
     while (feed.length > 5) { feed.shift(); $('#feed').firstChild.remove(); }
   }
 
+  function powerButtons(touch) {
+    return Object.entries(me.powers).map(([kind, n], i) => {
+      const info = POWER_INFO[kind];
+      return h('button', { class: 'btn btn-sm ' + (kind === 'grenade' || kind === 'radar' ? 'btn-ghost' : 'btn-yellow'), disabled: !(n > 0), title: `${info.name}: ${info.help}`, onclick: () => usePower(kind) },
+        `${info.icon} ${info.name} ×${n}`, touch ? '' : ` (${i + 1})`);
+    });
+  }
   function renderBottom() {
     const b = $('#bottom');
     const touch = matchMedia('(pointer: coarse)').matches;
@@ -613,12 +700,14 @@
     if (isKiller()) {
       fill(b,
         h('div', { class: 'ph-ammo', title: 'Ammo' }, '🔫', ...Array.from({ length: MAG }, (_, i) => h('i', { class: i < me.ammo ? '' : 'used' })), me.reloading ? ' reloading…' : ''),
-        touch ? h('button', { class: 'btn btn-ghost btn-sm', onclick: reload }, '🔄 Reload') : h('span', { class: 'ph-help' }, 'WASD move · aim with the mouse · click to shoot · R reload'));
+        ...powerButtons(touch),
+        touch ? h('button', { class: 'btn btn-ghost btn-sm', onclick: reload }, '🔄 Reload') : h('span', { class: 'ph-help' }, 'WASD move · mouse aim · click shoot · R reload'));
     } else if (me.role === 'hider' && me.alive) {
       fill(b,
         h('button', { class: 'btn btn-cyan btn-sm', onclick: disguise }, '🎭 Become the prop', touch ? '' : ' (E)'),
         me.prop ? h('button', { class: 'btn btn-ghost btn-sm', onclick: undisguise }, '🙂 Be me', touch ? '' : ' (Q)') : null,
-        touch ? null : h('span', { class: 'ph-help' }, 'WASD move · walk up to a prop and press E · hide in buildings!'));
+        ...powerButtons(touch),
+        touch ? null : h('span', { class: 'ph-help' }, 'WASD move · E become a prop · hide in buildings!'));
     } else fill(b, h('span', { class: 'ph-help' }, '👀 You’re watching the killer. Chat only goes to other watchers.'));
   }
 
@@ -682,6 +771,8 @@
       seg('time', [[90, '1:30'], [120, '2 min'], [180, '3 min'], [240, '4 min']], 'ROUND LENGTH'),
       seg('hide', [[15, '15s'], [20, '20s'], [30, '30s']], 'TIME TO HIDE'),
       seg('cycles', [[1, 'Everyone once'], [2, 'Everyone twice']], 'TURNS AS THE KILLER'),
+      seg('map', [['random', '🎲 Mix'], ...Object.entries(THEMES).map(([k, t]) => [k, t.name])], 'MAP'),
+      h('div', { class: 'points-help' }, h('div', {}, '🪞 Hiders get 2 decoys and a ⚡ speed burst, the killer gets a 📡 radar and 2 💣 grenades every round (keys 1 and 2).')),
       h('div', { class: 'points-help' },
         h('div', {}, '🫥 Hiders: caught 1st = 1 point, 2nd = 2… survive the round = 1 point for every player in it'),
         h('div', {}, '🔫 Killer: 2 points a catch (up to 8), or 10 for catching everyone')),
@@ -710,8 +801,9 @@
 
   // ------------------------------------------------------------ server messages
   function setYou(y) {
-    if (!y) { Object.assign(me, { role: null, alive: false, prop: null }); return; }
-    Object.assign(me, { x: y.x, y: y.y, role: y.role, alive: y.alive, prop: y.prop, ammo: y.ammo == null ? MAG : y.ammo, reloading: !!y.reloading });
+    if (!y) { Object.assign(me, { role: null, alive: false, prop: null, powers: {} }); return; }
+    Object.assign(me, { x: y.x, y: y.y, role: y.role, alive: y.alive, prop: y.prop, ammo: y.ammo == null ? MAG : y.ammo, reloading: !!y.reloading,
+      powers: y.powers || {}, boostUntil: performance.now() + (y.boost || 0) * 1000 });
     sent = { t: 0, x: null, y: null, a: null };
   }
   function startRound(r, you, scores) {
@@ -761,7 +853,7 @@
     const killer = who(m.round.killer);
     if (isKiller()) { UI.toast('🔫 You’re the killer this round! Wait for it…', 'bad', 3500); snd(() => Sfx.play('boom')); }
     else if (me.role === 'hider') { UI.toast(`🏃 HIDE! ${killer.name} is the killer!`, 'good', 3500); snd(() => Sfx.play('go')); }
-    if (FX.banner) FX.banner(`ROUND ${m.round.n}`, isKiller() ? 'You’re the killer 🔫' : `${killer.name} is the killer`, { color: isKiller() ? '#f43f5e' : '#22d3ee', hold: 1.2 });
+    if (FX.banner) FX.banner(`ROUND ${m.round.n} · ${(THEMES[m.round.theme] || THEMES.town).name}`, isKiller() ? 'You’re the killer 🔫' : `${killer.name} is the killer`, { color: isKiller() ? '#f43f5e' : '#22d3ee', hold: 1.2 });
   });
   Net.on('g:hunt', (m) => {
     S.phase = 'hunting';
@@ -777,9 +869,9 @@
     const now = performance.now();
     const seen = new Set();
     for (const e of m.e) {
-      const [id, x, y, prop, a] = e;
+      const [id, x, y, prop, a, as, decoy] = e;
       let en = ents.get(id);
-      if (!en) { en = { s: [] }; ents.set(id, en); }
+      if (!en) { en = { s: [], as: as || null, decoy: !!decoy }; ents.set(id, en); }
       const prev = en.s[en.s.length - 1];
       if (prev && Math.hypot(prev[1] - x, prev[2] - y) > 220) en.s.length = 0;   // jumped (respawn): don't slide
       en.s.push([now, x, y, a == null ? null : a]);
@@ -830,17 +922,39 @@
     renderScores();
     renderBottom();
   });
+  Net.on('g:powers', (m) => {
+    me.powers = m.powers;
+    if (m.used === 'boost') { me.boostUntil = performance.now() + m.boost * 1000; snd(() => Sfx.tone(500, 0.25, 'sawtooth', 0.05, 600)); }
+    if (m.used === 'decoy') { snd(() => Sfx.play('pop')); addFeed('🪞 Decoy placed — now sneak away!'); }
+    renderBottom();
+  });
+  Net.on('g:grenade', (m) => {
+    grenades.push({ ...m, t: performance.now() });
+    snd(() => Sfx.tone(700, 0.15, 'triangle', 0.05, -300));
+  });
+  Net.on('g:boom', (m) => {
+    const t = performance.now();
+    puffs.push({ x: m.x, y: m.y, r: m.r, t, life: 700, color: 'rgba(251,146,60,A)', emoji: '💥' });
+    puffs.push({ x: m.x, y: m.y, r: m.r * 0.6, t, life: 400, color: 'rgba(254,240,138,A)' });
+    const v = viewer(t);
+    if (Math.hypot(m.x - v.x, m.y - v.y) < 1200) snd(() => Sfx.play('boom'));
+  });
+  Net.on('g:decoy', (m) => {
+    puffs.push({ x: m.x, y: m.y, r: 30, t: performance.now(), life: 600, color: 'rgba(165,243,252,A)', emoji: '💨' });
+    if (isKiller()) addFeed('💨 That was just a decoy!');
+    else if (m.owner === Net.id) addFeed('💨 The killer shot your decoy!');
+  });
   Net.on('g:pingsoon', () => { pingSoon = true; addFeed('📡 Ping in 3 seconds — keep still or move!'); snd(() => Sfx.play('tick')); });
   Net.on('g:ping', (m) => {
     pings.push({ spots: m.spots, r: m.radius, t: performance.now() });
     pingAt = performance.now() + 30000;
-    addFeed(`📡 Ping! ${m.spots.length} hider${m.spots.length === 1 ? '' : 's'} nearby the red circles`);
+    addFeed(`📡 ${m.radar ? 'Radar' : 'Ping'}! ${m.spots.length} hider${m.spots.length === 1 ? '' : 's'} nearby the red circles`);
     snd(() => { Sfx.tone(900, 0.12, 'sine', 0.08); Sfx.tone(1200, 0.18, 'sine', 0.07, 0, 0.12); });
   });
-  Net.on('g:pinged', () => {
+  Net.on('g:pinged', (m) => {
     pingSoon = false;
-    pingAt = performance.now() + 30000;
-    addFeed('📡 The killer just got a ping of roughly where you are!');
+    if (!m.radar) pingAt = performance.now() + 30000;
+    addFeed(m.radar ? '📡 The killer used their radar — they know roughly where you are!' : '📡 The killer just got a ping of roughly where you are!');
     snd(() => Sfx.tone(500, 0.2, 'sawtooth', 0.04, -200));
   });
   Net.on('g:roundover', (m) => {

@@ -210,10 +210,43 @@
     setTimeout(() => { location.href = g.href || `/games/${g.key}`; }, 650);
   });
 
+  // ---------------------------------------------------------------- limited-time event
+  async function renderEvent() {
+    const box = $('#event-banner');
+    const [ev] = await PA.Unlocks.activeEvents();
+    if (!ev) { box.classList.add('hidden'); return; }
+    const d = await PA.Unlocks.load();
+    const achs = d.achievements.filter((a) => a.event === ev.id);
+    let stats = null;
+    const u = PA.Account.user;
+    if (u) { try { stats = (await Net.request('profile:get', { name: u.name })).profile.stats || {}; } catch { /* offline */ } }
+    const rewardsFor = (id) => ['auras', 'anims', 'balls'].flatMap((k) => d[k].filter((x) => x.rule && x.rule.ach === id).map((x) => x.name));
+    box.classList.remove('hidden');
+    fill(box,
+      h('div', { class: 'ev-head' }, h('span', { class: 'ev-emoji' }, ev.emoji),
+        h('div', {}, h('h2', {}, `${ev.name} event`), h('p', { class: 'muted small' }, `${ev.about} Ends ${ev.last}${ev.daysLeft <= 7 ? ` — only ${ev.daysLeft} day${ev.daysLeft === 1 ? '' : 's'} left!` : '.'}`))),
+      h('div', { class: 'ev-goals' }, achs.map((a) => {
+        const r = a.rule || {};
+        const have = stats ? Math.min(r.gte || 0, stats[r.stat] || 0) : 0;
+        const done = stats && have >= (r.gte || 0);
+        return h('div', { class: 'ev-goal' + (done ? ' done' : '') },
+          h('span', { class: 'e' }, done ? '✅' : a.emoji),
+          h('div', { class: 'grow' }, h('b', {}, a.name), h('div', { class: 'small muted' }, a.desc), h('div', { class: 'tiny' }, '🎁 ', rewardsFor(a.id).join(' + ')),
+            stats ? h('div', { class: 'ev-bar' }, h('i', { style: { width: `${(have / (r.gte || 1)) * 100}%` } })) : null),
+          stats ? h('span', { class: 'ev-n' }, `${have}/${r.gte}`) : null);
+      })),
+      h('div', { class: 'ev-btns' },
+        h('a', { class: 'btn btn-pink btn-sm', href: '/games/prophunt' }, '🔫 Play Prop Hunt'),
+        u ? h('a', { class: 'btn btn-ghost btn-sm', href: '/settings#rewards' }, '✨ See the rewards')
+          : h('button', { class: 'btn btn-ghost btn-sm', onclick: () => UI.accountModal({ view: 'signup' }) }, '✨ Make an account to earn them')));
+  }
+  renderEvent();
+  PA.on('auth', renderEvent);
+
   // ---------------------------------------------------------------- open rooms
   const roomsPanel = $('#rooms-panel');
   const seenRooms = new Set();
-  function renderRooms(all) {
+  function renderRooms(all, tours = []) {
     const rooms = all.filter((r) => !r.live);
     const live = all.filter((r) => r.live);
     if (G) { if (String(rooms.length) !== $('#stat-rooms').textContent) FX.count($('#stat-rooms'), rooms.length); }
@@ -223,10 +256,10 @@
     const item = (r) => h('div', { class: 'room-item', 'data-code': r.code + (r.live ? 'L' : '') },
       h('div', { class: 'ri-emoji' }, (info[r.game] || {}).emoji || '🎮'),
       h('div', { class: 'grow' },
-        h('div', { class: 'ri-title' }, (info[r.game] || {}).title || r.game, r.party ? h('span', { class: 'ri-tag', title: 'Party mode' }, '🎉') : null),
+        h('div', { class: 'ri-title' }, (info[r.game] || {}).title || r.game, r.party ? h('span', { class: 'ri-tag', title: 'Party mode' }, '🎉') : null, r.tour ? h('span', { class: 'ri-tag', title: 'Tournament match' }, '🏆') : null),
         h('div', { class: 'ri-sub' }, `${r.hostAvatar} ${r.host} · ${r.players}/${r.max}${r.watchers ? ` · 👀 ${r.watchers}` : ''} · ${r.code}`)),
-      r.live
-        ? h('a', { class: 'btn btn-cyan btn-sm', href: link(r, true), title: 'Watch this game' }, '👀 Watch')
+      r.live || r.tour
+        ? h('a', { class: 'btn btn-cyan btn-sm', href: link(r, true), title: r.tour ? 'A tournament match — watch it' : 'Watch this game' }, '👀 Watch')
         : r.players >= r.max
           ? h('a', { class: 'btn btn-ghost btn-sm', href: link(r, true), title: 'This room is full — you can watch' }, '👀 Full')
           : h('a', { class: 'btn btn-lime btn-sm', href: link(r) }, 'Join'));
@@ -235,6 +268,12 @@
       rooms.length
         ? h('div', {}, rooms.map(item))
         : h('div', { class: 'empty' }, 'No open rooms yet.', h('br'), 'Start one and invite your friends! 🎈'),
+      tours.length ? h('div', { class: 'panel-title live-title' }, '🏆 Tournaments') : null,
+      tours.length ? h('div', {}, tours.map((t) => h('div', { class: 'room-item' },
+        h('div', { class: 'ri-emoji' }, '🏆'),
+        h('div', { class: 'grow' }, h('div', { class: 'ri-title' }, `${t.title} tournament`),
+          h('div', { class: 'ri-sub' }, t.champion ? `👑 ${t.champion} won! · ${t.players} players` : `${t.round} · ${t.players} players · by ${t.host}`)),
+        h('a', { class: 'btn btn-yellow btn-sm', href: `/tournament?id=${t.id}` }, 'Bracket')))) : null,
       h('div', { class: 'panel-title live-title' }, '📺 Live games', h('span', { class: 'count' }, live.length ? `${live.length} playing` : '')),
       live.length
         ? h('div', {}, live.map(item))
@@ -250,7 +289,7 @@
     if (fresh.length) G.from(fresh, { x: 50, scale: 0.8, autoAlpha: 0, stagger: 0.08, duration: 0.6, ease: 'back.out(2)', clearProps: 'transform,opacity,visibility' });
   }
   renderRooms([]);
-  Net.on('rooms:list', (m) => renderRooms(m.rooms));
+  Net.on('rooms:list', (m) => renderRooms(m.rooms, m.tours || []));
   const poll = () => { if (!document.hidden) Net.send('rooms:list'); };
   setInterval(poll, 4000);
 

@@ -1,5 +1,10 @@
 {
   "_about": "Achievements and the rewards they unlock. The server checks these rules before you can wear a reward, and the website shows them. Rules: {\"level\": n}, {\"ach\": id}, or a stat test like {\"stat\": \"dash.wins\", \"gte\": 1} (gte, gt, lte).",
+  "events": [
+    {"id": "halloween26", "name": "Halloween", "emoji": "🎃", "from": "2026-10-11", "until": "2026-11-03",
+     "about": "Limited-time Halloween rewards: earn them before the event ends and keep them forever.",
+     "track": {"games": "games", "survived": "prophunt.survived"}}
+  ],
   "achievements": [
     {"id": "hello", "emoji": "👋", "name": "Hello world", "desc": "Finish your first online game", "rule": {"stat": "games", "gte": 1}},
     {"id": "winner", "emoji": "🏆", "name": "Winner", "desc": "Win an online game", "rule": {"stat": "wins", "gte": 1}},
@@ -24,6 +29,9 @@
     {"id": "bots", "emoji": "🤖", "name": "Bot crusher", "desc": "Beat 20 or more bots in Front Wars solo", "rule": {"stat": "frontsolo.best", "gte": 20}},
     {"id": "hidden", "emoji": "🫥", "name": "Master of disguise", "desc": "Survive 10 rounds of Prop Hunt", "rule": {"stat": "prophunt.survived", "gte": 10}},
     {"id": "exterminator", "emoji": "🎯", "name": "Nobody escapes", "desc": "Catch every hider in a round of Prop Hunt", "rule": {"stat": "prophunt.aces", "gte": 1}},
+    {"id": "trick-or-treat", "emoji": "🎃", "name": "Trick or treat", "desc": "Play 5 online games during the Halloween event", "rule": {"stat": "ev.halloween26.games", "gte": 5}, "event": "halloween26"},
+    {"id": "boo", "emoji": "👻", "name": "Boo!", "desc": "Survive 3 rounds of Prop Hunt during the Halloween event", "rule": {"stat": "ev.halloween26.survived", "gte": 3}, "event": "halloween26"},
+    {"id": "tourney-champ", "emoji": "🏆", "name": "Cup winner", "desc": "Win a tournament", "rule": {"stat": "tour.wins", "gte": 1}},
     {"id": "party-animal", "emoji": "🎉", "name": "Party animal", "desc": "Win a party in Party mode", "rule": {"stat": "party.wins", "gte": 1}},
     {"id": "snake", "emoji": "🐍", "name": "Snake charmer", "desc": "Score 40 in Snake", "rule": {"stat": "snake.best", "gte": 40}},
     {"id": "tiles", "emoji": "🔢", "name": "Tile master", "desc": "Score 20,000 in 2048", "rule": {"stat": "2048.best", "gte": 20000}},
@@ -43,7 +51,9 @@
     {"id": "frost", "name": "Frost", "rule": {"ach": "downhill"}},
     {"id": "orbit", "name": "World orbit", "rule": {"ach": "world"}},
     {"id": "toxic", "name": "Toxic", "rule": {"ach": "bomb"}},
-    {"id": "shadow", "name": "Shadow", "rule": {"ach": "disguise"}}
+    {"id": "shadow", "name": "Shadow", "rule": {"ach": "disguise"}},
+    {"id": "champion", "name": "Trophy", "rule": {"ach": "tourney-champ"}},
+    {"id": "pumpkin", "name": "Pumpkin glow", "rule": {"ach": "trick-or-treat"}, "event": "halloween26"}
   ],
   "anims": [
     {"id": "bounce", "name": "Bounce", "rule": {"level": 3}},
@@ -56,7 +66,8 @@
     {"id": "hue", "name": "Color shift", "rule": {"ach": "picasso"}},
     {"id": "slither", "name": "Slither", "rule": {"ach": "snake"}},
     {"id": "flip", "name": "Flip", "rule": {"ach": "tiles"}},
-    {"id": "peek", "name": "Peekaboo", "rule": {"ach": "memory"}}
+    {"id": "peek", "name": "Peekaboo", "rule": {"ach": "memory"}},
+    {"id": "ghost", "name": "Ghostly", "rule": {"ach": "boo"}, "event": "halloween26"}
   ],
   "balls": [
     {"id": "classic", "name": "Classic", "rule": null},
@@ -71,6 +82,7 @@
     {"id": "melon", "name": "Watermelon", "rule": {"ach": "regular"}},
     {"id": "earth", "name": "Planet Earth", "rule": {"ach": "world"}},
     {"id": "ice", "name": "Ice", "rule": {"ach": "downhill"}},
-    {"id": "eight", "name": "8-ball", "rule": {"ach": "bots"}}
+    {"id": "eight", "name": "8-ball", "rule": {"ach": "bots"}},
+    {"id": "jack", "name": "Jack-o’-lantern", "rule": {"ach": "trick-or-treat"}, "event": "halloween26"}
   ]
 }

@@ -13,6 +13,7 @@ powers on your own account (see README).
 """
 import asyncio
 import base64
+import datetime
 import hashlib
 import hmac
 import json
@@ -63,6 +64,7 @@ BOARDS = {
     "party": ("🎉 Party mode wins", "party.wins", "desc", "int"),
     "prophunt": ("🔫 Prop Hunt wins", "prophunt.wins", "desc", "int"),
     "prophunt_catches": ("🎯 Prop Hunt catches", "prophunt.catches", "desc", "int"),
+    "tour": ("🏆 Tournament wins", "tour.wins", "desc", "int"),
 }
 
 # Scores the browser reports for solo games: game -> (stat ops, lowest, highest)
@@ -141,6 +143,25 @@ try:
 except (OSError, ValueError):
     UNLOCKS = {"achievements": [], "auras": [], "anims": [], "balls": []}
 LOOK_SLOTS = {"aura": "auras", "anim": "anims", "ball": "balls"}   # what you can wear -> list in UNLOCKS
+
+
+def event_window(ev):
+    """(start, end) unix times of a limited-time event (dates are UTC days; "until" is the first day it's over)."""
+    day = lambda s: datetime.datetime.strptime(s, "%Y-%m-%d").replace(tzinfo=datetime.timezone.utc).timestamp()
+    return day(ev["from"]), day(ev["until"])
+
+
+def active_events(t=None):
+    t = time.time() if t is None else t
+    out = []
+    for ev in UNLOCKS.get("events", []):
+        try:
+            a, b = event_window(ev)
+        except (KeyError, ValueError):
+            continue
+        if a <= t < b:
+            out.append(ev)
+    return out
 
 
 def rule_ok(rule, level, stats, achs):
@@ -680,6 +701,11 @@ class Accounts:
             if outcome == "win":
                 ops["wins"] = ("add", 1)
         ops.update(stats or {})
+        # limited-time events count some stats separately while they're on (e.g. games played at Halloween)
+        for ev in active_events():
+            for name, base in ev.get("track", {}).items():
+                if base in ops and ops[base][0] == "add":
+                    ops[f"ev.{ev['id']}.{name}"] = ("add", ops[base][1])
         stmts = []
         for key, (op, value) in ops.items():
             if op in UPSERT and isinstance(value, (int, float)) and math.isfinite(value):

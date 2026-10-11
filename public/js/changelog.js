@@ -6,6 +6,14 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '2.16.0', date: '2026-10-11', emoji: '🎃', title: 'Tournaments, Halloween and Prop Hunt power-ups', items: [
+      'Tournaments: the host picks Connect 4, Neon Dash, Minesweeper, Party Blitz or Prop Hunt and everyone goes into a knockout bracket of 1-on-1 matches',
+      'Matches in a round happen at the same time, players are moved to their match and back automatically, and anyone can follow the live bracket and watch',
+      'Win a tournament for the “Cup winner” achievement and the Trophy aura. There’s a new leaderboard too',
+      '🎃 Halloween event until 2 November: play 5 online games for the Pumpkin glow aura and a Jack-o’-lantern Slope ball, and survive 3 Prop Hunt rounds for the Ghostly avatar. Earn them in time and they’re yours forever!',
+      'Prop Hunt power-ups: hiders get 2 decoys and a speed burst, the killer gets a radar and 2 grenades (keys 1 and 2)',
+      'Three new Prop Hunt maps: a school, a shopping mall and a party house with a pool. Pick one or mix them up',
+    ] },
     { v: '2.15.0', date: '2026-10-11', emoji: '🔫', title: 'Prop Hunt and friend invites', items: [
       'New game: Prop Hunt! A top-down town where one player is the killer and everyone else hides',
       'Hiders turn into props (barrels, bushes, couches, cars…) or sneak into buildings, where roofs block the killer’s view',

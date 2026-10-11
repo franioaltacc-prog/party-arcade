@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tournament · Party Arcade</title>
+  <meta name="theme-color" content="#0b0920">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .tr-head { text-align: center; margin: 6px 0 18px; }
+    .tr-head h1 { margin: 6px 0 4px; }
+    .tr-me { max-width: 640px; margin: 0 auto 20px; padding: 14px 18px; border-radius: 18px; background: var(--panel-2); border: 1px solid var(--border-strong); text-align: center; font-weight: 600; }
+    .tr-me.go { background: rgba(163, 230, 53, .14); border-color: rgba(163, 230, 53, .55); }
+    .tr-me.out { background: rgba(255, 255, 255, .04); }
+    .tr-me.win { background: linear-gradient(135deg, rgba(250, 204, 21, .25), rgba(255, 79, 216, .15)); border-color: rgba(250, 204, 21, .7); }
+    .tr-me .big { font-family: var(--font-display); font-weight: 400; font-size: 1.4rem; margin-bottom: 4px; }
+    .tr-me .btn { margin-top: 10px; }
+    .bracket { display: flex; gap: 18px; overflow-x: auto; padding: 6px 4px 14px; align-items: stretch; }
+    .tr-col { flex: 1 0 210px; display: flex; flex-direction: column; min-width: 210px; }
+    .tr-col h3 { text-align: center; font-size: .95rem; color: var(--muted); margin: 0 0 10px; text-transform: uppercase; letter-spacing: .05em; }
+    .tr-col.now h3 { color: var(--yellow); }
+    .tr-matches { flex: 1; display: flex; flex-direction: column; justify-content: space-around; gap: 12px; }
+    .tr-m { border-radius: 14px; background: var(--panel); border: 1px solid var(--border); overflow: hidden; }
+    .tr-m.live { border-color: rgba(244, 63, 94, .75); box-shadow: 0 0 18px rgba(244, 63, 94, .25); }
+    .tr-m.mine { outline: 2px solid var(--yellow); }
+    .tr-p { display: flex; align-items: center; gap: 8px; padding: 7px 10px; font-weight: 600; min-height: 40px; }
+    .tr-p + .tr-p { border-top: 1px solid var(--border); }
+    .tr-p .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tr-p.won { background: rgba(163, 230, 53, .12); }
+    .tr-p.lost { opacity: .45; }
+    .tr-p.tbd { color: var(--faint); font-style: italic; }
+    .tr-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 5px 10px; font-size: .78rem; color: var(--muted); background: rgba(0, 0, 0, .2); }
+    .tr-foot a { font-weight: 700; }
+    .tr-champ { max-width: 520px; margin: 20px auto 0; text-align: center; padding: 22px; border-radius: 22px; background: linear-gradient(160deg, rgba(250, 204, 21, .22), rgba(255, 79, 216, .12)); border: 1px solid rgba(250, 204, 21, .6); }
+    .tr-champ .crown { font-size: 3rem; }
+    .tr-champ .avatar { margin: 8px auto; }
+    .tr-champ h2 { font-family: var(--font-display); font-weight: 400; margin: 4px 0; }
+  </style>
+</head>
+<body>
+  <main class="page" id="tournament"></main>
+  <script src="/js/art.js"></script>
+  <script src="/js/core.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollTrigger.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/Flip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/SplitText.min.js"></script>
+  <script src="/js/fx.js"></script>
+  <script src="/js/tournament.js"></script>
+</body>
+</html>
