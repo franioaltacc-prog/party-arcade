@@ -72,6 +72,9 @@ BOARDS = {
     "poly4": ("🚀 Poly Racer: Big Air", "poly4.best", "asc", "time"),
     "poly5": ("☁️ Poly Racer: Sky Highway", "poly5.best", "asc", "time"),
     "poly6": ("🌋 Poly Racer: Chaos", "poly6.best", "asc", "time"),
+    "pool": ("🎱 Billiards wins", "pool.wins", "desc", "int"),
+    "pool_speed": ("⏱️ Billiards speed clear", "poolspeed.best", "asc", "time"),
+    "pool_cpu": ("🤖 Billiards wins vs CPU", "poolcpu.wins", "desc", "int"),
 }
 
 # Scores the browser reports for solo games: game -> (stat ops, lowest, highest)
@@ -92,8 +95,10 @@ SOLO = {
     "poly-4": ("poly4", 17625, 3_600_000),
     "poly-5": ("poly5", 17700, 3_600_000),
     "poly-6": ("poly6", 22275, 3_600_000),
+    "pool-speed": ("poolspeed", 15000, 3_600_000),   # Billiards speed clear: ms to pocket all 15 balls
+    "pool-cpu": ("poolcpu", 1, 3),                   # a win vs the CPU at this level (1 easy, 2 medium, 3 hard)
 }
-FASTEST = {"memory", "dash-solo", "mines-easy", "mines-medium", "mines-hard"} | {f"poly-{i}" for i in range(1, 7)}   # solo games where a lower time wins
+FASTEST = {"memory", "dash-solo", "mines-easy", "mines-medium", "mines-hard", "pool-speed"} | {f"poly-{i}" for i in range(1, 7)}   # solo games where a lower time wins
 
 SCHEMA = [
     """CREATE TABLE IF NOT EXISTS users (
@@ -791,6 +796,8 @@ class Accounts:
             raise AuthError("That score doesn't look right 🤔")
         if game == "front-solo":
             stats = {"frontsolo.wins": ("add", 1), "frontsolo.best": ("max", value)}
+        elif game == "pool-cpu":
+            stats = {"poolcpu.wins": ("add", 1), "poolcpu.best": ("max", value)}
         elif game == "dash-solo":
             stats = {"dashsolo.levels": ("add", 1), "dashsolo.best": ("min", value)}
         elif game in FASTEST:
@@ -807,6 +814,8 @@ class Accounts:
     def solo_detail(game, value):
         if game == "front-solo":
             return f"Beat {value} bot{'s' if value != 1 else ''}"
+        if game == "pool-cpu":
+            return f"Beat the {('Easy', 'Medium', 'Hard')[value - 1]} CPU"
         if game in FASTEST:
             return f"Finished in {value / 1000:.2f}s"
         return f"Scored {value:,}"

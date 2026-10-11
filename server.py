@@ -343,7 +343,7 @@ class Room:
         self.cancel(self.vote_timer)
         self.vote = {"kind": kind, "votes": {}, "ends": time.time() + VOTE_SECONDS}
         if kind == "pick":
-            self.vote["options"] = [g for g in PARTY_GAMES if g in GAMES] + ["connect4"]
+            self.vote["options"] = [g for g in PARTY_GAMES if g in GAMES] + ["connect4", "billiards"]
         self.vote_timer = self.later(VOTE_SECONDS, self.decide_vote)
         self.broadcast("room:vote", vote=self.vote_public())
 
@@ -1294,6 +1294,8 @@ GAME_TITLES = {"dash": "Neon Dash", "life": "Family Life", "doodle": "Doodle Gue
                "mines_medium": "Minesweeper (Medium)", "mines_hard": "Minesweeper (Hard)", "mines-easy": "Minesweeper (Easy)",
                "mines-medium": "Minesweeper (Medium)", "mines-hard": "Minesweeper (Hard)", "slope": "Slope",
                "front": "Front Wars", "prophunt": "Prop Hunt", "poly": "Poly Racer", "poly-1": "Poly Racer · First Lap", "poly1": "Poly Racer · First Lap", "poly-2": "Poly Racer · Hill Climb", "poly2": "Poly Racer · Hill Climb", "poly-3": "Poly Racer · Hairpins", "poly3": "Poly Racer · Hairpins", "poly-4": "Poly Racer · Big Air", "poly4": "Poly Racer · Big Air", "poly-5": "Poly Racer · Sky Highway", "poly5": "Poly Racer · Sky Highway", "poly-6": "Poly Racer · Chaos", "poly6": "Poly Racer · Chaos", "frontsolo": "Front Wars solo", "front-solo": "Front Wars solo", "party": "Party mode",
+               "billiards": "Billiards", "pool-speed": "Billiards speed clear", "poolspeed": "Billiards speed clear",
+               "pool-cpu": "Billiards vs CPU", "poolcpu": "Billiards vs CPU",
                "eightball": "Magic 8-Ball", "wyr": "Would You Rather", "wheel": "Spin the Wheel", "tour": "Tournament"}
 
 hub = Hub()
