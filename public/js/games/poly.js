@@ -354,31 +354,136 @@
     };
     const chev = { true: chevron(true), false: chevron(false) };
     const signLeg = new THREE.MeshLambertMaterial({ color: 0x4b5563 });
+    // (boards stand on top of the barrier, lengthwise, facing the road — like on a real race track)
+    const signAt = (k, right) => {
+      const s = S[k];
+      const out = right ? -1 : 1;          // the outside of a right-hand bend is on your left
+      const board = new THREE.Group();
+      const sign = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.05), chev[right]);
+      sign.position.y = 1.07;
+      board.add(sign);
+      for (const x of [-1.5, 1.5]) {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.6, 0.16), signLeg);
+        leg.position.set(x, 0.3, -0.06);
+        board.add(leg);
+      }
+      const p = at(s, out * (s.w + (WALL_IN + WALL_OUT) / 2), WALL_H);
+      board.position.set(p[0], p[1], p[2]);
+      // local x runs along the road, the front (+z) faces the road: the arrows point the way you're going
+      board.rotation.y = Math.atan2(-s.hz, s.hx) + (out > 0 ? Math.PI : 0);
+      grp.add(board);
+    };
     for (let i = 1; i < S.length - 1;) {
       if (Math.abs(turning(i)) < 0.012) { i++; continue; }
       const dir = Math.sign(turning(i));
       let j = i; let total = 0;
       while (j < S.length - 1 && Math.sign(turning(j)) === dir && Math.abs(turning(j)) >= 0.006) { total += turning(j) / 2; j++; }
-      const mid = Math.floor((i + j) / 2);
-      if (Math.abs(total) > 1.0 && wallOn(mid)) {
-        const s = S[mid]; const s0 = S[i];
-        const right = dir < 0;        // yaw going down = turning right; the sign sits on the left
-        const off = (right ? -1 : 1) * (s.w + (WALL_IN + WALL_OUT) / 2);
-        const board = new THREE.Group();
-        const sign = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.05), chev[right]);
-        sign.position.y = 0.55 + 0.52;
-        board.add(sign);
-        for (const x of [-1.5, 1.5]) {
-          const leg = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.6, 0.16), signLeg);
-          leg.position.set(x, 0.3, -0.05);
-          board.add(leg);
+      if (Math.abs(total) > 1.0) {
+        const right = dir < 0;
+        const n = Math.max(1, Math.round((j - i) / 11));
+        for (let k = 0; k < n; k++) {
+          const at_ = Math.round(i + 3 + ((j - i - 6) * (k + 0.5)) / n);
+          if (wallOn(at_) && wallOn(at_ - 2) && wallOn(at_ + 2)) signAt(at_, right);
         }
-        const p = at(s, off, WALL_H);
-        board.position.set(p[0], p[1], p[2]);
-        board.rotation.y = yawOf(s0);
-        grp.add(board);
       }
       i = j + 1;
+    }
+
+    // ---------------- buildings around the track: grandstands, pits, race control, billboards, flags, tents
+    const lots = [];     // [x, z, radius] of everything built, so trees and other buildings keep out
+    const clearOf = (i, x, z, r, skip = 30) => {
+      for (let j = 0; j < S.length; j += 2) {
+        if (Math.abs(j - i) < skip) continue;
+        if (Math.hypot(S[j].x - x, S[j].z - z) < S[j].w + WALL_OUT + r) return false;
+      }
+      return lots.every(([lx, lz, lr]) => Math.hypot(lx - x, lz - z) > lr + r + 3);
+    };
+    const beside = (s, side, out) => at(s, side * out);
+    const straights = [];
+    for (let i = 8; i < S.length - 1;) {
+      const ok = (k) => wallOn(k) && Math.abs(turning(k)) <= 0.004 && !S[k].after && Math.abs(S[k].slope) < 0.05;
+      if (!ok(i)) { i++; continue; }
+      let j = i;
+      while (j < S.length - 1 && ok(j)) j++;
+      if (j - i >= 36) straights.push([i, j]);
+      i = j + 1;
+    }
+    const tryStand = (i, sides = [1, -1]) => {
+      const s = S[i];
+      for (const side of sides) {
+        const c = beside(s, side, s.w + 9);
+        const mid = beside(s, side, s.w + 16);
+        if (!clearOf(i, mid[0], mid[2], 18)) continue;
+        grp.add(grandstand(s, side, c, footAt(mid[0], mid[2], 18)));
+        lots.push([mid[0], mid[2], 19]);
+        return side;
+      }
+      return 0;
+    };
+    // grandstands at the start and the finish, and on the longest straights
+    const startSide = tryStand(6);
+    const finishSide = tryStand(T.finish);
+    const far = (i) => Math.abs(i - 6) > 110 && Math.abs(i - T.finish) > 110;
+    [...straights].sort((a, b) => (b[1] - b[0]) - (a[1] - a[0])).filter(([a, b]) => far((a + b) >> 1)).slice(0, 2)
+      .forEach(([a, b]) => tryStand((a + b) >> 1));
+    // the pit building with its garages, next to the start
+    for (const side of [-startSide || 1, startSide || -1]) {
+      const i = 30; const s = S[i];
+      const mid = beside(s, side, s.w + 14);
+      if (!clearOf(i, mid[0], mid[2], 22, 40)) continue;
+      grp.add(pitBuilding(s, side, beside(s, side, s.w + 8), footAt(mid[0], mid[2], 22)));
+      lots.push([mid[0], mid[2], 22]);
+      break;
+    }
+    // race control: a tall tower near the finish
+    for (const side of [-finishSide || 1, finishSide || -1]) {
+      const i = Math.max(10, T.finish - 30); const s = S[i];
+      const c = beside(s, side, s.w + 26);
+      if (!clearOf(i, c[0], c[2], 7, 0)) continue;
+      grp.add(controlTower(c[0], c[2], footAt(c[0], c[2], 5), s.y + 13, Math.atan2(-s.hz, s.hx) + (side < 0 ? Math.PI : 0)));
+      lots.push([c[0], c[2], 7]);
+      break;
+    }
+    // sponsor billboards along the straights
+    let ad = 0;
+    for (const [a, b] of straights) {
+      for (let i = a + 12; i < b - 8; i += 70) {
+        const side = ad % 2 ? 1 : -1;
+        const s = S[i];
+        const c = beside(s, side, s.w + 3.5);
+        const mid = beside(s, side, s.w + 4);
+        if (!clearOf(i, mid[0], mid[2], 7, 16)) continue;
+        grp.add(billboard(s, side, c, footAt(c[0], c[2], 6), ADS[(track.id + ad) % ADS.length]));
+        lots.push([mid[0], mid[2], 7]);
+        ad++;
+      }
+    }
+    // flags on the barriers before the finish line
+    const flagCols = [0xff4fd8, 0x22d3ee, 0xfacc15, 0xa3e635, 0xfb923c, 0x8b5cf6];
+    for (let i = T.finish - 30, n = 0; i < T.finish - 3; i += 5, n++) {
+      for (const side of [1, -1]) {
+        if (!wallOn(i)) continue;
+        const p = at(S[i], side * (S[i].w + (WALL_IN + WALL_OUT) / 2), WALL_H);
+        grp.add(flagPole(p, flagCols[(n + (side > 0 ? 0 : 3)) % flagCols.length], yawOf(S[i])));
+      }
+    }
+    // little camps of fans' tents out in the fields
+    const tentCols = [0xff4fd8, 0x22d3ee, 0xfacc15, 0xf97316, 0xa3e635, 0xf8fafc, 0x8b5cf6];
+    for (let k = 0, camps = 0; k < 400 && camps < 5; k++) {
+      const x = mx + (rnd() - 0.5) * (R0 * 2 + 200); const z = mz + (rnd() - 0.5) * (R0 * 2 + 200);
+      const d = trackDist(x, z);
+      const hgt = groundAt(x, z);
+      if (d < 26 || d > 150 || hgt < GROUND - 0.4 || hgt > GROUND + 6) continue;
+      if (!lots.every(([lx, lz, lr]) => Math.hypot(lx - x, lz - z) > lr + 16)) continue;
+      const n = 4 + Math.floor(rnd() * 4);
+      for (let t = 0; t < n; t++) {
+        const a = (t / n) * Math.PI * 2 + rnd() * 0.4; const r = 7 + rnd() * 4;
+        const tx = x + Math.cos(a) * r; const tz = z + Math.sin(a) * r;
+        if (trackDist(tx, tz) < 18 || groundAt(tx, tz) < GROUND - 0.4) continue;
+        grp.add(tent(tx, footAt(tx, tz, 2.5) + 0.8, tz, tentCols[(t + camps * 2) % tentCols.length], a));
+      }
+      lots.push([x, z, 14]);
+      camps++;
     }
 
     // ---------------- scenery on the land
@@ -388,6 +493,7 @@
       const x = mx + (rnd() - 0.5) * (R0 * 2 + 700); const z = mz + (rnd() - 0.5) * (R0 * 2 + 700);
       const hgt = groundAt(x, z);
       if (hgt < GROUND - 0.5 || hgt > GROUND + 45 || trackDist(x, z) < 14) continue;
+      if (!lots.every(([lx, lz, lr]) => Math.hypot(lx - x, lz - z) > lr + 4)) continue;
       // sit on the lowest point under it (and a bit into the ground) so nothing hovers on a slope
       const low = Math.min(hgt, groundAt(x + 1.5, z), groundAt(x - 1.5, z), groundAt(x, z + 1.5), groundAt(x, z - 1.5));
       spots.push([x, low - 0.25, z, 0.7 + rnd() * 1.2, rnd() * Math.PI * 2, rnd() < 0.22]);
@@ -407,23 +513,6 @@
         });
         inst.instanceMatrix.needsUpdate = true;
         grp.add(inst);
-      }
-    }
-
-    // grandstands full of fans at the start and the finish
-    for (const i of [6, T.finish]) {
-      const s = S[i];
-      for (const side of [1, -1]) {
-        const off = side * (s.w + 9);
-        const c = at(s, off);
-        let clear = true;
-        for (let j = 0; j < S.length; j += 3) {
-          if (Math.abs(j - i) < 30) continue;
-          if (Math.hypot(S[j].x - c[0], S[j].z - c[2]) < S[j].w + 22) { clear = false; break; }
-        }
-        if (!clear) continue;
-        grp.add(grandstand(s, side, c, footAt(c[0], c[2], 18)));
-        break;
       }
     }
 
@@ -525,6 +614,112 @@
         rock: [[rock, 0x3b2f7a, 1.1], [new THREE.IcosahedronGeometry(1, 0), 0xf472b6, 2.4, true]] },
     };
   })();
+
+  // sponsor boards (made-up brands)
+  const ADS = [
+    ['PARTY ARCADE', '#ff4fd8', '#ffffff'], ['POLY RACER', '#0ea5e9', '#ffffff'], ['TURBO COLA', '#dc2626', '#fde047'],
+    ['PIXEL TYRES', '#111827', '#22d3ee'], ['NEON FUEL', '#7c3aed', '#a3e635'], ['ZOOM BURGER', '#f59e0b', '#7c2d12'],
+  ];
+  function textPlane(text, w, hh, bg, fg) {
+    const c = document.createElement('canvas'); c.width = 512; c.height = Math.round(512 * hh / w);
+    const x = c.getContext('2d');
+    x.fillStyle = bg; x.fillRect(0, 0, c.width, c.height);
+    x.fillStyle = 'rgba(255,255,255,.12)'; x.fillRect(0, 0, c.width, c.height * 0.45);
+    x.fillStyle = fg; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.font = `400 ${Math.round(c.height * 0.5)}px Bungee, Fredoka, sans-serif`;
+    x.fillText(text, c.width / 2, c.height * 0.54, c.width * 0.92);
+    return new THREE.Mesh(new THREE.PlaneGeometry(w, hh), new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(c) }));
+  }
+  const solid = (color) => new THREE.MeshLambertMaterial({ color });
+  // a box in a building's own frame, from height y0 up to y1
+  const boxIn = (g, w, y0, y1, d, x, z, mat) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, y1 - y0, d), mat);
+    m.position.set(x, (y0 + y1) / 2, z);
+    g.add(m);
+    return m;
+  };
+  function faceRoad(g, s, side, c) {
+    // local x runs along the track, local z points away from it
+    g.position.set(c[0], s.y, c[2]);
+    g.rotation.y = Math.atan2(-s.hz, s.hx) + (side < 0 ? Math.PI : 0);
+    return g;
+  }
+
+  function pitBuilding(s, side, c, foot) {
+    const g = new THREE.Group();
+    const L = 40; const down = foot - s.y;
+    const conc = solid(0xcbd2dc); const wall = solid(0xf1f5f9); const dark = solid(0x1f2937); const roof = solid(0x334155);
+    boxIn(g, L + 2, down, 0.2, 13, 0, 6.5, conc);                 // the base, down to the ground
+    boxIn(g, L, 0.2, 5.4, 10, 0, 7, wall);                         // the building
+    const team = [0xff4fd8, 0x22d3ee, 0xfacc15, 0xa3e635, 0xfb923c, 0x8b5cf6];
+    for (let k = 0; k < 6; k++) {
+      const x = -L / 2 + 3.6 + k * 6.6;
+      boxIn(g, 4.8, 0.2, 3.9, 0.3, x, 1.95, dark);                // garage door
+      boxIn(g, 5.2, 3.9, 4.4, 0.35, x, 1.95, solid(team[k]));     // team colour above it
+    }
+    boxIn(g, L + 1.2, 5.4, 5.9, 11, 0, 7, roof);
+    boxIn(g, L + 1.24, 4.6, 5.4, 0.3, 0, 1.85, solid(0xe11d48));  // red stripe
+    const sign = textPlane('PIT LANE', 14, 2, '#111827', '#facc15');
+    sign.position.set(0, 7.2, 2.2); sign.rotation.y = Math.PI;
+    g.add(sign);
+    boxIn(g, 0.4, 5.9, 6.3, 0.4, -5, 2.4, dark); boxIn(g, 0.4, 5.9, 6.3, 0.4, 5, 2.4, dark);
+    return faceRoad(g, s, side, c);
+  }
+
+  function controlTower(x, z, foot, top, yaw) {
+    const g = new THREE.Group();
+    const conc = solid(0xd5d9e2); const white = solid(0xf8fafc);
+    boxIn(g, 4, foot, top - 5, 4, 0, 0, conc);
+    boxIn(g, 9.5, top - 5.6, top - 5, 9.5, 0, 0, white);           // floor of the cabin
+    const glass = new THREE.MeshLambertMaterial({ color: 0x38bdf8, emissive: 0x0ea5e9, emissiveIntensity: 0.35 });
+    boxIn(g, 8.6, top - 5, top - 1, 8.6, 0, 0, glass);
+    boxIn(g, 10, top - 1, top - 0.4, 10, 0, 0, white);              // roof
+    boxIn(g, 0.25, top - 0.4, top + 4, 0.25, 2.5, 2.5, solid(0x6b7280));   // aerial
+    const light = new THREE.MeshLambertMaterial({ color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 0.8 });
+    boxIn(g, 0.6, top + 4, top + 4.6, 0.6, 2.5, 2.5, light);
+    const sign = textPlane('RACE CONTROL', 9, 1.2, '#e11d48', '#ffffff');
+    sign.position.set(0, top - 0.7, -5.05); sign.rotation.y = Math.PI;
+    g.add(sign);
+    g.position.set(x, 0, z);
+    g.rotation.y = yaw;
+    return g;
+  }
+
+  function billboard(s, side, c, foot, [text, bg, fg]) {
+    const g = new THREE.Group();
+    const down = foot - s.y;
+    const steel = solid(0x6b7280);
+    for (const x of [-4.5, 4.5]) boxIn(g, 0.45, down, 1.6, 0.45, x, 0.4, steel);
+    boxIn(g, 12.4, 1.4, 5.8, 0.4, 0, 0.4, solid(0x1f2937));
+    const face = textPlane(text, 12, 4, bg, fg);
+    face.position.set(0, 3.6, 0.18); face.rotation.y = Math.PI;
+    g.add(face);
+    return faceRoad(g, s, side, c);
+  }
+
+  function flagPole(p, color, yaw) {
+    const g = new THREE.Group();
+    boxIn(g, 0.14, 0, 5.5, 0.14, 0, 0, solid(0xe5e7eb));
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 1.1), new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide }));
+    flag.position.set(0.95, 4.85, 0);
+    g.add(flag);
+    g.position.set(p[0], p[1], p[2]);
+    g.rotation.y = yaw + Math.PI / 2;
+    return g;
+  }
+
+  function tent(x, y, z, color, rot) {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.ConeGeometry(3.3, 3.8, 4), new THREE.MeshLambertMaterial({ color, flatShading: true }));
+    body.position.y = 1.9 - 0.8;
+    body.rotation.y = Math.PI / 4;
+    const door = new THREE.Mesh(new THREE.ConeGeometry(1.0, 1.9, 3), solid(0x1f2937));
+    door.position.set(0, 0.95 - 0.8, 2.05);
+    g.add(body, door);
+    g.position.set(x, y, z);
+    g.rotation.y = rot;
+    return g;
+  }
 
   function grandstand(s, side, c, foot) {
     // everything reaches down to `foot` (the lowest ground under the stand), so nothing hangs in the air

@@ -6,6 +6,11 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '2.17.4', date: '2026-10-11', emoji: '🏟️', title: 'Poly Racer: buildings and fixed signs', items: [
+      'More grandstands on the long straights, a pit building with team garages at the start, and a race control tower near the finish',
+      'Sponsor billboards along the straights, flags along the barriers before the finish, and little camps of fans’ tents out in the fields',
+      'Corner signs now stand on the barrier along the bend (no more floating) and their arrows point the way the road goes',
+    ] },
     { v: '2.17.3', date: '2026-10-11', emoji: '🧱', title: 'Poly Racer: no more invisible road', items: [
       'Reversing past the start line used to let you drive on an invisible road. Now the road ends with a red and white barrier behind the start, and you stop against it',
       'The same barrier closes the road at the very end, after the finish',
