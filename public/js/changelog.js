@@ -6,6 +6,12 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '2.17.1', date: '2026-10-11', emoji: '🏔️', title: 'Poly Racer looks way better', items: [
+      'Real scenery: low-poly hills, valleys, lakes and mountains on the horizon, a gradient sky with the sun and drifting clouds (stars and a moon on Chaos)',
+      'Thick concrete barriers with a red and white top instead of thin walls, red and white kerbs in the corners, and chevron signs on sharp bends',
+      'Hazard stripes on road edges without a barrier, grandstands full of fans at the start and finish, more trees and rocks',
+      'Your car casts a shadow on the road',
+    ] },
     { v: '2.17.0', date: '2026-10-11', emoji: '🏎️', title: 'Poly Racer', items: [
       'New game: Poly Racer, a low-poly 3D racing game inspired by PolyTrack',
       'Six tracks with ramps, jumps over gaps, boost pads, hills, hairpins and sky-high roads without walls',
