@@ -6,6 +6,14 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '2.17.0', date: '2026-10-11', emoji: '🏎️', title: 'Poly Racer', items: [
+      'New game: Poly Racer, a low-poly 3D racing game inspired by PolyTrack',
+      'Six tracks with ramps, jumps over gaps, boost pads, hills, hairpins and sky-high roads without walls',
+      'Time trial: beat the 🥉🥈🥇 and 🏆 author times, race your own ghost, and see your split at every checkpoint',
+      'Every track has its own leaderboard',
+      'Online: everyone races the same track at once and sees the others as ghost cars. Works in party mode and tournaments too',
+      'Two new achievements: Pole position and Gold rush',
+    ] },
     { v: '2.16.0', date: '2026-10-11', emoji: '🎃', title: 'Tournaments, Halloween and Prop Hunt power-ups', items: [
       'Tournaments: the host picks Connect 4, Neon Dash, Minesweeper, Party Blitz or Prop Hunt and everyone goes into a knockout bracket of 1-on-1 matches',
       'Matches in a round happen at the same time, players are moved to their match and back automatically, and anyone can follow the live bracket and watch',

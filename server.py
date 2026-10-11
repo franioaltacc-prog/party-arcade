@@ -45,7 +45,7 @@ EMPTY_ROOM_TTL = 90            # seconds an empty room survives
 VOTE_SECONDS = 20              # "play again?" and "which game next?" votes
 PARTY_NEXT = 10                # seconds of party standings before the next game
 PARTY_POINTS = (10, 7, 5, 3)   # 1st, 2nd, 3rd, 4th in each party game; everyone else gets 1
-PARTY_GAMES = ("dash", "doodle", "blitz", "impostor", "mines", "front", "prophunt", "casino", "life")   # games that work for groups
+PARTY_GAMES = ("dash", "poly", "doodle", "blitz", "impostor", "mines", "front", "prophunt", "casino", "life")   # games that work for groups
 WATCHERS_EXTRA = 20            # watchers allowed on top of a game's player limit
 CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -1245,7 +1245,7 @@ GAME_TITLES = {"dash": "Neon Dash", "life": "Family Life", "doodle": "Doodle Gue
                "impostor": "Impostor", "mines": "Minesweeper", "mines_easy": "Minesweeper (Easy)",
                "mines_medium": "Minesweeper (Medium)", "mines_hard": "Minesweeper (Hard)", "mines-easy": "Minesweeper (Easy)",
                "mines-medium": "Minesweeper (Medium)", "mines-hard": "Minesweeper (Hard)", "slope": "Slope",
-               "front": "Front Wars", "prophunt": "Prop Hunt", "frontsolo": "Front Wars solo", "front-solo": "Front Wars solo", "party": "Party mode",
+               "front": "Front Wars", "prophunt": "Prop Hunt", "poly": "Poly Racer", "poly-1": "Poly Racer · First Lap", "poly1": "Poly Racer · First Lap", "poly-2": "Poly Racer · Hill Climb", "poly2": "Poly Racer · Hill Climb", "poly-3": "Poly Racer · Hairpins", "poly3": "Poly Racer · Hairpins", "poly-4": "Poly Racer · Big Air", "poly4": "Poly Racer · Big Air", "poly-5": "Poly Racer · Sky Highway", "poly5": "Poly Racer · Sky Highway", "poly-6": "Poly Racer · Chaos", "poly6": "Poly Racer · Chaos", "frontsolo": "Front Wars solo", "front-solo": "Front Wars solo", "party": "Party mode",
                "eightball": "Magic 8-Ball", "wyr": "Would You Rather", "wheel": "Spin the Wheel", "tour": "Tournament"}
 
 hub = Hub()

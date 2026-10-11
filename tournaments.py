@@ -16,6 +16,7 @@ GAMES = {
     "mines": {"mode": "race", "size": "small", "penalty": 10, "minutes": 3},
     "blitz": {"rounds": 5},
     "prophunt": {"hide": 15, "time": 90, "cycles": 1, "map": "random"},
+    "poly": {"track": "random"},
 }
 MIN_PLAYERS, MAX_PLAYERS = 3, 16
 FIRST_DELAY = 8     # seconds before round 1 (everyone is loading the bracket page)

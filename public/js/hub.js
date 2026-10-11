@@ -123,6 +123,15 @@
       <path d="M100 63 L156 33" stroke="#f43f5e" stroke-width="2" stroke-dasharray="4 4" opacity=".9"/>
       <circle cx="100" cy="63" r="11" fill="#f43f5e" stroke="#fff" stroke-width="2.5"/>${emoji(100, 63, 12, '😈')}
       <circle cx="70" cy="100" r="22" fill="none" stroke="#f43f5e" stroke-width="2" opacity=".55"/>`, '#14281f', '#1d3b2f');
+  ART.poly = svg('poly', `
+      <polygon points="0,120 200,120 200,70 0,90" fill="#1f6f43"/><polygon points="0,90 60,60 120,80 200,50 200,70 0,95" fill="#2f8f55"/>
+      <polygon points="40,120 160,120 120,48 92,48" fill="#3a3f55"/><polygon points="96,48 116,48 132,80 82,80" fill="#454b66"/>
+      <path d="M100 52 L104 70 M106 84 L112 108" stroke="#fff" stroke-width="3" stroke-dasharray="6 6"/>
+      <polygon points="88,48 92,48 50,120 40,120" fill="#ef4444"/><polygon points="116,48 120,48 160,120 150,120" fill="#ef4444"/>
+      <g transform="translate(100 96)"><polygon points="-16,10 16,10 14,-4 8,-10 -8,-10 -14,-4" fill="#ff4fd8"/><polygon points="-8,-10 8,-10 6,-16 -6,-16" fill="#22d3ee"/>
+      <rect x="-18" y="4" width="6" height="8" fill="#111"/><rect x="12" y="4" width="6" height="8" fill="#111"/></g>
+      ${emoji(170, 26, 18, '🏁')}${emoji(30, 28, 16, '⚡')}`, '#0ea5e9', '#7dd3fc');
+  ART['poly-solo'] = ART.poly.replaceAll('g-poly', 'g-poly2').replace('#0ea5e9', '#f59e0b').replace('#7dd3fc', '#fde68a');
   ART['front-solo'] = ART.front.replaceAll('g-front', 'g-front2').replace('#0b1a3a', '#1e1b4b').replace('#123068', '#0f766e');
   ART['mines-solo'] = ART.mines.replaceAll('g-mines', 'g-mines2').replace('#0f172a', '#14532d').replace('#4338ca', '#0d9488');
   ART['dash-solo'] = ART.dash.replaceAll('g-dash', 'g-dash2').replace('#2e1065', '#082f49').replace('#9333ea', '#0891b2');
@@ -134,6 +143,7 @@
     { key: 'doodle', title: 'Doodle Guess', icon: '🎨', desc: 'One person draws, everyone guesses. Fast fingers win!', players: '2–12 players', glow: 'rgba(244,63,94,.6)' },
     { key: 'impostor', title: 'Impostor', icon: '🕵️', desc: 'Everyone knows the secret word… except the impostor. Give one clue each, argue it out, and vote out the faker!', players: '3–10 players', glow: 'rgba(244,63,94,.6)', isNew: true },
     { key: 'front', title: 'Front Wars', icon: '🌍', desc: 'Conquer the world! Grab land, build cities, send boats and nukes. Free-for-all or teams, with friends and bots. Inspired by OpenFront.', players: '1–8 players + bots', glow: 'rgba(34,197,94,.6)', isNew: true },
+    { key: 'poly', title: 'Poly Racer', icon: '🏎️', desc: 'Low-poly 3D racing! Ramps, jumps, boost pads and checkpoints. Race your friends on the same track and see them as ghost cars.', players: '1–10 players', glow: 'rgba(14,165,233,.6)', isNew: true },
     { key: 'prophunt', title: 'Prop Hunt', icon: '🔫', desc: 'Hide and seek with a killer! Turn into a barrel, a bush or a couch, sneak into buildings, and survive the hunt. Everyone gets a turn as the killer.', players: '2–10 players', glow: 'rgba(244,63,94,.6)', isNew: true },
     { key: 'mines', title: 'Minesweeper', icon: '💣', desc: 'Race your friends on the same board, or battle on one shared board for the most squares!', players: '1–8 players', glow: 'rgba(99,102,241,.6)', isNew: true },
     { key: 'blitz', title: 'Party Blitz', icon: '⚡', desc: 'Rapid-fire minigames: reaction, mashing, math, memory and more.', players: '1–12 players', glow: 'rgba(250,204,21,.6)' },
@@ -142,6 +152,7 @@
   ];
   const SOLO = [
     { key: 'dash-solo', href: '/games/dash?solo=1', title: 'Neon Dash Practice', icon: '🟦', desc: 'Train on random levels and chase your best times.', players: 'Solo' },
+    { key: 'poly-solo', href: '/games/poly?solo=1', title: 'Poly Racer Time Trial', icon: '🏁', desc: 'Six tracks, medals to win and your own ghost to beat. Every track has a leaderboard!', players: 'Solo', isNew: true },
     { key: 'front-solo', href: '/games/front?solo=1', title: 'Front Wars vs Bots', icon: '🤖', desc: 'Take on up to 40 bots and conquer the whole map. Easy, medium or hard!', players: 'Solo', isNew: true },
     { key: 'slope', title: 'Slope', icon: '🛝', desc: 'Roll a ball down an endless neon slope. Steer, dodge the red blocks, don’t fall off!', players: 'Solo', isNew: true },
     { key: 'mines-solo', href: '/games/mines?solo=1', title: 'Minesweeper', icon: '💣', desc: 'The classic! Easy, Medium and Hard boards. Your first click is always safe.', players: 'Solo' },

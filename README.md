@@ -41,8 +41,8 @@ online game (casino coins, Family Life money/stats/time skip, Neon Dash god mode
 A game where an admin used a cheat doesn't count for anyone's stats or leaderboards.
 
 ## Games
-- **Online:** Neon Dash (mini Geometry Dash race), Family Life (multiplayer BitLife with siblings), Doodle Guess, Impostor, Minesweeper (Race / Battle), Front Wars (OpenFront-style territory war: free-for-all with alliances or teams, bots, ports, warships, nukes and replays), Prop Hunt (top-down hide and seek with a killer), Party Blitz, Connect 4
-- **Solo:** Neon Dash practice, Minesweeper (Easy / Medium / Hard), Front Wars vs bots, Slope (3D, three.js), Snake, 2048, Memory Flip
+- **Online:** Neon Dash (mini Geometry Dash race), Family Life (multiplayer BitLife with siblings), Doodle Guess, Impostor, Minesweeper (Race / Battle), Front Wars (OpenFront-style territory war: free-for-all with alliances or teams, bots, ports, warships, nukes and replays), Prop Hunt (top-down hide and seek with a killer), Poly Racer (low-poly 3D racing), Party Blitz, Connect 4
+- **Solo:** Poly Racer time trial, Neon Dash practice, Minesweeper (Easy / Medium / Hard), Front Wars vs bots, Slope (3D, three.js), Snake, 2048, Memory Flip
 - **Fun:** Spin the Wheel, Would You Rather (global votes), Magic 8-Ball
 - **Casino Night (fake coins only):** every match everyone starts with the same coins; most coins at the end wins.
   - VS HOUSE: Roulette, Lucky Dice, Blackjack, Slots. VS PLAYERS: Texas Hold'em, Coinflip, High Card and Dice duels.
@@ -84,6 +84,19 @@ A top-down hide-and-seek shooter in a randomly generated town (`games/prophunt.p
 - Anti-cheat: browsers send positions, the server checks speed and walls, does all hit detection (with a little lag
   allowance), and only sends each player the people they could see (nobody behind roofs or past 560 px).
   Maps are tested to always connect every building (`make_map`).
+
+## Poly Racer
+Our own low-poly 3D racer in the style of PolyTrack (three.js). `public/js/games/poly-core.js` has the tracks, the car
+physics and an autopilot, with no drawing, so it also runs outside the browser. `poly.js` draws it, and `games/poly.py`
+runs online races (each browser drives its own car; the server relays positions and decides places).
+- **Tracks** are tiny programs: `F40` straight, `L90r30` / `R45r60` turns (angle, radius), `U30h6` / `D30h6` hills,
+  `K12h3` kicker ramp, `J18` gap to jump (`J18h-4` lands lower), `B20` boost pad, `C` checkpoint, `W0`/`W1` walls off/on,
+  `w5` road half-width. The end is the finish line.
+- **Adding a track:** add it to `TRACKS` in `poly-core.js`, drive it with the autopilot (`PolyCore.simulate(track)`) to
+  check it can be finished and to set the medal times (author = autopilot, gold +4%, silver +18%, bronze +40%), then add it
+  to `TRACKS` in `games/poly.py`, `SOLO` and `BOARDS` in `accounts.py`.
+- Solo times are saved per track (`poly1.best`…); times more than 25% faster than the author time are refused, and online
+  finish times must match how long the race has actually been going.
 
 ## Tournaments
 `tournaments.py`. In any room the host presses “🏆 Start a tournament” and picks Connect 4, Neon Dash, Minesweeper,

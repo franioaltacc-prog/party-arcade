@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Poly Racer · Party Arcade</title>
+  <meta name="theme-color" content="#0b0920">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .pr-wrap { width: min(1150px, 100%); margin: 0 auto; }
+    .pr-stage { position: relative; width: 100%; aspect-ratio: 16 / 9; max-height: calc(100vh - 150px); border-radius: 22px; overflow: hidden; background: #0b1220; box-shadow: var(--shadow), 0 0 0 1px var(--border); touch-action: none; user-select: none; -webkit-user-select: none; }
+    .pr-stage canvas { display: block; width: 100%; height: 100%; }
+    .pr-stage:fullscreen { max-height: none; border-radius: 0; aspect-ratio: auto; }
+    .pr-hud { position: absolute; top: 10px; left: 12px; right: 12px; display: flex; justify-content: space-between; align-items: flex-start; pointer-events: none; gap: 10px; }
+    .pr-time { font-family: var(--font-display); font-size: clamp(1.4rem, 4vw, 2.4rem); color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,.4), 0 0 18px rgba(0,0,0,.35); line-height: 1; }
+    .pr-sub { font-weight: 700; font-size: .85rem; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.6); margin-top: 4px; }
+    .pr-medals { display: flex; flex-direction: column; gap: 3px; align-items: flex-end; }
+    .pr-medals span { padding: 2px 9px; border-radius: 999px; background: rgba(11,9,32,.55); color: #fff; font-weight: 700; font-size: .82rem; font-variant-numeric: tabular-nums; }
+    .pr-medals span.next { background: rgba(250,204,21,.85); color: #1f1300; }
+    .pr-medals span.got { opacity: .45; text-decoration: line-through; }
+    .pr-speed { position: absolute; right: 14px; bottom: 12px; text-align: right; pointer-events: none; font-family: var(--font-display); color: #fff; font-size: clamp(1.6rem, 4.5vw, 2.6rem); text-shadow: 0 2px 0 rgba(0,0,0,.4); line-height: 1; }
+    .pr-speed small { display: block; font-family: var(--font); font-size: .75rem; opacity: .8; }
+    .pr-split { position: absolute; top: 24%; left: 0; right: 0; text-align: center; font-family: var(--font-display); font-size: clamp(1.4rem, 4vw, 2.2rem); pointer-events: none; opacity: 0; transition: opacity .25s; text-shadow: 0 2px 0 rgba(0,0,0,.5); }
+    .pr-split.on { opacity: 1; }
+    .pr-split.good { color: #86efac; } .pr-split.bad { color: #fda4af; } .pr-split.even { color: #fff; }
+    .pr-center { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; pointer-events: none; padding: 16px; }
+    .pr-center .count { font-family: var(--font-display); font-size: clamp(4rem, 14vw, 8rem); color: #fff; text-shadow: 0 4px 0 rgba(0,0,0,.35), 0 0 40px rgba(255,255,255,.4); }
+    .pr-center .card { pointer-events: auto; max-width: min(460px, 94%); padding: 18px 20px; border-radius: 22px; background: rgba(20,16,51,.93); border: 1px solid var(--border-strong); box-shadow: var(--shadow); }
+    .pr-center .card h2 { font-family: var(--font-display); font-weight: 400; margin: 0 0 4px; }
+    .pr-center .big { font-family: var(--font-display); font-size: clamp(2rem, 7vw, 3rem); margin: 4px 0; }
+    .pr-center .medal { font-size: 3rem; }
+    .pr-center .btns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 12px; }
+    .pr-center .rows { display: grid; gap: 4px; text-align: left; margin-top: 10px; }
+    .pr-center .rows div { display: flex; gap: 8px; align-items: center; padding: 5px 8px; border-radius: 10px; background: rgba(255,255,255,.05); font-weight: 600; }
+    .pr-center .rows .grow { flex: 1; }
+    .pr-board { position: absolute; left: 12px; top: 84px; display: flex; flex-direction: column; gap: 3px; pointer-events: none; }
+    .pr-board div { display: flex; gap: 6px; align-items: center; padding: 2px 8px 2px 3px; border-radius: 999px; background: rgba(11,9,32,.6); color: #fff; font-weight: 600; font-size: .8rem; }
+    .pr-board div.me { background: rgba(250,204,21,.8); color: #1f1300; }
+    .pr-board i { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+    .pr-btns { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; z-index: 2; }
+    .pr-btns .icon-btn { width: 34px; height: 34px; background: rgba(11,9,32,.55); }
+    .pr-touch { position: absolute; left: 0; right: 0; bottom: 12px; display: none; justify-content: space-between; padding: 0 12px; pointer-events: none; }
+    .pr-touch .grp { display: flex; gap: 10px; pointer-events: auto; }
+    .pr-touch button { width: 64px; height: 64px; border-radius: 18px; border: 2px solid rgba(255,255,255,.35); background: rgba(11,9,32,.45); color: #fff; font-size: 1.6rem; touch-action: none; }
+    .pr-touch button.on { background: rgba(255,255,255,.3); }
+    @media (pointer: coarse) { .pr-touch { display: flex; } .pr-speed { bottom: 90px; } }
+    .pr-keys { margin-top: 10px; text-align: center; color: var(--muted); font-size: .85rem; }
+    .tracks { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+    .track-card { text-align: left; padding: 14px; border-radius: 18px; border: 2px solid var(--border); background: var(--panel); color: var(--text); font: inherit; cursor: pointer; display: grid; gap: 6px; transition: transform .12s, border-color .2s; }
+    .track-card:hover { transform: translateY(-2px); border-color: var(--cyan); }
+    .track-card.on { border-color: var(--yellow); background: rgba(250,204,21,.1); }
+    .track-card:disabled { cursor: default; transform: none; }
+    .track-card .tc-top { display: flex; align-items: center; gap: 8px; }
+    .track-card .tc-e { font-size: 1.8rem; }
+    .track-card b { font-size: 1.1rem; }
+    .track-card .tc-best { font-size: .85rem; color: var(--muted); }
+    .track-card .tc-medals { font-size: .78rem; color: var(--faint); }
+    .menu-head { text-align: center; margin-bottom: 16px; }
+    #drive-chat { height: 300px; margin-top: 14px; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div id="entry"></div>
+    <section id="room" class="hidden room-layout">
+      <div class="col">
+        <div class="panel" id="room-code"></div>
+        <div class="panel" id="room-players"></div>
+      </div>
+      <div class="panel room-main" id="room-main"></div>
+      <div class="panel chat-panel" id="room-chat"></div>
+    </section>
+    <section id="menu" class="hidden pr-wrap"></section>
+    <section id="drive" class="hidden pr-wrap">
+      <div class="pr-stage" id="stage">
+        <div class="pr-hud">
+          <div><div class="pr-time" id="time">0:00.000</div><div class="pr-sub" id="sub"></div></div>
+          <div class="pr-medals" id="medals"></div>
+        </div>
+        <div class="pr-btns"><button class="icon-btn" id="btn-quit" title="Back" aria-label="Back">✕</button><button class="icon-btn" id="btn-full" title="Full screen" aria-label="Full screen">⛶</button></div>
+        <div class="pr-board" id="board"></div>
+        <div class="pr-split" id="split"></div>
+        <div class="pr-speed" id="speed">0<small>km/h</small></div>
+        <div class="pr-center" id="center"></div>
+        <div class="pr-touch" id="touch">
+          <div class="grp"><button data-k="left" aria-label="Steer left">◀</button><button data-k="right" aria-label="Steer right">▶</button></div>
+          <div class="grp"><button data-k="respawn" aria-label="Respawn">↺</button><button data-k="down" aria-label="Brake">⏬</button><button data-k="up" aria-label="Accelerate">⏫</button></div>
+        </div>
+      </div>
+      <p class="pr-keys">⬆️ / W drive · ⬇️ / S brake · ⬅️ ➡️ / A D steer · Space drift · R back to checkpoint · Enter restart</p>
+      <div class="panel hidden" id="drive-chat"></div>
+    </section>
+  </main>
+  <script src="/js/art.js"></script>
+  <script src="/js/core.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollTrigger.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/Flip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/SplitText.min.js"></script>
+  <script src="/js/fx.js"></script>
+  <script src="/js/lobby.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="/js/games/poly-core.js"></script>
+  <script src="/js/games/poly.js"></script>
+</body>
+</html>

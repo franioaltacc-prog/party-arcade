@@ -7,6 +7,7 @@ from .front import Front
 from .impostor import Impostor
 from .life import Life
 from .mines import Minesweeper
+from .poly import Poly
 from .prophunt import PropHunt
 
-GAMES = {g.key: g for g in (Dash, Life, Doodle, Blitz, Connect4, Casino, Impostor, Minesweeper, Front, PropHunt)}
+GAMES = {g.key: g for g in (Dash, Life, Doodle, Blitz, Connect4, Casino, Impostor, Minesweeper, Front, PropHunt, Poly)}

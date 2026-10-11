@@ -16,6 +16,7 @@
     mines: { title: 'Minesweeper', emoji: '💣' },
     front: { title: 'Front Wars', emoji: '🌍' },
     prophunt: { title: 'Prop Hunt', emoji: '🔫' },
+    poly: { title: 'Poly Racer', emoji: '🏎️' },
   };
 
   const Room = {
@@ -146,7 +147,7 @@
   function refreshPlayers() { playerPanels.forEach(drawPlayers); }
 
   // ------------------------------------------------------------ watching, votes, party mode
-  const PARTY_GAMES = ['dash', 'doodle', 'blitz', 'impostor', 'mines', 'front', 'prophunt', 'casino', 'life'];
+  const PARTY_GAMES = ['dash', 'poly', 'doodle', 'blitz', 'impostor', 'mines', 'front', 'prophunt', 'casino', 'life'];
   const SWITCH_GAMES = [...PARTY_GAMES, 'connect4'];
   const PARTY_POINTS = [10, 7, 5, 3];
   const gTitle = (g) => (GAME_INFO[g] || {}).title || g;
@@ -200,6 +201,7 @@
       ['🌍 Big night', ['doodle', 'blitz', 'front', 'mines', 'casino']],
       ['🧠 Brainy', ['blitz', 'impostor', 'mines']],
       ['🔫 Action', ['prophunt', 'dash', 'front']],
+      ['🏎️ Speed', ['poly', 'dash', 'blitz']],
     ];
     const draw = () => {
       fill(list, chosen.length
@@ -216,7 +218,7 @@
       list, grid, startBtn), { wide: true });
   }
 
-  const TOUR_GAMES = ['connect4', 'dash', 'mines', 'blitz', 'prophunt'];
+  const TOUR_GAMES = ['connect4', 'dash', 'poly', 'mines', 'blitz', 'prophunt'];
   function tourPicker() {
     const players = Room.players.filter((p) => p.online && !p.watch).length;
     let pick = TOUR_GAMES.includes(Room.game) ? Room.game : 'connect4';
@@ -444,6 +446,7 @@
     impostor: [['reveal', '🔎 Show impostor & word'], ['skip', '⏭️ Skip this phase'], ['end', '🏁 End the game']],
     mines: [['mines', '💣 X-ray: see all mines'], ['clear', '🧹 Clear the board for me'], ['end', '🏁 End the game']],
     front: [['troops', '💪 +50,000 troops', true], ['gold', '💰 +100,000 gold', true], ['end', '🏁 End the game']],
+    poly: [['end', '🏁 End the race']],
     prophunt: [['xray', '🔎 X-ray: see everyone'], ['skip', '⏭️ Skip this round'], ['end', '🏁 End the game']],
   };
   let adminFab = null;

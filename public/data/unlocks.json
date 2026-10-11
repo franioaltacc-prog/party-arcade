@@ -31,6 +31,8 @@
     {"id": "exterminator", "emoji": "🎯", "name": "Nobody escapes", "desc": "Catch every hider in a round of Prop Hunt", "rule": {"stat": "prophunt.aces", "gte": 1}},
     {"id": "trick-or-treat", "emoji": "🎃", "name": "Trick or treat", "desc": "Play 5 online games during the Halloween event", "rule": {"stat": "ev.halloween26.games", "gte": 5}, "event": "halloween26"},
     {"id": "boo", "emoji": "👻", "name": "Boo!", "desc": "Survive 3 rounds of Prop Hunt during the Halloween event", "rule": {"stat": "ev.halloween26.survived", "gte": 3}, "event": "halloween26"},
+    {"id": "pole", "emoji": "🏎️", "name": "Pole position", "desc": "Win an online Poly Racer race", "rule": {"stat": "poly.wins", "gte": 1}},
+    {"id": "chaos-gold", "emoji": "🥇", "name": "Gold rush", "desc": "Beat the gold time on Poly Racer’s Chaos track (30.9s)", "rule": {"stat": "poly6.best", "gt": 0, "lte": 30900}},
     {"id": "tourney-champ", "emoji": "🏆", "name": "Cup winner", "desc": "Win a tournament", "rule": {"stat": "tour.wins", "gte": 1}},
     {"id": "party-animal", "emoji": "🎉", "name": "Party animal", "desc": "Win a party in Party mode", "rule": {"stat": "party.wins", "gte": 1}},
     {"id": "snake", "emoji": "🐍", "name": "Snake charmer", "desc": "Score 40 in Snake", "rule": {"stat": "snake.best", "gte": 40}},

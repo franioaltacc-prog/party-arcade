@@ -65,6 +65,13 @@ BOARDS = {
     "prophunt": ("🔫 Prop Hunt wins", "prophunt.wins", "desc", "int"),
     "prophunt_catches": ("🎯 Prop Hunt catches", "prophunt.catches", "desc", "int"),
     "tour": ("🏆 Tournament wins", "tour.wins", "desc", "int"),
+    "poly": ("🏎️ Poly Racer wins", "poly.wins", "desc", "int"),
+    "poly1": ("🌱 Poly Racer: First Lap", "poly1.best", "asc", "time"),
+    "poly2": ("⛰️ Poly Racer: Hill Climb", "poly2.best", "asc", "time"),
+    "poly3": ("🌀 Poly Racer: Hairpins", "poly3.best", "asc", "time"),
+    "poly4": ("🚀 Poly Racer: Big Air", "poly4.best", "asc", "time"),
+    "poly5": ("☁️ Poly Racer: Sky Highway", "poly5.best", "asc", "time"),
+    "poly6": ("🌋 Poly Racer: Chaos", "poly6.best", "asc", "time"),
 }
 
 # Scores the browser reports for solo games: game -> (stat ops, lowest, highest)
@@ -78,8 +85,15 @@ SOLO = {
     "mines-hard": ("mines_hard", 20000, 3_600_000),
     "slope": ("slope", 1, 1_000_000),
     "front-solo": ("frontsolo", 1, 40),   # a win vs this many bots
+    # Poly Racer: nobody can beat a track's author time by more than 25%
+    "poly-1": ("poly1", 20175, 3_600_000),
+    "poly-2": ("poly2", 20175, 3_600_000),
+    "poly-3": ("poly3", 24675, 3_600_000),
+    "poly-4": ("poly4", 17625, 3_600_000),
+    "poly-5": ("poly5", 17700, 3_600_000),
+    "poly-6": ("poly6", 22275, 3_600_000),
 }
-FASTEST = {"memory", "dash-solo", "mines-easy", "mines-medium", "mines-hard"}   # solo games where a lower time wins
+FASTEST = {"memory", "dash-solo", "mines-easy", "mines-medium", "mines-hard"} | {f"poly-{i}" for i in range(1, 7)}   # solo games where a lower time wins
 
 SCHEMA = [
     """CREATE TABLE IF NOT EXISTS users (
