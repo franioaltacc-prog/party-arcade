@@ -5,7 +5,7 @@
 
   // The site's version. Bump it with every update, together with a new entry at the
   // top of public/js/changelog.js (the /changelog page).
-  const VERSION = '2.14.0';
+  const VERSION = '2.15.0';
 
   // ---------------------------------------------------------------- helpers
   const $ = (s, r = document) => r.querySelector(s);
@@ -940,6 +940,39 @@
       if (msg) UI.toast(msg);
       Friends.refresh();
     },
+    /** Ask an online friend to come to the room you're in. */
+    async invite(name) {
+      try {
+        await Net.request('friends:invite', { name });
+        UI.toast(`📨 Invite sent to ${name}!`, 'good');
+        Sfx.play('coin');
+        return true;
+      } catch (e) { UI.toast(e.message, 'bad'); return false; }
+    },
+    /** "📨 Invite friends" window for the room you're in. */
+    async inviteModal() {
+      if (!Account.user) { UI.accountModal({ view: 'signup' }); UI.toast('Make a free account to add friends and invite them 👥'); return; }
+      const list = h('div', { class: 'friends-list' }, h('div', { class: 'center', style: { padding: '24px' } }, h('span', { class: 'spin', style: { fontSize: '1.8rem' } }, '🌀')));
+      const code = (window.Room && window.Room.code) || '';
+      UI.modal(h('div', { class: 'friends-box' }, h('h2', {}, '📨 Invite friends'),
+        h('p', { class: 'muted small' }, 'They get a pop-up with a button to join you.'), list,
+        code ? h('button', { class: 'btn btn-ghost btn-sm', style: { marginTop: '12px' }, onclick: () => UI.copy(window.Room.inviteLink(), 'Invite link copied! 🔗') }, icon('link'), 'Or copy the invite link') : null));
+      const d = await Friends.refresh();
+      if (!d) { fill(list, h('p', { class: 'muted' }, 'Couldn’t load your friends right now 😵')); return; }
+      if (!d.friends.length) { fill(list, h('p', { class: 'muted' }, 'No friends yet — press 👥 in the top bar to add some!')); return; }
+      fill(list, d.friends.map((f) => {
+        const here = f.room && f.room.code === code;
+        const btn = here ? h('span', { class: 'fr-tag' }, '🎮 Already here')
+          : f.online ? h('button', { class: 'btn btn-pink btn-sm', onclick: async () => {
+            btn.disabled = true;
+            if (await Friends.invite(f.name)) { btn.textContent = '✓ Sent'; setTimeout(() => { btn.disabled = false; btn.textContent = '📨 Invite'; }, 15000); } else btn.disabled = false;
+          } }, '📨 Invite')
+            : h('span', { class: 'tiny faint' }, 'offline');
+        return h('div', { class: 'fr-row' + (f.online ? ' on' : '') },
+          h('div', { class: 'fr-who' }, UI.avatar({ ...f, online: f.online }, 'sm'), h('span', { class: 'fr-text' }, h('b', {}, f.name), h('span', { class: 'tiny' }, Friends.status(f)))),
+          h('div', { class: 'fr-actions' }, btn));
+      }));
+    },
     /** Where a friend is: a room link to join or watch. */
     link(room, watch) { return `/games/${room.game}?room=${room.code}${watch ? '&watch=1' : ''}`; },
     status(f) {
@@ -997,6 +1030,7 @@
               const same = r && r.code === here();
               const acts = [];
               if (same) acts.push(h('span', { class: 'fr-tag' }, '🎮 With you'));
+              else if (here() && f.online) acts.push(h('button', { class: 'btn btn-pink btn-sm', title: `Invite ${f.name} to your room`, onclick: () => Friends.invite(f.name) }, '📨'));
               else if (r) {
                 const join = !r.full ? h('a', { class: 'btn btn-sm ' + (r.live ? 'btn-ghost' : 'btn-lime'), href: Friends.link(r), title: `Join ${f.name}'s room ${r.code}` }, 'Join') : null;
                 const watch = h('a', { class: 'btn btn-sm ' + (r.live ? 'btn-cyan' : 'btn-ghost'), href: Friends.link(r, true), title: `Watch ${f.name}'s game` }, '👀', r.live ? ' Watch' : '');
@@ -1016,7 +1050,42 @@
       setTimeout(() => { if (Account.user) input.focus(); }, 60);
     },
   };
+  const invites = new Map();
+  Net.on('friends:invite', (m) => {
+    const r = m.room;
+    if (!r || (window.Room && window.Room.code === r.code)) return;
+    const old = invites.get(m.from);
+    if (old) old.close(true);
+    let stack = $('.invite-stack');
+    if (!stack) { stack = h('div', { class: 'invite-stack', 'aria-live': 'polite' }); document.body.append(stack); }
+    let timer = null;
+    const close = (quiet, no) => {
+      clearTimeout(timer);
+      invites.delete(m.from);
+      if (no) Net.request('friends:invite-no', { name: m.from }).catch(() => {});
+      const f = fx();
+      if (f && !quiet) f.gsap.to(card, { y: -20, autoAlpha: 0, duration: 0.25, onComplete: () => card.remove() }); else card.remove();
+    };
+    const go = (watch) => { close(true); Sfx.play('coin'); location.href = Friends.link(r, watch); };
+    const card = h('div', { class: 'invite-card', role: 'alertdialog', 'aria-label': `${m.from} invited you` },
+      UI.avatar({ name: m.from, avatar: m.avatar, color: m.color, look: m.look }),
+      h('div', { class: 'grow' },
+        h('div', {}, '📨 ', h('b', {}, m.from), ' invited you to ', h('b', {}, r.title), r.party ? ' 🎉' : ''),
+        h('div', { class: 'tiny muted' }, r.live ? 'A game is going on — join for the next round, or watch' : `Room ${r.code}`),
+        h('div', { class: 'ic-btns' },
+          !r.full ? h('button', { class: 'btn btn-lime btn-sm', onclick: () => go(false) }, '🎮 Join') : null,
+          r.live || r.full ? h('button', { class: 'btn btn-cyan btn-sm', onclick: () => go(true) }, '👀 Watch') : null,
+          h('button', { class: 'btn btn-ghost btn-sm', onclick: () => close(false, true) }, 'Not now'))));
+    stack.prepend(card);
+    while (stack.children.length > 3) stack.lastChild.remove();
+    invites.set(m.from, { close });
+    timer = setTimeout(() => close(), 30000);
+    const f = fx();
+    if (f) f.gsap.from(card, { y: -30, scale: 0.9, autoAlpha: 0, duration: 0.45, ease: 'back.out(2)', clearProps: 'transform,opacity,visibility' });
+    Sfx.play('boing');
+  });
   Net.on('friends:ping', (m) => {
+    if (m.kind === 'declined') { UI.toast(`${m.name} can’t join right now`, '', 3000); return; }
     if (m.kind === 'request') { UI.toast(`👋 ${m.name} wants to be friends! Open 👥 to accept.`, 'good', 5000); Sfx.play('message'); }
     else if (m.kind === 'accepted') { UI.toast(`🎉 ${m.name} accepted your friend request!`, 'good', 4000); Sfx.play('coin'); }
     Friends.refresh();

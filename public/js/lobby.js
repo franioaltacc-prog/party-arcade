@@ -15,6 +15,7 @@
     impostor: { title: 'Impostor', emoji: '🕵️' },
     mines: { title: 'Minesweeper', emoji: '💣' },
     front: { title: 'Front Wars', emoji: '🌍' },
+    prophunt: { title: 'Prop Hunt', emoji: '🔫' },
   };
 
   const Room = {
@@ -144,7 +145,7 @@
   function refreshPlayers() { playerPanels.forEach(drawPlayers); }
 
   // ------------------------------------------------------------ watching, votes, party mode
-  const PARTY_GAMES = ['dash', 'doodle', 'blitz', 'impostor', 'mines', 'front', 'casino', 'life'];
+  const PARTY_GAMES = ['dash', 'doodle', 'blitz', 'impostor', 'mines', 'front', 'prophunt', 'casino', 'life'];
   const SWITCH_GAMES = [...PARTY_GAMES, 'connect4'];
   const PARTY_POINTS = [10, 7, 5, 3];
   const gTitle = (g) => (GAME_INFO[g] || {}).title || g;
@@ -171,6 +172,7 @@
           ? h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { if (confirm('End party mode for everyone?')) Net.send('party:stop'); } }, '🛑 End party')
           : h('button', { class: 'btn btn-pink btn-sm', title: 'Play a playlist of games — points carry over', onclick: partyPicker }, '🎉 Party mode'),
         h('button', { class: 'btn btn-ghost btn-sm', title: 'Move everyone to another game', onclick: switchPicker }, '🔀 Switch game')) : null,
+      Room.code ? h('button', { class: 'btn btn-cyan btn-sm btn-block', title: 'Send your friends a pop-up to join you', onclick: () => PA.Friends.inviteModal() }, '📨 Invite friends') : null,
       Room.code ? (Room.watching
         ? h('button', { class: 'btn btn-lime btn-sm btn-block', onclick: () => setWatch(false) }, '✋ Join in (you’re watching)')
         : h('button', { class: 'btn btn-ghost btn-sm btn-block', title: 'Sit out and just watch', onclick: () => setWatch(true) }, '👀 Just watch')) : null);
@@ -191,6 +193,7 @@
       ['⚡ Quick party', ['blitz', 'doodle', 'dash']],
       ['🌍 Big night', ['doodle', 'blitz', 'front', 'mines', 'casino']],
       ['🧠 Brainy', ['blitz', 'impostor', 'mines']],
+      ['🔫 Action', ['prophunt', 'dash', 'front']],
     ];
     const draw = () => {
       fill(list, chosen.length
@@ -408,6 +411,7 @@
     impostor: [['reveal', '🔎 Show impostor & word'], ['skip', '⏭️ Skip this phase'], ['end', '🏁 End the game']],
     mines: [['mines', '💣 X-ray: see all mines'], ['clear', '🧹 Clear the board for me'], ['end', '🏁 End the game']],
     front: [['troops', '💪 +50,000 troops', true], ['gold', '💰 +100,000 gold', true], ['end', '🏁 End the game']],
+    prophunt: [['xray', '🔎 X-ray: see everyone'], ['skip', '⏭️ Skip this round'], ['end', '🏁 End the game']],
   };
   let adminFab = null;
   let adminPanel = null;

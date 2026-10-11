@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prop Hunt · Party Arcade</title>
+  <meta name="theme-color" content="#0b0920">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .ph-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+    .ph-grid > * { min-width: 0; }
+    .ph-stage { position: relative; aspect-ratio: 16 / 10; max-height: calc(100vh - 110px); width: 100%; border-radius: 20px; overflow: hidden; background: #06050f; box-shadow: var(--shadow); touch-action: none; user-select: none; -webkit-user-select: none; }
+    .ph-stage canvas#cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+    .ph-stage.hider canvas#cv { cursor: default; }
+    .ph-hud { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; gap: 8px; align-items: center; pointer-events: none; flex-wrap: wrap; }
+    .ph-chip { padding: 6px 12px; border-radius: 999px; background: rgba(11, 9, 32, .78); border: 1px solid var(--border-strong); font-weight: 700; font-size: .9rem; white-space: nowrap; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+    .ph-chip.killer { border-color: rgba(244, 63, 94, .8); background: rgba(120, 16, 40, .8); }
+    .ph-chip.hider { border-color: rgba(34, 211, 238, .7); background: rgba(8, 60, 80, .8); }
+    .ph-chip.clock { font-family: var(--font-display); font-weight: 400; min-width: 70px; text-align: center; }
+    .ph-chip.clock.low { background: rgba(244, 63, 94, .55); }
+    .ph-chip.ping { border-color: rgba(250, 204, 21, .7); }
+    .ph-chip.ping.soon { background: rgba(250, 204, 21, .35); animation: phblink .5s infinite alternate; }
+    @keyframes phblink { to { opacity: .55; } }
+    .ph-hud .sp { flex: 1; }
+    .ph-feed { position: absolute; top: 52px; right: 10px; display: flex; flex-direction: column; gap: 4px; align-items: flex-end; pointer-events: none; max-width: 60%; }
+    .ph-feed div { padding: 4px 10px; border-radius: 10px; background: rgba(11, 9, 32, .8); font-size: .82rem; font-weight: 600; }
+    .ph-center { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; text-align: center; padding: 20px; }
+    .ph-center .card { pointer-events: auto; max-width: min(520px, 92%); padding: 18px 20px; border-radius: 20px; background: rgba(20, 16, 51, .92); border: 1px solid var(--border-strong); box-shadow: var(--shadow); }
+    .ph-center .big { font-family: var(--font-display); font-size: clamp(1.6rem, 4.2vw, 2.8rem); line-height: 1.1; }
+    .ph-center .count { font-family: var(--font-display); font-size: clamp(3rem, 10vw, 6rem); color: var(--yellow); text-shadow: 0 0 30px rgba(250, 204, 21, .5); }
+    .ph-center .rows { margin-top: 10px; text-align: left; display: grid; gap: 4px; }
+    .ph-center .rows div { display: flex; gap: 8px; align-items: center; padding: 4px 8px; border-radius: 10px; background: rgba(255, 255, 255, .05); font-weight: 600; }
+    .ph-center .rows .grow { flex: 1; }
+    .ph-center .rows b { color: var(--lime); }
+    .ph-bottom { position: absolute; left: 10px; bottom: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; max-width: calc(100% - 190px); }
+    .ph-bottom .btn { pointer-events: auto; }
+    .ph-ammo { display: flex; gap: 4px; padding: 7px 12px; border-radius: 999px; background: rgba(11, 9, 32, .8); border: 1px solid var(--border-strong); font-weight: 700; align-items: center; }
+    .ph-ammo i { width: 9px; height: 18px; border-radius: 3px; background: var(--yellow); box-shadow: 0 0 8px rgba(250, 204, 21, .6); }
+    .ph-ammo i.used { background: rgba(255, 255, 255, .15); box-shadow: none; }
+    .ph-help { pointer-events: none; padding: 6px 12px; border-radius: 12px; background: rgba(11, 9, 32, .72); font-size: .8rem; color: var(--muted); }
+    #mini { position: absolute; right: 10px; bottom: 10px; width: 170px; height: 110px; border-radius: 12px; border: 1px solid var(--border-strong); background: rgba(11, 9, 32, .75); pointer-events: none; }
+    .ph-stick { position: absolute; width: 120px; height: 120px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .25); background: rgba(255, 255, 255, .06); pointer-events: none; display: none; transform: translate(-50%, -50%); }
+    .ph-stick i { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px; border-radius: 50%; background: rgba(255, 255, 255, .35); }
+    .ph-row { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 12px; background: rgba(255, 255, 255, .04); margin-bottom: 6px; }
+    .ph-row.me { border: 1px solid rgba(250, 204, 21, .4); }
+    .ph-row.out { opacity: .5; }
+    .ph-row .nm { font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ph-row .pts { font-weight: 700; font-variant-numeric: tabular-nums; }
+    #play-chat { height: 380px; margin-top: 16px; }
+    .set-row { margin-bottom: 14px; }
+    .points-help { display: grid; gap: 4px; margin: 10px 0 14px; font-size: .88rem; color: var(--muted); }
+    .ph-stage:fullscreen { max-height: none; border-radius: 0; aspect-ratio: auto; }
+    @media (max-width: 960px) { .ph-grid { grid-template-columns: 1fr; } #play-chat { height: 280px; } }
+    @media (max-width: 560px) { #mini { width: 120px; height: 78px; } .ph-bottom { max-width: calc(100% - 140px); } .ph-chip { font-size: .78rem; padding: 4px 9px; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div id="entry"></div>
+    <section id="room" class="hidden room-layout">
+      <div class="col">
+        <div class="panel" id="room-code"></div>
+        <div class="panel" id="room-players"></div>
+      </div>
+      <div class="panel room-main" id="room-main"></div>
+      <div class="panel chat-panel" id="room-chat"></div>
+    </section>
+    <section id="play" class="hidden ph-grid">
+      <div>
+        <div class="ph-stage" id="stage">
+          <canvas id="cv"></canvas>
+          <div class="ph-hud" id="hud"></div>
+          <div class="ph-feed" id="feed"></div>
+          <div class="ph-center" id="center"></div>
+          <div class="ph-bottom" id="bottom"></div>
+          <canvas id="mini" width="340" height="220"></canvas>
+          <div class="ph-stick" id="stick"><i></i></div>
+        </div>
+      </div>
+      <aside>
+        <div class="panel"><div class="panel-title">🏆 Points</div><div id="ph-scores"></div></div>
+        <div class="panel" id="play-chat"></div>
+      </aside>
+    </section>
+  </main>
+  <script src="/js/art.js"></script>
+  <script src="/js/core.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollTrigger.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/Flip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/SplitText.min.js"></script>
+  <script src="/js/fx.js"></script>
+  <script src="/js/lobby.js"></script>
+  <script src="/js/games/prophunt.js"></script>
+</body>
+</html>

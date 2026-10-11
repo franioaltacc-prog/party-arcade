@@ -61,6 +61,8 @@ BOARDS = {
     "front": ("🌍 Front Wars wins", "front.wins", "desc", "int"),
     "front_solo": ("🤖 Front Wars solo wins (vs bots)", "frontsolo.wins", "desc", "int"),
     "party": ("🎉 Party mode wins", "party.wins", "desc", "int"),
+    "prophunt": ("🔫 Prop Hunt wins", "prophunt.wins", "desc", "int"),
+    "prophunt_catches": ("🎯 Prop Hunt catches", "prophunt.catches", "desc", "int"),
 }
 
 # Scores the browser reports for solo games: game -> (stat ops, lowest, highest)

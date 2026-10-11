@@ -44,7 +44,7 @@ EMPTY_ROOM_TTL = 90            # seconds an empty room survives
 VOTE_SECONDS = 20              # "play again?" and "which game next?" votes
 PARTY_NEXT = 10                # seconds of party standings before the next game
 PARTY_POINTS = (10, 7, 5, 3)   # 1st, 2nd, 3rd, 4th in each party game; everyone else gets 1
-PARTY_GAMES = ("dash", "doodle", "blitz", "impostor", "mines", "front", "casino", "life")   # games that work for groups
+PARTY_GAMES = ("dash", "doodle", "blitz", "impostor", "mines", "front", "prophunt", "casino", "life")   # games that work for groups
 WATCHERS_EXTRA = 20            # watchers allowed on top of a game's player limit
 CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -1036,6 +1036,41 @@ class Hub:
             me = c.account["name"]
             self.friend_ping(them["id"], kind="accepted" if state == "friends" else "request", name=me)
             return {"state": state, "name": them["name"]}
+        if t == "friends:invite":
+            uid = self.need_login(c)
+            room = c.room
+            m = room.members.get(c.uid) if room else None
+            if not m or m.client is not c:
+                raise AuthError("Join or create a room first, then invite your friends.")
+            them = await acc.user_by_name(msg.get("name"))
+            if not them or await acc.friend_state(uid, them["id"]) != "ok":
+                raise AuthError("You can only invite your friends.")
+            live = self.clients_of(them["id"])
+            if not live:
+                raise AuthError(f"{them['name']} is offline right now.")
+            if any(x.room is room for x in live):
+                raise AuthError(f"{them['name']} is already in your room!")
+            if acc.limited(f"invite:{uid}:{them['id']}", 1, 15):
+                raise AuthError(f"You just invited {them['name']} — give them a moment 🙂")
+            if acc.limited(f"invite:{uid}", 12, 120):
+                raise AuthError("That’s a lot of invites — wait a minute.")
+            acc.hit(f"invite:{uid}:{them['id']}")
+            acc.hit(f"invite:{uid}")
+            players = sum(1 for x in room.members.values() if not x.watching)
+            invite = {"from": c.account["name"], "avatar": c.avatar, "color": c.color, "look": shown_look(c.look),
+                      "room": {"code": room.code, "game": room.game_key, "title": GAME_TITLES.get(room.game_key, room.game_key),
+                               "live": not room.game.listed(), "full": players >= room.game.max_players,
+                               "party": bool(room.party and not room.party.get("done"))}}
+            for x in live:
+                x.send("friends:invite", **invite)
+            return {"name": them["name"]}
+        if t == "friends:invite-no":
+            uid = self.need_login(c)
+            them = await acc.user_by_name(msg.get("name"))
+            if them and not acc.limited(f"invite-no:{uid}", 10, 60) and await acc.friend_state(uid, them["id"]) == "ok":
+                acc.hit(f"invite-no:{uid}")
+                self.friend_ping(them["id"], kind="declined", name=c.account["name"])
+            return {}
         if t == "friends:remove":
             uid = self.need_login(c)
             them = await acc.friend_remove(uid, msg.get("name"))
@@ -1142,7 +1177,7 @@ class Hub:
 ACCOUNT_MESSAGES = {
     "auth:signup", "auth:login", "auth:logout", "account:update", "account:look", "account:password", "account:delete",
     "profile:get", "players:find", "lb:boards", "lb:get", "stats:solo", "admin:unlock", "admin:overview", "admin:users",
-    "admin:user", "admin:announce", "admin:room", "admin:cheat", "friends:list", "friends:add", "friends:remove",
+    "admin:user", "admin:announce", "admin:room", "admin:cheat", "friends:list", "friends:add", "friends:remove", "friends:invite", "friends:invite-no",
 }
 GAME_TITLES = {"dash": "Neon Dash", "life": "Family Life", "doodle": "Doodle Guess", "blitz": "Party Blitz",
                "connect4": "Connect 4", "casino": "Casino Night", "snake": "Neon Snake", "2048": "2048",
@@ -1150,7 +1185,7 @@ GAME_TITLES = {"dash": "Neon Dash", "life": "Family Life", "doodle": "Doodle Gue
                "impostor": "Impostor", "mines": "Minesweeper", "mines_easy": "Minesweeper (Easy)",
                "mines_medium": "Minesweeper (Medium)", "mines_hard": "Minesweeper (Hard)", "mines-easy": "Minesweeper (Easy)",
                "mines-medium": "Minesweeper (Medium)", "mines-hard": "Minesweeper (Hard)", "slope": "Slope",
-               "front": "Front Wars", "frontsolo": "Front Wars solo", "front-solo": "Front Wars solo", "party": "Party mode",
+               "front": "Front Wars", "prophunt": "Prop Hunt", "frontsolo": "Front Wars solo", "front-solo": "Front Wars solo", "party": "Party mode",
                "eightball": "Magic 8-Ball", "wyr": "Would You Rather", "wheel": "Spin the Wheel"}
 
 hub = Hub()

@@ -873,7 +873,6 @@ svg.ico { width: 1.15em; height: 1.15em; flex: none; vertical-align: -0.2em; }
 .pb-gain { color: var(--lime); font-size: 0.8rem; font-weight: 700; }
 .pb-pts { font-variant-numeric: tabular-nums; min-width: 28px; text-align: right; }
 .party-standings .pb-board, .party-podium .pb-board { margin-top: 10px; }
-.podium { display: flex; justify-content: center; align-items: flex-end; gap: 10px; margin: 16px 0 6px; }
 .pod { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 30%; }
 .pod-name { font-weight: 700; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pod-pts { font-size: 0.85rem; color: var(--muted); }
@@ -889,3 +888,10 @@ svg.ico { width: 1.15em; height: 1.15em; flex: none; vertical-align: -0.2em; }
   display: flex; align-items: center; gap: 10px; padding: 6px 6px 6px 14px; border-radius: 999px; font-weight: 700;
   background: #1d1846; border: 1px solid rgba(34, 211, 238, 0.55); box-shadow: var(--shadow), 0 0 20px rgba(34, 211, 238, 0.2);
 }
+.invite-stack { position: fixed; z-index: 260; top: 72px; left: 50%; transform: translateX(-50%); width: min(430px, calc(100vw - 24px)); display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.invite-card {
+  pointer-events: auto; display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 18px;
+  background: #241d57; border: 1px solid rgba(34, 211, 238, 0.6); box-shadow: var(--shadow), 0 0 26px rgba(34, 211, 238, 0.3);
+}
+.invite-card .grow { min-width: 0; }
+.ic-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }

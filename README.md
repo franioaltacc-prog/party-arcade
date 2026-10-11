@@ -41,7 +41,7 @@ online game (casino coins, Family Life money/stats/time skip, Neon Dash god mode
 A game where an admin used a cheat doesn't count for anyone's stats or leaderboards.
 
 ## Games
-- **Online:** Neon Dash (mini Geometry Dash race), Family Life (multiplayer BitLife with siblings), Doodle Guess, Impostor, Minesweeper (Race / Battle), Front Wars (OpenFront-style territory war: free-for-all with alliances or teams, bots, ports, warships, nukes and replays), Party Blitz, Connect 4
+- **Online:** Neon Dash (mini Geometry Dash race), Family Life (multiplayer BitLife with siblings), Doodle Guess, Impostor, Minesweeper (Race / Battle), Front Wars (OpenFront-style territory war: free-for-all with alliances or teams, bots, ports, warships, nukes and replays), Prop Hunt (top-down hide and seek with a killer), Party Blitz, Connect 4
 - **Solo:** Neon Dash practice, Minesweeper (Easy / Medium / Hard), Front Wars vs bots, Slope (3D, three.js), Snake, 2048, Memory Flip
 - **Fun:** Spin the Wheel, Would You Rather (global votes), Magic 8-Ball
 - **Casino Night (fake coins only):** every match everyone starts with the same coins; most coins at the end wins.
@@ -54,6 +54,8 @@ A game where an admin used a cheat doesn't count for anyone's stats or leaderboa
   “➕ Add friend” on their profile; adding someone who already asked you accepts it. Friends show who's online, what
   they're playing (rooms, and solo games via the `page` sent in `hello`), with one-click **Join** / **👀 Watch** links.
   Stored in the `friends` table: a `req` row is a request, accepted friends have an `ok` row each way.
+- **Invites:** in a room, “📨 Invite friends” (or 📨 next to a friend in the 👥 list) sends an online friend a pop-up with
+  Join / Watch / Not now (`friends:invite`, limited to one per friend every 15 s). “Not now” tells the inviter.
 - **Watching:** `/games/<game>?room=CODE&watch=1` joins as a watcher. Watchers are in the room and chat but games
   pick their players from `room.players_now()`, which skips them. “✋ Join in” turns a watcher into a player (games
   that allow joining mid-round add them right away). Full rooms can still be watched (up to 20 extra people).
@@ -64,6 +66,18 @@ A game where an admin used a cheat doesn't count for anyone's stats or leaderboa
 - **Party mode:** the host picks 2–8 games. Each game's places turn into party points (10, 7, 5, 3, then 1), the room
   moves to the next game 10 s later, and the final standings are saved as a `party` game (it doesn't add to the
   all-games totals, since those games were already counted). Hosts can also **🔀 switch game** at any time.
+
+## Prop Hunt
+A top-down hide-and-seek shooter in a randomly generated town (`games/prophunt.py`, `public/js/games/prophunt.js`).
+- Each round one player is the killer (it rotates, everyone gets 1 or 2 turns). The killer is blind for the hiding time
+  (15/20/30 s), then hunts for 1:30–4 min with a gun (6 shots, reload). Every 30 s the killer gets a ping: circles
+  roughly around each hider.
+- Hiders press E next to a prop to turn into it, or hide inside buildings: roofs hide the inside from anyone outside.
+- Points: the 1st caught gets 1, the 2nd 2…; surviving = number of players in the round; the killer gets 2 per catch
+  (up to 8), or 10 for catching everyone. Caught players watch the killer and only chat with other watchers.
+- Anti-cheat: browsers send positions, the server checks speed and walls, does all hit detection (with a little lag
+  allowance), and only sends each player the people they could see (nobody behind roofs or past 560 px).
+  Maps are tested to always connect every building (`make_map`).
 
 ## Minesweeper
 - **Solo** (`/games/mines?solo=1`): classic Easy 9×9, Medium 16×16, Hard 30×16; the first click is always safe. Medium and Hard times have leaderboards.

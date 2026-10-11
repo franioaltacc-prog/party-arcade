@@ -114,6 +114,15 @@
       <path d="M94 44 C122 24 162 30 182 56 L150 76 L100 70 Z" fill="#22d3ee" opacity=".6" stroke="#7ff0ff" stroke-width="1.5"/>
       <path d="M100 70 L150 76 L182 56 C192 82 162 102 122 96 C102 100 94 90 100 70 Z" fill="#facc15" opacity=".6" stroke="#fde68a" stroke-width="1.5"/>
       ${emoji(58, 70, 20, '🏙️')}${emoji(140, 50, 18, '🚀')}${emoji(132, 84, 17, '🛡️')}${emoji(176, 104, 16, '⛵')}${emoji(80, 26, 18, '☢️')}`, '#0b1a3a', '#123068');
+  ART.prophunt = svg('prophunt', `
+      <rect x="0" y="52" width="200" height="22" fill="#2a2a44"/><path d="M0 63h200" stroke="#facc15" stroke-width="2" stroke-dasharray="10 9"/>
+      <rect x="14" y="8" width="70" height="40" rx="4" fill="#ff4fd8" stroke="#ffd0f4" stroke-width="2"/><path d="M14 28h70" stroke="rgba(0,0,0,.25)" stroke-width="3"/>
+      <rect x="120" y="82" width="66" height="34" rx="4" fill="#3b2f5c" stroke="#e2d9ff" stroke-width="3"/>
+      ${emoji(140, 100, 16, '🛋️')}${emoji(168, 99, 13, '🪴')}
+      ${emoji(112, 26, 22, '🌳')}${emoji(150, 30, 18, '🛢️')}${emoji(36, 96, 18, '📦')}${emoji(70, 100, 18, '🛢️')}
+      <path d="M100 63 L156 33" stroke="#f43f5e" stroke-width="2" stroke-dasharray="4 4" opacity=".9"/>
+      <circle cx="100" cy="63" r="11" fill="#f43f5e" stroke="#fff" stroke-width="2.5"/>${emoji(100, 63, 12, '😈')}
+      <circle cx="70" cy="100" r="22" fill="none" stroke="#f43f5e" stroke-width="2" opacity=".55"/>`, '#14281f', '#1d3b2f');
   ART['front-solo'] = ART.front.replaceAll('g-front', 'g-front2').replace('#0b1a3a', '#1e1b4b').replace('#123068', '#0f766e');
   ART['mines-solo'] = ART.mines.replaceAll('g-mines', 'g-mines2').replace('#0f172a', '#14532d').replace('#4338ca', '#0d9488');
   ART['dash-solo'] = ART.dash.replaceAll('g-dash', 'g-dash2').replace('#2e1065', '#082f49').replace('#9333ea', '#0891b2');
@@ -125,6 +134,7 @@
     { key: 'doodle', title: 'Doodle Guess', icon: '🎨', desc: 'One person draws, everyone guesses. Fast fingers win!', players: '2–12 players', glow: 'rgba(244,63,94,.6)' },
     { key: 'impostor', title: 'Impostor', icon: '🕵️', desc: 'Everyone knows the secret word… except the impostor. Give one clue each, argue it out, and vote out the faker!', players: '3–10 players', glow: 'rgba(244,63,94,.6)', isNew: true },
     { key: 'front', title: 'Front Wars', icon: '🌍', desc: 'Conquer the world! Grab land, build cities, send boats and nukes. Free-for-all or teams, with friends and bots. Inspired by OpenFront.', players: '1–8 players + bots', glow: 'rgba(34,197,94,.6)', isNew: true },
+    { key: 'prophunt', title: 'Prop Hunt', icon: '🔫', desc: 'Hide and seek with a killer! Turn into a barrel, a bush or a couch, sneak into buildings, and survive the hunt. Everyone gets a turn as the killer.', players: '2–10 players', glow: 'rgba(244,63,94,.6)', isNew: true },
     { key: 'mines', title: 'Minesweeper', icon: '💣', desc: 'Race your friends on the same board, or battle on one shared board for the most squares!', players: '1–8 players', glow: 'rgba(99,102,241,.6)', isNew: true },
     { key: 'blitz', title: 'Party Blitz', icon: '⚡', desc: 'Rapid-fire minigames: reaction, mashing, math, memory and more.', players: '1–12 players', glow: 'rgba(250,204,21,.6)' },
     { key: 'casino', title: 'Casino Night', icon: '🎰', desc: 'Fake-coin casino party: roulette, blackjack, slots, dice, poker and 1v1 duels. Most coins wins!', players: '1–6 players', glow: 'rgba(251,191,36,.6)' },

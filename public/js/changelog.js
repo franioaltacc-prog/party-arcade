@@ -6,6 +6,15 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '2.15.0', date: '2026-10-11', emoji: '🔫', title: 'Prop Hunt and friend invites', items: [
+      'New game: Prop Hunt! A top-down town where one player is the killer and everyone else hides',
+      'Hiders turn into props (barrels, bushes, couches, cars…) or sneak into buildings, where roofs block the killer’s view',
+      'The killer is blind while everyone hides, then hunts with a gun that aims all the way round. Every 30 seconds they get a 📡 ping of roughly where the hiders are',
+      'Caught hiders watch the killer and can only chat with other watchers. Everyone gets a turn as the killer',
+      'Points: caught 1st = 1, 2nd = 2…, surviving = 1 point per player, and the killer gets 10 for catching everyone',
+      'Invite friends: “📨 Invite friends” in any room (or 📨 in the friends list) sends them a pop-up with a Join button',
+      'Prop Hunt leaderboards, profile stats and two new achievements',
+    ] },
     { v: '2.14.0', date: '2026-10-11', emoji: '👥', title: 'Friends, party mode, votes and watching', items: [
       'Friends: press 👥 in the top bar to add friends by name (or press “➕ Add friend” on a profile), and accept requests',
       'See which friends are online and what they’re playing, then join their room or watch their game in one click',
