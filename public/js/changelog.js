@@ -6,6 +6,12 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '2.17.2', date: '2026-10-11', emoji: '🏗️', title: 'Poly Racer: nothing floats any more', items: [
+      'Every stretch of road has pillars at both ends (including next to jumps and after the finish)',
+      'Checkpoint, start and finish arches stand on the barriers, or on tall posts down to the ground where there’s no barrier',
+      'Grandstands, their roofs and the corner signs are properly supported',
+      'Trees and rocks sit on the real ground instead of hovering on hillsides',
+    ] },
     { v: '2.17.1', date: '2026-10-11', emoji: '🏔️', title: 'Poly Racer looks way better', items: [
       'Real scenery: low-poly hills, valleys, lakes and mountains on the horizon, a gradient sky with the sun and drifting clouds (stars and a moon on Chaos)',
       'Thick concrete barriers with a red and white top instead of thin walls, red and white kerbs in the corners, and chevron signs on sharp bends',

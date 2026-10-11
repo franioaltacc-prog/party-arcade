@@ -153,56 +153,6 @@
     geo.computeVertexNormals();
     grp.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
 
-    // pillars holding the road up
-    const pillarMat = new THREE.MeshLambertMaterial({ color: 0xa3a9b8 });
-    const capMat = new THREE.MeshLambertMaterial({ color: 0x7c8293 });
-    for (let i = 6; i < S.length; i += 14) {
-      const s = S[i];
-      if (s.gap || s.after) continue;
-      const hgt = s.y - SLAB - GROUND;
-      if (hgt < 1) continue;
-      const p = new THREE.Mesh(new THREE.BoxGeometry(1.8, hgt, 1.8), pillarMat);
-      p.position.set(s.x, GROUND + hgt / 2, s.z);
-      const cap = new THREE.Mesh(new THREE.BoxGeometry(s.w * 1.4, 0.7, 2.2), capMat);
-      cap.position.set(s.x, s.y - SLAB - 0.35, s.z);
-      cap.rotation.y = yawOf(s);
-      grp.add(p, cap);
-    }
-
-    // checkpoint arches, the start and the finish
-    const arches = [];
-    const arch = (s, color, banner) => {
-      const g = new THREE.Group();
-      const mat = new THREE.MeshLambertMaterial({ color, emissive: color, emissiveIntensity: 0.25 });
-      const dark = new THREE.MeshLambertMaterial({ color: 0x1f2937 });
-      const w = s.w + WALL_OUT + 0.5;
-      for (const side of [-1, 1]) {
-        const post = new THREE.Mesh(new THREE.BoxGeometry(0.9, 6.5, 0.9), mat);
-        post.position.set(side * w, 3.25, 0);
-        const foot = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.6, 1.4), dark);
-        foot.position.set(side * w, 0.3, 0);
-        g.add(post, foot);
-      }
-      const bar = new THREE.Mesh(new THREE.BoxGeometry(w * 2 + 0.9, 1.1, 0.9), mat);
-      bar.position.y = 6.5;
-      g.add(bar);
-      if (banner) {
-        const c = document.createElement('canvas'); c.width = 256; c.height = 32;
-        const x = c.getContext('2d');
-        for (let i = 0; i < 32; i++) for (let j = 0; j < 4; j++) { x.fillStyle = (i + j) % 2 ? '#111' : '#fff'; x.fillRect(i * 8, j * 8, 8, 8); }
-        const flag = new THREE.Mesh(new THREE.PlaneGeometry(w * 2, 1.6), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), side: THREE.DoubleSide }));
-        flag.position.y = 5.3;
-        g.add(flag);
-      }
-      g.position.set(s.x, s.y, s.z);
-      g.rotation.y = yawOf(s);
-      grp.add(g);
-      return { g, mat };
-    };
-    S.forEach((s) => { if (s.cp >= 0) arches[s.cp] = arch(s, 0xfacc15); });
-    arch(S[T.finish], 0xffffff, true);
-    arch(S[0], 0x22d3ee);
-
     // where the track is, for keeping hills and scenery off it
     const CELL = 40; const near = new Map();
     for (let i = 0; i < S.length; i += 2) {
@@ -220,41 +170,6 @@
       }
       return best;
     };
-
-    // chevron signs on the barrier at the outside of sharp corners
-    const chevron = (right) => {
-      const c = document.createElement('canvas'); c.width = 128; c.height = 32;
-      const x = c.getContext('2d');
-      x.fillStyle = '#dc2626'; x.fillRect(0, 0, 128, 32);
-      x.fillStyle = '#fff';
-      for (let k = 0; k < 4; k++) {
-        const cx = 18 + k * 30;
-        x.beginPath();
-        if (right) { x.moveTo(cx - 8, 4); x.lineTo(cx + 6, 16); x.lineTo(cx - 8, 28); x.lineTo(cx - 1, 28); x.lineTo(cx + 13, 16); x.lineTo(cx - 1, 4); }
-        else { x.moveTo(cx + 8, 4); x.lineTo(cx - 6, 16); x.lineTo(cx + 8, 28); x.lineTo(cx + 1, 28); x.lineTo(cx - 13, 16); x.lineTo(cx + 1, 4); }
-        x.fill();
-      }
-      return new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(c), side: THREE.DoubleSide });
-    };
-    const chev = { true: chevron(true), false: chevron(false) };
-    for (let i = 1; i < S.length - 1;) {
-      if (Math.abs(turning(i)) < 0.012) { i++; continue; }
-      const dir = Math.sign(turning(i));
-      let j = i; let total = 0;
-      while (j < S.length - 1 && Math.sign(turning(j)) === dir && Math.abs(turning(j)) >= 0.006) { total += turning(j) / 2; j++; }
-      const mid = Math.floor((i + j) / 2);
-      if (Math.abs(total) > 1.0 && wallOn(mid)) {
-        const s = S[mid]; const s0 = S[i];
-        const right = dir < 0;        // yaw going down = turning right; the sign sits on the left
-        const off = (right ? -1 : 1) * (s.w + WALL_IN + 0.3);
-        const sign = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.05), chev[right]);
-        const p = at(s, off, WALL_H + 0.75);
-        sign.position.set(p[0], p[1], p[2]);
-        sign.rotation.y = yawOf(s0);
-        grp.add(sign);
-      }
-      i = j + 1;
-    }
 
     // ---------------- the land: low-poly hills, lakes, and mountains at the edge
     let x0 = Infinity; let x1 = -Infinity; let z0 = Infinity; let z1 = -Infinity;
@@ -290,6 +205,16 @@
         }
       }
     }
+    // the height of the low-poly ground itself at any point (what things must stand on)
+    const groundAt = (x, z) => {
+      const gx = (x - (mx - SIZE / 2)) / step; const gz = (z - (mz - SIZE / 2)) / step;
+      const ix = Math.max(0, Math.min(N - 1, Math.floor(gx))); const iz = Math.max(0, Math.min(N - 1, Math.floor(gz)));
+      const fx = Math.max(0, Math.min(1, gx - ix)); const fz = Math.max(0, Math.min(1, gz - iz));
+      const hA = hs[iz * (N + 1) + ix]; const hB = hs[iz * (N + 1) + ix + 1]; const hC = hs[(iz + 1) * (N + 1) + ix]; const hD = hs[(iz + 1) * (N + 1) + ix + 1];
+      return fx + fz <= 1 ? hA + (hB - hA) * fx + (hC - hA) * fz : hD + (hC - hD) * (1 - fx) + (hB - hD) * (1 - fz);
+    };
+    // how low a support must reach so it never hangs in the air (a little below the ground, never above the water)
+    const footAt = (x, z, r = 1) => Math.min(GROUND, groundAt(x, z), groundAt(x + r, z + r), groundAt(x - r, z - r), groundAt(x + r, z - r), groundAt(x - r, z + r)) - 0.8;
     const tgeo = new THREE.BufferGeometry();
     tgeo.setAttribute('position', new THREE.Float32BufferAttribute(tp, 3));
     tgeo.setAttribute('color', new THREE.Float32BufferAttribute(tc, 3));
@@ -302,14 +227,134 @@
       grp.add(water);
     }
 
+    // pillars holding the road up: at both ends of every stretch of road and every 12 in between
+    const pillarMat = new THREE.MeshLambertMaterial({ color: 0xa3a9b8 });
+    const capMat = new THREE.MeshLambertMaterial({ color: 0x7c8293 });
+    const pillar = (s) => {
+      const foot = footAt(s.x, s.z, 1);
+      const hgt = s.y - SLAB - foot;
+      if (hgt < 0.5) return;
+      const p = new THREE.Mesh(new THREE.BoxGeometry(1.8, hgt, 1.8), pillarMat);
+      p.position.set(s.x, foot + hgt / 2, s.z);
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(s.w * 1.4, 0.7, 2.2), capMat);
+      cap.position.set(s.x, s.y - SLAB - 0.35, s.z);
+      cap.rotation.y = yawOf(s);
+      grp.add(p, cap);
+    };
+    for (let i = 0; i < S.length; i++) {
+      if (S[i].gap) continue;
+      let j = i;
+      while (j + 1 < S.length && !S[j + 1].gap) j++;
+      const a = Math.min(j, i + 1); const b = Math.max(a, j - 1);
+      pillar(S[a]);
+      const n = Math.max(0, Math.round((b - a) / 12));
+      for (let k = 1; k < n; k++) pillar(S[a + Math.round(((b - a) * k) / n)]);
+      if (b > a + 4) pillar(S[b]);
+      i = j;
+    }
+
+    // checkpoint arches, the start and the finish
+    const arches = [];
+    const arch = (s, color, banner) => {
+      const g = new THREE.Group();
+      const mat = new THREE.MeshLambertMaterial({ color, emissive: color, emissiveIntensity: 0.25 });
+      const dark = new THREE.MeshLambertMaterial({ color: 0x1f2937 });
+      const i = S.indexOf(s);
+      const onBarrier = wallOn(i) || wallOn(i - 1);
+      const w = onBarrier ? s.w + (WALL_IN + WALL_OUT) / 2 : s.w + 1.4;
+      for (const side of [-1, 1]) {
+        if (onBarrier) {
+          // standing on top of the barrier
+          const post = new THREE.Mesh(new THREE.BoxGeometry(0.9, 6.5 - WALL_H, 0.9), mat);
+          post.position.set(side * w, WALL_H + (6.5 - WALL_H) / 2, 0);
+          const foot = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.4, 1.4), dark);
+          foot.position.set(side * w, WALL_H + 0.2, 0);
+          g.add(post, foot);
+        } else {
+          // no barrier here: a tall post right down to the ground
+          const p = at(s, side * w);
+          const bottom = footAt(p[0], p[2], 0.6) - s.y;
+          const post = new THREE.Mesh(new THREE.BoxGeometry(0.9, 6.5 - bottom, 0.9), mat);
+          post.position.set(side * w, (6.5 + bottom) / 2, 0);
+          const foot = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.8, 1.6), dark);
+          foot.position.set(side * w, bottom + 1.2, 0);
+          g.add(post, foot);
+        }
+      }
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(w * 2 + 0.9, 1.1, 0.9), mat);
+      bar.position.y = 6.5;
+      g.add(bar);
+      if (banner) {
+        const c = document.createElement('canvas'); c.width = 256; c.height = 32;
+        const x = c.getContext('2d');
+        for (let i = 0; i < 32; i++) for (let j = 0; j < 4; j++) { x.fillStyle = (i + j) % 2 ? '#111' : '#fff'; x.fillRect(i * 8, j * 8, 8, 8); }
+        const flag = new THREE.Mesh(new THREE.PlaneGeometry(w * 2, 1.6), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), side: THREE.DoubleSide }));
+        flag.position.y = 5.3;
+        g.add(flag);
+      }
+      g.position.set(s.x, s.y, s.z);
+      g.rotation.y = yawOf(s);
+      grp.add(g);
+      return { g, mat };
+    };
+    S.forEach((s) => { if (s.cp >= 0) arches[s.cp] = arch(s, 0xfacc15); });
+    arch(S[T.finish], 0xffffff, true);
+    arch(S[0], 0x22d3ee);
+
+    // chevron signs on the barrier at the outside of sharp corners
+    const chevron = (right) => {
+      const c = document.createElement('canvas'); c.width = 128; c.height = 32;
+      const x = c.getContext('2d');
+      x.fillStyle = '#dc2626'; x.fillRect(0, 0, 128, 32);
+      x.fillStyle = '#fff';
+      for (let k = 0; k < 4; k++) {
+        const cx = 18 + k * 30;
+        x.beginPath();
+        if (right) { x.moveTo(cx - 8, 4); x.lineTo(cx + 6, 16); x.lineTo(cx - 8, 28); x.lineTo(cx - 1, 28); x.lineTo(cx + 13, 16); x.lineTo(cx - 1, 4); }
+        else { x.moveTo(cx + 8, 4); x.lineTo(cx - 6, 16); x.lineTo(cx + 8, 28); x.lineTo(cx + 1, 28); x.lineTo(cx - 13, 16); x.lineTo(cx + 1, 4); }
+        x.fill();
+      }
+      return new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(c), side: THREE.DoubleSide });
+    };
+    const chev = { true: chevron(true), false: chevron(false) };
+    const signLeg = new THREE.MeshLambertMaterial({ color: 0x4b5563 });
+    for (let i = 1; i < S.length - 1;) {
+      if (Math.abs(turning(i)) < 0.012) { i++; continue; }
+      const dir = Math.sign(turning(i));
+      let j = i; let total = 0;
+      while (j < S.length - 1 && Math.sign(turning(j)) === dir && Math.abs(turning(j)) >= 0.006) { total += turning(j) / 2; j++; }
+      const mid = Math.floor((i + j) / 2);
+      if (Math.abs(total) > 1.0 && wallOn(mid)) {
+        const s = S[mid]; const s0 = S[i];
+        const right = dir < 0;        // yaw going down = turning right; the sign sits on the left
+        const off = (right ? -1 : 1) * (s.w + (WALL_IN + WALL_OUT) / 2);
+        const board = new THREE.Group();
+        const sign = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.05), chev[right]);
+        sign.position.y = 0.55 + 0.52;
+        board.add(sign);
+        for (const x of [-1.5, 1.5]) {
+          const leg = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.6, 0.16), signLeg);
+          leg.position.set(x, 0.3, -0.05);
+          board.add(leg);
+        }
+        const p = at(s, off, WALL_H);
+        board.position.set(p[0], p[1], p[2]);
+        board.rotation.y = yawOf(s0);
+        grp.add(board);
+      }
+      i = j + 1;
+    }
+
     // ---------------- scenery on the land
     const parts = DECO[th.deco];
     const spots = [];
     for (let k = 0; k < 4000 && spots.length < 420; k++) {
       const x = mx + (rnd() - 0.5) * (R0 * 2 + 700); const z = mz + (rnd() - 0.5) * (R0 * 2 + 700);
-      const hgt = height(x, z);
+      const hgt = groundAt(x, z);
       if (hgt < GROUND - 0.5 || hgt > GROUND + 45 || trackDist(x, z) < 14) continue;
-      spots.push([x, hgt, z, 0.7 + rnd() * 1.2, rnd() * Math.PI * 2, rnd() < 0.22]);
+      // sit on the lowest point under it (and a bit into the ground) so nothing hovers on a slope
+      const low = Math.min(hgt, groundAt(x + 1.5, z), groundAt(x - 1.5, z), groundAt(x, z + 1.5), groundAt(x, z - 1.5));
+      spots.push([x, low - 0.25, z, 0.7 + rnd() * 1.2, rnd() * Math.PI * 2, rnd() < 0.22]);
     }
     const m4 = new THREE.Matrix4();
     const v3 = new THREE.Vector3();
@@ -341,7 +386,7 @@
           if (Math.hypot(S[j].x - c[0], S[j].z - c[2]) < S[j].w + 22) { clear = false; break; }
         }
         if (!clear) continue;
-        grp.add(grandstand(s, side, c));
+        grp.add(grandstand(s, side, c, footAt(c[0], c[2], 18)));
         break;
       }
     }
@@ -445,20 +490,22 @@
     };
   })();
 
-  function grandstand(s, side, c) {
+  function grandstand(s, side, c, foot) {
+    // everything reaches down to `foot` (the lowest ground under the stand), so nothing hangs in the air
     const g = new THREE.Group();
     const conc = new THREE.MeshLambertMaterial({ color: 0xcbd2dc });
     const roofM = new THREE.MeshLambertMaterial({ color: 0xe11d48 });
     const L = 34;
-    const base = s.y + 0.2 - GROUND;
-    const b = new THREE.Mesh(new THREE.BoxGeometry(L, base, 3), conc);
-    b.position.set(0, -base / 2 + 0.2, 1.5);
-    g.add(b);
+    const down = foot - s.y;          // local height of the ground (negative: below the road)
+    const block = (w, top, d, x, z, mat) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, top - down, d), mat);
+      m.position.set(x, (top + down) / 2, z);
+      g.add(m);
+    };
+    block(L, 0.2, 3, 0, 1.5, conc);
     const fanCols = [0xff4fd8, 0x22d3ee, 0xfacc15, 0xa3e635, 0xfb923c, 0x8b5cf6, 0xf8fafc];
     for (let t = 0; t < 5; t++) {
-      const step = new THREE.Mesh(new THREE.BoxGeometry(L, 1 + t * 1.1, 2.2), conc);
-      step.position.set(0, (1 + t * 1.1) / 2, 3 + t * 2.2);
-      g.add(step);
+      block(L, 1 + t * 1.1, 2.2, 0, 3 + t * 2.2, conc);
       for (let f = 0; f < 15; f++) {
         if ((f * 7 + t * 3) % 5 === 0) continue;
         const fan = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.2, 0.8), new THREE.MeshLambertMaterial({ color: fanCols[(f * 3 + t * 5) % fanCols.length] }));
@@ -466,11 +513,7 @@
         g.add(fan);
       }
     }
-    for (const x of [-L / 2 + 0.5, L / 2 - 0.5]) {
-      const post = new THREE.Mesh(new THREE.BoxGeometry(0.6, 9, 0.6), conc);
-      post.position.set(x, 4.5, 13);
-      g.add(post);
-    }
+    for (const x of [-L / 2 + 0.5, L / 2 - 0.5]) block(0.6, 9, 0.6, x, 13, conc);
     const roof = new THREE.Mesh(new THREE.BoxGeometry(L + 2, 0.5, 12), roofM);
     roof.position.set(0, 9, 8);
     roof.rotation.x = -0.12;
@@ -997,9 +1040,10 @@
 
   if (location.hostname === 'localhost') {   // testing on your own computer only
     window.__poly = { R, C, keys, startSolo, trackById, tick,
-      snap(w = 800, hh = 450) {     // draw one frame now and return it as a picture
+      snap(w = 800, hh = 450, view = null) {     // draw one frame now and return it as a picture (view: { pos, look })
         renderer.setSize(w, hh, false); camera.aspect = w / hh; camera.updateProjectionMatrix();
         tick(performance.now());
+        if (view) { camera.position.set(...view.pos); camera.lookAt(...view.look); renderer.render(scene, camera); }
         const c = document.createElement('canvas'); c.width = w; c.height = hh;
         c.getContext('2d').drawImage(renderer.domElement, 0, 0, w, hh);
         return c.toDataURL('image/jpeg', 0.82);
