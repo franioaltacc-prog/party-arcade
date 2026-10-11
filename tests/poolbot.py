@@ -238,7 +238,6 @@ async def main():
     check(st and st["phase"] == "lobby" and st["seats"] == [A.uid, B.uid], "lobby: the first two players get the seats")
     check(st and st["waiting"] == [D.uid] and C.uid not in st["waiting"], "the extra player waits, the watcher doesn't")
     check(st and st["frame"] is None and st["clockLeft"] is None, "no frame in the lobby")
-    A.send("room:list") if False else None
 
     # settings: host only
     B.send("g:settings", mode="9ball", race=5, clock=0)
@@ -285,6 +284,7 @@ async def main():
     await asyncio.sleep(0.2)
     check(not breaker.since(k, "g:aim"), "aim from the non-shooter isn't relayed")
     await asyncio.sleep(1.5)
+    kc = C.mark()
     other.close()
     await asyncio.sleep(0.5)
     o2 = Bot(other.uid, other.name)
@@ -302,7 +302,7 @@ async def main():
     bots = (A, B)
 
     # timeout on the break: the opponent breaks from the kitchen
-    t = await C.wait_for("g:toast", k, lambda m: "out of time" in m["text"], timeout=32)
+    t = await C.wait_for("g:toast", kc, lambda m: "out of time" in m["text"], timeout=32)
     st = await C.until(lambda s: s["phase"] == "aiming" and s["frame"]["turn"] != F["turn"])
     check(t is not None and st and st["last"]["result"]["reason"] == "timeout", "the shot clock runs out")
     check(st and st["frame"]["inHand"] and st["frame"]["kitchen"] and st["frame"]["isBreak"] and st["clockLeft"] > 28,
@@ -315,11 +315,11 @@ async def main():
     shot = await take_shot(bots, C, best[1], best[2], label="the break matches pool_core bit for bit")
     check(shot and shot["state"]["phase"] == "rolling" and shot["state"]["rollLeft"] > 0 and shot["dur"] > 0, "g:shot: phase rolling with rollLeft")
     check(shot and shot["shooter"] == breaker.uid and shot["seat"] == st["frame"]["turn"], "g:shot names the shooter")
-    k = breaker.mark()
     shooter_now = seat_bot(bots, shot["state"])
+    k = shooter_now.mark()
     shooter_now.send("g:shoot", a=1, p=1)
     await asyncio.sleep(0.3)
-    check(any("stop" in m["text"] for m in shooter_now.since(k if shooter_now is breaker else 0, "g:toast")) and C.state["shotNo"] == shot["shotNo"],
+    check(any("stop" in m["text"] for m in shooter_now.since(k, "g:toast")) and C.state["shotNo"] == shot["shotNo"],
           "shooting while the balls roll is rejected")
     C.close()
     C = Bot(C.uid, "Watcher")
@@ -345,11 +345,10 @@ async def main():
         F2 = s2["frame"]
         them = seat_bot(bots, s2)
         k = C.mark()
-        good = next(p for p in placements(dict(F2, inHand=True)) if pc.valid_placement(F2, *p))
-        them.send("g:place", x=good[0] + 0.001 if pc.valid_placement(F2, good[0] + 0.001, good[1]) else good[0], y=good[1])
+        good = placements(F2)[-1]
+        them.send("g:place", x=good[0], y=good[1])
         await asyncio.sleep(0.3)
         ball = next(b for b in F2["balls"] if b[0] != 0)
-        await asyncio.sleep(0.06)
         them.send("g:place", x=ball[1], y=ball[2])
         await asyncio.sleep(0.3)
         pl = C.since(k, "g:place")
@@ -379,8 +378,9 @@ async def main():
     check(recent and recent[0]["game"] == "billiards" and recent[0]["detail"].startswith("Won 1–0 · 8-ball"), f"match detail {recent[:1]}")
     check(pa.get("pool.frames", 0) + pb.get("pool.frames", 0) == 1, "frames won saved")
 
-    # rematch
-    A.send("g:rematch") if False else None
+    # rematch (race to 2 this time)
+    A.send("g:settings", race=2)
+    await C.until(lambda s: s["settings"]["race"] == 2)
     C.send("g:rematch")
     await asyncio.sleep(0.3)
     check(C.state["phase"] == "over", "a watcher can't ask for a rematch")
@@ -402,9 +402,15 @@ async def main():
     check(r["ok"] and st and not any(pc.group_of(b[0]) == mine for b in st["frame"]["balls"]), f"cheat: my group cleared ({mine})")
     r = await A.req("admin:cheat", action="nonsense")
     check(not r["ok"], "unknown cheat rejected")
+    breaker1 = C.state["frame"]["breaker"]
+    r = await A.req("admin:cheat", action="win")
+    st = await C.until(lambda s: s["phase"] == "frameover")
+    check(r["ok"] and st and st["scores"][A.uid] == 1 and 3 < st["nextLeft"] <= 4 and st["matchWinner"] is None, "cheat: win the frame -> frame over, 1-0")
+    st = await C.until(lambda s: s["phase"] == "aiming" and s["frameNo"] == 2, 6)
+    check(st and st["frame"]["breaker"] == 1 - breaker1 and st["frame"]["isBreak"], "next frame after the pause; the other player breaks")
     r = await A.req("admin:cheat", action="win")
     st = await C.until(lambda s: s["phase"] == "over")
-    check(r["ok"] and st and st["matchWinner"] == A.uid, "cheat: win the frame (and the match)")
+    check(r["ok"] and st and st["matchWinner"] == A.uid and st["scores"][A.uid] == 2, "cheat: second frame wins the match 2-0")
     await asyncio.sleep(0.8)
     pa2 = (await profile(A, nameA)).get("stats", {})
     check(pa2.get("pool.games") == 1, "a cheated match isn't saved")
@@ -428,7 +434,7 @@ async def main():
     await C.until(lambda s: s["settings"]["mode"] == "9ball")
     A.send("g:start")
     st = await C.until(lambda s: s["phase"] == "aiming" and s["frame"]["mode"] == "9ball")
-    check(st and len(st["frame"]["balls"]) == 10 and st["clockLeft"] is None and st["seats"] == [A.uid, D.uid] or st and set(st["seats"]) == {A.uid, D.uid},
+    check(st and len(st["frame"]["balls"]) == 10 and st["clockLeft"] is None and set(st["seats"]) == {A.uid, D.uid},
           "9-ball match: 10 balls, no shot clock")
     st = await play_frame((A, B, D), C)
     check(st and st["phase"] == "over" and st["frame"]["reason"] == "nine", f"9-ball frame played to the end ({C.state['shotNo']} shots)")
