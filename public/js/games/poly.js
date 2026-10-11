@@ -147,6 +147,41 @@
         }
       }
     }
+    // the two ends of the road: a short bit more road, then a barrier right across it
+    const endPiece = (s0, dir) => {
+      const e = { ...s0, x: s0.x + s0.hx * dir * C.P.END, z: s0.z + s0.hz * dir * C.P.END };
+      const f = { ...s0, x: e.x + s0.hx * dir * 0.9, z: e.z + s0.hz * dir * 0.9 };
+      const [a, b] = dir < 0 ? [e, s0] : [s0, e];
+      const W = s0.w + WALL_OUT;
+      quad(at(a, -a.w), at(a, a.w), at(b, b.w), at(b, -b.w), s0.after ? K.out : K.road);
+      for (const side of [1, -1]) {
+        quad(at(a, side * a.w), at(b, side * b.w), at(b, side * b.w, -SLAB), at(a, side * a.w, -SLAB), K.side);
+        if (s0.walls) {
+          const ai = side * (a.w + WALL_IN); const bi = side * (b.w + WALL_IN);
+          const ao = side * (a.w + WALL_OUT); const bo = side * (b.w + WALL_OUT);
+          quad(at(a, ai), at(b, bi), at(b, bi, 0.16), at(a, ai, 0.16), K.base);
+          quad(at(a, ai, 0.16), at(b, bi, 0.16), at(b, bi, 0.8), at(a, ai, 0.8), K.conc);
+          quad(at(a, ai, 0.8), at(b, bi, 0.8), at(b, bi, WALL_H), at(a, ai, WALL_H), K.white);
+          quad(at(a, ai, WALL_H), at(b, bi, WALL_H), at(b, bo, WALL_H), at(a, ao, WALL_H), K.white);
+          quad(at(a, ao, WALL_H), at(b, bo, WALL_H), at(b, bo, -SLAB), at(a, ao, -SLAB), K.back);
+        }
+      }
+      quad(at(a, -a.w, -SLAB), at(a, a.w, -SLAB), at(b, b.w, -SLAB), at(b, -b.w, -SLAB), K.under);
+      // the barrier across the road, in red and white blocks
+      const n = Math.ceil((2 * W) / 2.2);
+      for (let k = 0; k < n; k++) {
+        const o1 = -W + (2 * W * k) / n; const o2 = -W + (2 * W * (k + 1)) / n;
+        const top = k % 2 ? K.red : K.white;
+        quad(at(e, o1, -SLAB), at(e, o2, -SLAB), at(e, o2, 0.16), at(e, o1, 0.16), K.side);
+        quad(at(e, o1, 0.16), at(e, o2, 0.16), at(e, o2, 0.8), at(e, o1, 0.8), k % 2 ? K.conc : K.conc2);
+        quad(at(e, o1, 0.8), at(e, o2, 0.8), at(e, o2, WALL_H), at(e, o1, WALL_H), top);
+        quad(at(e, o1, WALL_H), at(e, o2, WALL_H), at(f, o2, WALL_H), at(f, o1, WALL_H), top);
+        quad(at(f, o1, WALL_H), at(f, o2, WALL_H), at(f, o2, -SLAB), at(f, o1, -SLAB), K.back);
+      }
+      for (const side of [1, -1]) quad(at(e, side * W, WALL_H), at(f, side * W, WALL_H), at(f, side * W, -SLAB), at(e, side * W, -SLAB), K.cap);
+      return f;
+    };
+    const ends = [endPiece(S[0], -1), endPiece(S[S.length - 1], 1)];
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
@@ -241,6 +276,7 @@
       cap.rotation.y = yawOf(s);
       grp.add(p, cap);
     };
+    for (const e of ends) pillar(e);
     for (let i = 0; i < S.length; i++) {
       if (S[i].gap) continue;
       let j = i;

@@ -29,6 +29,7 @@
     HALF_W: 1.05,     // half the car's width
     SNAP: 0.9,        // how far above the road you can be and still count as driving on it
     FALL: 10,         // fall this far below the road and you respawn
+    END: 4.2,         // the road goes this far past its first and last point, then a barrier closes it off
   };
 
   // ------------------------------------------------------------------ tracks
@@ -206,6 +207,20 @@
     }
     // walls push you back onto the road
     c.onWall = false;
+    // the two ends of the track (behind the start, after the run-out) are closed by a barrier across the road
+    const along = dx * s.hx + dz * s.hz;
+    const end = i === 0 && along < 0 ? -1 : i === T.S.length - 1 && along > 0 ? 1 : 0;
+    const stop = P.END - 2.2;               // the car's nose touches the barrier here
+    if (end && Math.abs(along) > stop && c.y < roadY + 3) {
+      const over = Math.abs(along) - stop;
+      c.x -= s.hx * end * over; c.z -= s.hz * end * over;
+      const va = c.vx * s.hx + c.vz * s.hz;
+      if (va * end > 0) {
+        c.vx -= s.hx * va * 1.3; c.vz -= s.hz * va * 1.3;
+        c.vx *= 0.7; c.vz *= 0.7;
+      }
+      c.onWall = true;
+    }
     if (c.grounded && s.walls && Math.abs(lat) > s.w - P.HALF_W) {
       const side = Math.sign(lat);
       const push = Math.abs(lat) - (s.w - P.HALF_W);

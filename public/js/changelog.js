@@ -6,6 +6,10 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '2.17.3', date: '2026-10-11', emoji: '🧱', title: 'Poly Racer: no more invisible road', items: [
+      'Reversing past the start line used to let you drive on an invisible road. Now the road ends with a red and white barrier behind the start, and you stop against it',
+      'The same barrier closes the road at the very end, after the finish',
+    ] },
     { v: '2.17.2', date: '2026-10-11', emoji: '🏗️', title: 'Poly Racer: nothing floats any more', items: [
       'Every stretch of road has pillars at both ends (including next to jumps and after the finish)',
       'Checkpoint, start and finish arches stand on the barriers, or on tall posts down to the ground where there’s no barrier',
