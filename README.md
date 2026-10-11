@@ -36,13 +36,13 @@ but **Render's free plan wipes files on every restart/redeploy**, so online you 
 **Admin.** Add an environment variable `ADMIN_CODE` (a secret phrase, 8+ characters — never put it in the code or on GitHub).
 Then log in with your normal account, open `/admin` and type the code once: your account becomes an admin.
 Admins get the admin panel (online players, live rooms with kick/close, announcements, account search with
-ban/unban, reset password, give XP, set stats, reset stats, make admin, delete) and a 🛡️ cheat button in every
+ban/unban, reset password, give XP, set stats, reset stats, make admin, delete, the Neon Dash level queue) and a 🛡️ cheat button in every
 online game (casino coins, Family Life money/stats/time skip, Neon Dash god mode, Doodle word peek, Blitz points…).
 A game where an admin used a cheat doesn't count for anyone's stats or leaderboards.
 
 ## Games
 - **Online:** Neon Dash (mini Geometry Dash race), Family Life (multiplayer BitLife with siblings), Doodle Guess, Impostor, Minesweeper (Race / Battle), Front Wars (OpenFront-style territory war: free-for-all with alliances or teams, bots, ports, warships, nukes and replays), Prop Hunt (top-down hide and seek with a killer), Poly Racer (low-poly 3D racing), Party Blitz, Connect 4
-- **Solo:** Poly Racer time trial, Neon Dash practice, Minesweeper (Easy / Medium / Hard), Front Wars vs bots, Slope (3D, three.js), Snake, 2048, Memory Flip
+- **Solo:** Poly Racer time trial, Neon Dash practice, Neon Dash level editor + community levels (beat your level to verify it, then post it: an admin approves it first, 3 posts a day; hosts can race community levels online), Minesweeper (Easy / Medium / Hard), Front Wars vs bots, Slope (3D, three.js), Snake, 2048, Memory Flip
 - **Fun:** Spin the Wheel, Would You Rather (global votes), Magic 8-Ball
 - **Casino Night (fake coins only):** every match everyone starts with the same coins; most coins at the end wins.
   - VS HOUSE: Roulette, Lucky Dice, Blackjack, Slots. VS PLAYERS: Texas Hold'em, Coinflip, High Card and Dice duels.

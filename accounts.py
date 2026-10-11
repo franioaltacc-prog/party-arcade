@@ -146,6 +146,30 @@ SCHEMA = [
         host TEXT NOT NULL DEFAULT '',
         banned TEXT NOT NULL DEFAULT '[]',
         saved INTEGER NOT NULL)""",
+    # Neon Dash community levels (dashlevels.py): status is pending / approved / rejected / deleted / unlisted.
+    # Rows stay when a level is rejected or deleted, because every post counts toward the 3 a day.
+    """CREATE TABLE IF NOT EXISTS dash_levels (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        descr TEXT NOT NULL DEFAULT '',
+        data TEXT NOT NULL,
+        replay TEXT NOT NULL DEFAULT '',
+        preview TEXT NOT NULL DEFAULT '{}',
+        status TEXT NOT NULL DEFAULT 'pending',
+        reason TEXT NOT NULL DEFAULT '',
+        created INTEGER NOT NULL,
+        reviewed INTEGER NOT NULL DEFAULT 0,
+        reviewer INTEGER NOT NULL DEFAULT 0,
+        plays INTEGER NOT NULL DEFAULT 0,
+        likes INTEGER NOT NULL DEFAULT 0)""",
+    "CREATE INDEX IF NOT EXISTS dash_levels_user ON dash_levels(user_id, created)",
+    "CREATE INDEX IF NOT EXISTS dash_levels_status ON dash_levels(status, reviewed)",
+    """CREATE TABLE IF NOT EXISTS dash_likes (
+        user_id INTEGER NOT NULL,
+        level_id INTEGER NOT NULL,
+        PRIMARY KEY (user_id, level_id))""",
+    "CREATE INDEX IF NOT EXISTS dash_likes_level ON dash_likes(level_id)",
 ]
 ROOM_KEEP = 600   # seconds a room saved at shutdown can be picked up again
 
@@ -155,8 +179,8 @@ UNLOCKS_FILE = Path(__file__).resolve().parent / "public" / "data" / "unlocks.js
 try:
     UNLOCKS = json.loads(UNLOCKS_FILE.read_text(encoding="utf-8"))
 except (OSError, ValueError):
-    UNLOCKS = {"achievements": [], "auras": [], "anims": [], "balls": []}
-LOOK_SLOTS = {"aura": "auras", "anim": "anims", "ball": "balls"}   # what you can wear -> list in UNLOCKS
+    UNLOCKS = {"achievements": [], "auras": [], "anims": [], "balls": [], "themes": []}
+LOOK_SLOTS = {"aura": "auras", "anim": "anims", "ball": "balls", "theme": "themes"}   # what you can wear -> list in UNLOCKS
 
 
 def event_window(ev):
@@ -185,16 +209,30 @@ def rule_ok(rule, level, stats, achs):
         return level >= rule["level"]
     if "ach" in rule:
         return rule["ach"] in achs
-    v = stats.get(rule.get("stat"), 0) or 0
+    if "achs" in rule:
+        return all(a in achs for a in rule["achs"])
+    stat = rule.get("stat")
+    v = sum(stats.get(s, 0) or 0 for s in stat) if isinstance(stat, list) else stats.get(stat, 0) or 0
     return (("gte" not in rule or v >= rule["gte"]) and ("gt" not in rule or v > rule["gt"])
             and ("lte" not in rule or v <= rule["lte"]))
 
 
 def unlocked_items(xp, stats):
-    """Every reward this player has unlocked: {"aura": {...}, "anim": {...}, "ball": {...}}."""
+    """Every reward this player has unlocked: {"aura": {...}, "anim": {...}, "ball": {...}, "theme": {...}}."""
     level = level_info(xp)["level"]
-    achs = {a["id"] for a in UNLOCKS["achievements"] if rule_ok(a.get("rule"), level, stats, set())}
-    return {slot: {c["id"] for c in UNLOCKS[kind] if rule_ok(c.get("rule"), level, stats, achs)} for slot, kind in LOOK_SLOTS.items()}
+    achs = earned_achievements(level, stats)
+    return {slot: {c["id"] for c in UNLOCKS.get(kind, []) if rule_ok(c.get("rule"), level, stats, achs)} for slot, kind in LOOK_SLOTS.items()}
+
+
+def earned_achievements(level, stats):
+    """Achievement ids earned; repeated so ones that need other achievements ({"ach"} / {"achs"}) work in any order."""
+    achs = set()
+    for _ in range(4):
+        more = {a["id"] for a in UNLOCKS["achievements"] if rule_ok(a.get("rule"), level, stats, achs)}
+        if more == achs:
+            break
+        achs = more
+    return achs
 
 
 def parse_look(raw):
@@ -699,7 +737,12 @@ class Accounts:
         await self.wipe(user_id)
 
     async def wipe(self, user_id):
-        await self.many([(f"DELETE FROM {table} WHERE user_id = ?", (user_id,)) for table in ("sessions", "stats", "matches", "looks", "friends")]
+        # Neon Dash levels: take back the likes they gave, then remove their levels and the likes on them
+        dash = [("UPDATE dash_levels SET likes = MAX(0, likes - 1) WHERE id IN (SELECT level_id FROM dash_likes WHERE user_id = ?)", (user_id,)),
+                ("DELETE FROM dash_likes WHERE user_id = ?", (user_id,)),
+                ("DELETE FROM dash_likes WHERE level_id IN (SELECT id FROM dash_levels WHERE user_id = ?)", (user_id,)),
+                ("DELETE FROM dash_levels WHERE user_id = ?", (user_id,))]
+        await self.many(dash + [(f"DELETE FROM {table} WHERE user_id = ?", (user_id,)) for table in ("sessions", "stats", "matches", "looks", "friends")]
                         + [("DELETE FROM friends WHERE friend_id = ?", (user_id,)), ("DELETE FROM users WHERE id = ?", (user_id,))])
         self.board_cache.clear()
 
@@ -716,10 +759,11 @@ class Accounts:
                 ops["wins"] = ("add", 1)
         ops.update(stats or {})
         # limited-time events count some stats separately while they're on (e.g. games played at Halloween)
+        # ("add" counts up, "max"/"min" keep the event's best, e.g. a high score during Halloween)
         for ev in active_events():
             for name, base in ev.get("track", {}).items():
-                if base in ops and ops[base][0] == "add":
-                    ops[f"ev.{ev['id']}.{name}"] = ("add", ops[base][1])
+                if base in ops and ops[base][0] in ("add", "max", "min"):
+                    ops[f"ev.{ev['id']}.{name}"] = ops[base]
         stmts = []
         for key, (op, value) in ops.items():
             if op in UPSERT and isinstance(value, (int, float)) and math.isfinite(value):

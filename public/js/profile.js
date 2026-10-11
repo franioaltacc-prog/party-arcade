@@ -13,7 +13,7 @@
 
   // game sections: [title, emoji, color, [[label, stat key, format]]]
   const SECTIONS = [
-    ['Neon Dash', '🟪', '#a855f7', [['Races', 'dash.races'], ['Wins', 'dash.wins'], ['Top 3', 'dash.podiums'], ['Finished', 'dash.finishes']]],
+    ['Neon Dash', '🟪', '#a855f7', [['Races', 'dash.races'], ['Wins', 'dash.wins'], ['Top 3', 'dash.podiums'], ['Finished', 'dash.finishes'], ['Levels posted', 'dash.levels_posted'], ['Levels approved', 'dash.levels_approved']]],
     ['Family Life', '🏡', '#22c55e', [['Lives', 'life.lives'], ['Wins', 'life.wins'], ['Best score', 'life.best'], ['Oldest', 'life.oldest', (v) => `${v} yrs`], ['Richest', 'life.richest', (v) => PA.fmtMoney(v)]]],
     ['Doodle Guess', '🎨', '#f43f5e', [['Games', 'doodle.games'], ['Wins', 'doodle.wins'], ['Best game', 'doodle.best'], ['Total points', 'doodle.points']]],
     ['Party Blitz', '⚡', '#facc15', [['Games', 'blitz.games'], ['Wins', 'blitz.wins'], ['Best game', 'blitz.best'], ['Total points', 'blitz.points']]],
@@ -106,6 +106,7 @@
               h('div', { class: 'gstat-head' }, h('span', { class: 'e' }, emoji), h('b', {}, title)),
               h('div', { class: 'gstat-grid' }, items.map(([label, key, f]) => h('div', {}, h('b', {}, st[key] ? (f ? f(st[key]) : num(st[key])) : '–'), h('span', {}, label)))))))
             : h('p', { class: 'muted panel' }, mine ? 'No games saved yet. Finish an online game and your stats show up here!' : 'No games saved yet.'),
+          h('div', { id: 'prof-dash' }),
           h('h2', { class: 'prof-h' }, '🎖️ Achievements'),
           h('div', { class: 'achs' }, U.achievements.filter((a) => !PA.Unlocks.gone(U, a, have.achievements.has(a.id))).map((a) => {
             const ok = have.achievements.has(a.id);
@@ -129,6 +130,7 @@
             }))
             : h('p', { class: 'muted small panel' }, 'Nothing yet.'))));
 
+    if (st['dash.levels_approved']) dashLevels(p);
     if (FX.on) {
       const g = FX.gsap;
       g.from('.prof-head', { y: 30, autoAlpha: 0, duration: 0.6, ease: 'back.out(1.5)', clearProps: 'transform,opacity,visibility' });
@@ -138,6 +140,19 @@
       const bar = root.querySelector('.xpbar-track i');
       if (bar) g.from(bar, { width: 0, duration: 1.2, ease: 'power3.out', delay: 0.3 });
     }
+  }
+
+  /** Their approved Neon Dash community levels. */
+  async function dashLevels(p) {
+    let r;
+    try { r = await Net.request('dash:list', { by: p.name, sort: 'new' }); } catch { return; }
+    const box = $('#prof-dash');
+    if (!box || !r.levels.length) return;
+    fill(box, h('h2', { class: 'prof-h' }, '🛠️ Neon Dash levels'),
+      h('div', { class: 'prof-levels' }, r.levels.map((l) => h('a', { class: 'prof-level', href: `/games/dash?level=${l.id}` },
+        h('span', { class: 'e' }, '🟪'),
+        h('div', { class: 'grow' }, h('b', {}, l.name), h('div', { class: 'tiny muted' }, `${Math.round((l.preview.len || 0) / 10.4)}s · ▶ ${num(l.plays)} plays · 👍 ${num(l.likes)}`)),
+        h('span', { class: 'play' }, '▶')))));
   }
 
   async function load() {

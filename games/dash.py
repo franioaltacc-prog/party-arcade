@@ -1,5 +1,6 @@
 import random
 import time
+import traceback
 
 from .base import Game, num
 
@@ -8,6 +9,12 @@ LENGTHS = ("short", "medium", "long")
 TIME_LIMIT = {"short": 150, "medium": 210, "long": 300}
 HURRY_SECONDS = 40
 COUNTDOWN = 3.5
+SPEED = 10.4   # blocks per second, the same in every mode (see dash-core.js)
+
+
+def custom_time_limit(length):
+    """Race time limit for a community level `length` blocks long: plenty of room for crashes."""
+    return int(min(600, max(90, length / SPEED * 3 + 60)))
 
 
 class Dash(Game):
@@ -19,7 +26,9 @@ class Dash(Game):
 
     def __init__(self, room):
         super().__init__(room)
-        self.settings = {"difficulty": "normal", "length": "medium", "checkpoints": True, "modes": True}
+        self.settings = {"difficulty": "normal", "length": "medium", "checkpoints": True, "modes": True, "level": None}
+        self.custom = None        # the community level's data when the host picked one (settings["level"] = its card)
+        self.picking = 0
         self.race = None
         self.results = None
         self.wins = {}
@@ -33,7 +42,7 @@ class Dash(Game):
         if not self.race:
             return None
         r = self.race
-        return {"id": r["id"], "seed": r["seed"], "settings": r["settings"],
+        return {"id": r["id"], "seed": r["seed"], "settings": r["settings"], "custom": r.get("custom"),
                 "elapsed": time.time() - r["start"], "runners": r["runners"]}
 
     def state_for(self, m):
@@ -51,6 +60,11 @@ class Dash(Game):
                 self.settings["checkpoints"] = bool(msg["checkpoints"])
             if "modes" in msg:
                 self.settings["modes"] = bool(msg["modes"])
+            if "level" in msg and not isinstance(msg["level"], dict):
+                if not msg["level"]:
+                    self.settings["level"], self.custom = None, None
+                else:
+                    self.room.hub.spawn(self.pick_level(m, msg["level"]))   # looked up in the database first
             self.broadcast("settings", settings=self.settings)
         elif t == "start" and host and self.phase != "racing":
             self.start()
@@ -71,19 +85,57 @@ class Dash(Game):
         elif t == "finish" and self.phase == "racing":
             self.finish(m, msg)
 
+    async def pick_level(self, m, value):
+        """The host picked a community level: everyone races it (only approved levels)."""
+        hub = self.room.hub
+        self.picking += 1
+        ticket = self.picking
+        try:
+            from dashlevels import level_id
+            lv = await hub.dash_levels.get(level_id(value))
+        except Exception as e:
+            if type(e).__name__ != "AuthError":
+                traceback.print_exc()
+            m.send("error", msg="That community level isn't available.")
+            return
+        if ticket != self.picking or self.phase == "racing" or hub.rooms.get(self.room.code) is not self.room:
+            return
+        self.custom = lv["data"]
+        self.settings["level"] = {"id": lv["id"], "name": lv["name"], "by": lv["by"]["name"], "len": lv["data"]["len"]}
+        self.broadcast("settings", settings=self.settings)
+
     def start(self):
         self.phase = "racing"
         self.results = None
         self.tainted = False
         runners = {u.uid: {"done": False, "time": None, "place": None, "p": 0.0, "attempts": 1}
                    for u in self.room.players_now()}
+        custom = self.custom if self.settings.get("level") else None
         self.race = {"id": (self.race["id"] + 1) if self.race else 1,
-                     "seed": random.randrange(1, 2 ** 31), "settings": dict(self.settings),
+                     "seed": random.randrange(1, 2 ** 31), "settings": dict(self.settings), "custom": custom,
                      "start": time.time() + COUNTDOWN, "runners": runners, "finished": 0}
         self.broadcast("start", race=self.race_public(), countdown=COUNTDOWN)
         self.room.cancel(self.end_timer)
-        self.end_timer = self.room.later(COUNTDOWN + TIME_LIMIT[self.settings["length"]], self.end)
+        limit = custom_time_limit(custom["len"]) if custom else TIME_LIMIT[self.settings["length"]]
+        self.end_timer = self.room.later(COUNTDOWN + limit, self.end)
         self.hurry_at = None
+        if custom:
+            self.count_play(self.settings["level"]["id"])
+
+    def count_play(self, lid):
+        """A community level race counts as one play (at most once a minute per room)."""
+        hub = self.room.hub
+        key = f"dashrace:{self.room.code}:{lid}"
+        if hub.accounts.limited(key, 1, 60):
+            return
+        hub.accounts.hit(key)
+
+        async def go():
+            try:
+                await hub.dash_levels.add_race_play(lid)
+            except Exception:
+                traceback.print_exc()
+        hub.spawn(go())
 
     def finish(self, m, msg):
         run = self.race["runners"].get(m.uid)
@@ -138,7 +190,8 @@ class Dash(Game):
     def save_results(self, rows):
         n = len(rows)
         self.finished([[r["id"]] for r in rows])
-        level = f"{self.race['settings']['difficulty']} {self.race['settings']['length']}"
+        picked = self.race["settings"].get("level")
+        level = f"🌐 {picked['name'][:32]}" if picked and self.race.get("custom") else f"{self.race['settings']['difficulty']} {self.race['settings']['length']}"
         for r in rows:
             won = n >= 2 and r["done"] and r["place"] == 1
             stats = {"dash.races": ("add", 1)}

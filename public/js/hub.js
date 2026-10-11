@@ -222,34 +222,34 @@
   });
 
   // ---------------------------------------------------------------- limited-time event
+  // A small "🎃 Halloween quests: 3/8 · ends in 22 days →" strip linking to /quests (hide it for the day with ×).
   async function renderEvent() {
     const box = $('#event-banner');
     const [ev] = await PA.Unlocks.activeEvents();
-    if (!ev) { box.classList.add('hidden'); return; }
+    const today = new Date().toISOString().slice(0, 10);
+    const hidden = PA.store.get('pa_ev_hide', null);
+    if (!ev || (hidden && hidden.id === ev.id && hidden.day === today)) { box.classList.add('hidden'); return; }
     const d = await PA.Unlocks.load();
-    const achs = d.achievements.filter((a) => a.event === ev.id);
-    let stats = null;
+    const quests = PA.Unlocks.quests(d, ev.id);
+    if (!quests.length) { box.classList.add('hidden'); return; }
     const u = PA.Account.user;
-    if (u) { try { stats = (await Net.request('profile:get', { name: u.name })).profile.stats || {}; } catch { /* offline */ } }
-    const rewardsFor = (id) => ['auras', 'anims', 'balls'].flatMap((k) => d[k].filter((x) => x.rule && x.rule.ach === id).map((x) => x.name));
+    let done = null;
+    if (u) {
+      try {
+        const { profile } = await Net.request('profile:get', { name: u.name });
+        const achs = PA.Unlocks.earned(d, profile.level, profile.stats || {});
+        done = quests.filter((a) => achs.has(a.id)).length;
+      } catch { /* offline */ }
+    }
+    const left = ev.daysLeft <= 1 ? 'ends today!' : `ends in ${ev.daysLeft} days`;
     box.classList.remove('hidden');
     fill(box,
-      h('div', { class: 'ev-head' }, h('span', { class: 'ev-emoji' }, ev.emoji),
-        h('div', {}, h('h2', {}, `${ev.name} event`), h('p', { class: 'muted small' }, `${ev.about} Ends ${ev.last}${ev.daysLeft <= 7 ? ` — only ${ev.daysLeft} day${ev.daysLeft === 1 ? '' : 's'} left!` : '.'}`))),
-      h('div', { class: 'ev-goals' }, achs.map((a) => {
-        const r = a.rule || {};
-        const have = stats ? Math.min(r.gte || 0, stats[r.stat] || 0) : 0;
-        const done = stats && have >= (r.gte || 0);
-        return h('div', { class: 'ev-goal' + (done ? ' done' : '') },
-          h('span', { class: 'e' }, done ? '✅' : a.emoji),
-          h('div', { class: 'grow' }, h('b', {}, a.name), h('div', { class: 'small muted' }, a.desc), h('div', { class: 'tiny' }, '🎁 ', rewardsFor(a.id).join(' + ')),
-            stats ? h('div', { class: 'ev-bar' }, h('i', { style: { width: `${(have / (r.gte || 1)) * 100}%` } })) : null),
-          stats ? h('span', { class: 'ev-n' }, `${have}/${r.gte}`) : null);
-      })),
-      h('div', { class: 'ev-btns' },
-        h('a', { class: 'btn btn-pink btn-sm', href: '/games/prophunt' }, '🔫 Play Prop Hunt'),
-        u ? h('a', { class: 'btn btn-ghost btn-sm', href: '/settings#rewards' }, '✨ See the rewards')
-          : h('button', { class: 'btn btn-ghost btn-sm', onclick: () => UI.accountModal({ view: 'signup' }) }, '✨ Make an account to earn them')));
+      h('a', { class: 'evb-link', href: '/quests' },
+        h('span', { class: 'evb-e' }, ev.emoji),
+        h('span', { class: 'evb-t' }, h('b', {}, `${ev.name} quests`), done != null ? h('span', { class: 'evb-n' }, `${done}/${quests.length}`) : null,
+          h('span', { class: 'evb-s' }, done != null && done >= quests.length ? '· theme unlocked 🎉' : `· ${left}`, done == null ? ' · win a spooky theme' : '')),
+        h('span', { class: 'evb-go' }, '→')),
+      h('button', { class: 'icon-btn evb-x', 'aria-label': 'Hide for today', title: 'Hide for today', onclick: () => { PA.store.set('pa_ev_hide', { id: ev.id, day: today }); box.classList.add('hidden'); } }, PA.icon('x')));
   }
   renderEvent();
   PA.on('auth', renderEvent);

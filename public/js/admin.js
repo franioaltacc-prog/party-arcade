@@ -85,6 +85,7 @@
     const msg = h('input', { class: 'input', maxlength: 200, placeholder: 'e.g. Server restarting in 5 minutes!' });
     page(
       h('div', { class: 'adm-cards', id: 'adm-cards' }),
+      h('section', { class: 'panel', style: { marginBottom: '16px' }, id: 'adm-dash' }),
       h('div', { class: 'adm-grid' },
         h('section', { class: 'panel' }, h('div', { class: 'panel-title' }, '🎮 Live rooms', h('button', { class: 'btn btn-ghost btn-sm', style: { marginLeft: 'auto' }, onclick: refresh, title: 'Refresh', 'aria-label': 'Refresh' }, icon('arrow-clockwise'))), h('div', { id: 'adm-rooms' })),
         h('div', { class: 'col' },
@@ -98,11 +99,13 @@
             h('p', { class: 'tiny faint', style: { marginTop: '8px' } }, 'Pops up for everyone on the site right now.')),
           h('section', { class: 'panel' }, h('div', { class: 'panel-title' }, '👀 Online now'), h('div', { id: 'adm-online' })))),
       h('section', { class: 'panel', style: { marginTop: '16px' } }, h('div', { class: 'panel-title' }, '👥 Accounts'), search, h('div', { id: 'adm-users', style: { marginTop: '12px' } })),
+
       h('section', { class: 'panel adm-help', style: { marginTop: '16px' } }, h('div', { class: 'panel-title' }, '🛠️ Cheats'),
         h('p', { class: 'muted' }, 'Join any online game and press the 🛡️ button in the bottom-left corner for that game’s cheats: free coins in Casino, money and maxed stats in Family Life, god mode in Neon Dash, see the word in Doodle Guess, and more. Games where you cheat don’t count for anyone’s leaderboards.')),
     );
     refresh();
     findUsers('');
+    dashQueue();
     timer = setInterval(() => { if (!document.hidden) refresh(); }, 5000);
     if (FX.list) FX.list(root.querySelectorAll('.panel'), { y: 24, stagger: 0.08 });
   }
@@ -198,6 +201,128 @@
         if (v && v.n === u.name) act('delete', null, 'Account deleted 🗑️'); else if (v) UI.toast('Name didn’t match — nothing deleted.', 'bad');
       } },
     ];
+  }
+
+  // ------------------------------------------------------------ Neon Dash community levels
+  // New levels wait here until an admin approves them. The preview plays the creator's verify run in
+  // the real game (the Neon Dash page in a frame), so you can see the level can be beaten.
+  const DASH_TABS = [['pending', '⏳ Pending'], ['approved', '✅ Approved'], ['rejected', '❌ Rejected'], ['unlisted', '🙈 Unlisted']];
+  const DASH_THEMES = { easy: ['#0b2f4a', '#0e7490', '#22d3ee'], normal: ['#1e0b3d', '#6d28d9', '#f0abfc'], hard: ['#2b0707', '#9a3412', '#fb923c'], insane: ['#03140b', '#14532d', '#a3e635'] };
+  const DASH_MODE = { ship: '#f472b6', ufo: '#fb923c', ball: '#ef4444', wave: '#22d3ee' };
+  const DASH_DOT = { '=': '#facc15', _: '#f472b6', o: '#fde047', p: '#f472b6', r: '#ef4444', b: '#60a5fa' };
+  let dashTab = 'pending';
+
+  /** A quick picture of a level's start (blocks, spikes, orbs, zones) for the queue. */
+  function dashStrip(pv) {
+    const c = h('canvas', { class: 'dq-strip' });
+    requestAnimationFrame(() => {
+      const r = c.getBoundingClientRect();
+      const dpr = Math.min(2, devicePixelRatio || 1);
+      const w = r.width || 220, hh = r.height || 70;
+      c.width = w * dpr; c.height = hh * dpr;
+      const x = c.getContext('2d');
+      x.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const [top, bottom, line] = DASH_THEMES[pv.theme] || DASH_THEMES.normal;
+      const g = x.createLinearGradient(0, 0, 0, hh);
+      g.addColorStop(0, top); g.addColorStop(1, bottom);
+      x.fillStyle = g; x.fillRect(0, 0, w, hh);
+      const objs = pv.o || [];
+      const first = Math.min(...objs.map((o) => o[1]), ...(pv.z || []).map((z) => z[1]), 1e9);
+      const x0 = first < 1e9 ? Math.max(-1.5, first - 3) : -1.5;
+      const tall = Math.max(0, ...objs.filter((o) => o[1] < x0 + w / (hh / 6.9)).map((o) => o[2] + 1), ...(pv.z || []).filter((z) => z[1] < x0 + w / (hh / 6.9)).map((z) => z[3]));
+      const S = hh / (Math.max(4, Math.min(9, tall + 1.5)) + 0.9), fy = hh - S * 0.9, X = (v) => (v - x0) * S, Y = (v) => fy - v * S;
+      for (const [mode, x0, zw, ceil] of pv.z || []) {
+        x.fillStyle = DASH_MODE[mode] + '30'; x.fillRect(X(x0), Y(ceil), zw * S, fy - Y(ceil));
+        x.fillStyle = 'rgba(0,0,0,.55)'; x.fillRect(X(x0), 0, zw * S, Y(ceil));
+        x.fillStyle = DASH_MODE[mode]; x.fillRect(X(x0), Y(ceil) - 1, zw * S, 2);
+      }
+      x.lineWidth = 1.2;
+      for (const [t, ox, oy] of pv.o || []) {
+        const px = X(ox), py = Y(oy + 1);
+        if (px > w) continue;
+        x.strokeStyle = line;
+        if (t === '#') { x.fillStyle = 'rgba(0,0,0,.55)'; x.fillRect(px, py, S, S); x.strokeRect(px + 0.5, py + 0.5, S - 1, S - 1); }
+        else if (t === '^' || t === 'v') {
+          x.fillStyle = '#0a0612'; x.beginPath();
+          if (t === '^') { x.moveTo(px + S * 0.1, py + S); x.lineTo(px + S / 2, py + S * 0.1); x.lineTo(px + S * 0.9, py + S); }
+          else { x.moveTo(px + S * 0.1, py); x.lineTo(px + S / 2, py + S * 0.9); x.lineTo(px + S * 0.9, py); }
+          x.closePath(); x.fill(); x.stroke();
+        } else { x.strokeStyle = DASH_DOT[t] || '#fff'; x.lineWidth = 2; x.beginPath(); x.arc(px + S / 2, py + S / 2, S * 0.3, 0, Math.PI * 2); x.stroke(); x.lineWidth = 1.2; }
+      }
+      x.fillStyle = '#000'; x.fillRect(0, fy, w, hh - fy);
+      x.fillStyle = line; x.fillRect(0, fy - 1, w, 2);
+    });
+    return c;
+  }
+
+  async function dashQueue(tab = dashTab) {
+    dashTab = tab;
+    const box = $('#adm-dash');
+    if (!box) return;
+    let r;
+    try { r = await Net.request('dash:queue', { status: tab }); } catch (e) { fill(box, h('p', { class: 'muted small' }, e.message)); return; }
+    if (dashTab !== tab) return;
+    const n = r.counts || {};
+    fill(box,
+      h('div', { class: 'panel-title' }, '🟪 Dash levels', n.pending ? h('span', { class: 'dq-badge' }, `${n.pending} waiting`) : null,
+        h('button', { class: 'btn btn-ghost btn-sm', style: { marginLeft: 'auto' }, onclick: () => dashQueue(), title: 'Refresh', 'aria-label': 'Refresh' }, icon('arrow-clockwise'))),
+      h('div', { class: 'seg dq-tabs' }, DASH_TABS.map(([id, label]) => h('button', { class: id === tab ? 'on' : '', type: 'button', onclick: () => dashQueue(id) }, `${label}${n[id] ? ` · ${n[id]}` : ''}`))),
+      r.levels.length ? h('div', { class: 'dq-list' }, r.levels.map(dashRow))
+        : h('p', { class: 'muted small', style: { marginTop: '12px' } }, tab === 'pending' ? 'Nothing to check right now. 🎉' : 'No levels here.'));
+  }
+
+  function dashRow(l) {
+    const pv = l.preview || {};
+    const act = async (action, verb) => {
+      let reason = '';
+      if (action !== 'approve') {
+        const v = await ask(`${verb} “${l.name}”?`, `${l.by.name} sees your reason in My levels (optional).`, [{ key: 'r', label: 'Reason', placeholder: action === 'reject' ? 'e.g. It can’t be beaten without a glitch' : 'e.g. Copied from someone else' }], verb, true);
+        if (!v) return;
+        reason = v.r;
+      }
+      await req('dash:review', { id: l.id, action, reason });
+      UI.toast(action === 'approve' ? `✅ “${l.name}” is live!` : `Done: ${l.name}`, 'good');
+      dashQueue();
+    };
+    const buttons = {
+      pending: [['✅ Approve', 'btn-lime', () => act('approve')], ['❌ Reject', 'btn-red', () => act('reject', 'Reject')]],
+      approved: [['🙈 Unlist', 'btn-red', () => act('unlist', 'Unlist')]],
+      rejected: [['✅ Approve', 'btn-lime', () => act('approve')]],
+      unlisted: [['✅ List again', 'btn-lime', () => act('approve')]],
+    }[l.status] || [];
+    return h('div', { class: 'dq-row' },
+      h('button', { class: 'dq-prev', type: 'button', title: 'Watch the creator’s verify run', onclick: () => dashPreview(l, 'replay', buttons) }, dashStrip(pv), h('span', { class: 'dq-play' }, '▶')),
+      h('div', { class: 'grow' },
+        h('div', {}, h('b', {}, l.name)),
+        h('div', { class: 'tiny muted' }, 'by ', h('a', { href: '/profile?u=' + encodeURIComponent(l.by.name) }, `${l.by.avatar} ${l.by.name}`),
+          ` · ${pv.n || 0} objects · ${pv.len || 0} blocks (${Math.round((pv.len || 0) / 10.4)}s) · posted ${UI.timeAgo(l.created)}`),
+        l.desc ? h('div', { class: 'tiny', style: { marginTop: '2px' } }, `“${l.desc}”`) : null,
+        l.status === 'approved' ? h('div', { class: 'tiny muted' }, `▶ ${l.plays} plays · 👍 ${l.likes}${l.reviewer ? ` · approved by ${l.reviewer}` : ''}`) : null,
+        l.reason ? h('div', { class: 'tiny', style: { color: '#fecdd3' } }, `Reason: ${l.reason}`) : null),
+      h('div', { class: 'dq-btns' },
+        h('button', { class: 'btn btn-cyan btn-sm', onclick: () => dashPreview(l, 'replay', buttons) }, '👀 Watch run'),
+        h('button', { class: 'btn btn-ghost btn-sm', onclick: () => dashPreview(l, 'test', buttons) }, '🎮 Test it'),
+        buttons.map(([label, cls, fn]) => h('button', { class: `btn ${cls} btn-sm`, onclick: fn }, label))));
+  }
+
+  /** The real game in a frame: the creator's verify run ("replay"), or play it yourself ("test"). */
+  function dashPreview(l, what, buttons) {
+    const src = `/games/dash?${what}=${l.id}&embed=1${what === 'test' ? '&cp=1' : ''}`;
+    const frame = h('iframe', { class: 'dq-frame', src, title: `Neon Dash: ${l.name}`, allow: 'autoplay' });
+    const close = UI.modal(h('div', {},
+      h('h2', {}, what === 'replay' ? `👀 ${l.name}` : `🎮 ${l.name}`),
+      h('p', { class: 'muted small', style: { marginBottom: '10px' } }, what === 'replay'
+        ? `${l.by.name}’s verify run, played back in the real game. If it reaches the 🏁, the level can be beaten.`
+        : 'Play it yourself (with practice checkpoints). Click the game, then Space / click / tap to jump.'),
+      frame,
+      h('div', { class: 'row wrap', style: { gap: '8px', marginTop: '12px' } },
+        h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { frame.src = src; } }, '🔁 Restart'),
+        what === 'replay' ? h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { close(); dashPreview(l, 'test', buttons); } }, '🎮 Test it yourself')
+          : h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { close(); dashPreview(l, 'replay', buttons); } }, '👀 Watch the run'),
+        h('a', { class: 'btn btn-ghost btn-sm', href: src.replace('&embed=1', ''), target: '_blank', rel: 'noopener' }, '↗ New tab'),
+        h('div', { style: { flex: 1 } }),
+        buttons.map(([label, cls, fn]) => h('button', { class: `btn ${cls} btn-sm`, onclick: () => { close(); fn(); } }, label)))), { wide: true });
+    setTimeout(() => frame.focus(), 400);
   }
 
   on('account', () => { if (mode !== 'admin' || !Account.admin) { mode = null; gate(); } });

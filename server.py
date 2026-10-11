@@ -29,6 +29,7 @@ from urllib.parse import unquote, urlsplit
 from accounts import Accounts, AuthError, StoreError, level_info, parse_look
 from games import GAMES
 import tournaments
+from dashlevels import DashLevels, level_id
 
 ROOT = Path(__file__).resolve().parent
 PUBLIC = (ROOT / "public").resolve()
@@ -527,6 +528,7 @@ class Hub:
         self.wyr_dirty = False
         self._online_scheduled = False
         self.accounts = Accounts(DATA)
+        self.dash_levels = DashLevels(self.accounts)   # Neon Dash community levels
         self.tasks = set()
         self.started = time.time()
         self.restoring = {}     # room code -> task looking it up in saved rooms
@@ -1140,6 +1142,9 @@ class Hub:
                 other.send("auth:state", user=acc.public(user))
             return {"user": acc.public(user)}
 
+        if t.startswith("dash:"):
+            return await self.dash_op(c, t, msg)
+
         # everything below is admin only (checked against the database every time)
         actor = await acc.require_admin(self.need_login(c))
         if t == "admin:overview":
@@ -1203,6 +1208,48 @@ class Hub:
             return {"text": text}
         raise AuthError("Unknown request.")
 
+    async def dash_op(self, c, t, msg):
+        """Neon Dash community levels: post (3 a day), browse, like, and the admins' review queue."""
+        acc, dl = self.accounts, self.dash_levels
+
+        async def me():
+            user = await acc.user_by_id(self.need_login(c))
+            if not user or user["banned"]:
+                raise AuthError("You need to log in first.")
+            return user
+        if t == "dash:list":
+            if time.time() - c.search_at < 0.25:
+                await asyncio.sleep(0.25)
+            c.search_at = time.time()
+            by = msg.get("by") if isinstance(msg.get("by"), str) else None
+            return await dl.browse(str(msg.get("sort") or "new"), msg.get("q"), by, msg.get("offset") or 0, c.account["id"] if c.account else None)
+        if t == "dash:get":
+            viewer = await acc.user_by_id(c.account["id"]) if c.account else None
+            return {"level": await dl.get(level_id(msg.get("id")), viewer)}
+        if t == "dash:play":
+            return await dl.play(c.person(), level_id(msg.get("id")))
+        if t == "dash:quota":
+            return await dl.quota(await me())
+        if t == "dash:mine":
+            user = await me()
+            return {"levels": await dl.mine(user["id"]), **(await dl.quota(user))}
+        if t == "dash:post":
+            return await dl.post(await me(), msg.get("level"), msg.get("replay"))
+        if t == "dash:delete":
+            await dl.delete((await me())["id"], level_id(msg.get("id")))
+            return {}
+        if t == "dash:like":
+            return await dl.like((await me())["id"], level_id(msg.get("id")), msg.get("on") is not False)
+        admin = await acc.require_admin(self.need_login(c))
+        if t == "dash:queue":
+            return await dl.queue(str(msg.get("status") or "pending"))
+        if t == "dash:review":
+            done = await dl.review(admin, level_id(msg.get("id")), str(msg.get("action") or ""), msg.get("reason"))
+            for x in self.clients_of(done["user_id"]):   # a live toast for the creator
+                x.send("dash:reviewed", id=done["id"], name=done["name"], status=done["status"], reason=done["reason"])
+            return {"id": done["id"], "status": done["status"]}
+        raise AuthError("Unknown request.")
+
     # -- housekeeping ----------------------------------------------------
     async def janitor(self):
         last_ping = 0.0
@@ -1235,6 +1282,7 @@ class Hub:
 
 
 ACCOUNT_MESSAGES = {
+    "dash:post", "dash:quota", "dash:mine", "dash:delete", "dash:get", "dash:list", "dash:like", "dash:play", "dash:queue", "dash:review",
     "auth:signup", "auth:login", "auth:logout", "account:update", "account:look", "account:password", "account:delete",
     "profile:get", "players:find", "lb:boards", "lb:get", "stats:solo", "admin:unlock", "admin:overview", "admin:users",
     "admin:user", "admin:announce", "admin:room", "admin:cheat", "friends:list", "friends:add", "friends:remove", "friends:invite", "friends:invite-no",

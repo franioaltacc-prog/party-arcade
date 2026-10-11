@@ -8,7 +8,9 @@
    Determinism rules (keep pool_core.py in sync, same operation order everywhere):
    only + - * /, Math.sqrt, Math.abs, Math.min/max, comparisons and Math.ceil inside the
    simulation. No hypot, pow, ** or trig. Balls, segments and pockets are always iterated in the
-   same order. Trig is only used by makeShot (to turn an aim angle into vx/vy) on the authority. */
+   same order. makeShot turns the aim angle into vx/vy with its own polynomial sin/cos (sincos below,
+   only + - * / and floor), so even makeShot is bit-identical in both languages; still, online clients
+   must replay the server's shot object (its vx/vy), never a shot they rebuilt themselves. */
 (function (root) {
   'use strict';
 
@@ -28,13 +30,13 @@
   const DT = 1 / 400;
   const G = 9.81;
   const MU_S = 0.2;            // sliding friction
-  const MU_R = 0.016;          // rolling resistance
-  const DRAG = 0.42;           // speed-proportional cloth drag (1/s): keeps hard shots from running forever
+  const MU_R = 0.024;          // rolling resistance (a slowish casual cloth)
+  const DRAG = 0.13;           // speed-proportional cloth drag (1/s): a medium shot runs ~2 table lengths, a full one ~4
   const SIDE_DECAY = 0.9;      // side spin decay (m/s per s of surface speed)
   const E_BALL = 0.95;         // ball-ball restitution
-  const E_CUSH = 0.82;         // cushion restitution for a soft hit ...
-  const E_CUSH_DROP = 0.03;    // ... minus this per m/s of normal speed ...
-  const E_CUSH_MIN = 0.62;     // ... but never below this
+  const E_CUSH = 0.87;         // cushion restitution for a soft hit ...
+  const E_CUSH_DROP = 0.007;   // ... minus this per m/s of normal speed ...
+  const E_CUSH_MIN = 0.7;      // ... but never below this
   const CUSH_T = 0.95;         // tangential speed kept at a cushion
   const CUSH_K = 0.22;         // side-spin kick at a cushion (tangential m/s per m/s of spin)
   const CUSH_SPIN = 0.55;      // side spin kept after a cushion
@@ -52,6 +54,11 @@
   const SLIP_EPS2 = 1e-14;
   const SEP2 = (D - 1e-7) * (D - 1e-7);
   const PLACE2 = (D + 1e-4) * (D + 1e-4);
+  const BREAK_SPEED = 9.5;     // makeShot speed at power 1 on the break (a normal shot tops out at MAX_SPEED)
+  const SHOT_CAP = 20;         // Sim clamps any shot to this speed (and non-finite numbers to 0) so bad input stays cheap
+  const JAW_E0 = 0.45;         // jaw (pocket facing) restitution: a soft hit dies in the jaws ...
+  const JAW_EK = 0.2;          // ... plus this per m/s of normal speed ...
+  const JAW_EMAX = 0.9;        // ... up to this, so a slammed ball rattles out
 
   // ------------------------------------------------------------------ geometry
   function unit(x, y) {
@@ -92,7 +99,7 @@
     const p = { x: cx + sx * C_OFF, y: cy + sy * C_OFF, r: C_RAD, corner: true,
       mouth: [hTip, vTip], axis: [sx / SQRT2, sy / SQRT2],
       jaws: [jaw(hTip[0], hTip[1], sx * CJ[0], sy * CJ[1], CJ_LEN), jaw(vTip[0], vTip[1], sx * CJ[1], sy * CJ[0], CJ_LEN)] };
-    p.hole = C_RAD + 0.9 * R;
+    p.hole = C_RAD;                      // drawing radius = capture radius: a ball drops once its centre is over the hole
     return p;
   }
   function side(cy, sy) {
@@ -101,7 +108,7 @@
     const p = { x: W / 2, y: cy + sy * S_OFF, r: S_RAD, corner: false,
       mouth: [lTip, rTip], axis: [0, sy],
       jaws: [jaw(lTip[0], lTip[1], SJ[0], sy * SJ[1], SJ_LEN), jaw(rTip[0], rTip[1], -SJ[0], sy * SJ[1], SJ_LEN)] };
-    p.hole = S_RAD + 0.9 * R;
+    p.hole = S_RAD;
     return p;
   }
   POCKETS.push(corner(0, 0, -1, -1), side(0, -1), corner(W, 0, 1, -1), corner(W, H, 1, 1), side(H, 1), corner(0, H, -1, 1));
@@ -119,7 +126,7 @@
       JX.push(s[0]); JY.push(s[1]); JDX.push(dx); JDY.push(dy); JL2.push(dx * dx + dy * dy); JNX.push(nx); JNY.push(ny);
     }
   }
-  const PX = POCKETS.map((p) => p.x), PY = POCKETS.map((p) => p.y), PR2 = POCKETS.map((p) => p.r * p.r);
+  const PX = POCKETS.map((p) => p.x), PY = POCKETS.map((p) => p.y), PR = POCKETS.map((p) => p.r), PR2 = POCKETS.map((p) => p.r * p.r);
 
   // the cushions as 6 polylines (jaw end, tip, tip, jaw end), clockwise from the top-left rail
   function end(s) { return [s[2], s[3]]; }
@@ -145,7 +152,10 @@
   // ------------------------------------------------------------------ simulation
   /** A steppable simulation of one shot. balls: [[id, x, y], ...] (resting), shot: {x, y, vx, vy, sx, sy}
       (the cue ball, id 0, is put at shot.x/shot.y). sim.step() advances one DT and returns that step's
-      events; sim.done tells when everything stopped. Arrays sim.ids/X/Y/VX/VY/RX/RY/S/ON hold the state. */
+      events; sim.done tells when everything stopped. Arrays sim.ids/X/Y/VX/VY/RX/RY/S/ON hold the state.
+      The shot is sanitised: non-finite numbers count as 0 (a missing position as the head spot), sx/sy are
+      clamped to [-1, 1] and the speed to SHOT_CAP. Within a step the cue ball's contacts come out in the
+      order they happened (also a cushion before its first ball), and pots of one substep likewise. */
   function Sim(balls, shot, opts) {
     const ids = [], X = [], Y = [], VX = [], VY = [], RX = [], RY = [], S = [], ON = [], MOV = [];
     let cue = -1;
@@ -161,14 +171,23 @@
         ids.unshift(0); X.unshift(0); Y.unshift(0);
         VX.unshift(0); VY.unshift(0); RX.unshift(0); RY.unshift(0); S.unshift(0); ON.unshift(true); MOV.unshift(false);
       }
-      const vx = shot.vx, vy = shot.vy;
-      const k = 1.25 * shot.sy;
-      X[cue] = shot.x; Y[cue] = shot.y;
+      // sanitise: non-finite numbers -> 0 (position -> head spot), spin to [-1, 1], speed to SHOT_CAP
+      let vx = fin(shot.vx, 0), vy = fin(shot.vy, 0);
+      if (vx > SHOT_CAP) vx = SHOT_CAP; else if (vx < -SHOT_CAP) vx = -SHOT_CAP;
+      if (vy > SHOT_CAP) vy = SHOT_CAP; else if (vy < -SHOT_CAP) vy = -SHOT_CAP;
+      const v2 = vx * vx + vy * vy;
+      if (v2 > SHOT_CAP * SHOT_CAP) { const f = SHOT_CAP / Math.sqrt(v2); vx = vx * f; vy = vy * f; }
+      let sx = fin(shot.sx, 0), sy = fin(shot.sy, 0);
+      if (sx > 1) sx = 1; else if (sx < -1) sx = -1;
+      if (sy > 1) sy = 1; else if (sy < -1) sy = -1;
+      const k = 1.25 * sy;
+      X[cue] = fin(shot.x, HEAD_SPOT[0]); Y[cue] = fin(shot.y, HEAD_SPOT[1]);
       VX[cue] = vx; VY[cue] = vy; RX[cue] = vx * k; RY[cue] = vy * k;
-      S[cue] = 1.1 * shot.sx * Math.sqrt(vx * vx + vy * vy);
+      S[cue] = 1.1 * sx * Math.sqrt(vx * vx + vy * vy);
       MOV[cue] = vx !== 0 || vy !== 0;
     }
     this.n = ids.length;
+    this.cue = cue;                      // index of the cue ball (-1 if there is none)
     this.ids = ids; this.X = X; this.Y = Y; this.VX = VX; this.VY = VY; this.RX = RX; this.RY = RY; this.S = S;
     this.ON = ON; this.MOV = MOV;
     this.steps = 0;
@@ -209,6 +228,8 @@
     const X = this.X, Y = this.Y, VX = this.VX, VY = this.VY, RX = this.RX, RY = this.RY, S = this.S;
     const ON = this.ON, MOV = this.MOV, ids = this.ids, ev = this.events, N = this.n;
     let steps = this.steps;
+    const cue = this.cue;
+    const pots = [];                     // [rewind time, event index] of the pots in this substep
     let act = [];
     for (let i = 0; i < N; i++) if (ON[i]) act.push(i);
     for (let it = 0; it < maxSteps; it++) {
@@ -230,68 +251,90 @@
           const i = act[a];
           if (MOV[i]) { X[i] += VX[i] * h; Y[i] += VY[i] * h; }
         }
-        // ball-ball, pairs in index order
-        const na = act.length;
-        for (let a = 0; a < na - 1; a++) {
-          const i = act[a];
-          let xi = X[i], yi = Y[i], mi = MOV[i];
-          for (let b = a + 1; b < na; b++) {
-            const j = act[b];
-            if (!mi && !MOV[j]) continue;
-            let dx = X[j] - xi;
-            if (dx >= D || dx <= -D) continue;
-            let dy = Y[j] - yi;
-            if (dy >= D || dy <= -D) continue;
-            let d2 = dx * dx + dy * dy;
-            if (d2 >= D2) continue;
-            let d = Math.sqrt(d2);
-            let nx = 1, ny = 0;
-            if (d > 0) { nx = dx / d; ny = dy / d; }
-            const wx = VX[j] - VX[i], wy = VY[j] - VY[i];
-            if (wx * nx + wy * ny < 0) {
-              // rewind both balls to the moment of contact, collide, then replay that time
-              const qa = wx * wx + wy * wy;
-              const qb = dx * wx + dy * wy;
-              const qc = d2 - D2;
-              let t = (qb + Math.sqrt(qb * qb - qa * qc)) / qa;
-              if (t > h) t = h;
-              X[i] -= VX[i] * t; Y[i] -= VY[i] * t; X[j] -= VX[j] * t; Y[j] -= VY[j] * t;
-              dx = X[j] - X[i]; dy = Y[j] - Y[i];
-              d2 = dx * dx + dy * dy;
-              d = Math.sqrt(d2);
+        // the cue ball first (the rules read its first contact, and any cushion after it, from the event
+        // order): if it reached two balls in this substep it takes them in the order it reached them, and a
+        // cushion it reached before its contact is taken first. When the cue ball is act[0] (always, for
+        // frames), _cueFirst handles its whole row of pairs and the pair loop below starts at a = 1.
+        let start = 0;
+        if (cue >= 0 && MOV[cue]) {
+          const whole = act[0] === cue;
+          if (this._cueFirst(act, h, steps, pots, whole)) {
+            const keep = [];
+            for (let a = 0; a < act.length; a++) if (ON[act[a]]) keep.push(act[a]);
+            act = keep;
+          } else if (whole) start = 1;
+        }
+        // ball-ball, pairs in index order. A pass with a collision is followed by one more pass, which
+        // catches balls the first one pushed into balls it had already checked (chain hits against the
+        // array order) before the overlap can show.
+        for (let pass = 0; pass < 2; pass++) {
+          let hits = false;
+          const na = act.length;
+          for (let a = pass === 0 ? start : 0; a < na - 1; a++) {
+            const i = act[a];
+            let xi = X[i], yi = Y[i], mi = MOV[i];
+            for (let b = a + 1; b < na; b++) {
+              const j = act[b];
+              if (!mi && !MOV[j]) continue;
+              let dx = X[j] - xi;
+              if (dx >= D || dx <= -D) continue;
+              let dy = Y[j] - yi;
+              if (dy >= D || dy <= -D) continue;
+              let d2 = dx * dx + dy * dy;
+              if (d2 >= D2) continue;
+              let d = Math.sqrt(d2);
+              let nx = 1, ny = 0;
               if (d > 0) { nx = dx / d; ny = dy / d; }
-              const un = (VX[j] - VX[i]) * nx + (VY[j] - VY[i]) * ny;
-              if (un < 0) {
-                const k = un * HALF_E;
-                VX[i] += k * nx; VY[i] += k * ny; VX[j] -= k * nx; VY[j] -= k * ny;
-                ev.push(['hit', ids[i], ids[j], steps, -un]);
+              const wx = VX[j] - VX[i], wy = VY[j] - VY[i];
+              if (wx * nx + wy * ny < 0) {
+                // rewind both balls to the moment of contact, collide, then replay that time
+                const qa = wx * wx + wy * wy;
+                const qb = dx * wx + dy * wy;
+                const qc = d2 - D2;
+                let t = (qb + Math.sqrt(qb * qb - qa * qc)) / qa;
+                if (t > h) t = h;
+                X[i] -= VX[i] * t; Y[i] -= VY[i] * t; X[j] -= VX[j] * t; Y[j] -= VY[j] * t;
+                dx = X[j] - X[i]; dy = Y[j] - Y[i];
+                d2 = dx * dx + dy * dy;
+                d = Math.sqrt(d2);
+                if (d > 0) { nx = dx / d; ny = dy / d; }
+                const un = (VX[j] - VX[i]) * nx + (VY[j] - VY[i]) * ny;
+                if (un < 0) {
+                  const k = un * HALF_E;
+                  VX[i] += k * nx; VY[i] += k * ny; VX[j] -= k * nx; VY[j] -= k * ny;
+                  ev.push(['hit', ids[i], ids[j], steps, -un]);
+                    hits = true;
+                }
+                X[i] += VX[i] * t; Y[i] += VY[i] * t; X[j] += VX[j] * t; Y[j] += VY[j] * t;
+                MOV[i] = true; MOV[j] = true; mi = true;
+                dx = X[j] - X[i]; dy = Y[j] - Y[i];
+                d2 = dx * dx + dy * dy;
               }
-              X[i] += VX[i] * t; Y[i] += VY[i] * t; X[j] += VX[j] * t; Y[j] += VY[j] * t;
-              MOV[i] = true; MOV[j] = true; mi = true;
-              dx = X[j] - X[i]; dy = Y[j] - Y[i];
-              d2 = dx * dx + dy * dy;
-            }
-            if (d2 < D2) {
-              // still overlapping: push apart along the line of centres
-              d = Math.sqrt(d2);
-              if (d > 0) {
-                const o = (D - d) * 0.5 / d;
-                X[i] -= dx * o; Y[i] -= dy * o; X[j] += dx * o; Y[j] += dy * o;
+              if (d2 < D2) {
+                // still overlapping: push apart along the line of centres
+                d = Math.sqrt(d2);
+                if (d > 0) {
+                  const o = (D - d) * 0.5 / d;
+                  X[i] -= dx * o; Y[i] -= dy * o; X[j] += dx * o; Y[j] += dy * o;
+                }
               }
+              xi = X[i]; yi = Y[i];
             }
-            xi = X[i]; yi = Y[i];
           }
+          if (!hits) break;
         }
         // cushions, jaws, pockets (only for balls near a rail line)
-        let potted = false;
         for (let a = 0; a < act.length; a++) {
           const i = act[a];
           if (!MOV[i]) continue;
           const x = X[i], y = Y[i];
           if (x > R && x < XHI && y > R && y < YHI) continue;
-          if (this._cushion(i, h, steps)) potted = true;
+          const pt = this._cushion(i, h, steps);
+          if (pt >= 0) pots.push(pt, ev.length - 1);
         }
-        if (potted) {
+        if (pots.length > 0) {
+          if (pots.length > 2) orderPots(ev, pots);
+          pots.length = 0;
           const keep = [];
           for (let a = 0; a < act.length; a++) if (ON[act[a]]) keep.push(act[a]);
           act = keep;
@@ -348,8 +391,122 @@
     this.steps = steps;
   };
 
-  /** Cushion response for ball i: inward unit normal (nx, ny), penetration pen. */
-  Sim.prototype._bounce = function (i, nx, ny, pen, h, step) {
+  /** The cue ball's contacts with the balls it overlaps and approaches after this substep's move:
+      [index, rewind time, ...]; the balls it overlaps without approaching go to ov (if ov is an array). */
+  Sim.prototype._cueContacts = function (act, h, ov) {
+    const X = this.X, Y = this.Y, VX = this.VX, VY = this.VY, c = this.cue;
+    const xc = X[c], yc = Y[c], vxc = VX[c], vyc = VY[c];
+    const out = [];
+    for (let a = 0; a < act.length; a++) {
+      const j = act[a];
+      const dx = X[j] - xc;
+      if (dx >= D || dx <= -D) continue;
+      const dy = Y[j] - yc;
+      if (dy >= D || dy <= -D) continue;
+      const d2 = dx * dx + dy * dy;
+      if (d2 >= D2 || j === c) continue;
+      const wx = VX[j] - vxc, wy = VY[j] - vyc;
+      const qb = dx * wx + dy * wy;
+      if (d2 > 0 ? qb < 0 : wx < 0) {
+        const qa = wx * wx + wy * wy;
+        let t = (qb + Math.sqrt(qb * qb - qa * (d2 - D2))) / qa;
+        if (t > h) t = h;
+        out.push(j, t);
+      } else if (ov) ov.push(j);
+    }
+    return out;
+  };
+
+  /** See advance: order the cue ball's contacts within a substep (whole: also handle a single contact and
+      push apart the balls it overlaps, i.e. its whole row of pairs). Returns true if the cue ball dropped. */
+  Sim.prototype._cueFirst = function (act, h, step, pots, whole) {
+    const c = this.cue;
+    let ov = whole ? [] : null;
+    let cc = this._cueContacts(act, h, ov);
+    if (cc.length === 0 && !whole) return false;
+    const x = this.X[c], y = this.Y[c];
+    if (!(x > R && x < XHI && y > R && y < YHI)) {
+      let tm = -1;
+      for (let k = 1; k < cc.length; k += 2) if (cc[k] > tm) tm = cc[k];
+      if (cc.length > 0 && this._railT(c, h) > tm) {
+        const pt = this._cushion(c, h, step);
+        if (pt >= 0) { pots.push(pt, this.events.length - 1); return true; }
+        ov = whole ? [] : null;
+        cc = this._cueContacts(act, h, ov);
+      }
+    }
+    if (cc.length < 4 && !whole) return false;
+    const order = [];                    // insertion sort, stable, by rewind time descending (earliest contact first)
+    for (let k = 0; k < cc.length; k += 2) {
+      let b = order.length;
+      while (b > 0 && cc[order[b - 1] + 1] < cc[k + 1]) b--;
+      order.splice(b, 0, k);
+    }
+    for (let m = 0; m < order.length; m++) {
+      const j = cc[order[m]];
+      const i0 = c < j ? c : j, j0 = c < j ? j : c;
+      this._hit(i0, j0, h, step);
+    }
+    if (whole) {
+      const X = this.X, Y = this.Y;
+      for (let m = 0; m < ov.length; m++) {
+        const j = ov[m];
+        const dx = X[j] - X[c], dy = Y[j] - Y[c];
+        const d2 = dx * dx + dy * dy;
+        if (d2 < D2) {
+          const d = Math.sqrt(d2);
+          if (d > 0) {
+            const o = (D - d) * 0.5 / d;
+            X[c] -= dx * o; Y[c] -= dy * o; X[j] += dx * o; Y[j] += dy * o;
+          }
+        }
+      }
+    }
+    return false;
+  };
+
+  /** Balls i < j, if they overlap: when they approach, rewind both to the moment of contact, collide and
+      replay that time; then push them apart if they still overlap (the same steps as the main ball-ball pass). */
+  Sim.prototype._hit = function (i, j, h, step) {
+    const X = this.X, Y = this.Y, VX = this.VX, VY = this.VY;
+    let dx = X[j] - X[i], dy = Y[j] - Y[i];
+    let d2 = dx * dx + dy * dy;
+    if (d2 >= D2) return;
+    const wx = VX[j] - VX[i], wy = VY[j] - VY[i];
+    const qb = dx * wx + dy * wy;
+    if (d2 > 0 ? qb < 0 : wx < 0) {
+      const qa = wx * wx + wy * wy;
+      let t = (qb + Math.sqrt(qb * qb - qa * (d2 - D2))) / qa;
+      if (t > h) t = h;
+      X[i] -= VX[i] * t; Y[i] -= VY[i] * t; X[j] -= VX[j] * t; Y[j] -= VY[j] * t;
+      dx = X[j] - X[i]; dy = Y[j] - Y[i];
+      d2 = dx * dx + dy * dy;
+      const d = Math.sqrt(d2);
+      let nx = 1, ny = 0;
+      if (d > 0) { nx = dx / d; ny = dy / d; }
+      const un = (VX[j] - VX[i]) * nx + (VY[j] - VY[i]) * ny;
+      if (un < 0) {
+        const k = un * HALF_E;
+        VX[i] += k * nx; VY[i] += k * ny; VX[j] -= k * nx; VY[j] -= k * ny;
+        this.events.push(['hit', this.ids[i], this.ids[j], step, -un]);
+      }
+      X[i] += VX[i] * t; Y[i] += VY[i] * t; X[j] += VX[j] * t; Y[j] += VY[j] * t;
+      this.MOV[i] = true; this.MOV[j] = true;
+      dx = X[j] - X[i]; dy = Y[j] - Y[i];
+      d2 = dx * dx + dy * dy;
+    }
+    if (d2 < D2) {
+      const d = Math.sqrt(d2);
+      if (d > 0) {
+        const o = (D - d) * 0.5 / d;
+        X[i] -= dx * o; Y[i] -= dy * o; X[j] += dx * o; Y[j] += dy * o;
+      }
+    }
+  };
+
+  /** Cushion response for ball i: inward unit normal (nx, ny), penetration pen; jaw: a pocket jaw (its
+      restitution rises with speed, so soft hits die in the jaws and hard ones rattle). */
+  Sim.prototype._bounce = function (i, nx, ny, pen, h, step, jaw) {
     const X = this.X, Y = this.Y, VX = this.VX, VY = this.VY;
     let vx = VX[i], vy = VY[i];
     const vn = vx * nx + vy * ny;
@@ -358,8 +515,14 @@
       return;
     }
     const sp = -vn;
-    let e = E_CUSH - E_CUSH_DROP * sp;
-    if (e < E_CUSH_MIN) e = E_CUSH_MIN;
+    let e;
+    if (jaw) {
+      e = JAW_E0 + JAW_EK * sp;
+      if (e > JAW_EMAX) e = JAW_EMAX;
+    } else {
+      e = E_CUSH - E_CUSH_DROP * sp;
+      if (e < E_CUSH_MIN) e = E_CUSH_MIN;
+    }
     let t = pen / sp;
     if (t > h) t = h;
     X[i] -= vx * t; Y[i] -= vy * t;
@@ -381,7 +544,40 @@
     this.events.push(['pot', this.ids[i], p, step]);
   };
 
-  /** Rails, jaws and pockets for a ball near a rail line. Returns true if it was pocketed. */
+  /** How long ago (within this substep of length h) ball i first touched a rail or jaw it is now pressing
+      into while still moving into it; -1 if none. Mirrors the tests in _cushion without changing anything. */
+  Sim.prototype._railT = function (i, h) {
+    const x = this.X[i], y = this.Y[i], vx = this.VX[i], vy = this.VY[i];
+    let best = -1;
+    if ((x >= CA && x <= RAIL_X1) || (x >= RAIL_X2 && x <= RAIL_XE)) {
+      if (y < R) { if (vy < 0) { let t = (R - y) / -vy; if (t > h) t = h; if (t > best) best = t; } }
+      else if (y > YHI) { if (vy > 0) { let t = (y - YHI) / vy; if (t > h) t = h; if (t > best) best = t; } }
+    }
+    if (y >= CA && y <= RAIL_YE) {
+      if (x < R) { if (vx < 0) { let t = (R - x) / -vx; if (t > h) t = h; if (t > best) best = t; } }
+      else if (x > XHI) { if (vx > 0) { let t = (x - XHI) / vx; if (t > h) t = h; if (t > best) best = t; } }
+    }
+    const p = pocketZone(x, y);
+    if (p >= 0) {
+      for (let q = 2 * p; q < 2 * p + 2; q++) {
+        let u = ((x - JX[q]) * JDX[q] + (y - JY[q]) * JDY[q]) / JL2[q];
+        if (u < 0) u = 0; else if (u > 1) u = 1;
+        const ex = x - (JX[q] + JDX[q] * u), ey = y - (JY[q] + JDY[q] * u);
+        const e2 = ex * ex + ey * ey;
+        if (e2 < R2) {
+          const e = Math.sqrt(e2);
+          let nx = JNX[q], ny = JNY[q];
+          if (e > 0) { nx = ex / e; ny = ey / e; }
+          const vn = vx * nx + vy * ny;
+          if (vn < 0) { let t = (R - e) / -vn; if (t > h) t = h; if (t > best) best = t; }
+        }
+      }
+    }
+    return best;
+  };
+
+  /** Rails, jaws and pockets for a ball near a rail line. Returns -1, or (if it was pocketed) how long ago
+      in this substep its centre crossed into the capture circle (used to order pots of the same substep). */
   Sim.prototype._cushion = function (i, h, step) {
     const X = this.X, Y = this.Y;
     let x = X[i], y = Y[i];
@@ -397,14 +593,7 @@
       if (y >= CA && y <= RAIL_YE) this._bounce(i, -1, 0, x - XHI, h, step);
     }
     x = X[i]; y = Y[i];
-    let p = -1;
-    if (x < CZ) {
-      if (y < CZ) p = 0; else if (y > H - CZ) p = 5;
-    } else if (x > W - CZ) {
-      if (y < CZ) p = 2; else if (y > H - CZ) p = 3;
-    } else if (x > W / 2 - SZ && x < W / 2 + SZ) {
-      if (y < R) p = 1; else if (y > YHI) p = 4;
-    }
+    const p = pocketZone(x, y);
     if (p >= 0) {
       for (let q = 2 * p; q < 2 * p + 2; q++) {
         let t = ((x - JX[q]) * JDX[q] + (y - JY[q]) * JDY[q]) / JL2[q];
@@ -415,18 +604,26 @@
           const e = Math.sqrt(e2);
           let nx = JNX[q], ny = JNY[q];
           if (e > 0) { nx = ex / e; ny = ey / e; }
-          this._bounce(i, nx, ny, R - e, h, step);
+          this._bounce(i, nx, ny, R - e, h, step, true);
           x = X[i]; y = Y[i];
         }
       }
       const cx = x - PX[p], cy = y - PY[p];
-      if (cx * cx + cy * cy < PR2[p]) { this._pot(i, p, step); return true; }
+      const c2 = cx * cx + cy * cy;
+      if (c2 < PR2[p]) {
+        const vx = this.VX[i], vy = this.VY[i];
+        const v2 = vx * vx + vy * vy;
+        let t = 0;
+        if (v2 > 0) { t = (PR[p] - Math.sqrt(c2)) / Math.sqrt(v2); if (t > h) t = h; }
+        this._pot(i, p, step);
+        return t;
+      }
     }
     if (x < -OB || x > W + OB || y < -OB || y > H + OB || (p < 0 && (x < 0 || x > W || y < 0 || y > H))) {
       this._pot(i, nearestPocket(x, y), step);
-      return true;
+      return 0;
     }
-    return false;
+    return -1;
   };
 
   /** Everything stopped: zero the motion and separate any balls left overlapping. */
@@ -468,6 +665,61 @@
     this.done = true;
   };
 
+  /** The pocket whose jaws a ball at (x, y) may touch, or -1. */
+  function pocketZone(x, y) {
+    if (x < CZ) {
+      if (y < CZ) return 0;
+      if (y > H - CZ) return 5;
+    } else if (x > W - CZ) {
+      if (y < CZ) return 2;
+      if (y > H - CZ) return 3;
+    } else if (x > W / 2 - SZ && x < W / 2 + SZ) {
+      if (y < R) return 1;
+      if (y > YHI) return 4;
+    }
+    return -1;
+  }
+
+  /** Several balls dropped in one substep: reorder their pot events (in place, in the same event slots)
+      so the ball that crossed into its pocket first comes first. pots: [rewind, eventIndex, ...]. */
+  function orderPots(ev, pots) {
+    const n = pots.length / 2;
+    const order = [];                    // insertion sort, stable, by rewind time descending
+    for (let a = 0; a < n; a++) {
+      let b = order.length;
+      while (b > 0 && pots[2 * order[b - 1]] < pots[2 * a]) b--;
+      order.splice(b, 0, a);
+    }
+    const evs = [];
+    for (let a = 0; a < n; a++) evs.push(ev[pots[2 * order[a] + 1]]);
+    for (let a = 0; a < n; a++) ev[pots[2 * a + 1]] = evs[a];
+  }
+
+  function fin(v, dflt) { return typeof v === 'number' && isFinite(v) ? v : dflt; }
+
+  // deterministic sin/cos (only + - * / and floor, identical in pool_core.py): Cody-Waite reduction to
+  // [-pi/4, pi/4] and Taylor series to x^17 / x^16 (error below 1e-16 there)
+  const TWO_PI_HI = 6.283185307179586, TWO_PI_LO = 2.4492935982947064e-16;
+  const HALF_PI_HI = 1.5707963267948966, HALF_PI_LO = 6.123233995736766e-17;
+  const S3 = -1 / 6, S5 = 1 / 120, S7 = -1 / 5040, S9 = 1 / 362880, S11 = -1 / 39916800, S13 = 1 / 6227020800,
+    S15 = -1 / 1307674368000, S17 = 1 / 355687428096000;
+  const C4 = 1 / 24, C6 = -1 / 720, C8 = 1 / 40320, C10 = -1 / 3628800, C12 = 1 / 479001600,
+    C14 = -1 / 87178291200, C16 = 1 / 20922789888000;
+  function sincos(a) {
+    if (!(a >= -1e9 && a <= 1e9)) a = 0;   // aim angles are radians; junk beyond this would not reduce accurately
+    const k = Math.floor(a / TWO_PI_HI + 0.5);
+    let r = (a - k * TWO_PI_HI) - k * TWO_PI_LO;
+    const q = Math.floor(r / HALF_PI_HI + 0.5);
+    r = (r - q * HALF_PI_HI) - q * HALF_PI_LO;
+    const z = r * r;
+    const s = r + r * z * (S3 + z * (S5 + z * (S7 + z * (S9 + z * (S11 + z * (S13 + z * (S15 + z * S17)))))));
+    const c = 1 - 0.5 * z + z * z * (C4 + z * (C6 + z * (C8 + z * (C10 + z * (C12 + z * (C14 + z * C16))))));
+    if (q === 0) return [s, c];
+    if (q === 1) return [c, -s];
+    if (q === -1) return [-c, s];
+    return [-s, -c];
+  }
+
   function nearestPocket(x, y) {
     let best = 0, bd = -1;
     for (let p = 0; p < 6; p++) {
@@ -499,9 +751,12 @@
       mode: F.mode, balls: F.balls.map((b) => [b[0], b[1], b[2]]), turn: F.turn, breaker: F.breaker,
       isBreak: F.isBreak, open: F.open, groups: [F.groups[0], F.groups[1]], inHand: F.inHand, kitchen: F.kitchen,
       over: F.over, winner: F.winner, reason: F.reason, shots: F.shots,
-      visit: { seat: F.visit.seat, potted: F.visit.potted.slice(), start: F.visit.start },
+      visit: { seat: F.visit.seat, potted: F.visit.potted.slice(), start: visitStart(F) },
     };
   }
+
+  /** visit.start, or 0 when it is missing or not a finite number (older frames). */
+  function visitStart(F) { return isNum(F.visit.start) ? F.visit.start : 0; }
 
   function sortBalls(balls) { balls.sort((a, b) => a[0] - b[0]); }
 
@@ -577,7 +832,8 @@
   }
 
   /** Build a shot: aim angle (radians, 0 = +x), power 0..1, tip offset sx (side) / sy (follow+, draw-),
-      and the cue ball position (cx, cy) when the shooter has ball in hand. */
+      and the cue ball position (cx, cy) when the shooter has ball in hand. Speed = MAX_SPEED * power, or
+      BREAK_SPEED * power on the break. */
   function makeShot(F, angle, power, sx, sy, cx, cy) {
     let p = isNum(power) ? power : 0.02;
     if (p < 0.02) p = 0.02; else if (p > 1) p = 1;
@@ -588,9 +844,9 @@
     const cue = cueOf(F);
     let x = cue ? cue[1] : HEAD_SPOT[0], y = cue ? cue[2] : HEAD_SPOT[1];
     if (F.inHand && validPlacement(F, cx, cy)) { x = cx; y = cy; }
-    const sp = MAX_SPEED * p;
-    const ang = isNum(angle) ? angle : 0;
-    return { x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, sx: a, sy: b };
+    const sp = (F.isBreak ? BREAK_SPEED : MAX_SPEED) * p;
+    const sc = sincos(isNum(angle) ? angle : 0);
+    return { x, y, vx: sc[1] * sp, vy: sc[0] * sp, sx: a, sy: b };
   }
 
   function spotFree(balls, x, y) {
@@ -698,10 +954,12 @@
       F2.open = true;
     } else {
       const g = F.groups[me];
-      const on8 = !F.open && g !== null && groupLeft(F.balls, g) === 0;
+      // on the 8: your group is all down (or, on an open table, every group ball is down)
+      const on8 = F.open ? groupLeft(F.balls, 'solids') + groupLeft(F.balls, 'stripes') === 0
+        : g !== null && groupLeft(F.balls, g) === 0;
       if (scratch) reason = 'scratch';
       else if (first === null) reason = 'nohit';
-      else if (F.open ? first === 8 : (on8 ? first !== 8 : groupOf(first) !== g)) reason = 'wrong';
+      else if (on8 ? first !== 8 : (F.open ? first === 8 : groupOf(first) !== g)) reason = 'wrong';
       else if (obj.length === 0 && !railAfter) reason = 'norail';
       foul = reason !== null;
       if (obj.indexOf(8) >= 0) {
@@ -725,15 +983,15 @@
     }
     F2.isBreak = false;
     const vp = F.visit.seat === me ? F.visit.potted.concat(obj) : obj.slice();
-    const vstart = F.visit.seat === me ? F.visit.start : F.shots;
+    const vstart = F.visit.seat === me ? visitStart(F) : F.shots;
     if (over) {
       F2.over = true; F2.winner = winner; F2.reason = win; F2.inHand = false; F2.kitchen = false;
       F2.visit = { seat: me, potted: vp, start: vstart };
       if (winner === me) {
-        if (win === 'nine') runout = me === F.breaker && vstart === 0;
+        if (win === 'nine') runout = vstart === 0;       // the visit began with the break shot
         else {
           const g = F2.groups[me];
-          runout = vp.indexOf(8) >= 0;
+          runout = g !== null && vp.indexOf(8) >= 0;
           for (let id = 1; id <= 15; id++) if (groupOf(id) === g && vp.indexOf(id) < 0) runout = false;
         }
       }
@@ -752,7 +1010,8 @@
     return { frame: F2, sim, result };
   }
 
-  /** The shot clock ran out: foul, the opponent gets ball in hand (and breaks, if it was the break). */
+  /** The shot clock ran out: foul, the opponent gets ball in hand anywhere. On the break (the rack is still
+      intact) the opponent breaks instead, so the ball in hand is in the kitchen; F.breaker is left alone. */
   function timeoutFoul(F) {
     const F2 = cloneFrame(F);
     if (F.over) return F2;
@@ -760,16 +1019,16 @@
     F2.turn = op;
     F2.inHand = true;
     F2.kitchen = F.isBreak;
-    if (F.isBreak) F2.breaker = op;
     F2.visit = { seat: op, potted: [], start: F.shots };
     return F2;
   }
 
   const PoolCore = {
-    W, H, R, D, HEAD_X, FOOT_X, HEAD_SPOT, FOOT_SPOT, DT, MAX_SPEED, MAX_T, MAX_STEPS,
-    CONST: { G, MU_S, MU_R, DRAG, SIDE_DECAY, E_BALL, E_CUSH, E_CUSH_DROP, E_CUSH_MIN, CUSH_T, CUSH_K, CUSH_SPIN, SUB, RACK_GAP, RACK_JIT },
+    W, H, R, D, HEAD_X, FOOT_X, HEAD_SPOT, FOOT_SPOT, DT, MAX_SPEED, BREAK_SPEED, SHOT_CAP, MAX_T, MAX_STEPS,
+    CONST: { G, MU_S, MU_R, DRAG, SIDE_DECAY, E_BALL, E_CUSH, E_CUSH_DROP, E_CUSH_MIN, CUSH_T, CUSH_K, CUSH_SPIN, SUB, RACK_GAP, RACK_JIT,
+      JAW_E0, JAW_EK, JAW_EMAX },
     CORNER_MOUTH, SIDE_MOUTH, POCKETS, JAWS, CUSHIONS, SEGMENTS, DIAMONDS,
-    Sim, simulate, nearestPocket, groupOf,
+    Sim, simulate, nearestPocket, groupOf, sincos,
     newFrame, validPlacement, makeShot, applyShot, timeoutFoul, cloneFrame,
   };
   root.PoolCore = PoolCore;
