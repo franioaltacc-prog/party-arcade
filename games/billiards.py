@@ -207,7 +207,7 @@ class Billiards(Game):
             return
         if self.phase != "aiming" or not self.frame or self.seats[seat] != uid:
             return
-        if res["ms"] > 250:
+        if res["ms"] > 500:
             print(f"  🎱 slow shot: {res['ms']:.0f} ms")
         self.frame = res["frame"]
         self.shot_no += 1

@@ -136,6 +136,50 @@
   ART['mines-solo'] = ART.mines.replaceAll('g-mines', 'g-mines2').replace('#0f172a', '#14532d').replace('#4338ca', '#0d9488');
   ART['dash-solo'] = ART.dash.replaceAll('g-dash', 'g-dash2').replace('#2e1065', '#082f49').replace('#9333ea', '#0891b2');
 
+  // Billiards: a little pool table seen from above, the rack waiting and the cue lined up on the break
+  const poolArt = (id, felt, feltDark, from, to, extra = '') => {
+    const ball = (x, y, c, stripe, n) => {
+      const r = 5.4; const k = r * 0.866;
+      return `<ellipse cx="${x + 1.6}" cy="${y + 2.2}" rx="${r}" ry="${r * 0.8}" fill="rgba(0,0,0,.35)"/>` + (stripe
+        ? `<circle cx="${x}" cy="${y}" r="${r}" fill="${c}"/><path d="M${x - k} ${y - r / 2}A${r} ${r} 0 0 1 ${x + k} ${y - r / 2}Z M${x + k} ${y + r / 2}A${r} ${r} 0 0 1 ${x - k} ${y + r / 2}Z" fill="#f8fafc"/>`
+        : `<circle cx="${x}" cy="${y}" r="${r}" fill="${c}"/>`)
+        + (n ? `<circle cx="${x}" cy="${y}" r="2.3" fill="#fff"/>` : '')
+        + `<circle cx="${x - 1.7}" cy="${y - 1.9}" r="1.6" fill="rgba(255,255,255,.75)"/>`;
+    };
+    const rack = [['#facc15', 0, 1], ['#2563eb', 1, 1], ['#dc2626', 1, 0], ['#7c3aed', 0, 0], ['#111827', 0, 1], ['#f97316', 1, 0], ['#16a34a', 0, 1],
+      ['#7f1d1d', 1, 1], ['#facc15', 1, 0], ['#2563eb', 0, 0]];
+    let i = 0; let balls = '';
+    for (let row = 0; row < 4; row++) {
+      for (let j = 0; j <= row; j++) {
+        const [c, stripe, n] = rack[i++];
+        balls += ball(128 + row * 9.4, 58 + (j - row / 2) * 10.9, c, stripe, n);
+      }
+    }
+    const pockets = [[23, 25], [100, 23], [177, 25], [177, 95], [100, 97], [23, 95]];
+    const diamonds = [42, 61, 80, 120, 139, 158].flatMap((x) => [[x, 17.5], [x, 102.5]]).concat([[15.5, 42], [15.5, 60], [15.5, 78], [184.5, 42], [184.5, 60], [184.5, 78]]);
+    return svg(id, `
+      <defs><radialGradient id="felt-${id}" cx="50%" cy="50%" r="65%"><stop offset="0" stop-color="${felt}"/><stop offset="1" stop-color="${feltDark}"/></radialGradient>
+      <linearGradient id="wood-${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a5228"/><stop offset=".5" stop-color="#5b3418"/><stop offset="1" stop-color="#3a1f0d"/></linearGradient>
+      <radialGradient id="cue-${id}" cx="35%" cy="30%" r="70%"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#cbd5e1"/></radialGradient></defs>
+      <rect x="8" y="10" width="184" height="100" rx="13" fill="rgba(0,0,0,.35)" transform="translate(2 4)"/>
+      <rect x="8" y="10" width="184" height="100" rx="13" fill="url(#wood-${id})" stroke="#24120a" stroke-width="1.5"/>
+      <rect x="10.5" y="12.5" width="179" height="95" rx="11" fill="none" stroke="rgba(255,226,180,.28)" stroke-width="1.2"/>
+      <rect x="21" y="23" width="158" height="74" rx="3" fill="url(#felt-${id})" stroke="rgba(0,0,0,.45)" stroke-width="2"/>
+      <path d="M60.5 25v70" stroke="rgba(255,255,255,.12)" stroke-width="1"/><circle cx="139.5" cy="60" r="1.1" fill="rgba(255,255,255,.3)"/>
+      ${diamonds.map(([x, y]) => `<path d="M${x} ${y - 1.6}l1.3 1.6 -1.3 1.6 -1.3 -1.6z" fill="#f5f0e1" opacity=".9"/>`).join('')}
+      ${pockets.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="6.4" fill="#c9a46a"/><circle cx="${x}" cy="${y}" r="5.2" fill="#050505"/>`).join('')}
+      <path d="M63.2 70 L117.4 60" stroke="rgba(255,255,255,.55)" stroke-width="1" stroke-dasharray="2.5 2.5"/>
+      <circle cx="117.4" cy="60" r="5.4" fill="none" stroke="rgba(255,255,255,.45)" stroke-width="1" stroke-dasharray="1.6 1.6"/>
+      ${balls}
+      <ellipse cx="59.6" cy="73.4" rx="5.4" ry="4.3" fill="rgba(0,0,0,.35)"/><circle cx="58" cy="71" r="5.4" fill="url(#cue-${id})"/>
+      <path d="M50.6 72.2 L47.6 72.7" stroke="#38bdf8" stroke-width="2.6" stroke-linecap="round"/>
+      <path d="M47.6 72.7 L44.2 73.2" stroke="#f8fafc" stroke-width="2.9"/>
+      <path d="M44.2 73.2 L4 79.3" stroke="#e9c98f" stroke-width="3.1"/>
+      <path d="M4 79.3 L-30 84.5" stroke="#3a1a08" stroke-width="4.4"/>${extra}`, from, to);
+  };
+  ART.billiards = poolArt('billiards', '#0f8a4a', '#065f35', '#0b3d2e', '#14532d');
+  ART['billiards-solo'] = poolArt('billiards2', '#1f6fd1', '#123f8a', '#0c1d4a', '#1e3a8a', emoji(186, 12, 13, '⏱️'));
+
   // ---------------------------------------------------------------- cards
   const ONLINE = [
     { key: 'dash', title: 'Neon Dash', icon: '🟪', desc: 'A mini Geometry Dash! Race your friends through the same level of spikes, jump pads and orbs.', players: '1–12 players', glow: 'rgba(168,85,247,.7)', feature: true },
@@ -148,6 +192,7 @@
     { key: 'mines', title: 'Minesweeper', icon: '💣', desc: 'Race your friends on the same board, or battle on one shared board for the most squares!', players: '1–8 players', glow: 'rgba(99,102,241,.6)', isNew: true },
     { key: 'blitz', title: 'Party Blitz', icon: '⚡', desc: 'Rapid-fire minigames: reaction, mashing, math, memory and more.', players: '1–12 players', glow: 'rgba(250,204,21,.6)' },
     { key: 'casino', title: 'Casino Night', icon: '🎰', desc: 'Fake-coin casino party: roulette, blackjack, slots, dice, poker and 1v1 duels. Most coins wins!', players: '1–6 players', glow: 'rgba(251,191,36,.6)' },
+    { key: 'billiards', title: 'Billiards', icon: '🎱', desc: '8-ball or 9-ball pool with real physics: spin, banks and kisses. Two players at the table, everyone else watches. Winner stays on!', players: '2 + spectators', glow: 'rgba(16,185,129,.6)', isNew: true },
     { key: 'connect4', title: 'Connect 4', icon: '🔴', desc: 'The classic. Drop discs, get four in a row, talk trash in chat.', players: '2 + spectators', glow: 'rgba(59,130,246,.6)' },
   ];
   const SOLO = [
@@ -155,6 +200,7 @@
     { key: 'poly-solo', href: '/games/poly?solo=1', title: 'Poly Racer Time Trial', icon: '🏁', desc: 'Six tracks, medals to win and your own ghost to beat. Every track has a leaderboard!', players: 'Solo', isNew: true },
     { key: 'front-solo', href: '/games/front?solo=1', title: 'Front Wars vs Bots', icon: '🤖', desc: 'Take on up to 40 bots and conquer the whole map. Easy, medium or hard!', players: 'Solo', isNew: true },
     { key: 'slope', title: 'Slope', icon: '🛝', desc: 'Roll a ball down an endless neon slope. Steer, dodge the red blocks, don’t fall off!', players: 'Solo', isNew: true },
+    { key: 'billiards-solo', href: '/games/billiards?solo=1', title: 'Billiards Solo', icon: '🎱', desc: 'Beat the CPU (easy, medium or hard), race the clock in Speed Clear, or just practice your break.', players: 'Solo', isNew: true },
     { key: 'mines-solo', href: '/games/mines?solo=1', title: 'Minesweeper', icon: '💣', desc: 'The classic! Easy, Medium and Hard boards. Your first click is always safe.', players: 'Solo' },
     { key: 'snake', title: 'Neon Snake', icon: '🐍', desc: 'Eat, grow, don’t bite yourself. Gets faster every apple.', players: 'Solo' },
     { key: '2048', title: '2048', icon: '🔢', desc: 'Slide and merge tiles. Can you reach 2048?', players: 'Solo' },

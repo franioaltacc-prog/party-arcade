@@ -22,7 +22,7 @@ ADMIN = "test-admin-code-123"      # only for the throwaway test server
 BATCHES = [
     ["accbot", "polybot", "socialbot", "phbot", "tourbot"],
     ["gamesbot", "cheatbot", "minesbot", "frontbot", "frontbot2", "lookbot"],
-    ["dasheditbot"],
+    ["dasheditbot", "poolbot"],
 ]
 UNIT = ["phunit", "phunit2", "tourunit", "poolunit"]
 JS = ["polytest.js", "polyends.js", "dashedit.js"]

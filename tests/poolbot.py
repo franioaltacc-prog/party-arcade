@@ -21,12 +21,16 @@ class Bot:
 
     def __init__(self, uid, name):
         self.uid, self.name = uid, name
-        self.log, self.state, self.code = [], None, None
+        self.log, self.state, self.code, self.token = [], None, None, None
 
-    async def connect(self):
+    async def connect(self, token=None):
         self.ws = WS()
         await self.ws.connect(self.uid, self.name)
         self.task = asyncio.create_task(self.pump())
+        if token:     # a browser coming back sends its login token with hello
+            self.token = token
+            self.send("hello", id=self.uid, name=self.name, token=token)
+            await self.wait_for("auth:state", cond=lambda m: m.get("user"))
         return await self.wait_for("welcome")
 
     async def pump(self):
@@ -185,7 +189,11 @@ async def take_shot(bots, watcher, a, p, cx=None, cy=None, label=None):
         return None
     mine = pc.apply_shot(F, pc.make_shot(F, a, p, 0, 0, cx, cy))
     same = (shot["before"] == F["balls"] and shot["after"] == mine["frame"]["balls"] and shot["result"] == mine["result"]
-            and shot["state"]["frame"] == mine["frame"] and pc.simulate(shot["before"], shot["shot"])["balls"] == shot["after"])
+            and shot["state"]["frame"] == mine["frame"] and pc.simulate(shot["before"], shot["shot"])["balls"] == mine["sim"]["balls"])
+    if not same:
+        print("INFO mismatch", shot["before"] == F["balls"], shot["after"] == mine["frame"]["balls"], shot["result"] == mine["result"],
+              shot["state"]["frame"] == mine["frame"])
+        print("INFO", shot["shot"], pc.make_shot(F, a, p, 0, 0, cx, cy), msg)
     if not same or label:
         check(same, label or f"shot {shot['shotNo']} matches pool_core bit for bit")
     take_shot.mismatch += 0 if same else 1
@@ -226,6 +234,7 @@ async def main():
     for b, nm in ((A, nameA), (B, nameB)):
         r = await b.req("auth:signup", name=nm, password="pool-pass-123")
         assert r["ok"], r
+        b.token = r["token"]
     A.send("room:create", game="billiards")
     await A.wait_for("room:joined")
     code = A.code
@@ -288,7 +297,7 @@ async def main():
     other.close()
     await asyncio.sleep(0.5)
     o2 = Bot(other.uid, other.name)
-    await o2.connect()
+    await o2.connect(other.token)
     o2.send("room:join", code=code, game="billiards")
     j = await o2.wait_for("room:joined")
     check(j and j["state"]["phase"] == "aiming" and j["state"]["frame"] == F, "rejoin mid-match gets the full state")
@@ -416,6 +425,8 @@ async def main():
     check(pa2.get("pool.games") == 1, "a cheated match isn't saved")
 
     # winner stays on: the waiting player takes the loser's seat
+    A.send("g:settings", race=1)
+    await C.until(lambda s: s["settings"]["race"] == 1)
     B.send("g:swap")
     await asyncio.sleep(0.3)
     check(C.state["phase"] == "over", "only the host can swap")
@@ -427,7 +438,7 @@ async def main():
     await asyncio.sleep(0.3)
     check(C.state["settings"]["mode"] == "8ball", "settings are locked during a match")
     r = await A.req("admin:cheat", action="win")
-    await C.until(lambda s: s["phase"] == "over")
+    check(r["ok"] and await C.until(lambda s: s["phase"] == "over") is not None, f"cheat win ends the swapped match ({r.get('text') or r.get('error')})")
 
     # a 9-ball match (no shot clock), saved for A
     A.send("g:settings", mode="9ball", race=1, clock=0)
@@ -452,8 +463,33 @@ async def main():
     st = await C.until(lambda s: s["phase"] == "lobby")
     check(st and set(st["seats"]) == {A.uid, B.uid} and st["frame"] is None, "a player leaving mid-match: back to the lobby, the waiting player sits down")
     check(await C.wait_for("g:toast", k, lambda m: "left" in m["text"]) is not None, "everyone is told why")
-    print("FAILED:", check.failed)
     for b in (A, B, C, D):
+        b.close()
+
+    # a tournament match room starts by itself with the tournament settings
+    T = [Bot(f"plT{i}{U}x", f"Tour{i}") for i in range(3)]
+    for b in T:
+        await b.connect()
+    T[0].send("room:create", game="billiards")
+    await T[0].wait_for("room:joined")
+    for b in T[1:]:
+        b.send("room:join", code=T[0].code, game="billiards")
+        await b.wait_for("room:joined")
+    T[0].send("tour:start", game="billiards")
+    got = await asyncio.gather(*[b.wait_for("tour:match", timeout=12) for b in T])
+    pair = [b for b, m in zip(T, got) if m]
+    check(len(pair) == 2 and got[T.index(pair[0])]["code"] == got[T.index(pair[1])]["code"], "tournament: two players get a billiards match")
+    if len(pair) == 2:
+        mcode = got[T.index(pair[0])]["code"]
+        for b in pair:
+            b.send("room:join", code=mcode, game="billiards")
+        st = await pair[0].until(lambda s: s["phase"] == "aiming", 15)
+        if not st:
+            print("INFO", pair[0].state, [m for m in pair[0].log if m["t"] in ("chat", "error", "g:toast")][-6:])
+        check(st and set(st["seats"]) == {pair[0].uid, pair[1].uid} and st["settings"] == {"mode": "8ball", "race": 1, "clock": 45},
+              "tournament match starts by itself with the tournament settings")
+    print("FAILED:", check.failed)
+    for b in T:
         b.close()
 
 

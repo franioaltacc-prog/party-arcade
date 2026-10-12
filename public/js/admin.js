@@ -4,7 +4,7 @@
   const { $, h, fill, Net, UI, Account, on, icon } = PA;
   const FX = PA.FX || {};
   const root = $('#admin');
-  const GAMES = { dash: ['🟪', 'Neon Dash'], life: ['🏡', 'Family Life'], doodle: ['🎨', 'Doodle Guess'], blitz: ['⚡', 'Party Blitz'], connect4: ['🔴', 'Connect 4'], casino: ['🎰', 'Casino Night'], impostor: ['🕵️', 'Impostor'], mines: ['💣', 'Minesweeper'] };
+  const GAMES = { dash: ['🟪', 'Neon Dash'], life: ['🏡', 'Family Life'], doodle: ['🎨', 'Doodle Guess'], blitz: ['⚡', 'Party Blitz'], connect4: ['🔴', 'Connect 4'], billiards: ['🎱', 'Billiards'], casino: ['🎰', 'Casino Night'], impostor: ['🕵️', 'Impostor'], mines: ['💣', 'Minesweeper'] };
   let timer = null;
   let mode = null;
   let lastQuery = '';

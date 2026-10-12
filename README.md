@@ -41,8 +41,8 @@ online game (casino coins, Family Life money/stats/time skip, Neon Dash god mode
 A game where an admin used a cheat doesn't count for anyone's stats or leaderboards.
 
 ## Games
-- **Online:** Neon Dash (mini Geometry Dash race), Family Life (multiplayer BitLife with siblings), Doodle Guess, Impostor, Minesweeper (Race / Battle), Front Wars (OpenFront-style territory war: free-for-all with alliances or teams, bots, ports, warships, nukes and replays), Prop Hunt (top-down hide and seek with a killer), Poly Racer (low-poly 3D racing), Party Blitz, Connect 4
-- **Solo:** Poly Racer time trial, Neon Dash practice, Neon Dash level editor + community levels (beat your level to verify it, then post it: an admin approves it first, 3 posts a day; hosts can race community levels online), Minesweeper (Easy / Medium / Hard), Front Wars vs bots, Slope (3D, three.js), Snake, 2048, Memory Flip
+- **Online:** Neon Dash (mini Geometry Dash race), Family Life (multiplayer BitLife with siblings), Doodle Guess, Impostor, Minesweeper (Race / Battle), Front Wars (OpenFront-style territory war: free-for-all with alliances or teams, bots, ports, warships, nukes and replays), Prop Hunt (top-down hide and seek with a killer), Poly Racer (low-poly 3D racing), Billiards (8-ball / 9-ball pool, winner stays on), Party Blitz, Connect 4
+- **Solo:** Billiards (vs CPU, Speed Clear, practice), Poly Racer time trial, Neon Dash practice, Neon Dash level editor + community levels (beat your level to verify it, then post it: an admin approves it first, 3 posts a day; hosts can race community levels online), Minesweeper (Easy / Medium / Hard), Front Wars vs bots, Slope (3D, three.js), Snake, 2048, Memory Flip
 - **Fun:** Spin the Wheel, Would You Rather (global votes), Magic 8-Ball
 - **Casino Night (fake coins only):** every match everyone starts with the same coins; most coins at the end wins.
   - VS HOUSE: Roulette, Lucky Dice, Blackjack, Slots. VS PLAYERS: Texas Hold'em, Coinflip, High Card and Dice duels.
@@ -98,8 +98,22 @@ runs online races (each browser drives its own car; the server relays positions 
 - Solo times are saved per track (`poly1.best`…); times more than 25% faster than the author time are refused, and online
   finish times must match how long the race has actually been going.
 
+## Billiards
+Top-down pool with real physics (spin, banks, kisses, rattling jaws). `public/js/games/pool-core.js` is the table, the
+physics and the 8-ball / 9-ball rules with no drawing; `games/pool_core.py` is a line-by-line Python port that gives
+**bit-identical** results (only `+ - * / sqrt`, no trig inside the simulation, same order of operations;
+`tests/poolunit.py` cross-checks hundreds of shots against node).
+- **Online** (`games/billiards.py`): two seats like Connect 4, everyone else watches. The host picks 8-ball or 9-ball,
+  a race to 1/2/3/5 frames and a 30/45/60 s shot clock (or none). The server is the authority: it turns the shooter's
+  aim into a shot, simulates it (in a worker thread, a break is ~40 ms of Python) and sends the shot and the result;
+  browsers replay it with the same core, so everyone sees exactly the same thing. Fouls give ball in hand, running out
+  of time is a foul, the breaker alternates each frame. When the match is over: rematch, or the host swaps in the
+  longest-waiting player for the loser (winner stays on). Stats: `pool.games/wins/losses/frames/runs`.
+- **Solo** (`/games/billiards?solo=1`): vs CPU (Easy / Medium / Hard, `poolcpu.wins`, best level), Speed Clear (pot
+  all 15 as fast as you can, a scratch adds 10 s, `poolspeed.best` leaderboard) and free practice.
+
 ## Tournaments
-`tournaments.py`. In any room the host presses “🏆 Start a tournament” and picks Connect 4, Neon Dash, Minesweeper,
+`tournaments.py`. In any room the host presses “🏆 Start a tournament” and picks Connect 4, Billiards, Neon Dash, Minesweeper,
 Party Blitz or Prop Hunt (3–16 players; watchers don't count). Everyone goes to the live bracket at
 `/tournament?id=XXXXX` (byes when the numbers don't fill the bracket). Each round, every match gets its own room with
 quick settings and both players are sent there; it starts once both are in, a no-show after 45 s or leaving for 25 s
@@ -155,8 +169,8 @@ python3 tests/run_all.py
 ```
 It starts a throwaway server (temporary SQLite database, test admin code `test-admin-code-123`) and runs ~400 checks:
 - Websocket bots that play the online games like real players: accounts, friends, invites, votes, party mode, watching,
-  Prop Hunt, tournaments, Poly Racer, Minesweeper, Front Wars, cheats and rewards.
-- In-process tests of the Prop Hunt rules and tournament brackets.
+  Prop Hunt, tournaments, Poly Racer, Minesweeper, Front Wars, Billiards, cheats and rewards.
+- In-process tests of the Prop Hunt rules and tournament brackets, and the pool physics (Python vs JS, bit for bit).
 - If JavaScriptCore (macOS) or Node is installed, an autopilot drives every Poly Racer track.
 
 To run one bot on its own: start a server (`DATA_DIR=/tmp/x ADMIN_CODE=test-admin-code-123 PORT=8012 python3 server.py`),

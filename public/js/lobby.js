@@ -11,6 +11,7 @@
     doodle: { title: 'Doodle Guess', emoji: '🎨' },
     blitz: { title: 'Party Blitz', emoji: '⚡' },
     connect4: { title: 'Connect 4', emoji: '🔴' },
+    billiards: { title: 'Billiards', emoji: '🎱' },
     casino: { title: 'Casino Night', emoji: '🎰' },
     impostor: { title: 'Impostor', emoji: '🕵️' },
     mines: { title: 'Minesweeper', emoji: '💣' },
@@ -148,7 +149,7 @@
 
   // ------------------------------------------------------------ watching, votes, party mode
   const PARTY_GAMES = ['dash', 'poly', 'doodle', 'blitz', 'impostor', 'mines', 'front', 'prophunt', 'casino', 'life'];
-  const SWITCH_GAMES = [...PARTY_GAMES, 'connect4'];
+  const SWITCH_GAMES = [...PARTY_GAMES, 'connect4', 'billiards'];
   const PARTY_POINTS = [10, 7, 5, 3];
   const gTitle = (g) => (GAME_INFO[g] || {}).title || g;
   const gEmoji = (g) => (GAME_INFO[g] || {}).emoji || '🎮';
@@ -218,7 +219,7 @@
       list, grid, startBtn), { wide: true });
   }
 
-  const TOUR_GAMES = ['connect4', 'dash', 'poly', 'mines', 'blitz', 'prophunt'];
+  const TOUR_GAMES = ['connect4', 'billiards', 'dash', 'poly', 'mines', 'blitz', 'prophunt'];
   function tourPicker() {
     const players = Room.players.filter((p) => p.online && !p.watch).length;
     let pick = TOUR_GAMES.includes(Room.game) ? Room.game : 'connect4';
@@ -447,6 +448,7 @@
     mines: [['mines', '💣 X-ray: see all mines'], ['clear', '🧹 Clear the board for me'], ['end', '🏁 End the game']],
     front: [['troops', '💪 +50,000 troops', true], ['gold', '💰 +100,000 gold', true], ['end', '🏁 End the game']],
     poly: [['end', '🏁 End the race']],
+    billiards: [['hand', '✋ Ball in hand for me'], ['clear', '🧹 Pot all my balls'], ['win', '🏆 Win this frame']],
     prophunt: [['xray', '🔎 X-ray: see everyone'], ['skip', '⏭️ Skip this round'], ['end', '🏁 End the game']],
   };
   let adminFab = null;

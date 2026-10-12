@@ -19,6 +19,8 @@
     ['Party Blitz', '⚡', '#facc15', [['Games', 'blitz.games'], ['Wins', 'blitz.wins'], ['Best game', 'blitz.best'], ['Total points', 'blitz.points']]],
     ['Casino Night', '🎰', '#fbbf24', [['Matches', 'casino.games'], ['Wins', 'casino.wins'], ['Biggest win', 'casino.best_win', (v) => `🪙 ${num(v)}`], ['Most coins', 'casino.best_coins', (v) => `🪙 ${num(v)}`]]],
     ['Connect 4', '🔴', '#3b82f6', [['Wins', 'c4.wins'], ['Losses', 'c4.losses'], ['Draws', 'c4.draws']]],
+    ['Billiards', '🎱', '#10b981', [['Games', 'pool.games'], ['Wins', 'pool.wins'], ['Losses', 'pool.losses'], ['Frames won', 'pool.frames'], ['Run-outs', 'pool.runs'],
+      ['Speed clear best', 'poolspeed.best', secs], ['Wins vs CPU', 'poolcpu.wins']]],
     ['Impostor', '🕵️', '#f43f5e', [['Games', 'impostor.games'], ['Wins', 'impostor.wins'], ['Rounds as impostor', 'impostor.imp_rounds'],
       ['Won as impostor', 'impostor.imp_wins'], ['Survived as impostor', 'impostor.survived'], ['Correct votes', 'impostor.correct_votes']]],
     ['Minesweeper', '💣', '#6366f1', [['Games', 'mines.games'], ['Wins', 'mines.wins'], ['Race boards cleared', 'mines.cleared'], ['Best battle', 'mines.best'],
@@ -35,8 +37,8 @@
 
   // achievements (and the rewards they unlock) come from /data/unlocks.json, shared with the server
 
-  const GAME_EMOJI = { dash: '🟪', life: '🏡', doodle: '🎨', blitz: '⚡', connect4: '🔴', casino: '🎰', impostor: '🕵️', slope: '🛝', front: '🌍', frontsolo: '🤖', mines: '💣', mines_easy: '💣', mines_medium: '💣', mines_hard: '💣', snake: '🐍', 2048: '🔢', memory: '🃏', dashsolo: '🟦', party: '🎉', prophunt: '🔫', tour: '🏆', poly: '🏎️', poly1: '🏁', poly2: '🏁', poly3: '🏁', poly4: '🏁', poly5: '🏁', poly6: '🏁' };
-  const GAME_NAME = { dash: 'Neon Dash', life: 'Family Life', doodle: 'Doodle Guess', blitz: 'Party Blitz', connect4: 'Connect 4', casino: 'Casino Night', impostor: 'Impostor', slope: 'Slope', front: 'Front Wars', frontsolo: 'Front Wars solo', mines: 'Minesweeper', mines_easy: 'Minesweeper Easy', mines_medium: 'Minesweeper Medium', mines_hard: 'Minesweeper Hard', snake: 'Neon Snake', 2048: '2048', memory: 'Memory Flip', dashsolo: 'Dash practice', party: 'Party mode', prophunt: 'Prop Hunt', tour: 'Tournament', poly: 'Poly Racer', poly1: 'Poly Racer · First Lap', poly2: 'Poly Racer · Hill Climb', poly3: 'Poly Racer · Hairpins', poly4: 'Poly Racer · Big Air', poly5: 'Poly Racer · Sky Highway', poly6: 'Poly Racer · Chaos' };
+  const GAME_EMOJI = { dash: '🟪', life: '🏡', doodle: '🎨', blitz: '⚡', connect4: '🔴', billiards: '🎱', poolspeed: '⏱️', poolcpu: '🤖', casino: '🎰', impostor: '🕵️', slope: '🛝', front: '🌍', frontsolo: '🤖', mines: '💣', mines_easy: '💣', mines_medium: '💣', mines_hard: '💣', snake: '🐍', 2048: '🔢', memory: '🃏', dashsolo: '🟦', party: '🎉', prophunt: '🔫', tour: '🏆', poly: '🏎️', poly1: '🏁', poly2: '🏁', poly3: '🏁', poly4: '🏁', poly5: '🏁', poly6: '🏁' };
+  const GAME_NAME = { dash: 'Neon Dash', life: 'Family Life', doodle: 'Doodle Guess', blitz: 'Party Blitz', connect4: 'Connect 4', billiards: 'Billiards', poolspeed: 'Billiards speed clear', poolcpu: 'Billiards vs CPU', casino: 'Casino Night', impostor: 'Impostor', slope: 'Slope', front: 'Front Wars', frontsolo: 'Front Wars solo', mines: 'Minesweeper', mines_easy: 'Minesweeper Easy', mines_medium: 'Minesweeper Medium', mines_hard: 'Minesweeper Hard', snake: 'Neon Snake', 2048: '2048', memory: 'Memory Flip', dashsolo: 'Dash practice', party: 'Party mode', prophunt: 'Prop Hunt', tour: 'Tournament', poly: 'Poly Racer', poly1: 'Poly Racer · First Lap', poly2: 'Poly Racer · Hill Climb', poly3: 'Poly Racer · Hairpins', poly4: 'Poly Racer · Big Air', poly5: 'Poly Racer · Sky Highway', poly6: 'Poly Racer · Chaos' };
   const OUTCOME = { win: ['WIN', 'win'], loss: ['LOSS', 'loss'], draw: ['DRAW', 'draw'], play: ['PLAYED', 'play'] };
 
   function message(emoji, title, text, ...kids) {

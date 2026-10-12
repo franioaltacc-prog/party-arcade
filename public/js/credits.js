@@ -30,7 +30,7 @@
 
   const GAMES = [
     ['🟪', 'Neon Dash'], ['🏡', 'Family Life'], ['🎨', 'Doodle Guess'], ['🕵️', 'Impostor'], ['💣', 'Minesweeper'],
-    ['⚡', 'Party Blitz'], ['🎰', 'Casino Night'], ['🔴', 'Connect 4'], ['🐍', 'Neon Snake'], ['🔢', '2048'],
+    ['⚡', 'Party Blitz'], ['🎰', 'Casino Night'], ['🔴', 'Connect 4'], ['🎱', 'Billiards'], ['🐍', 'Neon Snake'], ['🔢', '2048'],
     ['🃏', 'Memory Flip'], ['🛝', 'Slope'], ['🌍', 'Front Wars'], ['🔫', 'Prop Hunt'], ['🏎️', 'Poly Racer'], ['🎡', 'Spin the Wheel'], ['🤔', 'Would You Rather'], ['🎱', 'Magic 8-Ball'],
   ];
 
@@ -49,7 +49,7 @@
   ];
 
   const INSPIRED = ['Geometry Dash (RobTop Games)', 'BitLife (Candywriter)', 'Pictionary & skribbl.io', 'Spyfall-style "who\'s the impostor?" word games',
-    'Classic Minesweeper', 'Slope (by Rob Kay)', 'OpenFront.io', 'Prop Hunt (the Garry’s Mod game mode)', 'PolyTrack (Kodub)', '2048 (Gabriele Cirulli)', 'Snake', 'Connect Four', 'WarioWare-style microgames'];
+    'Classic Minesweeper', 'Slope (by Rob Kay)', 'OpenFront.io', 'Prop Hunt (the Garry’s Mod game mode)', 'PolyTrack (Kodub)', '2048 (Gabriele Cirulli)', 'Snake', 'Connect Four', 'Pool (8-ball and 9-ball)', 'WarioWare-style microgames'];
 
   function render(players) {
     fill(root,
