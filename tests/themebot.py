@@ -113,11 +113,23 @@ async def over_ws():
     if r["ok"]:
         st = (await req(adm, "profile:get", name=nb))["profile"]["stats"]
         check(st.get(EV + "flappy") == (14 if live else None), f"solo Neon Flappy score tracked as the event's best ({st.get(EV + 'flappy')})")
-        await req(b, "stats:solo", game="flappy", value=6)
+        await asyncio.sleep(4.1)   # (the server allows one solo score every 4 s)
+        r = await req(b, "stats:solo", game="flappy", value=6); check(r["ok"], f"a lower Neon Flappy score is saved too: {r}")
         st = (await req(adm, "profile:get", name=nb))["profile"]["stats"]
         check(st.get(EV + "flappy") == (14 if live else None), "a lower score doesn't lower it")
     else:
         print("NOTE solo 'flappy' isn't in accounts.SOLO yet (added at integration) — checked in-process above")
+    # a solo Mini Golf round: Classic Meadow doesn't count for Haunted hole, a finished Spooky Hollow round does
+    await asyncio.sleep(4.1)
+    r = await req(b, "stats:solo", game="golf-classic", value=30); check(r["ok"], f"solo Classic Meadow round saved: {r}")
+    st = (await req(adm, "profile:get", name=nb))["profile"]["stats"]
+    check(not st.get(EV + "golf") and not st.get("golf.spooky_done"), "Classic Meadow doesn't count for Haunted hole")
+    await asyncio.sleep(4.1)
+    r = await req(b, "stats:solo", game="golf-spooky", value=34); check(r["ok"], f"solo Spooky Hollow round saved: {r}")
+    st = (await req(adm, "profile:get", name=nb))["profile"]["stats"]
+    check(st.get("golf.spooky_done") == 1 and st.get(EV + "golf") == (1 if live else None), f"a solo Spooky Hollow round counts for Haunted hole ({st.get(EV + 'golf')})")
+    await asyncio.sleep(4.1)
+    r = await req(b, "stats:solo", game="golf-spooky", value=8); check(not r["ok"], "an impossible golf total (under 9) is refused")
     for w in (a, b, adm, g):
         w.w.close()
 

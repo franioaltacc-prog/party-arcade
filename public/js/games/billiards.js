@@ -55,8 +55,11 @@
     const gw = game.clientWidth - power.offsetWidth - 10;
     const stage = $('#stage');
     const top = stage.getBoundingClientRect().top + window.scrollY;
-    const under = $('.bl-under').offsetHeight + ($('#help').offsetHeight || 0) + 34;
-    const gh = Math.max(240, vh - Math.min(top, 220) - under);
+    // short landscape screens (phones on their side): the table gets the whole height, the page scrolls to it
+    const short = !portrait && vh < 520;
+    const bar = short ? (($('.topbar') || {}).offsetHeight || 0) : 0;   // the sticky site header stays on screen
+    const under = short ? $('.bl-under').offsetHeight + 18 + bar : $('.bl-under').offsetHeight + ($('#help').offsetHeight || 0) + 34;
+    const gh = short ? Math.max(160, vh - under) : Math.max(240, vh - Math.min(top, 220) - under);
     const A = OW / OH;
     let w, hh;
     if (portrait) { w = Math.min(gw, gh / A); hh = w * A; } else { w = Math.min(gw, gh * A, 1240); hh = w / A; }
@@ -77,6 +80,7 @@
       Object.assign(V, { a: V.s, b: 0, c: 0, d: V.s, e: OUT * V.s, f: OUT * V.s });
     }
     stage.style.borderRadius = Math.round(0.07 * V.s) + 'px';
+    if (short) requestAnimationFrame(() => window.scrollTo(0, Math.max(0, stage.getBoundingClientRect().top + window.scrollY - 6 - bar)));
     buildStatic();
     ballLut = null;
     for (const b of balls.values()) b.dirty = true;
@@ -491,7 +495,7 @@
     } else {
       q00 = M[0]; q01 = M[3]; q02 = M[6]; q10 = M[1]; q11 = M[4]; q12 = M[7]; q20 = M[2]; q21 = M[5]; q22 = M[8];
     }
-    const base = id === 0 ? IVORY : BALL_RGB[id];
+    const base = id <= 0 ? IVORY : BALL_RGB[id];   // id -1: a plain cue ball (the spin widget)
     const stripe = id >= 9;
     const gl = id > 0 ? glyph(id) : null;
     const n = L.sz * L.sz;
@@ -505,10 +509,10 @@
       const ly = q10 * nx + q11 * ny + q12 * nz;
       const lz = q20 * nx + q21 * ny + q22 * nz;
       let r, g, bl;
-      if (id === 0) {
+      if (id <= 0) {
         r = IVORY[0]; g = IVORY[1]; bl = IVORY[2];
         // six red dots (like a pro cue ball) make the spin visible
-        if (lx > 0.988 || lx < -0.988 || ly > 0.988 || ly < -0.988 || lz > 0.988 || lz < -0.988) { r = 200; g = 28; bl = 40; }
+        if (id === 0 && (lx > 0.988 || lx < -0.988 || ly > 0.988 || ly < -0.988 || lz > 0.988 || lz < -0.988)) { r = 200; g = 28; bl = 40; }
       } else {
         const az = lz < 0 ? -lz : lz;
         if (az > COS_D) {
@@ -1155,7 +1159,7 @@
     const reach = (touch ? 2.6 : 1.6) * R;
     const [x, y] = placePos();
     if (dist2([tx, ty], [x, y]) < reach * reach) return 0;
-    if (ctl.free) {
+    if (ctl.moveAny) {
       for (const b of balls.values()) if (b.id && dist2([tx, ty], [b.x, b.y]) < (1.2 * R) ** 2) return b.id;
     }
     return null;
@@ -1349,7 +1353,7 @@
     const g = canvas.getContext('2d');
     const L = makeLutCached(sz);
     const img = g.createImageData(L.sz, L.sz);
-    paintSphere(img.data, L, 0, SPIN_M, false, [0, 0, 0]);
+    paintSphere(img.data, L, -1, SPIN_M, false, [0, 0, 0]);
     g.clearRect(0, 0, sz, sz);
     const tmp = document.createElement('canvas'); tmp.width = tmp.height = L.sz;
     tmp.getContext('2d').putImageData(img, 0, 0);
@@ -1479,7 +1483,7 @@
     const svg = '<svg viewBox="0 0 50 50" aria-hidden="true"><circle class="bg" cx="25" cy="25" r="22"/><circle class="fg" cx="25" cy="25" r="22" stroke-dasharray="' + RING + '" stroke-dashoffset="' + (p.clock ? 0 : RING) + '"/></svg>';
     const av = h('div', { class: 'bl-av', html: svg });
     av.prepend(UI.avatar(p));
-    fill(el, av, h('div', { class: 'bl-info' }, h('div', { class: 'bl-name' }, p.name), h('div', { class: 'bl-sub' }, p.sub || '')), h('div', { class: 'bl-score' }, p.score == null ? '' : String(p.score)));
+    fill(el, av, h('div', { class: 'bl-info' }, h('div', { class: 'bl-name' }, p.name), h('div', { class: 'bl-sub' + (Array.isArray(p.sub) && p.sub.length > 3 ? ' balls' : '') }, p.sub || '')), h('div', { class: 'bl-score' }, p.score == null ? '' : String(p.score)));
     if (p.turn && G) FX.bump(av);
   }
   /** Group balls for the card: the group's balls (gone ones faded) or what's next. */
@@ -1552,6 +1556,7 @@
   const SCREENS = ['entry', 'menu', 'room', 'play'];
   function showScreen(name) {
     for (const s of SCREENS) $('#' + s).classList.toggle('hidden', s !== name);
+    if (name !== 'room') window.scrollTo(0, 0);
     if (name === 'play') { V.w = 0; requestAnimationFrame(() => { layout(); redrawSpin(); showKbMark(); }); }
   }
   window.addEventListener('resize', () => layout());
@@ -1743,6 +1748,7 @@
 
   const soloCtl = {
     get free() { return solo && solo.kind !== 'cpu'; },
+    get moveAny() { return !!solo && solo.kind === 'practice'; },
     showOthersGuide: false,
     canAim() { return !!solo && !solo.busy && !T.anim && !T.strike && T.F && !T.F.over && (solo.kind !== 'cpu' || T.F.turn === 0) && !solo.finished; },
     canPlace() {
@@ -2131,10 +2137,9 @@
     overlayForPhase.key = key;
     if (ph === 'frameover') {
       const uid = frameWinnerUid();
-      const reason = S.frame && S.frame.reason;
       overlay(h('div', { class: 'card' },
         h('h2', {}, uid === Net.id ? '🏆 Frame to you!' : `🎱 Frame to ${pl(uid).name}`),
-        h('p', {}, reason === 'eight' || reason === 'nine' ? `${uid === Net.id ? 'You' : pl(uid).name} ${WIN_TEXT[reason]}` : (WIN_TEXT[reason] ? `The other player ${WIN_TEXT[reason]}` : '')),
+        overReason(uid),
         h('div', { class: 'big' }, scoreLine()),
         h('p', {}, `Race to ${S.settings.race} · next frame in a moment…`)));
     } else if (ph === 'over') {
@@ -2144,6 +2149,7 @@
       overlay(h('div', { class: 'card' },
         h('h2', {}, uid === Net.id ? '🏆 You win the match!' : `🏆 ${pl(uid).name} wins!`),
         h('div', { class: 'big' }, scoreLine()),
+        overReason(uid),
         h('p', {}, `${MODE_NAME[S.settings.mode]} · race to ${S.settings.race}`),
         h('div', { class: 'btns' },
           seated ? h('button', { class: 'btn btn-pink', onclick: () => { Net.send('g:rematch'); Sfx.play('click'); } }, '🔁 Rematch') : null,
@@ -2153,6 +2159,15 @@
     } else overlay(null);
   }
 
+  /** Why the last frame ended, for the match-over card. */
+  function overReason(uid) {
+    const reason = S.frame && S.frame.reason;
+    if (!WIN_TEXT[reason]) return null;
+    const winner = uid === Net.id ? 'You' : pl(uid).name;
+    const loserUid = S.seats.find((u) => u && u !== uid);
+    const loser = loserUid === Net.id ? 'You' : pl(loserUid).name;
+    return h('p', {}, reason === 'eight' || reason === 'nine' || reason === 'cheat' ? `${winner} ${WIN_TEXT[reason]}` : `${loser}: ${WIN_TEXT[reason]}`);
+  }
   let lobbyView = false;
   function route() {
     if (solo) return;
@@ -2237,6 +2252,7 @@
     lastShotSeen = Math.max(lastShotSeen, m.shotNo || 0);
     const st = normState(m.state);
     T.view = null;
+    clock = null;
     onlineCtl.sent = false;
     if (T.strike) T.strike.hold = false;
     else if (m.shooter !== Net.id) {

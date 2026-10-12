@@ -1,6 +1,8 @@
-// Neon Flappy level checks (headless):  node -e "global.print=console.log;global.load=f=>require(require('path').resolve(f));require(require('path').resolve('tests/flappytest.js'))"
+// Neon Flappy level checks (headless):  node tests/flappytest.js   (from any folder)
 // or through tests/run_all.py. Prints one line per check; a failing line contains "DNF".
-load('public/js/games/flappy-core.js');
+if (typeof print === 'undefined') globalThis.print = console.log;
+if (typeof require === 'function') require(require('path').join(__dirname, '..', 'public', 'js', 'games', 'flappy-core.js'));
+else load('public/js/games/flappy-core.js');
 const C = globalThis.FlappyCore;
 const P = C.P;
 let failed = 0;
@@ -102,4 +104,4 @@ const check = (ok, label) => { print((ok ? 'ok   ' : 'DNF  ') + label); if (!ok)
 }
 
 print(failed ? `FAILED ${failed}` : 'all flappy checks passed');
-if (failed) throw new Error(failed + ' flappy checks failed');
+if (failed) { if (typeof process !== 'undefined') process.exitCode = 1; else throw new Error(failed + ' flappy checks failed'); }

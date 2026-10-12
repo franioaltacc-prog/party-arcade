@@ -294,20 +294,22 @@ async def main():
     check(not breaker.since(k, "g:aim"), "aim from the non-shooter isn't relayed")
     await asyncio.sleep(1.5)
     kc = C.mark()
-    other.close()
+    # B drops and comes back (never A: the host's crown would move to B while A is away)
+    B.close()
     await asyncio.sleep(0.5)
-    o2 = Bot(other.uid, other.name)
-    await o2.connect(other.token)
+    o2 = Bot(B.uid, B.name)
+    await o2.connect(B.token)
     o2.send("room:join", code=code, game="billiards")
     j = await o2.wait_for("room:joined")
     check(j and j["state"]["phase"] == "aiming" and j["state"]["frame"] == F, "rejoin mid-match gets the full state")
     check(j and j["state"]["clockLeft"] is not None and j["state"]["clockLeft"] < 28.5, f"clockLeft counts down ({j and j['state']['clockLeft']}s)")
     check(await o2.wait_for("g:state") is not None, "rejoin also gets a g:state")
-    if other is A:
-        A = o2
+    check(j and j["host"] == A.uid, "the host keeps the crown")
+    if breaker is B:
+        breaker = o2
     else:
-        B = o2
-    other = o2
+        other = o2
+    B = o2
     bots = (A, B)
 
     # timeout on the break: the opponent breaks from the kitchen
@@ -463,6 +465,23 @@ async def main():
     st = await C.until(lambda s: s["phase"] == "lobby")
     check(st and set(st["seats"]) == {A.uid, B.uid} and st["frame"] is None, "a player leaving mid-match: back to the lobby, the waiting player sits down")
     check(await C.wait_for("g:toast", k, lambda m: "left" in m["text"]) is not None, "everyone is told why")
+
+    # solo scores: a win vs the CPU (level 1-3) and a Speed Clear time, each with a leaderboard
+    r = await A.req("stats:solo", game="pool-cpu", value=3)
+    check(r.get("ok"), f"solo: a win vs the Hard CPU is saved ({r.get('error')})")
+    r = await B.req("stats:solo", game="pool-speed", value=42000)
+    check(r.get("ok") and r.get("best"), f"solo: a Speed Clear time is saved ({r.get('error')})")
+    lb = (await A.req("lb:get", board="pool_cpu")).get("board") or {}
+    check(any(row["name"] == nameA and row["value"] == 1 for row in lb.get("rows", [])), "pool_cpu leaderboard counts the win")
+    lb = (await A.req("lb:get", board="pool_speed")).get("board") or {}
+    check(any(row["name"] == nameB and row["value"] == 42000 for row in lb.get("rows", [])), "pool_speed leaderboard has the time")
+    pa4 = (await profile(A, nameA)).get("stats", {})
+    check(pa4.get("poolcpu.wins") == 1 and pa4.get("poolcpu.best") == 3, "poolcpu.wins / poolcpu.best saved")
+    await asyncio.sleep(4.1)
+    r = await B.req("stats:solo", game="pool-speed", value=5000)
+    check(not r.get("ok"), "an impossible Speed Clear time is rejected")
+    r = await A.req("stats:solo", game="pool-cpu", value=4)
+    check(not r.get("ok"), "a CPU level above 3 is rejected")
     for b in (A, B, C, D):
         b.close()
 
@@ -476,13 +495,16 @@ async def main():
         b.send("room:join", code=T[0].code, game="billiards")
         await b.wait_for("room:joined")
     T[0].send("tour:start", game="billiards")
-    got = await asyncio.gather(*[b.wait_for("tour:match", timeout=12) for b in T])
+    async def go(b):
+        # join the match room as soon as we're told (like the browser does): an empty room is cleaned up
+        m = await b.wait_for("tour:match", timeout=12)
+        if m:
+            b.send("room:join", code=m["code"], game="billiards")
+        return m
+    got = await asyncio.gather(*[go(b) for b in T])
     pair = [b for b, m in zip(T, got) if m]
     check(len(pair) == 2 and got[T.index(pair[0])]["code"] == got[T.index(pair[1])]["code"], "tournament: two players get a billiards match")
     if len(pair) == 2:
-        mcode = got[T.index(pair[0])]["code"]
-        for b in pair:
-            b.send("room:join", code=mcode, game="billiards")
         st = await pair[0].until(lambda s: s["phase"] == "aiming", 15)
         if not st:
             print("INFO", pair[0].state, [m for m in pair[0].log if m["t"] in ("chat", "error", "g:toast")][-6:])

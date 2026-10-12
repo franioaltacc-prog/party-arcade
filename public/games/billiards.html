@@ -11,6 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
+  <script>try { document.documentElement.dataset.theme = JSON.parse(localStorage.getItem('pa_theme')) || 'neon'; } catch (e) { /* storage blocked */ }</script>
   <style>
     /* ---------- play screen ---------- */
     #play { --felt: #1f7a4a; }
@@ -144,11 +145,14 @@
       .bl-av .avatar { width: 31px; height: 31px; font-size: 1rem; }
       .bl-name { font-size: .85rem; }
       .bl-sub { font-size: .7rem; min-height: 14px; gap: 2px; }
-      .bl-sub img.mb { width: 12px; height: 12px; }
+      .bl-sub img.mb { width: 11px; height: 11px; }
+      .bl-sub.balls { flex-wrap: wrap; white-space: normal; overflow: visible; row-gap: 1px; max-width: 64px; }
+      .bl-card.right .bl-sub.balls { margin-left: auto; }
       .bl-score { font-size: 1.25rem; min-width: 18px; }
       .bl-mid { padding: 2px; }
       .bl-mid .mode { font-size: .75rem; }
       .bl-mid .race { font-size: .62rem; }
+      .bl-mid .timer { font-size: 1.15rem; }
       .bl-power { width: 44px; }
       .bl-ptrack { width: 34px; }
       .bl-under { gap: 8px; }
@@ -159,6 +163,7 @@
       .bl-status { font-size: .78rem; top: 6px; }
       .bl-help { display: none; }
     }
+    @media (max-height: 519px) and (orientation: landscape) { .bl-help { display: none; } .bl-under { gap: 8px; } .bl-spin { width: 52px; height: 52px; } .bl-fine { height: 40px; } }
   </style>
 </head>
 <body>

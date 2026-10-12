@@ -324,7 +324,7 @@ label.field { display: flex; flex-direction: column; gap: 6px; font-weight: 600;
 .chat-msg.sys { justify-content: center; color: var(--muted); font-size: 0.83rem; font-style: italic; text-align: center; }
 .chat-msg.good .bubble { background: rgba(34, 197, 94, 0.18); color: #c4f8d6; font-weight: 600; }
 .chat-msg.secret .bubble { background: rgba(250, 204, 21, 0.12); }
-.chat-msg.spec .bubble { background: rgba(139, 92, 246, 0.2); font-style: italic; }
+.chat-msg.spec .bubble { background: color-mix(in srgb, var(--purple) 20%, transparent); font-style: italic; }
 .chat-msg.clue .bubble { background: rgba(34, 211, 238, 0.16); border: 1px solid rgba(34, 211, 238, 0.4); font-weight: 700; font-size: 1rem; }
 .chat-form { display: flex; gap: 8px; margin-top: 10px; }
 .chat-form .input { padding: 10px 12px; }
@@ -476,7 +476,7 @@ label.field { display: flex; flex-direction: column; gap: 6px; font-weight: 600;
 .acct-choice .e { font-size: 1.8rem; width: 46px; height: 46px; display: grid; place-items: center; border-radius: 14px; background: rgba(0, 0, 0, 0.25); flex: none; }
 .acct-choice b { display: block; font-size: 1.1rem; }
 .acct-choice small { color: var(--muted); font-size: 0.85rem; }
-.acct-choice.pink { border-color: rgba(255, 79, 216, 0.55); background: linear-gradient(120deg, rgba(255, 79, 216, 0.22), rgba(139, 92, 246, 0.12)); }
+.acct-choice.pink { border-color: color-mix(in srgb, var(--pink) 55%, transparent); background: linear-gradient(120deg, color-mix(in srgb, var(--pink) 22%, transparent), color-mix(in srgb, var(--purple) 12%, transparent)); }
 .acct-choice.cyan { border-color: rgba(34, 211, 238, 0.45); }
 .acct-form { display: flex; flex-direction: column; gap: 12px; }
 .acct-err { color: #ffb4c2; font-weight: 600; font-size: 0.9rem; min-height: 0; }
@@ -521,7 +521,7 @@ label.field { display: flex; flex-direction: column; gap: 6px; font-weight: 600;
 /* admin cheat button + panel */
 .admin-fab {
   position: fixed; left: 16px; bottom: 16px; z-index: 120; width: 52px; height: 52px; border-radius: 50%; font-size: 1.5rem; cursor: pointer;
-  border: 2px solid rgba(250, 204, 21, 0.6); background: radial-gradient(circle at 30% 25%, #3b2f7a, #1a1440); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 18px rgba(250, 204, 21, 0.35);
+  border: 2px solid rgba(250, 204, 21, 0.6); background: radial-gradient(circle at 30% 25%, var(--surface-2), var(--panel-solid)); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 18px rgba(250, 204, 21, 0.35);
 }
 .admin-fab:hover { transform: scale(1.08); }
 .admin-panel {
@@ -564,7 +564,7 @@ label.field { display: flex; flex-direction: column; gap: 6px; font-weight: 600;
 .lb-mine .e { font-size: 1.6rem; }
 .lb-mine .rk { font-family: var(--font-display); font-size: 1.4rem; color: var(--yellow); }
 .lb-mine .val { font-weight: 700; color: var(--muted); }
-.lb-mine.guest { border-color: rgba(255, 79, 216, 0.5); }
+.lb-mine.guest { border-color: color-mix(in srgb, var(--pink) 50%, transparent); }
 
 .top-list { display: flex; flex-direction: column; gap: 6px; }
 .top-row { padding: 7px 10px; }
@@ -607,7 +607,7 @@ label.field { display: flex; flex-direction: column; gap: 6px; font-weight: 600;
 .ach .e { font-size: 1.8rem; }
 .ach b { font-size: 0.9rem; }
 .ach span { font-size: 0.72rem; color: var(--muted); }
-.ach.ok { opacity: 1; border-style: solid; border-color: rgba(250, 204, 21, 0.45); background: linear-gradient(160deg, rgba(250, 204, 21, 0.16), rgba(255, 79, 216, 0.08)); }
+.ach.ok { opacity: 1; border-style: solid; border-color: rgba(250, 204, 21, 0.45); background: linear-gradient(160deg, rgba(250, 204, 21, 0.16), color-mix(in srgb, var(--pink) 8%, transparent)); }
 .recent { display: flex; flex-direction: column; gap: 8px; }
 .rg { display: flex; gap: 10px; align-items: flex-start; padding: 10px; border-radius: 14px; background: var(--panel); border: 1px solid var(--border); }
 .rg .e { font-size: 1.4rem; }
@@ -867,11 +867,11 @@ svg.ico { width: 1.15em; height: 1.15em; flex: none; vertical-align: -0.2em; }
 .room-dock { position: fixed; right: 16px; bottom: 16px; z-index: 130; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; width: min(340px, calc(100vw - 32px)); pointer-events: none; }
 .room-dock > * { pointer-events: auto; }
 .room-vote, .party-card {
-  width: 100%; padding: 12px; border-radius: 18px; background: var(--surface); border: 1px solid rgba(255, 79, 216, 0.5);
-  box-shadow: var(--shadow), 0 0 24px rgba(255, 79, 216, 0.25);
+  width: 100%; padding: 12px; border-radius: 18px; background: var(--surface); border: 1px solid color-mix(in srgb, var(--pink) 50%, transparent);
+  box-shadow: var(--shadow), 0 0 24px color-mix(in srgb, var(--pink) 25%, transparent);
 }
 .room-vote:has(.rv-pill) { width: auto; padding: 0; border: 0; background: none; box-shadow: none; }
-.rv-pill { padding: 10px 14px; border-radius: 999px; border: 1px solid rgba(255, 79, 216, 0.5); background: var(--surface); color: var(--text); font: inherit; font-weight: 700; cursor: pointer; box-shadow: var(--shadow); }
+.rv-pill { padding: 10px 14px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--pink) 50%, transparent); background: var(--surface); color: var(--text); font: inherit; font-weight: 700; cursor: pointer; box-shadow: var(--shadow); }
 .rv-head { display: flex; align-items: center; gap: 8px; }
 .rv-head b { flex: 1; }
 .rv-head .icon-btn { width: 28px; height: 28px; }
@@ -1095,7 +1095,7 @@ html[data-theme="halloween"] .logo .logo-mark { background: radial-gradient(circ
 html[data-theme="halloween"] .panel { box-shadow: inset 0 1px 0 rgba(255, 150, 70, 0.1), 0 18px 50px -24px rgba(139, 61, 255, 0.45); }
 html[data-theme="halloween"] .btn-pink { box-shadow: 0 5px 0 var(--s), 0 0 22px -4px rgba(255, 122, 26, 0.7); }
 html[data-theme="halloween"] .btn-pink.btn-sm { box-shadow: 0 4px 0 var(--s), 0 0 18px -4px rgba(255, 122, 26, 0.7); }
-html[data-theme="halloween"] .input.code, html[data-theme="halloween"] .code-card .code { font-family: "Bungee", var(--font); }
+html[data-theme="halloween"] .input.code, html[data-theme="halloween"] .code-card .code, html[data-theme="halloween"] .cl-v { font-family: "Bungee", var(--font); }   /* (Creepster's dots vanish in codes and version numbers) */
 
 .hw-amb { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
 .hw-moon {
@@ -1135,7 +1135,7 @@ html[data-theme="halloween"] .input.code, html[data-theme="halloween"] .code-car
 .hw-bat .wr { transform-origin: 50px 30px; }
 @keyframes hw-flap { from { transform: scaleY(1); } to { transform: scaleY(-0.35); } }
 .calm .hw-fog, .calm .hw-jack, .calm .hw-spider { animation: none; }
-@media (max-width: 700px) { .hw-moon { top: 66px; right: -6vw; opacity: 0.6; } .hw-web { width: 96px; } .hw-spider { display: none; } .hw-jack-r { display: none; } }
+@media (max-width: 700px) { .hw-moon { top: 60px; right: -34px; width: 92px; opacity: 0.32; }   /* (dim: phone text runs over it) */ .hw-web { width: 96px; } .hw-spider { display: none; } .hw-jack-r { display: none; } }
 @media print { .hw-amb, .hw-bat { display: none; } }
 
 /* theme preview tiles (Settings, the quests page) */

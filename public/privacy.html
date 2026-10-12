@@ -11,6 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
+  <script>try { document.documentElement.dataset.theme = JSON.parse(localStorage.getItem('pa_theme')) || 'neon'; } catch (e) { /* storage blocked */ }</script>
   <style>
     .doc { max-width: 860px; margin: 0 auto; }
     .doc .page-head { text-align: center; margin-bottom: 18px; }
@@ -23,7 +24,7 @@
     .doc ul { margin: 0 0 10px; padding-left: 22px; }
     .doc li { margin-bottom: 4px; }
     .doc a { color: var(--cyan); }
-    .doc .short { background: linear-gradient(160deg, rgba(255,79,216,.14), rgba(34,211,238,.1)); border-color: rgba(255,79,216,.45); }
+    .doc .short { background: linear-gradient(160deg, color-mix(in srgb, var(--pink) 14%, transparent), rgba(34,211,238,.1)); border-color: color-mix(in srgb, var(--pink) 45%, transparent); }
     .doc .short ul { list-style: none; padding-left: 0; }
     .doc .short li { padding-left: 30px; position: relative; margin-bottom: 8px; }
     .doc .short li span:first-child { position: absolute; left: 0; }

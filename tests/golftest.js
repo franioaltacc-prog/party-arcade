@@ -4,21 +4,23 @@
 // For every hole a search over (wait, angle, power) shot sequences must hole out within par + 1,
 // moving obstacles must move, random shots must never leave the ball somewhere it can't be,
 // and the same shots must always give exactly the same result.
+// Also runs under JavaScriptCore (tests/run_all.py on a Mac): then it uses print/load and skips the games/golf.py check.
 'use strict';
-const path = require('path');
-const fs = require('fs');
-require(path.join(__dirname, '..', 'public', 'js', 'games', 'golf-core.js'));
+const hasNode = typeof require === 'function' && typeof process !== 'undefined';
+const say = typeof print === 'function' ? print : console.log;
+if (hasNode) require(require('path').join(__dirname, '..', 'public', 'js', 'games', 'golf-core.js'));
+else load('public/js/games/golf-core.js');
 const C = globalThis.GolfCore;
 const P = C.P;
 
 let failed = 0;
-const check = (ok, label) => { console.log((ok ? 'PASS ' : 'FAIL ') + label); if (!ok) failed++; };
-const only = process.argv[2];
+const check = (ok, label) => { say((ok ? 'PASS ' : 'FAIL ') + label); if (!ok) failed++; };
+const only = hasNode ? process.argv[2] : undefined;
 const rng = (s) => () => ((s = (s * 16807) % 2147483647) / 2147483647);
 
 // the server's copy of the pars must match
-{
-  const py = fs.readFileSync(path.join(__dirname, '..', 'games', 'golf.py'), 'utf8');
+if (hasNode) {
+  const py = require('fs').readFileSync(require('path').join(__dirname, '..', 'games', 'golf.py'), 'utf8');
   for (const c of C.COURSES) {
     const m = py.match(new RegExp(`"${c.id}": \\("([^"]+)", \\[([\\d, ]+)\\]\\)`));
     const pars = m ? m[2].split(',').map(Number) : null;
@@ -112,7 +114,41 @@ for (const course of C.COURSES) {
       } else bad = `ended in state ${b.state}`;
     }
     check(!bad, `${tag}: 160 random shots stay in the hole (${rests} stopped, ${holed} holed, ${outs} splash/out)` + (bad ? ` — ${bad}` : ''));
+
+    // ---- harder physics checks: full-power shots, balls left resting by moving obstacles, drops
+    {
+      const inMover = (x, z, t) => H.movers.some((m) => {
+        const A = C.moverPose(m, t); if (!A.on) return false;
+        const ca = Math.cos(A.a); const sa = Math.sin(A.a); const rx = x - A.x; const rz = z - A.z;
+        return Math.abs(rx * ca + rz * sa) < A.hw - 0.05 && Math.abs(-rx * sa + rz * ca) < A.hd - 0.05;
+      });
+      let pops = null; let jumps = null; let pushedOut = null; let wedged = null; let longest = 0;
+      for (let k = 0; k < 300; k++) {
+        const [sx, sz] = k < 60 ? H.tee : spots[(rnd() * spots.length) | 0];
+        const t0 = rnd() * 12;
+        if (insideBlock(sx, sz) || inMover(sx, sz, t0)) continue;
+        const ang = rnd() * Math.PI * 2; const pw = k % 2 ? 1 : 0.2 + rnd() * 0.8;
+        let px = sx; let pz = sz; let py = null; let pstate = 'roll';
+        const r = C.simulateShot(H, C.newBall(H, [sx, sz]), t0, ang, pw, (b) => {
+          const jump = Math.hypot(b.x - px, b.z - pz);
+          // nothing moves the ball further in one step than full speed allows, except a teleport or dropping into the cup
+          if (jump > 0.3 && b.state !== 'holed' && !H.tele.some((tp) => Math.hypot(px - tp.fx, pz - tp.fz) < tp.r + 0.3)) jumps = jumps || `${jump.toFixed(2)} in one step at ${b.x.toFixed(2)},${b.z.toFixed(2)}`;
+          // a ball down in a drop never pops back up onto the turf
+          if (py !== null && pstate === 'air' && b.y - py > 0.12) pops = pops || `rose ${(b.y - py).toFixed(2)} at ${b.x.toFixed(2)},${b.z.toFixed(2)}`;
+          px = b.x; pz = b.z; py = b.y; pstate = b.state;
+        });
+        longest = Math.max(longest, r.t - t0);
+        if (r.b.state !== 'rest' || !H.movers.length) continue;
+        // leave it there for a while: moving obstacles may shove it, but never through a rail or into a block
+        const w = C.idle(H, r.b, r.t, H.cycle * 1.3).b;
+        if (w.state === 'out' && w.why === 'oob') pushedOut = pushedOut || `from ${r.b.x.toFixed(2)},${r.b.z.toFixed(2)}`;
+        if ((w.state === 'rest' || w.state === 'roll') && (!C.solid(C.floorAt(H, w.x, w.z)) || insideBlock(w.x, w.z))) wedged = wedged || `at ${w.x.toFixed(2)},${w.z.toFixed(2)}`;
+      }
+      check(!jumps && !pops, `${tag}: no teleporting or tunnelling, nothing climbs out of a drop` + (jumps ? ` — jumped ${jumps}` : '') + (pops ? ` — ${pops}` : ''));
+      check(longest < 20, `${tag}: every shot settles (longest ${longest.toFixed(1)}s)`);
+      if (H.movers.length) check(!pushedOut && !wedged, `${tag}: moving obstacles never push a resting ball through a rail or into a wall` + (pushedOut ? ` — out of bounds ${pushedOut}` : '') + (wedged ? ` — stuck ${wedged}` : ''));
+    }
   }
 }
-console.log('FAILED:', failed);
-process.exit(failed ? 1 : 0);
+say('FAILED: ' + failed);
+if (failed) { if (hasNode) process.exitCode = 1; else throw new Error(failed + ' golf checks failed'); }

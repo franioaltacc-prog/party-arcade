@@ -101,8 +101,9 @@ class Flappy(Game):
     def on_message(self, m, t, msg):
         host = self.is_host(m)
         if t == "settings" and host and self.phase != "playing":
-            if int(num(msg.get("rounds"), -1)) in ROUNDS:
-                self.settings["rounds"] = int(msg["rounds"])
+            rounds = num(msg.get("rounds"), -1)
+            if rounds in ROUNDS:            # 3, 3.0, "3.0" and "1e0" are fine; 3.5 is not
+                self.settings["rounds"] = int(rounds)
             self.broadcast("settings", settings=self.settings)
         elif t == "start" and host and self.phase != "playing":
             self.start()

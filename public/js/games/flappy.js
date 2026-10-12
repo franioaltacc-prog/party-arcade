@@ -45,12 +45,17 @@
   function resize() {
     const r = stage.getBoundingClientRect();
     if (!r.width || !r.height) return;
+    // a very tall, narrow stage (a portrait phone in full screen) would show less than one pipe ahead:
+    // keep the view at most 1.35x as tall as it is wide (the page's CSS caps the stage the same way)
+    const ch = Math.min(r.height, Math.round(r.width * 1.35));
+    cv.style.height = ch < r.height ? ch + 'px' : '';
+    cv.style.marginTop = ch < r.height ? Math.floor((r.height - ch) / 2) + 'px' : '';
     const dpr = Math.min(2.5, window.devicePixelRatio || 1);
     cv.width = Math.round(r.width * dpr);
-    cv.height = Math.round(r.height * dpr);
+    cv.height = Math.round(ch * dpr);
     S = cv.height / P.H;
     VW = cv.width / S;
-    BX = Math.round(Math.min(VW * 0.3, 260));
+    BX = Math.round(Math.min(VW * (VW < 600 ? 0.22 : 0.3), 260));   // narrow views: the bird sits further left to see more ahead
     layers.key = '';
   }
   new ResizeObserver(resize).observe(stage);
@@ -735,8 +740,12 @@
     const vy = G.phase === 'play' ? b.vy : G.phase === 'dead' || G.phase === 'spectate' ? G.fallV : 0;
     const tr = G.phase === 'ready' || G.phase === 'count' ? Math.sin(t * 5.5 + 1.2) * 0.12 : (G.phase === 'play' ? rotFor(vy) : Math.min(1.57, G.rot + dt * 8));
     G.rot += (tr - G.rot) * Math.min(1, dt * (vy < 0 ? 18 : 9));
-    G.sqV += (-260 * G.sq - 13 * G.sqV) * dt;
-    G.sq += G.sqV * dt;
+    for (let left = dt; left > 1e-6; left -= C.DT) {   // a stiff spring: small steps keep it stable at any frame rate
+      const st = Math.min(left, C.DT);
+      G.sqV += (-260 * G.sq - 13 * G.sqV) * st;
+      G.sq += G.sqV * st;
+    }
+    G.sq = Math.max(-0.4, Math.min(0.4, G.sq));
     // the background scrolls with the camera
     const d = G.camX - G.lastCam;
     if (d > 0 && d < 400) G.bgX += d;
@@ -909,7 +918,7 @@
     else if (G.phase === 'dead' && G.mode === 'solo' && G.cardAt && performance.now() - G.cardAt > 450) restart();
   }
   stage.addEventListener('pointerdown', (e) => {
-    if (e.button > 0 || e.target.closest('button, a, input, .fl-card, .fl-skins')) return;
+    if (e.button > 0 || e.target.closest('button, a, input') || (!G.paused && e.target.closest('.fl-card, .fl-skins'))) return;
     e.preventDefault();
     press();
   });
@@ -924,7 +933,7 @@
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && G.mode === 'solo' && G.phase === 'play' && G.bird.alive) {
       G.paused = true;
-      fill($('#center'), h('div', { class: 'fl-card' }, h('h2', {}, 'Paused'), h('p', { class: 'sub' }, 'Tap or press Space to keep flying')));
+      fill($('#center'), h('div', { class: 'fl-card paused' }, h('h2', {}, 'Paused'), h('p', { class: 'sub' }, 'Tap or press Space to keep flying')));
     }
   });
   PA.on('admin:cheat', ({ action }) => {
@@ -998,7 +1007,7 @@
     Sfx.play('swoosh');
     if (o.newBest) { Sfx.play('win'); if (o.score >= 10) UI.confetti(160); }
     for (const s of o.gotSkins) UI.toast(`🔓 New bird unlocked: ${s.name}!`, 'good', 3500);
-    const card = h('div', { class: 'fl-card' },
+    const card = h('div', { class: 'fl-card over' },
       h('h2', {}, 'Game over'),
       h('p', { class: 'sub' }, G.cheated ? '😇 God mode was on, so this run isn’t saved' : o.newBest ? '🎉 That’s a new best!' : o.score === 0 ? 'Tap to flap — through the gaps!' : `Pipes passed: ${o.score}`),
       h('div', { class: 'fl-score' },
@@ -1010,7 +1019,7 @@
       h('div', { class: 'btns' },
         h('button', { class: 'btn btn-pink', onclick: restart }, '🔁 Fly again'),
         h('button', { class: 'btn btn-ghost', onclick: () => { history.replaceState(null, '', location.pathname); showScreen('entry'); Lobby.showEntry(); } }, '👥 Play online'),
-        h('a', { class: 'btn btn-ghost', href: '/leaderboards' }, '🏆')));
+        h('a', { class: 'btn btn-ghost sq', href: '/leaderboards', title: 'Leaderboards', 'aria-label': 'Leaderboards' }, '🏆')));
     fill($('#center'), card);
     if (FX.on && FX.gsap) FX.gsap.from(card, { y: 50, scale: 0.9, autoAlpha: 0, duration: 0.5, ease: 'back.out(1.8)', clearProps: 'transform,opacity,visibility' });
   }
@@ -1096,10 +1105,20 @@
     if (name === 'play') { resize(); requestAnimationFrame(resize); }
     $('#fly-chat').classList.toggle('hidden', !(name === 'play' && G.mode === 'online'));
     scrollTo({ top: 0 });
+    if (name === 'play') fitShort();
   }
+  // a phone on its side is too short for the header and the stage: scroll the stage to fill the screen
+  const fitShort = () => requestAnimationFrame(() => { if (shown('play') && innerHeight <= 520 && !document.fullscreenElement) stage.scrollIntoView({ block: 'start' }); });
+  let fitTimer = 0;
+  addEventListener('resize', () => { clearTimeout(fitTimer); fitTimer = setTimeout(fitShort, 150); });
   $('#btn-quit').addEventListener('click', () => {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-    if (G.mode === 'online' && window.Room && Room.code) { G.phase = 'spectate'; showScreen('room'); renderRoomMain(); }
+    if (G.mode === 'online' && window.Room && Room.code) {
+      // leaving a round you're flying in counts as a crash, so the others aren't left waiting for your bird
+      if (G.phase === 'play' && G.bird.alive) { G.bird.alive = false; G.deathX = G.bird.x; G.fallY = renderY; G.fallV = 0; onlineCrash(); }
+      else if (G.phase === 'count') { G.phase = 'spectate'; G.bird.alive = false; G.deathX = -1e4; }
+      showScreen('room'); renderRoomMain();
+    }
     else { history.replaceState(null, '', location.pathname); showScreen('entry'); Lobby.showEntry(); }
   });
   $('#btn-full').addEventListener('click', () => {
@@ -1121,6 +1140,15 @@
             h('b', { style: { width: '28px' } }, placeEmoji(place)), UI.avatar(r, 'sm'),
             h('span', { class: 'grow' }, r.name), h('span', { class: 'pmeta' }, `🐤 best ${r.best} · `, h('b', {}, `${r.points} pts`)));
         })));
+    }
+    if (state.phase === 'playing' && G.round) {   // a round is on: go back to it (the host can also stop the game)
+      const r = G.round;
+      kids.push(h('div', { class: 'panel-title' }, r.over ? `🐤 Round ${r.n} of ${r.rounds} is over` : `🐤 Round ${r.n} of ${r.rounds} is on`),
+        h('p', { class: 'muted', style: { margin: '4px 0 14px' } }, r.over ? (r.n < r.rounds ? 'The next round starts in a few seconds — you’ll be taken back to fly it.' : 'The final results are coming up…') : 'You can watch the rest of it, or wait here for the next round.'),
+        h('button', { class: 'btn btn-pink btn-lg btn-block', onclick: () => { showScreen('play'); renderHud(); } }, '👀 Back to the round'),
+        host ? h('button', { class: 'btn btn-ghost btn-block', style: { marginTop: '10px' }, onclick: () => { if (confirm('Stop the game for everyone?')) Net.send('g:stop'); } }, '⏹ Stop the game') : null);
+      fill($('#room-main'), kids);
+      return;
     }
     const sel = state.settings.rounds;
     kids.push(h('div', { class: 'panel-title' }, '🔁 Rounds', !host ? h('span', { class: 'count' }, 'host picks') : null),
@@ -1257,6 +1285,17 @@
   });
   Net.on('g:die', (m) => {
     if (G.round && G.round.runners[m.id]) Object.assign(G.round.runners[m.id], { alive: false, score: m.score, ft: m.ft });
+    if (m.id === Net.id && G.mode === 'online' && (G.phase === 'play' || G.phase === 'count')) {
+      // the server counted our bird out (no word from us for a few seconds): stop flying here too
+      const b = G.bird;
+      if (G.phase === 'play') { G.deathX = b.x; G.fallY = renderY; G.fallV = 0; } else G.deathX = -1e4;
+      b.alive = false;
+      if (Number.isFinite(m.score)) b.score = m.score;
+      G.phase = 'spectate';
+      G.flash = calm() ? 0.2 : 0.5;
+      Sfx.noise(0.12, 0.1);
+      banner(`📡 Connection lost, so your bird was counted out at ${b.score} · watching the others`);
+    }
     const g = G.ghosts.get(m.id);
     if (g && !g.dead) {
       const last = g.s[g.s.length - 1];
@@ -1286,6 +1325,7 @@
     banner('');
     if (m.rows[0] && m.rows[0].id === Net.id && m.rows.length > 1) { UI.confetti(120); Sfx.play('win'); }
     if (shown('play')) roundCard(m.rows, m.n, m.next);
+    else if (shown('room')) renderRoomMain();
     Lobby.refreshPlayers();
   });
   Net.on('g:results', (m) => {

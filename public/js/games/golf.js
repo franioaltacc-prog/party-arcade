@@ -1529,7 +1529,7 @@
     G.ball = opts.resume ? { ...C.newBall(G.H, [opts.resume.pos[0], opts.resume.pos[2]]) } : C.newBall(G.H);
     G.ball.ev = [];
     G.strokes = opts.resume ? opts.resume.s || 0 : 0;
-    G.last = [G.ball.x, G.ball.z];
+    G.last = [G.ball.x, G.ball.z]; G.restSpot = null; G.outFree = false;
     G.t = 0; G.goAt = opts.goAt || performance.now();
     G.state = opts.spectate ? 'spectate' : 'intro';
     G.spectate = !!opts.spectate;
@@ -1668,6 +1668,7 @@
       else if (e[0] === 'out') outOfPlay(e[1]);
     }
     b.ev.length = 0;
+    if (b.state === 'rest' && (G.state === 'moving' || G.state === 'play')) G.restSpot = [b.x, b.z];
     if (G.state === 'moving' && b.state === 'rest') {
       // the ball stopped
       G.state = 'play';
@@ -1676,8 +1677,11 @@
       else hint(false);
     }
     if (G.state === 'out' && now - G.outAt > 1100) {
-      G.strokes += 1;
-      Object.assign(b, C.newBall(G.H, G.last), { ev: [] });
+      // a ball knocked in by an obstacle while it sat waiting for you costs nothing: it goes back to where
+      // it was resting (or, if that spot is in the obstacle's way, to where you last played from)
+      const free = G.outFree;
+      if (!free) G.strokes += 1;
+      Object.assign(b, C.newBall(G.H, free && !inMoverPath(G.restSpot) ? G.restSpot : G.last), { ev: [] });
       cam.snap = true;
       if (G.strokes >= P.MAX_STROKES) pickUp(); else G.state = 'play';
       renderHud();
@@ -1687,6 +1691,7 @@
   function shoot(angle, power) {
     if (G.state !== 'play' || G.ball.state !== 'rest' || G.spectate || G.finishSent) return;
     G.last = [G.ball.x, G.ball.z];
+    G.restSpot = null;
     C.hit(G.ball, angle, power);
     G.strokes += 1;
     G.shotT = G.t;
@@ -1697,7 +1702,21 @@
     renderHud();
     if (G.mode === 'online') Net.send('g:pos', { x: +G.ball.x.toFixed(2), y: +G.ball.y.toFixed(2), z: +G.ball.z.toFixed(2), s: G.strokes, moving: true });
   }
+  // could a moving obstacle reach a ball resting here?
+  function inMoverPath(spot) {
+    if (!spot) return true;
+    for (const m of G.H.movers) {
+      for (let i = 0; i < 48; i++) {
+        const A = C.moverPose(m, (m.period || 1) * i / 48);
+        const ca = Math.cos(A.a); const sa = Math.sin(A.a);
+        const rx = spot[0] - A.x; const rz = spot[1] - A.z;
+        if (Math.abs(rx * ca + rz * sa) < A.hw + P.R + 0.1 && Math.abs(-rx * sa + rz * ca) < A.hd + P.R + 0.1) return true;
+      }
+    }
+    return false;
+  }
   function outOfPlay(why) {
+    G.outFree = G.state === 'play';
     G.state = 'out';
     G.outAt = performance.now();
     const b = G.ball;
@@ -1852,7 +1871,10 @@
     }
     cam.tx = tx; cam.ty = ty; cam.tz = tz;
     const ball = G.ball;
-    if (!cam.user && ball && (ball.state === 'rest' || G.state === 'intro')) {
+    if (aim.on && !aim.kb) {
+      // hold the view still while you drag to aim, so the arrow doesn't drift under your finger
+      cam.yaw = cam.cur.yaw; cam.pitch = cam.cur.pitch; cam.dist = cam.cur.dist / cam.zoom;
+    } else if (!cam.user && ball && (ball.state === 'rest' || G.state === 'intro')) {
       cam.yaw = C.pathDir(H, tx, tz);
       const toCup = Math.hypot(H.cup[0] - tx, H.cup[1] - tz);
       cam.pitch = portrait ? 0.66 : 0.52;
@@ -1864,7 +1886,7 @@
     updateCamGoal();
     const c = cam.cur;
     const k = cam.snap ? 1 : 1 - Math.exp(-dt * (cam.mode === 'overview' ? 3 : 5));
-    const kt = cam.snap ? 1 : 1 - Math.exp(-dt * 7);
+    const kt = cam.snap ? 1 : aim.on && !aim.kb ? 0 : 1 - Math.exp(-dt * 7);
     cam.snap = false;
     c.yaw += angDiff(cam.yaw, c.yaw) * k;
     c.pitch += (cam.pitch - c.pitch) * k;
@@ -1980,7 +2002,7 @@
   function groundPoint(cx, cy) {
     if (!ray.r) { ray.r = new THREE.Raycaster(); ray.plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); }
     ray.r.setFromCamera({ x: (cx / viewW) * 2 - 1, y: -(cy / viewH) * 2 + 1 }, camera);
-    ray.plane.constant = -G.ball.y;
+    ray.plane.constant = -(G.ball.y + P.R);   // the plane through the ball's centre, so pulling straight back from the ball on screen aims straight
     const hit = new THREE.Vector3();
     return ray.r.ray.intersectPlane(ray.plane, hit) ? hit : null;
   }
@@ -2023,7 +2045,7 @@
           aim.on = true; aim.kb = false; aim.power = 0;
           aim.angle = cam.cur.yaw;
           el.classList.add('aim');
-          $('#power').classList.add('on');
+          $('#power').classList.add('on'); $('#hint').classList.add('off');
           return;
         }
       }
@@ -2086,12 +2108,12 @@
     if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyA', 'KeyD', 'KeyW', 'KeyS'].includes(e.code)) {
       e.preventDefault();
       if (G.state === 'intro') { G.state = 'play'; cam.mode = 'follow'; fill($('#intro')); }
-      if (canAim() && !aim.on) { aim.on = true; aim.kb = true; aim.angle = cam.cur.yaw; aim.power = 0.35; $('#power').classList.add('on'); }
+      if (canAim() && !aim.on) { aim.on = true; aim.kb = true; aim.angle = cam.cur.yaw; aim.power = 0.35; $('#power').classList.add('on'); $('#hint').classList.add('off'); }
     }
     if ((e.code === 'Space' || e.code === 'Enter') && !e.repeat) {
       e.preventDefault();
       if (aim.on && aim.kb && canAim()) { const p = aim.power; const a = aim.angle; aimOff(); shoot(a, p); }
-      else if (!aim.on && canAim()) { aim.on = true; aim.kb = true; aim.angle = cam.cur.yaw; aim.power = 0.35; $('#power').classList.add('on'); }
+      else if (!aim.on && canAim()) { aim.on = true; aim.kb = true; aim.angle = cam.cur.yaw; aim.power = 0.35; $('#power').classList.add('on'); $('#hint').classList.add('off'); }
     }
   });
   addEventListener('keyup', (e) => { keys[e.code] = false; });
@@ -2468,6 +2490,7 @@
   if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {   // testing on your own computer only
     window.__golf = { G, C, S, cam, startSolo, shoot, tick, holeScene, aim, toggleView, ballScreen,
       view(pos, look) { G.debugView = { pos, look }; },
+      aimPreview(x, y) { const keep = { angle: aim.angle, power: aim.power }; aimFrom(x, y); const r = { angle: aim.angle, power: aim.power }; Object.assign(aim, keep); return r; },
     };
   }
 

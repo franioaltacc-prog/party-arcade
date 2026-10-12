@@ -62,6 +62,11 @@ async def main():
     a.send({"t": "g:settings", "rounds": 7}); a.send({"t": "g:settings", "rounds": 1})
     st = await wait_for(b, "g:settings", pred=lambda m: m["settings"]["rounds"] == 1)
     check(st["settings"] == {"rounds": 1}, "host picks 1 round (7 is ignored)")
+    a.send({"t": "g:settings", "rounds": "3.5"}); a.send({"t": "g:settings", "rounds": "5.0"})
+    st = await wait_for(b, "g:settings", pred=lambda m: m["settings"]["rounds"] != 1)
+    a.send({"t": "g:settings", "rounds": "1e0"})
+    st2 = await wait_for(b, "g:settings", pred=lambda m: m["settings"]["rounds"] == 1)
+    check(st["settings"] == {"rounds": 5} and st2["settings"] == {"rounds": 1}, "rounds sent as \"5.0\" / \"1e0\" work (\"3.5\" is ignored)")
 
     b.send({"t": "g:start"})
     check(await none_of(a, "g:round"), "only the host starts")

@@ -10,13 +10,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
+  <script>try { document.documentElement.dataset.theme = JSON.parse(localStorage.getItem('pa_theme')) || 'neon'; } catch (e) { /* storage blocked */ }</script>
   <style>
     .tr-head { text-align: center; margin: 6px 0 18px; }
     .tr-head h1 { margin: 6px 0 4px; }
     .tr-me { max-width: 640px; margin: 0 auto 20px; padding: 14px 18px; border-radius: 18px; background: var(--panel-2); border: 1px solid var(--border-strong); text-align: center; font-weight: 600; }
     .tr-me.go { background: rgba(163, 230, 53, .14); border-color: rgba(163, 230, 53, .55); }
     .tr-me.out { background: rgba(255, 255, 255, .04); }
-    .tr-me.win { background: linear-gradient(135deg, rgba(250, 204, 21, .25), rgba(255, 79, 216, .15)); border-color: rgba(250, 204, 21, .7); }
+    .tr-me.win { background: linear-gradient(135deg, rgba(250, 204, 21, .25), color-mix(in srgb, var(--pink) 15%, transparent)); border-color: rgba(250, 204, 21, .7); }
     .tr-me .big { font-family: var(--font-display); font-weight: 400; font-size: 1.4rem; margin-bottom: 4px; }
     .tr-me .btn { margin-top: 10px; }
     .bracket { display: flex; gap: 18px; overflow-x: auto; padding: 6px 4px 14px; align-items: stretch; }
@@ -35,7 +36,7 @@
     .tr-p.tbd { color: var(--faint); font-style: italic; }
     .tr-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 5px 10px; font-size: .78rem; color: var(--muted); background: rgba(0, 0, 0, .2); }
     .tr-foot a { font-weight: 700; }
-    .tr-champ { max-width: 520px; margin: 20px auto 0; text-align: center; padding: 22px; border-radius: 22px; background: linear-gradient(160deg, rgba(250, 204, 21, .22), rgba(255, 79, 216, .12)); border: 1px solid rgba(250, 204, 21, .6); }
+    .tr-champ { max-width: 520px; margin: 20px auto 0; text-align: center; padding: 22px; border-radius: 22px; background: linear-gradient(160deg, rgba(250, 204, 21, .22), color-mix(in srgb, var(--pink) 12%, transparent)); border: 1px solid rgba(250, 204, 21, .6); }
     .tr-champ .crown { font-size: 3rem; }
     .tr-champ .avatar { margin: 8px auto; }
     .tr-champ h2 { font-family: var(--font-display); font-weight: 400; margin: 4px 0; }

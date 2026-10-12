@@ -75,6 +75,10 @@ BOARDS = {
     "pool": ("🎱 Billiards wins", "pool.wins", "desc", "int"),
     "pool_speed": ("⏱️ Billiards speed clear", "poolspeed.best", "asc", "time"),
     "pool_cpu": ("🤖 Billiards wins vs CPU", "poolcpu.wins", "desc", "int"),
+    "flappy": ("🐤 Neon Flappy best score", "flappy.best", "desc", "int"),
+    "golf": ("⛳ Mini Golf wins", "golf.wins", "desc", "int"),
+    "golf_classic": ("⛳ Mini Golf: Classic Meadow", "golfclassic.best", "asc", "strokes"),
+    "golf_spooky": ("🎃 Mini Golf: Spooky Hollow", "golfspooky.best", "asc", "strokes"),
 }
 
 # Scores the browser reports for solo games: game -> (stat ops, lowest, highest)
@@ -97,8 +101,11 @@ SOLO = {
     "poly-6": ("poly6", 22275, 3_600_000),
     "pool-speed": ("poolspeed", 15000, 3_600_000),   # Billiards speed clear: ms to pocket all 15 balls
     "pool-cpu": ("poolcpu", 1, 3),                   # a win vs the CPU at this level (1 easy, 2 medium, 3 hard)
+    "flappy": ("flappy", 1, 10000),                  # Neon Flappy: pipes passed in one run
+    "golf-classic": ("golfclassic", 9, 72),          # Mini Golf solo: strokes for all 9 holes (max 8 a hole)
+    "golf-spooky": ("golfspooky", 9, 72),            # (a finished Spooky Hollow round also counts as golf.spooky_done)
 }
-FASTEST = {"memory", "dash-solo", "mines-easy", "mines-medium", "mines-hard", "pool-speed"} | {f"poly-{i}" for i in range(1, 7)}   # solo games where a lower time wins
+FASTEST = {"memory", "dash-solo", "mines-easy", "mines-medium", "mines-hard", "pool-speed", "golf-classic", "golf-spooky"} | {f"poly-{i}" for i in range(1, 7)}   # solo games where a lower time wins
 
 SCHEMA = [
     """CREATE TABLE IF NOT EXISTS users (
@@ -804,6 +811,8 @@ class Accounts:
             stats = {f"{prefix}.best": ("min", value), f"{prefix}.wins": ("add", 1)}
         else:
             stats = {f"{prefix}.best": ("max", value)}
+        if game == "golf-spooky":
+            stats["golf.spooky_done"] = ("add", 1)   # the Halloween "Haunted hole" quest counts solo rounds too
         before = await self.q("SELECT value FROM stats WHERE user_id = ? AND key = ?", user_id, f"{prefix}.best")
         old = before["rows"][0]["value"] if before["rows"] else None
         gained, xp_before, xp_after = await self.record(user_id, prefix, "play", stats, self.solo_detail(game, value), xp=5, totals=False)
@@ -816,6 +825,8 @@ class Accounts:
             return f"Beat {value} bot{'s' if value != 1 else ''}"
         if game == "pool-cpu":
             return f"Beat the {('Easy', 'Medium', 'Hard')[value - 1]} CPU"
+        if game.startswith("golf-"):
+            return f"{value} strokes"
         if game in FASTEST:
             return f"Finished in {value / 1000:.2f}s"
         return f"Scored {value:,}"

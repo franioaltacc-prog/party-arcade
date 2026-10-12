@@ -359,7 +359,9 @@ class Billiards(Game):
         F = self.frame
         if action not in ("hand", "clear", "win"):
             return None
-        self.tainted = True
+        if not self.tainted:     # set it now: the "win" cheat can end (and save) the match right here
+            self.tainted = True
+            self.room.system("🛠️ An admin used a cheat, so this game won't count for leaderboards.")
         if F["turn"] != me:
             F["turn"] = me
             F["visit"] = {"seat": me, "potted": [], "start": F["shots"]}

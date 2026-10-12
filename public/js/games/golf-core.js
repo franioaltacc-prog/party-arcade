@@ -180,7 +180,7 @@
       ],
       h: [['hill', 4.5, 5.6, 1.5, 0.16]],
       blocks: [[2, 8.6, 3.75, 9.4, 'brick'], [5.25, 8.6, 7, 9.4, 'brick']],
-      movers: [{ k: 'slide', x0: 2.85, z0: 9.75, x1: 6.15, z1: 9.75, w: 1.7, d: 0.36, period: 3.4, phase: 0, style: 'gate' }],
+      movers: [{ k: 'slide', x0: 2.85, z0: 9.58, x1: 6.15, z1: 9.58, w: 1.7, d: 0.36, period: 3.4, phase: 0, style: 'gate' }],
       deco: [['flowers', 0.8, 12], ['bench', 8.3, 11, -1.57], ['tree', 8.4, 3, 0.9]],
     },
     {
@@ -746,33 +746,58 @@
   const emit = (b, e) => { if (b.ev) b.ev.push(e); };
 
   const pa = {}; const pb = {};
+  /** Push the ball out of the rails / blocks near it. A rail only throws the ball back to the side it came
+      from: a ball that was on the turf side and somehow got behind goes back to the turf, and a ball
+      coming from behind (e.g. falling past a bridge rail over the water) bounces off the outside. */
+  function hitWalls(H, b, cell, air, quiet) {
+    const R = P.R;
+    for (const wi of cell.w) {
+      const s = H.walls[wi];
+      const ex = s.bx - s.ax; const ez = s.bz - s.az;
+      let u = ((b.x - s.ax) * ex + (b.z - s.az) * ez) / (s.len * s.len);
+      u = u < 0 ? 0 : u > 1 ? 1 : u;
+      const px = s.ax + ex * u; const pz = s.az + ez * u;
+      let dx = b.x - px; let dz = b.z - pz;
+      const d2 = dx * dx + dz * dz;
+      if (d2 >= R * R) continue;
+      if (air && b.y > surface(H, px + s.nx * 0.05, pz + s.nz * 0.05, pa).h + s.top) continue;
+      // which side of the rail's line the ball was on before this step
+      const was = b.ox === undefined ? 1 : (b.ox - s.ax) * s.nx + (b.oz - s.az) * s.nz;
+      const sgn = was < -1e-9 ? -1 : 1;
+      let d = Math.sqrt(d2);
+      if (d < 1e-9) { dx = s.nx * sgn; dz = s.nz * sgn; d = 1; } else { dx /= d; dz /= d; }
+      if ((dx * s.nx + dz * s.nz) * sgn < 0 && u > 0 && u < 1) { dx = s.nx * sgn; dz = s.nz * sgn; }
+      b.x = px + dx * R; b.z = pz + dz * R;
+      const vn = b.vx * dx + b.vz * dz;
+      if (vn < 0) {
+        b.vx -= (1 + P.WALL_E) * vn * dx; b.vz -= (1 + P.WALL_E) * vn * dz;
+        if (vn < -0.6 && !quiet) emit(b, ['wall', -vn]);
+      }
+    }
+  }
+  const cellOf = (H, b) => {
+    const ix = Math.floor(b.x); const iz = Math.floor(b.z);
+    return ix >= 0 && iz >= 0 && ix < H.W && iz < H.D ? H.near[iz * H.W + ix] : null;
+  };
+  /** How far (and which way, in the mover's own frame) the ball overlaps a moving obstacle, or null. */
+  function moverOverlap(A, b) {
+    const R = P.R;
+    const ca = Math.cos(A.a); const sa = Math.sin(A.a);
+    const rx = b.x - A.x; const rz = b.z - A.z;
+    const lx = rx * ca + rz * sa; const lz = -rx * sa + rz * ca;
+    if (Math.abs(lx) > A.hw + R || Math.abs(lz) > A.hd + R) return null;
+    const qx = lx < -A.hw ? -A.hw : lx > A.hw ? A.hw : lx;
+    const qz = lz < -A.hd ? -A.hd : lz > A.hd ? A.hd : lz;
+    if (qx === lx && qz === lz) return { lx, lz, depth: R + Math.min(A.hw - Math.abs(lx), A.hd - Math.abs(lz)) };
+    const d = Math.hypot(lx - qx, lz - qz);
+    return d >= R ? null : { lx, lz, depth: R - d };
+  }
   function collide(H, b, t, dt) {
     const air = b.state === 'air';
     const R = P.R;
-    const ix = Math.floor(b.x); const iz = Math.floor(b.z);
-    const cell = ix >= 0 && iz >= 0 && ix < H.W && iz < H.D ? H.near[iz * H.W + ix] : null;
+    let cell = cellOf(H, b);
     if (cell) {
-      for (const wi of cell.w) {
-        const s = H.walls[wi];
-        const ex = s.bx - s.ax; const ez = s.bz - s.az;
-        let u = ((b.x - s.ax) * ex + (b.z - s.az) * ez) / (s.len * s.len);
-        u = u < 0 ? 0 : u > 1 ? 1 : u;
-        const px = s.ax + ex * u; const pz = s.az + ez * u;
-        let dx = b.x - px; let dz = b.z - pz;
-        const d2 = dx * dx + dz * dz;
-        if (d2 >= R * R) continue;
-        if (air && b.y > surface(H, px + s.nx * 0.05, pz + s.nz * 0.05, pa).h + s.top) continue;
-        let d = Math.sqrt(d2);
-        if (d < 1e-9) { dx = s.nx; dz = s.nz; d = 1; } else { dx /= d; dz /= d; }
-        // a ball that somehow got behind a rail goes back to the turf side
-        if (dx * s.nx + dz * s.nz < 0 && u > 0 && u < 1) { dx = s.nx; dz = s.nz; d = -d; }
-        b.x = px + dx * R; b.z = pz + dz * R;
-        const vn = b.vx * dx + b.vz * dz;
-        if (vn < 0) {
-          b.vx -= (1 + P.WALL_E) * vn * dx; b.vz -= (1 + P.WALL_E) * vn * dz;
-          if (vn < -0.6) emit(b, ['wall', -vn]);
-        }
-      }
+      hitWalls(H, b, cell, air);
       for (const bi of cell.b) {
         const o = H.bumpers[bi];
         let dx = b.x - o.x; let dz = b.z - o.z;
@@ -789,6 +814,7 @@
         }
       }
     }
+    let pushed = false;
     for (let mi = 0; mi < H.movers.length; mi++) {
       const m = H.movers[mi];
       const A = moverPose(m, t, pa);
@@ -805,6 +831,7 @@
         // the centre is inside: out through the nearest side
         const px = A.hw - Math.abs(lx); const pz = A.hd - Math.abs(lz);
         if (px < pz) { nx = lx < 0 ? -1 : 1; nz = 0; qx = nx * A.hw; depth = px + R; } else { nx = 0; nz = lz < 0 ? -1 : 1; qz = nz * A.hd; depth = pz + R; }
+        if (m.k === 'windmill') depth = Math.min(depth, 0.12);   // a blade coming down nudges the ball out over a few steps
       } else {
         const dx = lx - qx; const dz = lz - qz;
         const d = Math.hypot(dx, dz);
@@ -828,6 +855,27 @@
         if (b.state === 'rest') b.state = 'roll';
         emit(b, ['hitm', -vn, mi]);
       }
+      pushed = true;
+    }
+    if (!pushed || (air && b.y > 1.2)) return;
+    // an obstacle never shoves the ball through a rail: the rails get the last word, and a ball that is
+    // still squeezed between a rail and an obstacle slips out along the obstacle's thin side
+    cell = cellOf(H, b);
+    if (!cell) return;
+    hitWalls(H, b, cell, air, true);
+    for (const m of H.movers) {
+      const A = moverPose(m, t, pa);
+      if (!A.on) continue;
+      const o = moverOverlap(A, b);
+      if (!o || o.depth < 0.02) continue;
+      const ca = Math.cos(A.a); const sa = Math.sin(A.a);
+      const side = o.lz < 0 ? -1 : 1;
+      const mv = Math.min(0.09, A.hd + R + 0.01 - Math.abs(o.lz));   // a little each step, so it slides out rather than pops
+      b.x += -sa * side * mv; b.z += ca * side * mv;
+      const vn = -sa * side * b.vx + ca * side * b.vz;
+      if (vn < 0) { b.vx -= vn * -sa * side; b.vz -= vn * ca * side; }
+      const c2 = cellOf(H, b);
+      if (c2) hitWalls(H, b, c2, air, true);
     }
   }
 
@@ -835,11 +883,21 @@
   function step(H, b, t, dt = P.DT) {
     if (b.state === 'holed' || b.state === 'out') return;
     if (b.tc > 0) b.tc -= dt;
+    b.ox = b.x; b.oz = b.z;
     const s = surface(H, b.x, b.z, pa);
     if (b.state === 'air') {
       b.vy -= P.G * dt;
       b.x += b.vx * dt; b.z += b.vz * dt; b.y += b.vy * dt;
-      const f = floorAt(H, b.x, b.z);
+      let f = floorAt(H, b.x, b.z);
+      if (solid(f) && b.y < surface(H, b.x, b.z, pb).h - 0.12 && !solid(floorAt(H, b.ox, b.oz))) {
+        // down in a drop and flying into its bank: bounce off the side instead of popping up onto the turf
+        const xs = solid(floorAt(H, b.x, b.oz)); const zs = solid(floorAt(H, b.ox, b.z));
+        if (xs || !zs) b.vx = -b.vx * 0.35;
+        if (zs || !xs) b.vz = -b.vz * 0.35;
+        b.x = b.ox; b.z = b.oz;
+        f = floorAt(H, b.x, b.z);
+        if (b.vx * b.vx + b.vz * b.vz > 0.25) emit(b, ['wall', 1]);
+      }
       if (solid(f)) {
         const hh = surface(H, b.x, b.z, pb).h;
         if (b.y <= hh) {

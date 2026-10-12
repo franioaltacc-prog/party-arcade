@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
+  <script>try { document.documentElement.dataset.theme = JSON.parse(localStorage.getItem('pa_theme')) || 'neon'; } catch (e) { /* storage blocked */ }</script>
   <style>
     .solo-wrap { width: min(720px, 100%); margin: 0 auto; }
     .bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
@@ -19,7 +20,7 @@
     .card.up, .card.done { transform: rotateY(180deg); }
     .card .face { position: absolute; inset: 0; border-radius: 16px; backface-visibility: hidden; -webkit-backface-visibility: hidden; display: grid; place-items: center; }
     .card .back { background: linear-gradient(135deg, var(--purple), var(--pink)); box-shadow: inset 0 -5px 0 rgba(0,0,0,.25); border: 2px solid rgba(255,255,255,.25); }
-    .card .back::after { content: "?"; font-family: var(--font-display); font-size: clamp(1.2rem, 4vw, 2rem); color: rgba(255,255,255,.55); }
+    .card .back::after { content: "?"; font-family: var(--font-display); font-size: clamp(1.2rem, 4vw, 2rem); color: color-mix(in srgb, var(--on-pink) 72%, transparent); }
     .card .front { transform: rotateY(180deg); background: #fff; font-size: clamp(1.6rem, 6vw, 3rem); box-shadow: inset 0 -5px 0 rgba(0,0,0,.12); }
     .card.done .front { background: #dcfce7; box-shadow: 0 0 0 3px var(--green), 0 0 20px rgba(34,197,94,.5); }
     .card.miss { animation: shake .4s; }

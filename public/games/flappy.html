@@ -10,11 +10,12 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
+  <script>try { document.documentElement.dataset.theme = JSON.parse(localStorage.getItem('pa_theme')) || 'neon'; } catch (e) { /* storage blocked */ }</script>
   <style>
-    .fl-wrap { width: min(1100px, 100%); margin: 0 auto; }
-    .fl-stage { position: relative; width: 100%; height: clamp(420px, calc(100vh - 150px), 740px); height: clamp(420px, calc(100dvh - 150px), 740px); border-radius: 22px; overflow: hidden; background: #07041a; box-shadow: var(--shadow), 0 0 0 1px var(--border), 0 0 60px -20px rgba(255, 79, 216, .45); touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; cursor: pointer; }
+    .fl-wrap { width: min(1100px, 100%); margin: 0 auto; container-type: inline-size; }
+    .fl-stage { position: relative; width: 100%; height: clamp(260px, calc(100vh - 150px), 740px); height: clamp(260px, calc(100dvh - 150px), 740px); max-height: 135cqw; container-type: size; scroll-margin-top: 6px; border-radius: 22px; overflow: hidden; background: #07041a; box-shadow: var(--shadow), 0 0 0 1px var(--border), 0 0 60px -20px rgba(255, 79, 216, .45); touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; cursor: pointer; }
     .fl-stage canvas { display: block; width: 100%; height: 100%; }
-    .fl-stage:fullscreen { height: 100%; border-radius: 0; }
+    .fl-stage:fullscreen { height: 100%; max-height: none; border-radius: 0; }
     .fl-btns { position: absolute; top: 10px; right: 10px; display: flex; gap: 6px; z-index: 3; }
     .fl-btns .icon-btn { width: 36px; height: 36px; background: rgba(11, 9, 32, .55); backdrop-filter: blur(4px); }
     .fl-hud { position: absolute; top: 12px; left: 12px; display: flex; flex-direction: column; gap: 6px; pointer-events: none; z-index: 2; max-width: 46%; }
@@ -29,7 +30,7 @@
     .fl-banner { position: absolute; left: 50%; top: 128px; transform: translateX(-50%); padding: 7px 16px; border-radius: 999px; background: rgba(11, 9, 32, .72); border: 1px solid rgba(255, 255, 255, .16); color: #fff; font-weight: 700; white-space: nowrap; pointer-events: none; z-index: 2; backdrop-filter: blur(4px); }
     .fl-center { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; pointer-events: none; padding: 16px; z-index: 2; }
     .fl-center .count { font-family: var(--font-display); font-size: clamp(4rem, 14vw, 8rem); color: #fff; text-shadow: 0 0 30px #ff4fd8, 0 0 60px rgba(34, 211, 238, .6), 0 4px 0 rgba(0, 0, 0, .35); }
-    .fl-card { pointer-events: auto; cursor: default; width: min(400px, 100%); padding: 20px 20px 18px; border-radius: 24px; background: linear-gradient(170deg, rgba(36, 20, 84, .94), rgba(14, 9, 38, .96)); border: 1px solid rgba(255, 255, 255, .16); box-shadow: 0 30px 70px -20px rgba(0, 0, 0, .8), 0 0 0 1px rgba(255, 79, 216, .25), 0 0 50px -10px rgba(255, 79, 216, .35); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+    .fl-card { pointer-events: auto; cursor: default; width: min(400px, 100%); max-height: calc(100cqh - 24px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: 20px 20px 18px; border-radius: 24px; background: linear-gradient(170deg, rgba(36, 20, 84, .94), rgba(14, 9, 38, .96)); border: 1px solid rgba(255, 255, 255, .16); box-shadow: 0 30px 70px -20px rgba(0, 0, 0, .8), 0 0 0 1px rgba(255, 79, 216, .25), 0 0 50px -10px rgba(255, 79, 216, .35); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
     .fl-card h2 { font-family: var(--font-display); font-weight: 400; margin: 0; font-size: clamp(1.5rem, 5vw, 1.9rem); letter-spacing: .02em; background: linear-gradient(90deg, #22d3ee, #ff4fd8); -webkit-background-clip: text; background-clip: text; color: transparent; }
     .fl-card .sub { color: var(--muted); font-size: .9rem; margin: 4px 0 0; }
     .fl-score { display: grid; grid-template-columns: auto 1fr 1fr; gap: 14px; align-items: center; margin: 16px 0 12px; padding: 12px 14px; border-radius: 18px; background: rgba(0, 0, 0, .28); border: 1px solid rgba(255, 255, 255, .08); }
@@ -39,7 +40,7 @@
     .fl-num { text-align: left; }
     .fl-num small { display: block; font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
     .fl-num b { font-family: var(--font-display); font-weight: 400; font-size: 2rem; line-height: 1.1; color: #fff; }
-    .fl-new { display: inline-block; margin-left: 4px; padding: 1px 7px; border-radius: 999px; background: var(--pink); color: #fff; font-size: .62rem; vertical-align: middle; letter-spacing: .04em; }
+    .fl-new { display: inline-block; margin-left: 4px; padding: 1px 7px; border-radius: 999px; background: var(--pink); color: var(--on-pink); font-size: .62rem; vertical-align: middle; letter-spacing: .04em; }
     .fl-next { font-size: .85rem; color: var(--muted); margin-bottom: 12px; }
     .fl-skins { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; pointer-events: auto; }
     .fl-skin { position: relative; width: 66px; padding: 6px 4px 5px; border-radius: 16px; border: 2px solid rgba(255, 255, 255, .12); background: rgba(255, 255, 255, .05); color: var(--text); font: inherit; font-size: .68rem; font-weight: 700; cursor: pointer; display: grid; justify-items: center; gap: 1px; transition: transform .12s, border-color .2s, background .2s; }
@@ -51,7 +52,10 @@
     .fl-skin .lock { position: absolute; top: 14px; left: 0; right: 0; font-size: 1.1rem; }
     .fl-skin span { white-space: nowrap; }
     .fl-skin.locked span { color: var(--faint); }
-    .fl-card .btns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 16px; }
+    .fl-card .btns { display: flex; gap: 8px; justify-content: center; flex-wrap: nowrap; margin-top: 16px; }
+    .fl-card .btns .btn { padding: 11px 16px; font-size: .95rem; }
+    .fl-card .btns .btn.sq { padding: 11px 13px; }
+    .fl-card.paused { cursor: pointer; }
     .fl-rows { display: grid; gap: 5px; text-align: left; margin-top: 12px; }
     .fl-rows div { display: flex; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 12px; background: rgba(255, 255, 255, .05); font-weight: 600; }
     .fl-rows div.me { background: rgba(250, 204, 21, .14); }
@@ -64,7 +68,7 @@
     .fl-standings { margin-bottom: 14px; }
     #fly-chat { height: 280px; margin-top: 14px; }
     @media (max-width: 700px) {
-      .fl-stage { height: clamp(420px, calc(100vh - 128px), 760px); height: clamp(420px, calc(100dvh - 128px), 760px); border-radius: 18px; }
+      .fl-stage { height: clamp(260px, calc(100vh - 128px), 760px); height: clamp(260px, calc(100dvh - 128px), 760px); border-radius: 18px; }
       .fl-banner { top: 116px; font-size: .85rem; max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis; }
       .fl-board, .fl-chip.deco { display: none; }
       .fl-score { grid-template-columns: auto 1fr 1fr; gap: 10px; padding: 10px; }
@@ -72,6 +76,48 @@
       .fl-num b { font-size: 1.6rem; }
       .fl-skin { width: 60px; }
       .fl-keys { display: none; }
+    }
+    /* phones on their side: the stage fills the screen (the page scrolls it into view) */
+    @media (max-height: 520px) {
+      .fl-stage { height: calc(100vh - 12px); height: calc(100dvh - 12px); min-height: 230px; border-radius: 14px; }
+      .fl-keys { display: none; }
+      .fl-banner { top: 64px; }
+      body:has(#play:not(.hidden)) .topbar { position: static; }   /* don't let the sticky header cover the stage */
+    }
+    /* the cards fit small stages: tighter when short, buttons wrap under "Fly again" when narrow, two columns on a short wide stage */
+    @container (max-height: 600px) {
+      .fl-card { padding: 14px 16px 14px; border-radius: 20px; }
+      .fl-card h2 { font-size: 1.4rem; }
+      .fl-card .sub { font-size: .82rem; margin-top: 2px; }
+      .fl-score { margin: 10px 0 8px; padding: 8px 10px; gap: 10px; }
+      .fl-medal { width: 54px; height: 54px; font-size: 1.9rem; }
+      .fl-num b { font-size: 1.5rem; }
+      .fl-next { margin-bottom: 8px; font-size: .8rem; }
+      .fl-card .fl-skins { flex-wrap: nowrap; gap: 6px; }
+      .fl-card .fl-skin { flex: 0 1 60px; width: auto; min-width: 0; padding: 4px 2px; border-radius: 13px; }
+      .fl-card .fl-skin canvas { width: 36px; height: 36px; }
+      .fl-card .fl-skin .lock { top: 9px; font-size: .95rem; }
+      .fl-card .btns { margin-top: 10px; }
+      .fl-card .btns .btn { padding: 9px 14px; font-size: .9rem; }
+      .fl-card .btns .btn.sq { padding: 9px 12px; }
+      .fl-rows { gap: 3px; margin-top: 8px; }
+      .fl-rows div { padding: 4px 10px; }
+    }
+    @container (max-width: 480px) {
+      .fl-center { padding: 54px 12px 12px; }
+      .fl-card { max-height: calc(100cqh - 66px); }
+      .fl-card .btns { flex-wrap: wrap; }
+      .fl-card .btns .btn-pink { flex-basis: 100%; }
+      .fl-card .fl-skins { flex-wrap: nowrap; gap: 6px; }
+      .fl-card .fl-skin { flex: 0 1 62px; width: auto; min-width: 0; }
+    }
+    @container (max-height: 450px) and (min-width: 600px) {
+      .fl-card.over { width: min(660px, 100%); display: grid; grid-template-columns: 1fr 1fr; column-gap: 18px; align-items: center;
+        grid-template-areas: "h skins" "sub skins" "score btns" "next btns"; }
+      .fl-card.over h2 { grid-area: h; } .fl-card.over .sub { grid-area: sub; } .fl-card.over .fl-score { grid-area: score; margin-bottom: 6px; }
+      .fl-card.over .fl-next { grid-area: next; margin: 0; } .fl-card.over .fl-skins { grid-area: skins; align-self: end; }
+      .fl-card.over .btns { grid-area: btns; align-self: start; flex-wrap: wrap; }
+      .fl-card.over .btns .btn-pink { flex-basis: 100%; }
     }
   </style>
 </head>

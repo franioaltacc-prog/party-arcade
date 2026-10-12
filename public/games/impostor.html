@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
+  <script>try { document.documentElement.dataset.theme = JSON.parse(localStorage.getItem('pa_theme')) || 'neon'; } catch (e) { /* storage blocked */ }</script>
   <style>
     .imp-grid { display: grid; grid-template-columns: 230px minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
     .imp-grid > * { min-width: 0; }
@@ -38,7 +39,7 @@
     .role-card.imp .rc-big { color: #fda4af; text-shadow: 0 0 24px rgba(244,63,94,.7); }
     .role-card .rc-cat { display: inline-flex; gap: 6px; align-items: center; padding: 5px 12px; border-radius: 999px; background: rgba(0,0,0,.3); font-weight: 700; }
     .role-card .rc-tip { margin-top: 10px; font-size: .88rem; color: var(--muted); }
-    .role-card .rc-cover { position: absolute; inset: 0; display: none; place-items: center; background: #141033; font-weight: 700; font-size: 1.1rem; color: var(--muted); }
+    .role-card .rc-cover { position: absolute; inset: 0; display: none; place-items: center; background: var(--bg-2); font-weight: 700; font-size: 1.1rem; color: var(--muted); }
     .role-card.hid .rc-cover { display: grid; }
     .role-card .rc-hide { position: absolute; top: 10px; right: 12px; font-size: .75rem; color: var(--faint); }
 
@@ -52,7 +53,7 @@
     .vote-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; width: 100%; }
     .vote-btn { display: grid; justify-items: center; gap: 6px; padding: 12px 8px; border-radius: 18px; border: 2px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; font-weight: 700; transition: transform .12s, border-color .2s, background .2s; }
     .vote-btn:hover:not(:disabled) { transform: translateY(-2px); background: var(--panel-2); }
-    .vote-btn.on { border-color: var(--pink); background: rgba(255,79,216,.18); box-shadow: 0 0 20px -6px var(--pink); }
+    .vote-btn.on { border-color: var(--pink); background: color-mix(in srgb, var(--pink) 18%, transparent); box-shadow: 0 0 20px -6px var(--pink); }
     .vote-btn .vn { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .vote-btn .vt { font-size: .72rem; color: var(--muted); font-weight: 600; }
     .vote-btn.skip { border-style: dashed; }
@@ -82,7 +83,7 @@
     .score-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 14px; background: rgba(255,255,255,.04); margin-bottom: 7px; }
     .score-row.me { border: 1px solid rgba(250,204,21,.35); }
     .score-row .pts { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
-    .spec-note { margin-top: 10px; padding: 10px; border-radius: 14px; background: rgba(139,92,246,.15); font-size: .85rem; color: var(--muted); }
+    .spec-note { margin-top: 10px; padding: 10px; border-radius: 14px; background: color-mix(in srgb, var(--purple) 15%, transparent); font-size: .85rem; color: var(--muted); }
     #play-chat { height: 620px; }
 
     /* lobby settings */

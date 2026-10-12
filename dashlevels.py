@@ -51,7 +51,8 @@ def is_int(v, lo, hi):
 
 
 def is_num(v, lo, hi):
-    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) and lo <= v <= hi
+    # the range check comes first: math.isfinite can't take a huge int (OverflowError); NaN fails the range check
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and lo <= v <= hi and (isinstance(v, int) or math.isfinite(v))
 
 
 def check_level(d):
@@ -82,7 +83,7 @@ def check_level(d):
         raise bad(f"Levels can have up to {LIMITS['zones']} mode zones.")
     seen, clean_objs = set(), []
     for o in objs:
-        if not (isinstance(o, list) and len(o) == 3 and o[0] in OBJ_TYPES and isinstance(o[0], str)
+        if not (isinstance(o, list) and len(o) == 3 and isinstance(o[0], str) and o[0] in OBJ_TYPES
                 and is_int(o[1], 0, n - 1) and is_int(o[2], 0, LIMITS["rows"] - 1)):
             raise bad("The level has a broken object.")
         if (o[1], o[2]) in seen:
@@ -240,7 +241,7 @@ class DashLevels:
             like = "%" + text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
             where.append("(LOWER(d.name) LIKE ? ESCAPE '\\' OR u.name_key LIKE ? ESCAPE '\\')")
             args += [like, like]
-        offset = int(max(0, min(10_000, offset if isinstance(offset, (int, float)) and math.isfinite(offset) else 0)))
+        offset = int(offset) if is_num(offset, 0, 10_000) else 0
         rows = (await self.acc.q(f"SELECT d.id, d.user_id, d.name, d.descr, d.preview, d.status, d.reason, d.created, d.reviewed, d.plays, d.likes, "
                                  f"u.name AS by_name, u.avatar, u.color FROM dash_levels d JOIN users u ON u.id = d.user_id "
                                  f"WHERE {' AND '.join(where)} ORDER BY {order} LIMIT ? OFFSET ?", *args, limit + 1, offset))["rows"]
@@ -269,19 +270,21 @@ class DashLevels:
         ])
         return {"likes": res[2]["rows"][0]["likes"], "liked": bool(on)}
 
-    async def play(self, who, level_id):
-        """Count a play when a run starts: once per player per level every 10 minutes, and 40 an hour."""
+    async def play(self, who, level_id, ip="?"):
+        """Count a play when a run (or a race) starts: once per player per level every 10 minutes, and 40 an hour.
+        A guest's id comes from their own device, so guests are also capped per address (a few per level, for
+        a party sharing one wifi), and every address at most 8 per level, so new ids or accounts can't pile plays up."""
         acc = self.acc
-        if acc.limited(f"dashplay:{who}:{level_id}", 1, 600) or acc.limited(f"dashplay:{who}", 40, 3600):
+        keys = [(f"dashplay:{who}:{level_id}", 1, 600), (f"dashplay:{who}", 40, 3600), (f"dashplay-ip:{ip}:{level_id}", 8, 600)]
+        if not who.startswith("acct:"):
+            keys += [(f"dashplay-guest:{ip}:{level_id}", 3, 600), (f"dashplay-guest:{ip}", 60, 3600)]
+        if any(acc.limited(*k) for k in keys):
             return {"counted": False}
         res = await acc.q("UPDATE dash_levels SET plays = plays + 1 WHERE id = ? AND status = 'approved'", level_id)
         if res["changes"]:
-            acc.hit(f"dashplay:{who}:{level_id}")
-            acc.hit(f"dashplay:{who}")
+            for k in keys:
+                acc.hit(k[0])
         return {"counted": bool(res["changes"])}
-
-    async def add_race_play(self, level_id):
-        await self.acc.q("UPDATE dash_levels SET plays = plays + 1 WHERE id = ? AND status = 'approved'", level_id)
 
     # -- admins -----------------------------------------------------------------
     async def queue(self, status="pending"):
@@ -312,7 +315,7 @@ class DashLevels:
                                new, reason, now(), admin["id"], level_id, r["status"])
         if not res["changes"]:
             raise AuthError("Someone else just reviewed that level.")
-        if new == "approved" and r["status"] == "pending":
+        if new == "approved" and r["status"] in ("pending", "rejected"):   # first approval (unlisted ones were approved before)
             await self.bump(r["user_id"], {"dash.levels_approved": ("add", 1)})
         return {"id": r["id"], "user_id": r["user_id"], "name": r["name"], "status": new, "reason": reason}
 

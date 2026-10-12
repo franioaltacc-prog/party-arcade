@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
+  <script>try { document.documentElement.dataset.theme = JSON.parse(localStorage.getItem('pa_theme')) || 'neon'; } catch (e) { /* storage blocked */ }</script>
   <style>
     .ms-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
     .ms-bar .grow { flex: 1; }
@@ -43,7 +44,7 @@
     .mp-row .bar { grid-column: 1 / -1; height: 7px; border-radius: 999px; background: rgba(0,0,0,.35); overflow: hidden; }
     .mp-row .bar i { display: block; height: 100%; border-radius: inherit; background: var(--c, var(--cyan)); transition: width .3s; }
     .mp-row .sub { grid-column: 2 / -1; font-size: .78rem; color: var(--muted); }
-    .ms-result { margin-bottom: 12px; padding: 14px; border-radius: 18px; background: linear-gradient(160deg, rgba(250,204,21,.16), rgba(255,79,216,.1)); border: 1px solid rgba(250,204,21,.4); }
+    .ms-result { margin-bottom: 12px; padding: 14px; border-radius: 18px; background: linear-gradient(160deg, rgba(250,204,21,.16), color-mix(in srgb, var(--pink) 10%, transparent)); border: 1px solid rgba(250,204,21,.4); }
     .ms-result h3 { font-family: var(--font-display); font-weight: 400; font-size: 1.4rem; margin-bottom: 8px; text-align: center; }
     .ms-result .rr { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 12px; }
     .ms-result .rr:nth-child(2) { background: rgba(250,204,21,.14); }
@@ -53,7 +54,7 @@
     .mode-card { text-align: left; padding: 14px; border-radius: 18px; border: 2px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; }
     .mode-card b { display: block; font-size: 1.1rem; margin-bottom: 4px; }
     .mode-card span { font-size: .85rem; color: var(--muted); }
-    .mode-card.on { border-color: var(--pink); background: rgba(255,79,216,.14); }
+    .mode-card.on { border-color: var(--pink); background: color-mix(in srgb, var(--pink) 14%, transparent); }
     .mode-card:disabled { cursor: default; }
     .solo-best { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px; }
     .solo-best span { padding: 5px 12px; border-radius: 999px; background: var(--panel-2); font-weight: 600; font-size: .85rem; }

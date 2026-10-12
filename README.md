@@ -41,8 +41,8 @@ online game (casino coins, Family Life money/stats/time skip, Neon Dash god mode
 A game where an admin used a cheat doesn't count for anyone's stats or leaderboards.
 
 ## Games
-- **Online:** Neon Dash (mini Geometry Dash race), Family Life (multiplayer BitLife with siblings), Doodle Guess, Impostor, Minesweeper (Race / Battle), Front Wars (OpenFront-style territory war: free-for-all with alliances or teams, bots, ports, warships, nukes and replays), Prop Hunt (top-down hide and seek with a killer), Poly Racer (low-poly 3D racing), Billiards (8-ball / 9-ball pool, winner stays on), Party Blitz, Connect 4
-- **Solo:** Billiards (vs CPU, Speed Clear, practice), Poly Racer time trial, Neon Dash practice, Neon Dash level editor + community levels (beat your level to verify it, then post it: an admin approves it first, 3 posts a day; hosts can race community levels online), Minesweeper (Easy / Medium / Hard), Front Wars vs bots, Slope (3D, three.js), Snake, 2048, Memory Flip
+- **Online:** Neon Dash (mini Geometry Dash race), Family Life (multiplayer BitLife with siblings), Doodle Guess, Impostor, Minesweeper (Race / Battle), Front Wars (OpenFront-style territory war: free-for-all with alliances or teams, bots, ports, warships, nukes and replays), Prop Hunt (top-down hide and seek with a killer), Poly Racer (low-poly 3D racing), Billiards (8-ball / 9-ball pool, winner stays on), Flappy Royale (Neon Flappy with everyone flying the same pipes), Mini Golf (3D, everyone on the same hole with ghost balls), Party Blitz, Connect 4
+- **Solo:** Mini Golf (Classic Meadow and Spooky Hollow, 9 holes each), Neon Flappy (medals, unlockable birds), Billiards (vs CPU, Speed Clear, practice), Poly Racer time trial, Neon Dash practice, Neon Dash level editor + community levels (beat your level to verify it, then post it: an admin approves it first, 3 posts a day; hosts can race community levels online), Minesweeper (Easy / Medium / Hard), Front Wars vs bots, Slope (3D, three.js), Snake, 2048, Memory Flip
 - **Fun:** Spin the Wheel, Would You Rather (global votes), Magic 8-Ball
 - **Casino Night (fake coins only):** every match everyone starts with the same coins; most coins at the end wins.
   - VS HOUSE: Roulette, Lucky Dice, Blackjack, Slots. VS PLAYERS: Texas Hold'em, Coinflip, High Card and Dice duels.
@@ -112,9 +112,41 @@ physics and the 8-ball / 9-ball rules with no drawing; `games/pool_core.py` is a
 - **Solo** (`/games/billiards?solo=1`): vs CPU (Easy / Medium / Hard, `poolcpu.wins`, best level), Speed Clear (pot
   all 15 as fast as you can, a scratch adds 10 s, `poolspeed.best` leaderboard) and free practice.
 
+## Neon Flappy
+Tap to flap through glowing neon pipes (a spooky look during the Halloween event). `public/js/games/flappy-core.js` is
+the level (pipes from a seed) and the bird's physics in fixed 1/120 s steps, with no drawing, so it plays the same at any
+refresh rate; the bird's x depends only on time, which is what lets the server check scores.
+- **Solo** (`/games/flappy?solo=1`): medals at 10 / 20 / 30 / 50 pipes, birds unlocked by your best score,
+  `flappy.best` leaderboard.
+- **Flappy Royale** (`games/flappy.py`, 1 / 3 / 5 rounds): everyone gets the same seed and flies at the same time, seeing
+  the others as ghost birds; places by score then flight time give 5 / 3 / 2 / 1 points. The server rejects scores that
+  are more than the flight time allows, and a bird that goes quiet for 6 s counts as crashed. Stats:
+  `flappy.games/wins/best_online`. Admin cheats: god mode, end the round.
+- `tests/flappytest.js` (`node tests/flappytest.js`) proves every test level can be flown deep into the hard part;
+  `tests/flappybot.py` plays Flappy Royale over websockets.
+
+## Mini Golf
+Low-poly 3D mini golf (three.js). `public/js/games/golf-core.js` holds both 9-hole courses as data (tile maps plus ramps,
+hills, bumpers, blocks, moving obstacles and teleports) and the ball physics in fixed 1/120 s steps on the hole clock,
+with no drawing, so the same shots always end in the same place. Drag back from the ball like a slingshot (mouse or
+touch), drag elsewhere to look around, 🗺️ / V for the whole hole; ←/→ ↑/↓ and Space on a keyboard. Water, drops and
+out of bounds cost a stroke and put you back where you played from (not when a moving obstacle knocks a waiting ball in);
+8 strokes and the ball is picked up.
+- **Classic Meadow** (windmill, ramp jump, sliding gate, island green, rabbit-hole teleport) and **Spooky Hollow**
+  (sliding tombstones, swinging coffin, bat mill, haunted house with a trick door, crypt jump, toxic marsh).
+- **Solo** (`/games/golf?solo=1`, or `&course=spooky&hole=6` for one hole): scorecard, best total per course,
+  `golf-classic` / `golf-spooky` leaderboards (lowest strokes; a Spooky round also counts as `golf.spooky_done`).
+- **Online** (`games/golf.py`, course classic / spooky / random, 3 / 6 / 9 holes): everyone plays the same hole at once;
+  each browser runs its own ball and sends its position (drawn as coloured ghost balls) and its strokes. The hole ends
+  when everyone is done or 45 s after the first player holes out (the rest get 8). Lowest total wins. The server
+  checks strokes (1–8, at least 0.8 s a stroke). Stats: `golf.games/wins/holes/aces/best/spooky_done`. Admin cheats:
+  hole in one, end the hole. Also in party mode and tournaments (3 random holes).
+- `tests/golftest.js` (`node tests/golftest.js`) solves every hole within par + 1 and fuzzes the physics (no escapes,
+  no tunnelling, obstacles never push the ball through a rail); `tests/golfbot.py` plays Mini Golf over websockets.
+
 ## Tournaments
 `tournaments.py`. In any room the host presses “🏆 Start a tournament” and picks Connect 4, Billiards, Neon Dash, Minesweeper,
-Party Blitz or Prop Hunt (3–16 players; watchers don't count). Everyone goes to the live bracket at
+Party Blitz, Prop Hunt or Mini Golf (3–16 players; watchers don't count). Everyone goes to the live bracket at
 `/tournament?id=XXXXX` (byes when the numbers don't fill the bracket). Each round, every match gets its own room with
 quick settings and both players are sent there; it starts once both are in, a no-show after 45 s or leaving for 25 s
 loses, ties are replayed twice then decided by a coin flip. Anyone else joining a match room can only watch. The
@@ -169,9 +201,10 @@ python3 tests/run_all.py
 ```
 It starts a throwaway server (temporary SQLite database, test admin code `test-admin-code-123`) and runs ~400 checks:
 - Websocket bots that play the online games like real players: accounts, friends, invites, votes, party mode, watching,
-  Prop Hunt, tournaments, Poly Racer, Minesweeper, Front Wars, Billiards, cheats and rewards.
+  Prop Hunt, tournaments, Poly Racer, Minesweeper, Front Wars, Billiards, Flappy Royale, Mini Golf, cheats and rewards.
 - In-process tests of the Prop Hunt rules and tournament brackets, and the pool physics (Python vs JS, bit for bit).
-- If JavaScriptCore (macOS) or Node is installed, an autopilot drives every Poly Racer track.
+- If JavaScriptCore (macOS) or Node is installed, an autopilot drives every Poly Racer track, every Neon Flappy
+  test level is checked to be flyable and every Mini Golf hole is solved within par + 1.
 
 To run one bot on its own: start a server (`DATA_DIR=/tmp/x ADMIN_CODE=test-admin-code-123 PORT=8012 python3 server.py`),
 then `PORT=8012 python3 tests/gamesbot.py`. `accbot` expects a fresh database. The Doodle "show me the word" cheat check

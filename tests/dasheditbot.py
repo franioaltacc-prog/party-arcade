@@ -86,10 +86,22 @@ async def main():
         "zigzag on a ship zone": level(zones=[["ship", 30, 20, 7, 4, [[3, 3]]]]),
         "zigzag outside the zone": level(zones=[["wave", 30, 20, 7, 4, [[25, 3]]]]),
         "level not an object": [1, 2, 3],
+        "object type is an object": level(objs=[[{"a": 1}, 3, 0]]),
+        "object type is a list": level(objs=[[["#"], 3, 0]]),
+        "400-digit cell": level(objs=[["#", 10 ** 400, 0]]),
+        "400-digit zigzag point": level(zones=[["wave", 30, 20, 7, 4, [[10 ** 400, 3]]]]),
+        "400-digit zigzag gap": level(zones=[["wave", 30, 20, 7, 10 ** 400, [[3, 3]]]]),
+        "zone mode is a list": level(zones=[[["ship"], 30, 20, 7]]),
+        "theme is a list": level(theme=["hard"]),
     }
     for label, lv in bad.items():
         r = await req(b, "dash:post", level=lv, replay=replay(lv["len"] if isinstance(lv, dict) and isinstance(lv.get("len"), int) and lv["len"] < 10 ** 6 else 80))
-        check(not r["ok"] and "Slow down" not in r["error"], f"refused: {label} ({r.get('error')})")
+        check(not r["ok"] and "Slow down" not in r["error"] and "went wrong" not in r["error"], f"refused: {label} ({r.get('error')})")
+    for off in (10 ** 400, -5, 1e300, "x", [1], {"a": 1}, True):   # odd offsets are just ignored, never a server error
+        r = await req(g, "dash:list", offset=off); check(r["ok"] and isinstance(r["levels"], list), f"dash:list with offset {str(off)[:12]!r} is fine ({r.get('error')})")
+    r = await req(g, "dash:list", sort=["x"], q={"a": 1}, by=[1]); check(r["ok"], f"dash:list with odd sort / q / by is fine ({r.get('error')})")
+    for bad_id in (10 ** 400, [1], {"a": 1}, -1, "1; DROP", 1.5):
+        r = await req(g, "dash:get", id=bad_id); check(not r["ok"] and "went wrong" not in r["error"], f"dash:get with id {str(bad_id)[:12]!r} is a clean refusal ({r.get('error')})")
     r = await req(b, "dash:post", level=level(), replay=None); check(not r["ok"] and "verify" in r["error"].lower(), "refused: no verify run")
     r = await req(b, "dash:post", level=level(), replay={"e": [5, 3], "n": run_ticks(80)}); check(not r["ok"], "refused: inputs out of order")
     r = await req(b, "dash:post", level=level(), replay={"e": [], "n": 100}); check(not r["ok"] and "reach the end" in r["error"], "refused: verify run that doesn't reach the end")
@@ -216,6 +228,61 @@ async def main():
     r = await req(g, "dash:get", id=cid); check(not r["ok"], "their level is gone")
     r = await req(g, "dash:list", q="leaving"); check(r["levels"] == [], "and not listed")
     r = await req(g, "dash:get", id=ids[0]); check(r["level"]["likes"] == before - 1, f"their like is taken back ({before} -> {r['level']['likes']})")
+
+    # ---- regressions from the backend review
+    # approving a level that was rejected before counts as the creator's approval (achievement + profile list)
+    r = await req(adm, "dash:review", id=ids[1], action="approve"); check(r["ok"] and r["status"] == "approved", "admin approves a previously rejected level")
+    r = await req(a, "profile:get", name="Maker" + U)
+    check(r["profile"]["stats"].get("dash.levels_approved") == 2, f"rejected -> approved counts as an approval ({r['profile']['stats'].get('dash.levels_approved')})")
+
+    async def race_once(w, lid, stop=True):
+        """A lone player makes a room, picks a level, starts and stops a race, and leaves. The g:start (or None)."""
+        w.send({"t": "room:create", "game": "dash"}); await w.wait("room:joined")
+        w.send({"t": "g:settings", "level": lid})
+        m = await w.wait("g:settings")
+        while not m["settings"].get("level"):
+            m = await w.wait("g:settings")
+        w.send({"t": "g:start"}); m = await w.wait("g:start")
+        if stop:
+            w.send({"t": "g:stop"}); await w.wait("g:results")
+        w.send({"t": "room:leave"}); await asyncio.sleep(0.2)
+        return m
+
+    # plays can't be piled up by racing alone in room after room, or by reconnecting as new guests
+    h = BigWS(); await h.connect("dshH" + U + "xx", "guest2"); await h.wait("welcome")
+    for _ in range(4):
+        await race_once(h, ids[1])
+    await asyncio.sleep(0.4)
+    r = await req(g, "dash:get", id=ids[1]); check(r["level"]["plays"] == 1, f"4 solo races in 4 new rooms count once ({r['level']['plays']})")
+    counted = 0
+    for i in range(6):
+        x = BigWS(); await x.connect(f"dshR{U}{i:03d}", "guest"); await x.wait("welcome")
+        r = await req(x, "dash:play", id=ids[1]); counted += bool(r.get("counted"))
+    r = await req(g, "dash:get", id=ids[1])
+    check(counted <= 2 and r["level"]["plays"] <= 3, f"6 'new' guests from one address add at most 2 plays ({counted}, total {r['level']['plays']})")
+
+    # a level that is unlisted / deleted after the host picked it isn't sent with the race
+    for how in ("unlist", "delete"):
+        lid = ids[0] if how == "unlist" else ids[1]
+        a.send({"t": "room:create", "game": "dash"}); j = await a.wait("room:joined")
+        b.send({"t": "room:join", "code": j["code"], "game": "dash"}); await b.wait("room:joined")
+        a.send({"t": "g:settings", "level": lid})
+        m = await b.wait("g:settings")
+        while not m["settings"].get("level"):
+            m = await b.wait("g:settings")
+        if how == "unlist":
+            r = await req(adm, "dash:review", id=lid, action="unlist", reason="Copied"); check(r["ok"], "admin unlists the picked level")
+        else:
+            r = await req(a, "dash:delete", id=lid); check(r["ok"], "creator deletes the picked level")
+        b.drain()
+        a.send({"t": "g:start"})
+        m = await a.wait("error"); check("isn't available" in m["msg"], f"host is told the {how}ed level can't be raced")
+        m = await b.wait("g:settings"); check(m["settings"]["level"] is None, f"everyone goes back to random levels ({how})")
+        await asyncio.sleep(0.4)
+        check(not any(x["t"] == "g:start" for x in b.drain()), f"no race (and no level data) is sent after {how}")
+        a.send({"t": "g:start"}); m = await b.wait("g:start"); check(not m["race"]["custom"], f"the next start is a random level ({how})")
+        a.send({"t": "g:stop"}); await asyncio.sleep(0.3)
+        a.send({"t": "room:leave"}); b.send({"t": "room:leave"}); await asyncio.sleep(0.3)
 
     print("FAILED:", check.failed)
 

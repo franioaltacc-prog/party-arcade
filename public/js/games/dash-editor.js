@@ -14,6 +14,8 @@
   const params = new URLSearchParams(location.search);
   const embed = params.get('embed') === '1';
   if (embed) document.body.classList.add('dash-embed');
+  // the admin's preview frame has the keyboard focus: Esc there still closes the preview around it
+  if (embed) addEventListener('keydown', (e) => { if (e.key === 'Escape' && parent !== window) { try { parent.document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); } catch { /* not our page */ } } });
 
   // ====================================================================
   // Palette

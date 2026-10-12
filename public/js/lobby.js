@@ -18,6 +18,8 @@
     front: { title: 'Front Wars', emoji: '🌍' },
     prophunt: { title: 'Prop Hunt', emoji: '🔫' },
     poly: { title: 'Poly Racer', emoji: '🏎️' },
+    flappy: { title: 'Neon Flappy', emoji: '🐤' },
+    golf: { title: 'Mini Golf', emoji: '⛳' },
   };
 
   const Room = {
@@ -148,7 +150,7 @@
   function refreshPlayers() { playerPanels.forEach(drawPlayers); }
 
   // ------------------------------------------------------------ watching, votes, party mode
-  const PARTY_GAMES = ['dash', 'poly', 'doodle', 'blitz', 'impostor', 'mines', 'front', 'prophunt', 'casino', 'life'];
+  const PARTY_GAMES = ['dash', 'poly', 'doodle', 'blitz', 'impostor', 'mines', 'front', 'prophunt', 'casino', 'life', 'flappy', 'golf'];
   const SWITCH_GAMES = [...PARTY_GAMES, 'connect4', 'billiards'];
   const PARTY_POINTS = [10, 7, 5, 3];
   const gTitle = (g) => (GAME_INFO[g] || {}).title || g;
@@ -219,7 +221,7 @@
       list, grid, startBtn), { wide: true });
   }
 
-  const TOUR_GAMES = ['connect4', 'billiards', 'dash', 'poly', 'mines', 'blitz', 'prophunt'];
+  const TOUR_GAMES = ['connect4', 'billiards', 'dash', 'poly', 'mines', 'blitz', 'prophunt', 'golf'];
   function tourPicker() {
     const players = Room.players.filter((p) => p.online && !p.watch).length;
     let pick = TOUR_GAMES.includes(Room.game) ? Room.game : 'connect4';
@@ -448,6 +450,8 @@
     mines: [['mines', '💣 X-ray: see all mines'], ['clear', '🧹 Clear the board for me'], ['end', '🏁 End the game']],
     front: [['troops', '💪 +50,000 troops', true], ['gold', '💰 +100,000 gold', true], ['end', '🏁 End the game']],
     poly: [['end', '🏁 End the race']],
+    flappy: [['god', '😇 God mode (no crashes)', true], ['end', '🏁 End the round']],
+    golf: [['ace', '⛳ Hole in one (hole it now)'], ['end', '🏁 End the hole']],
     billiards: [['hand', '✋ Ball in hand for me'], ['clear', '🧹 Pot all my balls'], ['win', '🏆 Win this frame']],
     prophunt: [['xray', '🔎 X-ray: see everyone'], ['skip', '⏭️ Skip this round'], ['end', '🏁 End the game']],
   };

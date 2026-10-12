@@ -29,6 +29,7 @@ class Dash(Game):
         self.settings = {"difficulty": "normal", "length": "medium", "checkpoints": True, "modes": True, "level": None}
         self.custom = None        # the community level's data when the host picked one (settings["level"] = its card)
         self.picking = 0
+        self.checking = False     # looking the picked level up again before a race starts
         self.race = None
         self.results = None
         self.wins = {}
@@ -67,7 +68,10 @@ class Dash(Game):
                     self.room.hub.spawn(self.pick_level(m, msg["level"]))   # looked up in the database first
             self.broadcast("settings", settings=self.settings)
         elif t == "start" and host and self.phase != "racing":
-            self.start()
+            if self.settings.get("level"):
+                self.room.hub.spawn(self.start_custom(m))   # the picked level is looked up again first
+            else:
+                self.start()
         elif t == "stop" and host and self.phase == "racing":
             self.end()
         elif t == "pos" and self.phase == "racing":
@@ -104,6 +108,31 @@ class Dash(Game):
         self.settings["level"] = {"id": lv["id"], "name": lv["name"], "by": lv["by"]["name"], "len": lv["data"]["len"]}
         self.broadcast("settings", settings=self.settings)
 
+    async def start_custom(self, m):
+        """Start a race on the picked community level, but only if it's still approved (an admin may have
+        unlisted it, its creator deleted it, or the creator was banned or wiped since the host picked it)."""
+        if self.checking:
+            return
+        hub, picked = self.room.hub, self.settings["level"]
+        self.checking = True
+        try:
+            lv = await hub.dash_levels.get(picked["id"])
+        except Exception as e:
+            if type(e).__name__ != "AuthError":
+                traceback.print_exc()
+            lv = None
+        finally:
+            self.checking = False
+        if self.phase == "racing" or hub.rooms.get(self.room.code) is not self.room or self.settings.get("level") is not picked:
+            return
+        if not lv:
+            self.settings["level"], self.custom = None, None
+            self.broadcast("settings", settings=self.settings)
+            m.send("error", msg="That community level isn't available any more — pick another one.")
+            return
+        self.custom = lv["data"]
+        self.start()
+
     def start(self):
         self.phase = "racing"
         self.results = None
@@ -123,18 +152,17 @@ class Dash(Game):
             self.count_play(self.settings["level"]["id"])
 
     def count_play(self, lid):
-        """A community level race counts as one play (at most once a minute per room)."""
+        """A community level race counts as a play for each racer, with the same per-player limits as a
+        solo run (so making room after room alone doesn't pile plays up)."""
         hub = self.room.hub
-        key = f"dashrace:{self.room.code}:{lid}"
-        if hub.accounts.limited(key, 1, 60):
-            return
-        hub.accounts.hit(key)
+        racers = [u.client for u in self.room.players_now() if u.client]
 
         async def go():
-            try:
-                await hub.dash_levels.add_race_play(lid)
-            except Exception:
-                traceback.print_exc()
+            for c in racers:
+                try:
+                    await hub.dash_levels.play(c.person(), lid, c.ip)
+                except Exception:
+                    traceback.print_exc()
         hub.spawn(go())
 
     def finish(self, m, msg):
