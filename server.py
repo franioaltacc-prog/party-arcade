@@ -460,6 +460,8 @@ class Room:
         if self.tour and client.uid in (self.tour[1]["a"], self.tour[1]["b"]) and self.host not in (self.tour[1]["a"], self.tour[1]["b"]):
             self.host = client.uid      # in a tournament match one of the two players is always the host
         if client.uid == self.prev_host:
+            if self.host != client.uid and self.host in self.members and rejoin:
+                self.system(f"👑 {member.name} is the host again")
             self.host, self.prev_host = client.uid, None
         self.pick_host()
         client.send("room:joined", code=self.code, game=self.game_key, me=client.uid, party=self.party_public(), vote=self.vote_public(), tour=self.tour_public(),
@@ -491,6 +493,8 @@ class Room:
         if member.client:
             member.client.room = None
         self.system(f"{member.avatar} {member.name} left")
+        if uid == self.prev_host:
+            self.prev_host = None
         self.game.on_leave(member)
         self.pick_host()
         self.sync_players()
@@ -513,6 +517,9 @@ class Room:
             return
         for m in self.members.values():
             if m.online:
+                if current is not None and self.prev_host is None:
+                    # the host only dropped (page reload, game switch): they get the crown back on return
+                    self.prev_host = current.uid
                 self.host = m.uid
                 if current is not None:
                     self.system(f"👑 {m.name} is now the host")

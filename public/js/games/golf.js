@@ -1680,8 +1680,11 @@
       // a ball knocked in by an obstacle while it sat waiting for you costs nothing: it goes back to where
       // it was resting (or, if that spot is in the obstacle's way, to where you last played from)
       const free = G.outFree;
+      const spot = free && !inMoverPath(G.restSpot) ? G.restSpot : G.last;
+      // don't put the ball back inside an obstacle that is passing over the spot right now: wait for it to clear
+      if (inMoverPath(spot, G.t, 0.35) && now - G.outAt < 5000) return;
       if (!free) G.strokes += 1;
-      Object.assign(b, C.newBall(G.H, free && !inMoverPath(G.restSpot) ? G.restSpot : G.last), { ev: [] });
+      Object.assign(b, C.newBall(G.H, spot), { ev: [] });
       cam.snap = true;
       if (G.strokes >= P.MAX_STROKES) pickUp(); else G.state = 'play';
       renderHud();
@@ -1703,11 +1706,13 @@
     if (G.mode === 'online') Net.send('g:pos', { x: +G.ball.x.toFixed(2), y: +G.ball.y.toFixed(2), z: +G.ball.z.toFixed(2), s: G.strokes, moving: true });
   }
   // could a moving obstacle reach a ball resting here?
-  function inMoverPath(spot) {
+  // (with from/span: only during that stretch of the hole clock)
+  function inMoverPath(spot, from, span) {
     if (!spot) return true;
     for (const m of G.H.movers) {
       for (let i = 0; i < 48; i++) {
-        const A = C.moverPose(m, (m.period || 1) * i / 48);
+        const A = C.moverPose(m, span ? from + span * i / 47 : (m.period || 1) * i / 48);
+        if (span && A.on === false) continue;
         const ca = Math.cos(A.a); const sa = Math.sin(A.a);
         const rx = spot[0] - A.x; const rz = spot[1] - A.z;
         if (Math.abs(rx * ca + rz * sa) < A.hw + P.R + 0.1 && Math.abs(-rx * sa + rz * ca) < A.hd + P.R + 0.1) return true;
@@ -1900,6 +1905,14 @@
       const f = C.floorAt(G.H, px, pz);
       const floorY = C.solid(f) ? C.surface(G.H, px, pz, {}).h + P.WALL_H + 0.35 : 0.5;
       if (py < floorY) py = floorY;
+      // …nor inside a brick wall, tombstone or the haunted house: go up over it instead
+      for (const bl of G.H.blocks) {
+        const e = Math.max(bl.x0 - px, px - bl.x1, bl.z0 - pz, pz - bl.z1);   // how far outside it the camera is
+        if (bl.hidden || e > 0.9) continue;
+        const top = C.surface(G.H, (bl.x0 + bl.x1) / 2, (bl.z0 + bl.z1) / 2, {}).h + ({ brick: 0.8, tomb: 1.25, house: 3.6 }[bl.style] || 0.8) + 0.3;
+        const w = e <= 0.3 ? 1 : 1 - (e - 0.3) / 0.6;   // rise smoothly on the way in
+        if (py < top) py += (top - py) * w * w * (3 - 2 * w);
+      }
     }
     camera.position.set(px, py, pz);
     const ahead = cam.mode === 'overview' ? 0 : (viewH > viewW ? 4.2 : 1.8) * Math.min(1.3, c.dist / 6);

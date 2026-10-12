@@ -734,14 +734,14 @@
   // ------------------------------------------------------------------ the ball
   function newBall(H, at) {
     const [x, z] = at || H.tee;
-    return { x, z, y: surface(H, x, z).h, vx: 0, vy: 0, vz: 0, state: 'rest', why: null, tc: 0, ev: null };
+    return { x, z, y: surface(H, x, z).h, vx: 0, vy: 0, vz: 0, state: 'rest', why: null, tc: 0, pin: false, pc: 0, ev: null };
   }
-  const cloneBall = (b) => ({ x: b.x, z: b.z, y: b.y, vx: b.vx, vy: b.vy, vz: b.vz, state: b.state, why: b.why, tc: b.tc, ev: null });
+  const cloneBall = (b) => ({ x: b.x, z: b.z, y: b.y, vx: b.vx, vy: b.vy, vz: b.vz, state: b.state, why: b.why, tc: b.tc, pin: !!b.pin, pc: b.pc || 0, ev: null });
   /** Hit the ball: angle in radians (0 = +x, π/2 = +z), power 0..1. */
   function hit(b, angle, power) {
     const v = Math.max(0.04, Math.min(1, power)) * P.VMAX;
     b.vx = Math.cos(angle) * v; b.vz = Math.sin(angle) * v; b.vy = 0;
-    b.state = 'roll';
+    b.state = 'roll'; b.pin = false; b.pc = 0;
   }
   const emit = (b, e) => { if (b.ev) b.ev.push(e); };
 
@@ -911,8 +911,9 @@
       const sand = floorAt(H, b.x, b.z) === SAND;
       const roll = sand ? P.SAND_ROLL : P.ROLL; const drag = sand ? P.SAND_DRAG : P.DRAG;
       const slope = P.G * Math.hypot(s.gx, s.gz);
-      if (b.state === 'rest' && slope > roll * 1.05) b.state = 'roll';
+      if (b.state === 'rest' && slope > roll * 1.05 && !b.pin) b.state = 'roll';
       if (b.state === 'roll') {
+        b.pin = false;
         b.vx -= P.G * s.gx * dt; b.vz -= P.G * s.gz * dt;
         let sp = Math.hypot(b.vx, b.vz);
         if (sp > 0) {
@@ -933,6 +934,13 @@
       }
     }
     collide(H, b, t, dt);
+    if (b.state === 'roll') {
+      // held still on a slope by a rail (gravity pushing straight into it): after a moment it counts as at rest
+      if (Math.hypot(b.x - b.ox, b.z - b.oz) < 5e-4 && Math.hypot(b.vx, b.vz) < P.STOP_V) {
+        b.pc = (b.pc || 0) + 1;
+        if (b.pc >= 12) { b.state = 'rest'; b.vx = b.vz = 0; b.pin = true; b.pc = 0; }
+      } else b.pc = 0;
+    }
     const sp = Math.hypot(b.vx, b.vz);
     if (sp > P.VCAP) { b.vx *= P.VCAP / sp; b.vz *= P.VCAP / sp; }
     if (b.x < -2 || b.z < -2 || b.x > H.W + 2 || b.z > H.D + 2) { out(b, 'oob'); return; }

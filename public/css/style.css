@@ -147,6 +147,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 @keyframes wobble { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg) scale(1.05); } }
 .logo .logo-word span:nth-child(2) { color: var(--pink); }
 .topbar .page-title { font-weight: 700; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topbar .page-title > span { flex: none; }
+.topbar .page-title > span:last-child { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }   /* the title itself gets the "…" */
 .topbar .spacer { flex: 1; }
 .back-link {
   display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 12px;
@@ -341,7 +343,8 @@ label.field { display: flex; flex-direction: column; gap: 6px; font-weight: 600;
 @keyframes bob { 0%, 100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-10px) rotate(4deg); } }
 .entry h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.9rem, 6vw, 2.8rem); margin: 12px 0 6px; }
 .entry .tagline { color: var(--muted); font-size: 1.05rem; margin-bottom: 22px; }
-.entry .actions { display: grid; gap: 12px; }
+.entry .actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.entry .actions .btn-block { white-space: normal; text-wrap: balance; }   /* long labels wrap instead of overflowing the card on phones */
 .entry .join-row { display: flex; gap: 10px; }
 .entry .join-row .input { flex: 1; }
 .entry .divider { display: flex; align-items: center; gap: 12px; color: var(--faint); font-size: 0.85rem; margin: 6px 0; }
@@ -369,9 +372,22 @@ label.field { display: flex; flex-direction: column; gap: 6px; font-weight: 600;
   .room-layout { grid-template-columns: 1fr; }
   .topbar { gap: 8px; }
   .topbar .hide-sm { display: none !important; }
+  .topbar .profile-chip { min-width: 0; flex: 0 1 auto; }   /* shrink (name ellipsis) instead of pushing the page wider */
+  .topbar .profile-chip .name { min-width: 2.5em; }
   .chat-panel { height: 340px; }
   .entry { padding: 24px 16px; }
   .entry .join-row { flex-direction: column; }
+}
+@media (max-width: 420px) {
+  .topbar .profile-chip .guest-tag { display: none; }
+  .topbar .profile-chip { position: relative; }
+  /* the level badge sits on the avatar so the chip still fits on a phone */
+  .topbar .profile-chip .lvl { position: absolute; left: -3px; bottom: -5px; font-size: 0.56rem; line-height: 1.3; padding: 0 4px; pointer-events: none; }
+  .topbar .back-link + .logo { display: none; }   /* the back arrow already goes home: its room goes to the page title */
+}
+@media (max-width: 360px) {
+  .topbar .profile-chip { padding-right: 4px; }
+  .topbar .profile-chip .name { display: none; }
 }
 
 /* ---------- results / podium ---------- */

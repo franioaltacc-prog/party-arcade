@@ -57,8 +57,10 @@
     const top = stage.getBoundingClientRect().top + window.scrollY;
     // short landscape screens (phones on their side): the table gets the whole height, the page scrolls to it
     const short = !portrait && vh < 520;
-    const bar = short ? (($('.topbar') || {}).offsetHeight || 0) : 0;   // the sticky site header stays on screen
-    const under = short ? $('.bl-under').offsetHeight + 18 + bar : $('.bl-under').offsetHeight + ($('#help').offsetHeight || 0) + 34;
+    const tb = $('.topbar');
+    const bar = short && tb && /sticky|fixed/.test(getComputedStyle(tb).position) ? tb.offsetHeight : 0;   // a sticky site header stays on screen
+    const head = short ? Math.max(0, stage.getBoundingClientRect().top - game.getBoundingClientRect().top) : 0;   // the player cards stay on screen too
+    const under = short ? $('.bl-under').offsetHeight + 18 + bar + head : $('.bl-under').offsetHeight + ($('#help').offsetHeight || 0) + 34;
     const gh = short ? Math.max(160, vh - under) : Math.max(240, vh - Math.min(top, 220) - under);
     const A = OW / OH;
     let w, hh;
@@ -80,7 +82,7 @@
       Object.assign(V, { a: V.s, b: 0, c: 0, d: V.s, e: OUT * V.s, f: OUT * V.s });
     }
     stage.style.borderRadius = Math.round(0.07 * V.s) + 'px';
-    if (short) requestAnimationFrame(() => window.scrollTo(0, Math.max(0, stage.getBoundingClientRect().top + window.scrollY - 6 - bar)));
+    if (short) requestAnimationFrame(() => window.scrollTo(0, Math.max(0, game.getBoundingClientRect().top + window.scrollY - 6 - bar)));
     buildStatic();
     ballLut = null;
     for (const b of balls.values()) b.dirty = true;
@@ -1495,7 +1497,7 @@
       const low = Math.min(...[...on].filter((x) => x));
       return { sub: [h('span', {}, 'Next'), ballImg(low)], key: 'n' + low };
     }
-    if (F.open) return { sub: F.isBreak ? (F.turn === seat ? 'Break!' : '') : 'Open table', key: 'o' + F.isBreak + F.turn };
+    if (F.open) return { sub: F.isBreak ? (F.turn === seat && !F.over ? 'Break!' : '') : 'Open table', key: 'o' + F.isBreak + F.turn + !!F.over };
     const g = F.groups[seat];
     if (!g) return { sub: '', key: '' };
     const ids = g === 'solids' ? [1, 2, 3, 4, 5, 6, 7] : [9, 10, 11, 12, 13, 14, 15];
@@ -1556,6 +1558,7 @@
   const SCREENS = ['entry', 'menu', 'room', 'play'];
   function showScreen(name) {
     for (const s of SCREENS) $('#' + s).classList.toggle('hidden', s !== name);
+    document.body.classList.toggle('bl-playing', name === 'play');
     if (name !== 'room') window.scrollTo(0, 0);
     if (name === 'play') { V.w = 0; requestAnimationFrame(() => { layout(); redrawSpin(); showKbMark(); }); }
   }
@@ -2168,6 +2171,11 @@
     const loser = loserUid === Net.id ? 'You' : pl(loserUid).name;
     return h('p', {}, reason === 'eight' || reason === 'nine' || reason === 'cheat' ? `${winner} ${WIN_TEXT[reason]}` : `${loser}: ${WIN_TEXT[reason]}`);
   }
+  function leaveTable() {
+    if (!Room.code) return;
+    if (S && S.phase !== 'over' && mySeat() >= 0 && !confirm('Leave the table? This ends the match.')) return;
+    Lobby.leave();
+  }
   let lobbyView = false;
   function route() {
     if (solo) return;
@@ -2175,7 +2183,7 @@
     const showTable = S.phase !== 'lobby' && !(S.phase === 'over' && lobbyView);
     if (S.phase !== 'over') lobbyView = false;
     if (showTable) {
-      if ($('#play').classList.contains('hidden')) { $('#bl-grid').classList.remove('solo'); soloBar(null); tools([]); showScreen('play'); }
+      if ($('#play').classList.contains('hidden')) { $('#bl-grid').classList.remove('solo'); soloBar(null); tools([h('button', { class: 'btn btn-ghost btn-sm', title: 'Leave the room', onclick: leaveTable }, '🚪 Leave')]); showScreen('play'); }
     } else {
       showScreen('room');
       renderLobby();
@@ -2307,7 +2315,7 @@
     emoji: '🎱',
     tagline: 'Proper pool with real rolling balls. 8-ball or 9-ball, with friends or against the CPU.',
     howTo: '<b>How to play</b><ul><li><b>Aim</b> by moving the mouse (or dragging on the table), <b>shoot</b> by dragging back and letting go, or pull the power bar.</li><li>Put spin on the white ball for follow, draw and side.</li><li><b>8-ball:</b> pot your group (solids or stripes), then the 8. <b>9-ball:</b> always hit the lowest ball first; whoever pots the 9 wins.</li><li>Two players at the table, everyone else watches and plays the winner.</li></ul>',
-    solo: { label: '🎮 Play solo (vs CPU, Speed Clear, Practice)', onClick: soloMenu },
+    solo: { label: '🎮 Play solo (vs CPU & more)', onClick: soloMenu },
   });
   Lobby.renderCode($('#room-code'));
   Lobby.renderPlayers($('#room-players'), { extra: (p) => (S && S.seats && S.seats.includes(p.id) ? h('span', { title: 'At the table' }, '🎱') : null) });

@@ -150,5 +150,16 @@ for (const course of C.COURSES) {
     }
   }
 }
+// a ball the slope holds straight against a rail (Hilltop's corner, next to the small hill) must come to rest,
+// not "roll" at zero speed until the 30 s cut-off
+if (!only || only === 'classic-7') {
+  const H = C.build(C.COURSES[0].holes[6]);
+  const b = C.newBall(H, [7.62, 1.98]); b.state = 'roll';
+  let t = 0;
+  while (b.state === 'roll' && t < 5) { C.step(H, b, t); t += P.DT; }
+  let still = b.state === 'rest';
+  for (let i = 0; i < 240 && still; i++) { C.step(H, b, t); t += P.DT; if (b.state !== 'rest') still = false; }
+  check(still && t < 4, `classic-7 Hilltop: a ball pinned against the corner rail by the slope settles (${t.toFixed(2)}s, ${b.state})`);
+}
 say('FAILED: ' + failed);
 if (failed) { if (hasNode) process.exitCode = 1; else throw new Error(failed + ' golf checks failed'); }

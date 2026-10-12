@@ -5,7 +5,7 @@
   const FX = PA.FX || {};
   const root = $('#tournament');
   const id = (new URLSearchParams(location.search).get('id') || '').toUpperCase();
-  const EMOJI = { connect4: '🔴', billiards: '🎱', dash: '🟪', mines: '💣', blitz: '⚡', prophunt: '🔫', golf: '⛳' };
+  const EMOJI = { connect4: '🔴', billiards: '🎱', dash: '🟪', mines: '💣', blitz: '⚡', prophunt: '🔫', golf: '⛳', poly: '🏎️' };
   let T = null;
   let startsAt = 0;
   let cheered = false;
