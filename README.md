@@ -159,6 +159,24 @@ the first day it's over) and `track` (event stat → normal stat). While an even
 those stats: players keep what they earned, and rewards nobody can get any more are hidden once the event is over.
 The home page shows a banner with your progress while an event runs.
 
+## Themes and Halloween quests
+Settings → 🎨 Theme changes the look of the whole site: Neon (default), Midnight, Sunset, Ocean, Forest, Candy and
+Retro are free for everyone (guests keep their pick in the browser). Themes are a reward category (`themes` in
+`unlocks.json`, look slot `theme`), so a logged-in player's theme follows their account and the server checks it
+like auras. The 🎃 **Halloween theme** (fog, bats, a moon, a spooky font) belongs to the `halloween26` event and is only
+unlocked by finishing **all 8 Halloween quests** at `/quests` (quests are event achievements; a rule like
+`{"achs": [...]}` needs all of them, a `"stat"` list is summed, and `max` stats are tracked as a max during the
+event). Earn it before the event ends and it's yours forever. Less motion turns the ambience off.
+
+## Neon Dash level editor and community levels
+`/games/dash?editor=1` (or 🛠️ Level editor on the Neon Dash screen): build a level with every block, spike, orb,
+pad and Ship / UFO / Ball / Wave zone, playtest it in the real engine, keep drafts in the browser and share them as
+`ND1.…` codes. To post a level you must beat it from the start in one run ("verify"); that run's inputs are saved
+with it. Every account can post **3 levels per rolling 24 hours** (every post counts, approved, rejected or deleted;
+admins are exempt). New levels stay hidden until an admin approves them in `/admin` → 🟪 Dash levels, where the
+creator's verify run can be watched. Approved levels show up in 🌐 Community levels (search, sort, likes, plays) and
+hosts can race them online. Stored in the `dash_levels` and `dash_likes` tables (`dashlevels.py`).
+
 ## Minesweeper
 - **Solo** (`/games/mines?solo=1`): classic Easy 9×9, Medium 16×16, Hard 30×16; the first click is always safe. Medium and Hard times have leaderboards.
 - **Race**: everyone gets the same board (with a free opening); fastest clear wins; mines add a time penalty.
@@ -199,9 +217,10 @@ Everything lives in `games/life/data/*.json`. The files are re-read at the start
 ```
 python3 tests/run_all.py
 ```
-It starts a throwaway server (temporary SQLite database, test admin code `test-admin-code-123`) and runs ~400 checks:
+It starts a throwaway server (temporary SQLite database, test admin code `test-admin-code-123`) and runs ~800 checks:
 - Websocket bots that play the online games like real players: accounts, friends, invites, votes, party mode, watching,
-  Prop Hunt, tournaments, Poly Racer, Minesweeper, Front Wars, Billiards, Flappy Royale, Mini Golf, cheats and rewards.
+  Prop Hunt, tournaments, Poly Racer, Minesweeper, Front Wars, Billiards, Flappy Royale, Mini Golf, the Dash level
+  editor (posting limit, admin review), themes and Halloween quests, cheats and rewards.
 - In-process tests of the Prop Hunt rules and tournament brackets, and the pool physics (Python vs JS, bit for bit).
 - If JavaScriptCore (macOS) or Node is installed, an autopilot drives every Poly Racer track, every Neon Flappy
   test level is checked to be flyable and every Mini Golf hole is solved within par + 1.

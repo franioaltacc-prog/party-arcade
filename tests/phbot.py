@@ -144,9 +144,6 @@ async def bring_into_sight(town, k, hb, cx, cy, others=()):
                 queue.append(n)
     if goal is None:
         print("bring_into_sight: no way out from", round(hb.x), round(hb.y), "searched", len(prev))
-        if _os.environ.get("PH_DUMP"):
-            import json
-            json.dump({"map": town.m, "k": [k.x, k.y], "h": [hb.x, hb.y], "others": [[o.x, o.y] for o in others], "c": [cx, cy]}, open(_os.environ["PH_DUMP"], "w"))
         return False
     path = []
     while goal is not None:
