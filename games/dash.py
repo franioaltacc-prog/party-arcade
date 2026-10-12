@@ -229,7 +229,7 @@ class Dash(Game):
                 stats["dash.finishes"] = ("add", 1)
                 if n >= 2 and r["place"] <= 3:
                     stats["dash.podiums"] = ("add", 1)
-                detail = f"#{r['place']} of {n} · {r['time'] / 1000:.2f}s · {level}"
+                detail = f"#{r['place']} of {n} · {r['attempts']} attempt{'s' if r['attempts'] != 1 else ''} · {level}"
             else:
                 detail = f"Didn't finish ({round(r['p'] * 100)}%) · {level}"
             outcome = "win" if won else ("loss" if n >= 2 else "play")

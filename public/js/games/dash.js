@@ -3,7 +3,7 @@
    relays ghost positions and decides who finished first. */
 (() => {
   'use strict';
-  const { $, h, fill, Net, Sfx, UI, store, fmtTime, clamp, on: onBus } = PA;
+  const { $, h, fill, Net, Sfx, UI, store, clamp, on: onBus } = PA;
 
   const { SPEED, SUB, BUFFER, MODE_DIMS, buildLevel, newPlayer, step } = window.DashCore;
 
@@ -132,7 +132,7 @@
     showScreen('play');
     resize();
     $('#hud-att').textContent = '1';
-    $('#hud-time').textContent = '0.00';
+    $('#hud-prog').textContent = '0%';
     const modeLabel = { test: '🧪 Playtest', verify: '✅ Verify run', replay: '👀 Replay', community: '🌐 ' + ((opts.custom && opts.custom.name) || '') }[opts.mode];
     $('#hud-mode').textContent = modeLabel || '';
     $('#hud-mode').classList.toggle('hidden', !modeLabel);
@@ -213,9 +213,11 @@
       if (g.deathTimer <= 0 && !g.noRespawn) respawn();
     }
 
-    // HUD time
-    if (started && !g.finished) $('#hud-time').textContent = fmtTime(now - g.startAt);
-    else if (!started) $('#hud-time').textContent = '0.00';
+    // HUD: how far through the level you are (everyone moves at the same speed, so a clock wouldn't tell you anything)
+    if (!g.finished) {
+      const pct = started ? Math.max(0, Math.min(99, Math.floor((p.x / g.level.end) * 100))) : 0;
+      if (pct !== g.shownPct) { g.shownPct = pct; $('#hud-prog').textContent = pct + '%'; }
+    }
 
     // network
     if (g.mode === 'race' && now - g.lastSend > 66 && started && !g.finished) {
@@ -306,18 +308,18 @@
     const g = game;
     g.finished = true;
     g.finishMs = Math.round(now - g.startAt);
-    $('#hud-time').textContent = fmtTime(g.finishMs);
+    $('#hud-prog').textContent = '100%';
     Music.stop();
     Sfx.play('win');
     UI.confetti(160);
     burst(g.player.x + 0.5, g.player.y + 0.5, '#facc15', 40, 10);
     if (g.mode === 'race') {
       Net.send('g:finish', { time: g.finishMs, attempts: g.attempts });
-      showBanner(h('span', { class: 'big' }, 'FINISHED!'), `${fmtTime(g.finishMs)} · ${g.attempts} attempt${g.attempts === 1 ? '' : 's'}`);
+      showBanner(h('span', { class: 'big' }, 'FINISHED!'), `${g.attempts} attempt${g.attempts === 1 ? '' : 's'}`);
     } else if (g.custom) {
       if (g.onDone) setTimeout(() => { if (game === g) g.onDone(g); }, 900);   // the editor / community levels take it from here
     } else {
-      if (!g.cheated) PA.Account.submit('dash-solo', g.finishMs);
+      if (!g.cheated) PA.Account.submit('dash-solo', g.attempts);
       setTimeout(() => soloResults(g), 900);
     }
   }
@@ -831,7 +833,7 @@
     const best = store.get('dash_best', {});
     fill($('#solo-best'), ...DIFFS.flatMap(([d, dl]) => LENS.map(([l, ll]) => {
       const b = best[`${d}-${l}`];
-      return b ? h('div', { class: 'best-row' }, h('span', {}, `${dl} · ${ll}`), h('b', { class: 'mono' }, `${fmtTime(b.time)} · ${b.attempts}💀`)) : null;
+      return b ? h('div', { class: 'best-row' }, h('span', {}, `${dl} · ${ll}`), h('b', { class: 'mono' }, `${b.attempts} attempt${b.attempts === 1 ? '' : 's'} 💀`)) : null;
     })).filter(Boolean));
     if (!$('#solo-best').children.length) $('#solo-best').append(h('p', { class: 'muted small' }, 'No runs yet. Go set some records! 🏁'));
   }
@@ -847,13 +849,13 @@
     const key = `${g.difficulty}-${g.length}`;
     const best = store.get('dash_best', {});
     const prev = best[key];
-    const isBest = !prev || g.finishMs < prev.time;
-    if (isBest) { best[key] = { time: g.finishMs, attempts: g.attempts }; store.set('dash_best', best); }
+    const isBest = !prev || g.attempts < prev.attempts;
+    if (isBest) { best[key] = { attempts: g.attempts }; store.set('dash_best', best); }
     const close = UI.modal(h('div', { style: { textAlign: 'center' } },
       h('div', { style: { fontSize: '3rem' } }, isBest ? '🏆' : '🏁'),
       h('h2', {}, isBest ? 'New personal best!' : 'Level complete!'),
-      h('div', { class: 'result-big gradient-text' }, fmtTime(g.finishMs)),
-      h('p', { class: 'muted' }, `${g.attempts} attempt${g.attempts === 1 ? '' : 's'}` + (prev && !isBest ? ` · best ${fmtTime(prev.time)}` : '')),
+      h('div', { class: 'result-big gradient-text' }, g.attempts === 1 ? 'FLAWLESS!' : `${g.attempts} attempts`),
+      h('p', { class: 'muted' }, g.attempts === 1 ? 'First try, no crashes!' : prev && !isBest ? `Your best: ${prev.attempts} attempt${prev.attempts === 1 ? '' : 's'}` : 'Fewer attempts = better. Try it again?'),
       h('div', { class: 'col', style: { marginTop: '18px' } },
         h('button', { class: 'btn btn-pink btn-lg', onclick: () => { close(); playSolo(); } }, '🎲 New level'),
         h('button', { class: 'btn btn-cyan', onclick: () => { close(); playSolo(g.seed); } }, '🔁 Retry this level'),
@@ -882,7 +884,7 @@
         h('table', { class: 'table' }, h('tbody', {}, state.results.map((r, i) => h('tr', {},
           h('td', {}, r.done ? medal(i) : '💤'),
           h('td', {}, h('div', { class: 'row' }, UI.avatar(r, 'sm'), h('b', {}, r.name))),
-          h('td', { class: 'mono' }, r.done ? fmtTime(r.time) : `${Math.round(r.p * 100)}%`),
+          h('td', { class: 'mono' }, r.done ? '🏁 finished' : `${Math.round(r.p * 100)}%`),
           h('td', { class: 'muted small' }, `${r.attempts}💀`)))))));
     }
 
@@ -1009,8 +1011,8 @@
     if (gh) { gh.done = true; gh.p = 1; }
     if (state.race && state.race.runners[m.id]) Object.assign(state.race.runners[m.id], { done: true, p: 1, place: m.place });
     if (game && game.mode === 'race') {
-      $('#standings').append(h('span', { class: 'chip' }, UI.avatar(p, 'sm'), `${medal(m.place - 1)} ${p.name} · ${fmtTime(m.time)}`));
-      if (m.id === Net.id) showBanner(h('span', { class: 'big' }, m.place === 1 ? '🏆 1ST PLACE!' : `#${m.place}`), `${fmtTime(m.time)} · ${m.attempts} attempt${m.attempts === 1 ? '' : 's'}`, h('div', { class: 'small muted' }, 'Waiting for the others…'));
+      $('#standings').append(h('span', { class: 'chip' }, UI.avatar(p, 'sm'), `${medal(m.place - 1)} ${p.name} · ${m.attempts}💀`));
+      if (m.id === Net.id) showBanner(h('span', { class: 'big' }, m.place === 1 ? '🏆 1ST PLACE!' : `#${m.place}`), `${m.attempts} attempt${m.attempts === 1 ? '' : 's'}`, h('div', { class: 'small muted' }, 'Waiting for the others…'));
       else UI.toast(`${p.avatar} ${p.name} finished #${m.place}!`, '', 1800);
       renderTrack();
     }

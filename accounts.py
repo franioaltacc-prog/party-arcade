@@ -86,7 +86,7 @@ SOLO = {
     "snake": ("snake", 1, 5000),
     "2048": ("2048", 4, 5_000_000),
     "memory": ("memory", 3000, 3_600_000),   # milliseconds
-    "dash-solo": ("dashsolo", 1000, 3_600_000),
+    "dash-solo": ("dashsolo", 1, 9999),          # attempts it took to beat the level (fewer is better)
     "mines-easy": ("mines_easy", 1000, 3_600_000),     # milliseconds; lower is better
     "mines-medium": ("mines_medium", 5000, 3_600_000),
     "mines-hard": ("mines_hard", 20000, 3_600_000),
@@ -806,14 +806,15 @@ class Accounts:
         elif game == "pool-cpu":
             stats = {"poolcpu.wins": ("add", 1), "poolcpu.best": ("max", value)}
         elif game == "dash-solo":
-            stats = {"dashsolo.levels": ("add", 1), "dashsolo.best": ("min", value)}
+            stats = {"dashsolo.levels": ("add", 1), "dashsolo.fewest": ("min", value)}
         elif game in FASTEST:
             stats = {f"{prefix}.best": ("min", value), f"{prefix}.wins": ("add", 1)}
         else:
             stats = {f"{prefix}.best": ("max", value)}
         if game == "golf-spooky":
             stats["golf.spooky_done"] = ("add", 1)   # the Halloween "Haunted hole" quest counts solo rounds too
-        before = await self.q("SELECT value FROM stats WHERE user_id = ? AND key = ?", user_id, f"{prefix}.best")
+        best_key = "dashsolo.fewest" if game == "dash-solo" else f"{prefix}.best"
+        before = await self.q("SELECT value FROM stats WHERE user_id = ? AND key = ?", user_id, best_key)
         old = before["rows"][0]["value"] if before["rows"] else None
         gained, xp_before, xp_after = await self.record(user_id, prefix, "play", stats, self.solo_detail(game, value), xp=5, totals=False)
         better = old is None or (value < old if game in FASTEST else value > old)
@@ -827,6 +828,8 @@ class Accounts:
             return f"Beat the {('Easy', 'Medium', 'Hard')[value - 1]} CPU"
         if game.startswith("golf-"):
             return f"{value} strokes"
+        if game == "dash-solo":
+            return f"Beat a practice level in {value} attempt{'s' if value != 1 else ''}"
         if game in FASTEST:
             return f"Finished in {value / 1000:.2f}s"
         return f"Scored {value:,}"

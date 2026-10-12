@@ -267,7 +267,7 @@
     { key: 'connect4', title: 'Connect 4', icon: '🔴', desc: 'The classic. Drop discs, get four in a row, talk trash in chat.', players: '2 + spectators', glow: 'rgba(59,130,246,.6)' },
   ];
   const SOLO = [
-    { key: 'dash-solo', href: '/games/dash?solo=1', title: 'Neon Dash Practice', icon: '🟦', desc: 'Train on random levels and chase your best times.', players: 'Solo' },
+    { key: 'dash-solo', href: '/games/dash?solo=1', title: 'Neon Dash Practice', icon: '🟦', desc: 'Train on random levels and beat them in as few attempts as you can.', players: 'Solo' },
     { key: 'poly-solo', href: '/games/poly?solo=1', title: 'Poly Racer Time Trial', icon: '🏁', desc: 'Six tracks, medals to win and your own ghost to beat. Every track has a leaderboard!', players: 'Solo', isNew: true },
     { key: 'front-solo', href: '/games/front?solo=1', title: 'Front Wars vs Bots', icon: '🤖', desc: 'Take on up to 40 bots and conquer the whole map. Easy, medium or hard!', players: 'Solo', isNew: true },
     { key: 'slope', title: 'Slope', icon: '🛝', desc: 'Roll a ball down an endless neon slope. Steer, dodge the red blocks, don’t fall off!', players: 'Solo', isNew: true },

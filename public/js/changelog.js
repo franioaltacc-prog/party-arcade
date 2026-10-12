@@ -6,6 +6,11 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '2.18.1', date: '2026-10-12', emoji: '🟪', title: 'Neon Dash: attempts instead of times', items: [
+      'Everyone moves at the same speed in Neon Dash, so the timer didn’t tell you anything. It’s gone',
+      'The HUD shows how far through the level you are (📍 %) next to your attempts',
+      'Practice bests, race results, community levels and your match history now count attempts: fewer is better, and 1 attempt is FLAWLESS!',
+    ] },
     { v: '2.18.0', date: '2026-10-12', emoji: '🎱', title: 'Billiards, Mini Golf, Neon Flappy, themes, Halloween quests and a Neon Dash level editor', items: [
       'New game: Billiards! 8-ball and 9-ball pool with real rolling balls, spin, an aim guide and a shot clock. Play a friend online (everyone else watches, winner stays on), or go solo vs the CPU (Easy, Medium, Hard), Speed Clear or Practice',
       'New game: Mini Golf in 3D, with two 9-hole courses: Classic Meadow (windmill, ramp jump, island green…) and the Halloween course Spooky Hollow (graveyard, haunted house, swinging coffin…). Everyone plays the same hole at once online and sees each other’s balls',

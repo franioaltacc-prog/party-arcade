@@ -5,7 +5,7 @@
    level before it shows up under 🌐 Community levels, and players can post 3 levels a day. */
 (() => {
   'use strict';
-  const { $, h, fill, Net, UI, Account, store, Sfx, fmtTime, clamp, on } = PA;
+  const { $, h, fill, Net, UI, Account, store, Sfx, clamp, on } = PA;
   const C = window.DashCore;
   const G = window.DashGame;
   const Art = G.Art;
@@ -1090,7 +1090,7 @@
     G.startSession({
       mode: 'test', custom: data, music: data.music, startX: x, checkpoints: ed.checkpoints, countdown: 0,
       onQuit: () => backToEditor(),
-      onDone: (g) => { UI.toast(`🏁 You reached the end! ${fmtTime(g.finishMs)} · ${g.attempts} attempt${g.attempts === 1 ? '' : 's'}`, 'good', 3000); backToEditor(); },
+      onDone: (g) => { UI.toast(`🏁 You reached the end! ${g.attempts} attempt${g.attempts === 1 ? '' : 's'}`, 'good', 3000); backToEditor(); },
     });
     G.banner(h('span', { class: 'big' }, '🧪 Playtest'), x ? `From block ${x}` : 'From the start', h('div', { class: 'small muted' }, 'Press ✕ to go back to the editor'));
     setTimeout(() => { const g = G.game; if (g && g.mode === 'test') G.hideBanner(); }, 1600);
@@ -1442,7 +1442,7 @@
         h('div', { class: 'lvl-meta tiny' },
           h('span', { title: 'Length' }, `⏱️ ${Math.round((l.preview.len || 0) / C.SPEED)}s`),
           h('span', { title: 'Plays' }, `▶ ${l.plays.toLocaleString('en-US')}`),
-          best ? h('span', { class: 'lvl-best', title: 'Your best' }, best.time ? `🏆 ${fmtTime(best.time)}` : `Best ${Math.round((best.pct || 0) * 100)}%`) : null),
+          best ? h('span', { class: 'lvl-best', title: 'Your best' }, best.pct >= 1 ? `🏆 ${best.attempts || '?'}💀` : `Best ${Math.round((best.pct || 0) * 100)}%`) : null),
         h('div', { class: 'lvl-btns' },
           h('button', { class: 'btn btn-pink btn-sm', onclick: () => playCommunity(l.id) }, '▶ Play'),
           likeBtn,
@@ -1533,8 +1533,9 @@
   function communityResults(g, level, practice, goBack) {
     const id = level.id;
     const prev = cbest()[id] || {};
-    const isBest = !practice && (!prev.time || g.finishMs < prev.time);
-    if (!practice) saveBest(id, { pct: 1, time: isBest ? g.finishMs : prev.time, attempts: g.attempts });
+    const beaten = prev.pct >= 1 && prev.attempts;
+    const isBest = !practice && (!beaten || g.attempts < prev.attempts);
+    if (!practice) saveBest(id, { pct: 1, attempts: isBest ? g.attempts : prev.attempts });
     let liked = !!level.liked;
     const likeBtn = level.mine || level.status !== 'approved' ? null : h('button', { class: 'btn btn-ghost', onclick: async () => {
       if (!Account.user) { needAccount('Make a free account to like levels.'); return; }
@@ -1543,8 +1544,8 @@
     const close = UI.modal(h('div', { class: 'center-col' },
       h('div', { class: 'big-e' }, isBest ? '🏆' : '🏁'),
       h('h2', {}, practice ? 'Practice complete!' : isBest ? 'New best!' : 'Level complete!'),
-      h('div', { class: 'result-big gradient-text' }, fmtTime(g.finishMs)),
-      h('p', { class: 'muted' }, `“${level.name}” by ${level.by.name} · ${g.attempts} attempt${g.attempts === 1 ? '' : 's'}` + (prev.time && !isBest ? ` · best ${fmtTime(prev.time)}` : '')),
+      h('div', { class: 'result-big gradient-text' }, g.attempts === 1 ? 'FLAWLESS!' : `${g.attempts} attempts`),
+      h('p', { class: 'muted' }, `“${level.name}” by ${level.by.name}` + (beaten && !isBest ? ` · your best: ${prev.attempts} attempt${prev.attempts === 1 ? '' : 's'}` : '')),
       h('div', { class: 'col', style: { marginTop: '16px' } },
         h('button', { class: 'btn btn-pink btn-lg', onclick: () => { close(); playCommunity(id, { practice, own: level.mine }); } }, '🔁 Play again'),
         likeBtn,
