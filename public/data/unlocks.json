@@ -1,9 +1,10 @@
 {
-  "_about": "Achievements and the rewards they unlock. The server checks these rules before you can wear a reward, and the website shows them. Rules: {\"level\": n}, {\"ach\": id}, or a stat test like {\"stat\": \"dash.wins\", \"gte\": 1} (gte, gt, lte).",
+  "_about": "Achievements and the rewards they unlock. The server checks these rules before you can wear a reward, and the website shows them. Rules: {\"level\": n}, {\"ach\": id}, {\"achs\": [ids]} (all of them), or a stat test like {\"stat\": \"dash.wins\", \"gte\": 1} (gte, gt, lte; \"stat\" can be a list, which is summed). Events count the stats in their \"track\" map separately while they're on (as ev.<event>.<name>), with the same add/max/min the game uses.",
   "events": [
     {"id": "halloween26", "name": "Halloween", "emoji": "🎃", "from": "2026-10-11", "until": "2026-11-03",
      "about": "Limited-time Halloween rewards: earn them before the event ends and keep them forever.",
-     "track": {"games": "games", "survived": "prophunt.survived"}}
+     "track": {"games": "games", "survived": "prophunt.survived", "wins": "wins", "golf": "golf.spooky_done", "flappy": "flappy.best",
+               "pool": "pool.wins", "poolcpu": "poolcpu.wins", "age": "life.oldest", "doodle": "doodle.games", "blitz": "blitz.games"}}
   ],
   "achievements": [
     {"id": "hello", "emoji": "👋", "name": "Hello world", "desc": "Finish your first online game", "rule": {"stat": "games", "gte": 1}},
@@ -15,12 +16,16 @@
     {"id": "rising", "emoji": "⭐", "name": "Rising star", "desc": "Reach level 5", "rule": {"level": 5}},
     {"id": "superstar", "emoji": "🌟", "name": "Superstar", "desc": "Reach level 15", "rule": {"level": 15}},
     {"id": "speed", "emoji": "🟪", "name": "Speed demon", "desc": "Win a Neon Dash race", "rule": {"stat": "dash.wins", "gte": 1}},
+    {"id": "designer", "emoji": "🛠️", "name": "Level designer", "desc": "Get a Neon Dash level approved", "rule": {"stat": "dash.levels_approved", "gte": 1}},
     {"id": "long-life", "emoji": "🧓", "name": "Long life", "desc": "Live to 90 in Family Life", "rule": {"stat": "life.oldest", "gte": 90}},
     {"id": "millionaire", "emoji": "💰", "name": "Millionaire", "desc": "Be worth $1,000,000 in Family Life", "rule": {"stat": "life.richest", "gte": 1000000}},
     {"id": "picasso", "emoji": "🎨", "name": "Picasso", "desc": "Win a game of Doodle Guess", "rule": {"stat": "doodle.wins", "gte": 1}},
     {"id": "lightning", "emoji": "⚡", "name": "Lightning", "desc": "Win a game of Party Blitz", "rule": {"stat": "blitz.wins", "gte": 1}},
     {"id": "high-roller", "emoji": "🎰", "name": "High roller", "desc": "Win 5,000 coins in one bet", "rule": {"stat": "casino.best_win", "gte": 5000}},
     {"id": "four", "emoji": "🔴", "name": "Four in a row", "desc": "Win at Connect 4", "rule": {"stat": "c4.wins", "gte": 1}},
+    {"id": "pool-win", "emoji": "🎱", "name": "Eight ball, corner pocket", "desc": "Win a game of Billiards online", "rule": {"stat": "pool.wins", "gte": 1}},
+    {"id": "run-out", "emoji": "💨", "name": "Ran the table", "desc": "Win a Billiards frame in one visit (a run-out)", "rule": {"stat": "pool.runs", "gte": 1}},
+    {"id": "cpu-shark", "emoji": "🦈", "name": "Table shark", "desc": "Beat the Hard CPU at Billiards", "rule": {"stat": "poolcpu.best", "gte": 3}},
     {"id": "disguise", "emoji": "🕵️", "name": "Master of disguise", "desc": "Win 10 rounds as the Impostor", "rule": {"stat": "impostor.imp_wins", "gte": 10}},
     {"id": "bomb", "emoji": "💣", "name": "Bomb squad", "desc": "Win a Minesweeper game online", "rule": {"stat": "mines.wins", "gte": 1}},
     {"id": "sweep", "emoji": "🧹", "name": "Clean sweep", "desc": "Beat Minesweeper on Hard (solo)", "rule": {"stat": "mines_hard.best", "gt": 0}},
@@ -31,6 +36,12 @@
     {"id": "exterminator", "emoji": "🎯", "name": "Nobody escapes", "desc": "Catch every hider in a round of Prop Hunt", "rule": {"stat": "prophunt.aces", "gte": 1}},
     {"id": "trick-or-treat", "emoji": "🎃", "name": "Trick or treat", "desc": "Play 5 online games during the Halloween event", "rule": {"stat": "ev.halloween26.games", "gte": 5}, "event": "halloween26"},
     {"id": "boo", "emoji": "👻", "name": "Boo!", "desc": "Survive 3 rounds of Prop Hunt during the Halloween event", "rule": {"stat": "ev.halloween26.survived", "gte": 3}, "event": "halloween26"},
+    {"id": "night-owl", "emoji": "🦇", "name": "Night owl", "desc": "Win 3 online games during the Halloween event", "rule": {"stat": "ev.halloween26.wins", "gte": 3}, "event": "halloween26"},
+    {"id": "haunted-hole", "emoji": "⛳", "name": "Haunted hole", "desc": "Finish the Spooky Hollow course in Mini Golf during the Halloween event", "rule": {"stat": "ev.halloween26.golf", "gte": 1}, "event": "halloween26"},
+    {"id": "creepy-flap", "emoji": "🐤", "name": "Creepy flap", "desc": "Score 13 or more in Neon Flappy during the Halloween event", "rule": {"stat": "ev.halloween26.flappy", "gte": 13}, "event": "halloween26"},
+    {"id": "pool-shark", "emoji": "🎱", "name": "Pool shark", "desc": "Win a game of Billiards (online or vs the CPU) during the Halloween event", "rule": {"stat": ["ev.halloween26.pool", "ev.halloween26.poolcpu"], "gte": 1}, "event": "halloween26"},
+    {"id": "undead", "emoji": "🧟", "name": "Undead", "desc": "Reach age 60 in one Family Life during the Halloween event", "rule": {"stat": "ev.halloween26.age", "gte": 60}, "event": "halloween26"},
+    {"id": "sweet-tooth", "emoji": "🍬", "name": "Sweet tooth", "desc": "Play 3 games of Doodle Guess or Party Blitz during the Halloween event", "rule": {"stat": ["ev.halloween26.doodle", "ev.halloween26.blitz"], "gte": 3}, "event": "halloween26"},
     {"id": "pole", "emoji": "🏎️", "name": "Pole position", "desc": "Win an online Poly Racer race", "rule": {"stat": "poly.wins", "gte": 1}},
     {"id": "chaos-gold", "emoji": "🥇", "name": "Gold rush", "desc": "Beat the gold time on Poly Racer’s Chaos track (30.9s)", "rule": {"stat": "poly6.best", "gt": 0, "lte": 30900}},
     {"id": "tourney-champ", "emoji": "🏆", "name": "Cup winner", "desc": "Win a tournament", "rule": {"stat": "tour.wins", "gte": 1}},
@@ -69,7 +80,8 @@
     {"id": "slither", "name": "Slither", "rule": {"ach": "snake"}},
     {"id": "flip", "name": "Flip", "rule": {"ach": "tiles"}},
     {"id": "peek", "name": "Peekaboo", "rule": {"ach": "memory"}},
-    {"id": "ghost", "name": "Ghostly", "rule": {"ach": "boo"}, "event": "halloween26"}
+    {"id": "ghost", "name": "Ghostly", "rule": {"ach": "boo"}, "event": "halloween26"},
+    {"id": "bat", "name": "Bat flight", "rule": {"ach": "night-owl"}, "event": "halloween26"}
   ],
   "balls": [
     {"id": "classic", "name": "Classic", "rule": null},
@@ -85,6 +97,18 @@
     {"id": "earth", "name": "Planet Earth", "rule": {"ach": "world"}},
     {"id": "ice", "name": "Ice", "rule": {"ach": "downhill"}},
     {"id": "eight", "name": "8-ball", "rule": {"ach": "bots"}},
-    {"id": "jack", "name": "Jack-o’-lantern", "rule": {"ach": "trick-or-treat"}, "event": "halloween26"}
+    {"id": "jack", "name": "Jack-o’-lantern", "rule": {"ach": "trick-or-treat"}, "event": "halloween26"},
+    {"id": "candy", "name": "Candy swirl", "rule": {"ach": "sweet-tooth"}, "event": "halloween26"}
+  ],
+  "themes": [
+    {"id": "neon", "name": "Neon", "emoji": "🌈", "about": "The classic Party Arcade glow", "rule": null},
+    {"id": "midnight", "name": "Midnight", "emoji": "🌙", "about": "Deep navy and ice cyan", "rule": null},
+    {"id": "sunset", "name": "Sunset", "emoji": "🌇", "about": "Magenta to orange glow", "rule": null},
+    {"id": "ocean", "name": "Ocean", "emoji": "🌊", "about": "Teal and aqua", "rule": null},
+    {"id": "forest", "name": "Forest", "emoji": "🌲", "about": "Dark green with lime and gold", "rule": null},
+    {"id": "candy", "name": "Candy", "emoji": "🍭", "about": "Pastel pink and lilac on plum", "rule": null},
+    {"id": "retro", "name": "Retro", "emoji": "📺", "about": "Green-screen CRT with pixel fonts", "rule": null},
+    {"id": "halloween", "name": "Halloween", "emoji": "🎃", "about": "Fog, bats, a big moon and glowing pumpkins", "event": "halloween26",
+     "rule": {"achs": ["trick-or-treat", "boo", "night-owl", "haunted-hole", "creepy-flap", "pool-shark", "undead", "sweet-tooth"]}}
   ]
 }

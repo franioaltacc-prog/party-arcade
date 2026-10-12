@@ -6,6 +6,17 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '2.18.0', date: '2026-10-12', emoji: '🎱', title: 'Billiards, Mini Golf, Neon Flappy, themes, Halloween quests and a Neon Dash level editor', items: [
+      'New game: Billiards! 8-ball and 9-ball pool with real rolling balls, spin, an aim guide and a shot clock. Play a friend online (everyone else watches, winner stays on), or go solo vs the CPU (Easy, Medium, Hard), Speed Clear or Practice',
+      'New game: Mini Golf in 3D, with two 9-hole courses: Classic Meadow (windmill, ramp jump, island green…) and the Halloween course Spooky Hollow (graveyard, haunted house, swinging coffin…). Everyone plays the same hole at once online and sees each other’s balls',
+      'New game: Neon Flappy. Flap through neon pipes, win medals and unlock new birds. Flappy Royale online: everyone flies the same pipes at once and the last bird alive wins',
+      'Neon Dash level editor: build your own levels, playtest them, beat them to verify, then post them. An admin approves each level before it goes public, and you can post 3 levels a day',
+      'Community levels: play, like and race the levels other players made',
+      'Themes! Pick a new look for the whole site in Settings: Neon, Midnight, Sunset, Ocean, Forest, Candy or Retro',
+      '🎃 Halloween quests at /quests until 2 November: finish all 8 to unlock the limited Halloween theme, with fog, bats and a big moon. Earn it in time and it’s yours forever',
+      'New leaderboards and achievements for the new games, and Billiards and Mini Golf work in tournaments too',
+      'The host keeps the crown after reloading the page or switching games, and the top bar fits better on phones',
+    ] },
     { v: '2.17.4', date: '2026-10-11', emoji: '🏟️', title: 'Poly Racer: buildings and fixed signs', items: [
       'More grandstands on the long straights, a pit building with team garages at the start, and a race control tower near the finish',
       'Sponsor billboards along the straights, flags along the barriers before the finish, and little camps of fans’ tents out in the fields',

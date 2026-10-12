@@ -29,6 +29,7 @@ from urllib.parse import unquote, urlsplit
 from accounts import Accounts, AuthError, StoreError, level_info, parse_look
 from games import GAMES
 import tournaments
+from dashlevels import DashLevels, level_id
 
 ROOT = Path(__file__).resolve().parent
 PUBLIC = (ROOT / "public").resolve()
@@ -45,7 +46,7 @@ EMPTY_ROOM_TTL = 90            # seconds an empty room survives
 VOTE_SECONDS = 20              # "play again?" and "which game next?" votes
 PARTY_NEXT = 10                # seconds of party standings before the next game
 PARTY_POINTS = (10, 7, 5, 3)   # 1st, 2nd, 3rd, 4th in each party game; everyone else gets 1
-PARTY_GAMES = ("dash", "poly", "doodle", "blitz", "impostor", "mines", "front", "prophunt", "casino", "life")   # games that work for groups
+PARTY_GAMES = ("dash", "poly", "doodle", "blitz", "impostor", "mines", "front", "prophunt", "casino", "life", "flappy", "golf")   # games that work for groups
 WATCHERS_EXTRA = 20            # watchers allowed on top of a game's player limit
 CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -342,7 +343,7 @@ class Room:
         self.cancel(self.vote_timer)
         self.vote = {"kind": kind, "votes": {}, "ends": time.time() + VOTE_SECONDS}
         if kind == "pick":
-            self.vote["options"] = [g for g in PARTY_GAMES if g in GAMES] + ["connect4"]
+            self.vote["options"] = [g for g in PARTY_GAMES if g in GAMES] + ["connect4", "billiards"]
         self.vote_timer = self.later(VOTE_SECONDS, self.decide_vote)
         self.broadcast("room:vote", vote=self.vote_public())
 
@@ -459,6 +460,8 @@ class Room:
         if self.tour and client.uid in (self.tour[1]["a"], self.tour[1]["b"]) and self.host not in (self.tour[1]["a"], self.tour[1]["b"]):
             self.host = client.uid      # in a tournament match one of the two players is always the host
         if client.uid == self.prev_host:
+            if self.host != client.uid and self.host in self.members and rejoin:
+                self.system(f"👑 {member.name} is the host again")
             self.host, self.prev_host = client.uid, None
         self.pick_host()
         client.send("room:joined", code=self.code, game=self.game_key, me=client.uid, party=self.party_public(), vote=self.vote_public(), tour=self.tour_public(),
@@ -490,6 +493,8 @@ class Room:
         if member.client:
             member.client.room = None
         self.system(f"{member.avatar} {member.name} left")
+        if uid == self.prev_host:
+            self.prev_host = None
         self.game.on_leave(member)
         self.pick_host()
         self.sync_players()
@@ -512,6 +517,9 @@ class Room:
             return
         for m in self.members.values():
             if m.online:
+                if current is not None and self.prev_host is None:
+                    # the host only dropped (page reload, game switch): they get the crown back on return
+                    self.prev_host = current.uid
                 self.host = m.uid
                 if current is not None:
                     self.system(f"👑 {m.name} is now the host")
@@ -527,6 +535,7 @@ class Hub:
         self.wyr_dirty = False
         self._online_scheduled = False
         self.accounts = Accounts(DATA)
+        self.dash_levels = DashLevels(self.accounts)   # Neon Dash community levels
         self.tasks = set()
         self.started = time.time()
         self.restoring = {}     # room code -> task looking it up in saved rooms
@@ -1140,6 +1149,9 @@ class Hub:
                 other.send("auth:state", user=acc.public(user))
             return {"user": acc.public(user)}
 
+        if t.startswith("dash:"):
+            return await self.dash_op(c, t, msg)
+
         # everything below is admin only (checked against the database every time)
         actor = await acc.require_admin(self.need_login(c))
         if t == "admin:overview":
@@ -1203,6 +1215,48 @@ class Hub:
             return {"text": text}
         raise AuthError("Unknown request.")
 
+    async def dash_op(self, c, t, msg):
+        """Neon Dash community levels: post (3 a day), browse, like, and the admins' review queue."""
+        acc, dl = self.accounts, self.dash_levels
+
+        async def me():
+            user = await acc.user_by_id(self.need_login(c))
+            if not user or user["banned"]:
+                raise AuthError("You need to log in first.")
+            return user
+        if t == "dash:list":
+            if time.time() - c.search_at < 0.25:
+                await asyncio.sleep(0.25)
+            c.search_at = time.time()
+            by = msg.get("by") if isinstance(msg.get("by"), str) else None
+            return await dl.browse(str(msg.get("sort") or "new"), msg.get("q"), by, msg.get("offset") or 0, c.account["id"] if c.account else None)
+        if t == "dash:get":
+            viewer = await acc.user_by_id(c.account["id"]) if c.account else None
+            return {"level": await dl.get(level_id(msg.get("id")), viewer)}
+        if t == "dash:play":
+            return await dl.play(c.person(), level_id(msg.get("id")), c.ip)
+        if t == "dash:quota":
+            return await dl.quota(await me())
+        if t == "dash:mine":
+            user = await me()
+            return {"levels": await dl.mine(user["id"]), **(await dl.quota(user))}
+        if t == "dash:post":
+            return await dl.post(await me(), msg.get("level"), msg.get("replay"))
+        if t == "dash:delete":
+            await dl.delete((await me())["id"], level_id(msg.get("id")))
+            return {}
+        if t == "dash:like":
+            return await dl.like((await me())["id"], level_id(msg.get("id")), msg.get("on") is not False)
+        admin = await acc.require_admin(self.need_login(c))
+        if t == "dash:queue":
+            return await dl.queue(str(msg.get("status") or "pending"))
+        if t == "dash:review":
+            done = await dl.review(admin, level_id(msg.get("id")), str(msg.get("action") or ""), msg.get("reason"))
+            for x in self.clients_of(done["user_id"]):   # a live toast for the creator
+                x.send("dash:reviewed", id=done["id"], name=done["name"], status=done["status"], reason=done["reason"])
+            return {"id": done["id"], "status": done["status"]}
+        raise AuthError("Unknown request.")
+
     # -- housekeeping ----------------------------------------------------
     async def janitor(self):
         last_ping = 0.0
@@ -1235,6 +1289,7 @@ class Hub:
 
 
 ACCOUNT_MESSAGES = {
+    "dash:post", "dash:quota", "dash:mine", "dash:delete", "dash:get", "dash:list", "dash:like", "dash:play", "dash:queue", "dash:review",
     "auth:signup", "auth:login", "auth:logout", "account:update", "account:look", "account:password", "account:delete",
     "profile:get", "players:find", "lb:boards", "lb:get", "stats:solo", "admin:unlock", "admin:overview", "admin:users",
     "admin:user", "admin:announce", "admin:room", "admin:cheat", "friends:list", "friends:add", "friends:remove", "friends:invite", "friends:invite-no",
@@ -1246,6 +1301,11 @@ GAME_TITLES = {"dash": "Neon Dash", "life": "Family Life", "doodle": "Doodle Gue
                "mines_medium": "Minesweeper (Medium)", "mines_hard": "Minesweeper (Hard)", "mines-easy": "Minesweeper (Easy)",
                "mines-medium": "Minesweeper (Medium)", "mines-hard": "Minesweeper (Hard)", "slope": "Slope",
                "front": "Front Wars", "prophunt": "Prop Hunt", "poly": "Poly Racer", "poly-1": "Poly Racer · First Lap", "poly1": "Poly Racer · First Lap", "poly-2": "Poly Racer · Hill Climb", "poly2": "Poly Racer · Hill Climb", "poly-3": "Poly Racer · Hairpins", "poly3": "Poly Racer · Hairpins", "poly-4": "Poly Racer · Big Air", "poly4": "Poly Racer · Big Air", "poly-5": "Poly Racer · Sky Highway", "poly5": "Poly Racer · Sky Highway", "poly-6": "Poly Racer · Chaos", "poly6": "Poly Racer · Chaos", "frontsolo": "Front Wars solo", "front-solo": "Front Wars solo", "party": "Party mode",
+               "billiards": "Billiards", "pool-speed": "Billiards speed clear", "poolspeed": "Billiards speed clear",
+               "pool-cpu": "Billiards vs CPU", "poolcpu": "Billiards vs CPU",
+               "flappy": "Neon Flappy",
+               "golf": "Mini Golf", "golf-classic": "Mini Golf · Classic Meadow", "golfclassic": "Mini Golf · Classic Meadow",
+               "golf-spooky": "Mini Golf · Spooky Hollow", "golfspooky": "Mini Golf · Spooky Hollow",
                "eightball": "Magic 8-Ball", "wyr": "Would You Rather", "wheel": "Spin the Wheel", "tour": "Tournament"}
 
 hub = Hub()

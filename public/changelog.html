@@ -11,12 +11,13 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
+  <script>try { document.documentElement.dataset.theme = JSON.parse(localStorage.getItem('pa_theme')) || 'neon'; } catch (e) { /* storage blocked */ }</script>
   <style>
     .cl { max-width: 760px; margin: 0 auto; }
     .cl .page-head { text-align: center; margin-bottom: 18px; }
     .cl-list { position: relative; display: flex; flex-direction: column; gap: 14px; }
     .cl-entry { position: relative; }
-    .cl-entry.latest { border-color: rgba(255, 79, 216, .5); background: linear-gradient(160deg, rgba(255,79,216,.12), rgba(34,211,238,.08)); }
+    .cl-entry.latest { border-color: color-mix(in srgb, var(--pink) 50%, transparent); background: linear-gradient(160deg, color-mix(in srgb, var(--pink) 12%, transparent), rgba(34,211,238,.08)); }
     .cl-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
     .cl-v { font-family: var(--font-display); font-size: .95rem; padding: 3px 10px; border-radius: 999px; background: rgba(34,211,238,.15); border: 1px solid rgba(34,211,238,.45); color: #a5f3fc; }
     .cl-date { margin-left: auto; font-size: .82rem; color: var(--muted); font-weight: 600; }

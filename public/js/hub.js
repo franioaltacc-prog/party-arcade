@@ -136,6 +136,119 @@
   ART['mines-solo'] = ART.mines.replaceAll('g-mines', 'g-mines2').replace('#0f172a', '#14532d').replace('#4338ca', '#0d9488');
   ART['dash-solo'] = ART.dash.replaceAll('g-dash', 'g-dash2').replace('#2e1065', '#082f49').replace('#9333ea', '#0891b2');
 
+  // Billiards: a little pool table seen from above, the rack waiting and the cue lined up on the break
+  const poolArt = (id, felt, feltDark, from, to, extra = '') => {
+    const ball = (x, y, c, stripe, n) => {
+      const r = 5.4; const k = r * 0.866;
+      return `<ellipse cx="${x + 1.6}" cy="${y + 2.2}" rx="${r}" ry="${r * 0.8}" fill="rgba(0,0,0,.35)"/>` + (stripe
+        ? `<circle cx="${x}" cy="${y}" r="${r}" fill="${c}"/><path d="M${x - k} ${y - r / 2}A${r} ${r} 0 0 1 ${x + k} ${y - r / 2}Z M${x + k} ${y + r / 2}A${r} ${r} 0 0 1 ${x - k} ${y + r / 2}Z" fill="#f8fafc"/>`
+        : `<circle cx="${x}" cy="${y}" r="${r}" fill="${c}"/>`)
+        + (n ? `<circle cx="${x}" cy="${y}" r="2.3" fill="#fff"/>` : '')
+        + `<circle cx="${x - 1.7}" cy="${y - 1.9}" r="1.6" fill="rgba(255,255,255,.75)"/>`;
+    };
+    const rack = [['#facc15', 0, 1], ['#2563eb', 1, 1], ['#dc2626', 1, 0], ['#7c3aed', 0, 0], ['#111827', 0, 1], ['#f97316', 1, 0], ['#16a34a', 0, 1],
+      ['#7f1d1d', 1, 1], ['#facc15', 1, 0], ['#2563eb', 0, 0]];
+    let i = 0; let balls = '';
+    for (let row = 0; row < 4; row++) {
+      for (let j = 0; j <= row; j++) {
+        const [c, stripe, n] = rack[i++];
+        balls += ball(128 + row * 9.4, 58 + (j - row / 2) * 10.9, c, stripe, n);
+      }
+    }
+    const pockets = [[23, 25], [100, 23], [177, 25], [177, 95], [100, 97], [23, 95]];
+    const diamonds = [42, 61, 80, 120, 139, 158].flatMap((x) => [[x, 17.5], [x, 102.5]]).concat([[15.5, 42], [15.5, 60], [15.5, 78], [184.5, 42], [184.5, 60], [184.5, 78]]);
+    return svg(id, `
+      <defs><radialGradient id="felt-${id}" cx="50%" cy="50%" r="65%"><stop offset="0" stop-color="${felt}"/><stop offset="1" stop-color="${feltDark}"/></radialGradient>
+      <linearGradient id="wood-${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a5228"/><stop offset=".5" stop-color="#5b3418"/><stop offset="1" stop-color="#3a1f0d"/></linearGradient>
+      <radialGradient id="cue-${id}" cx="35%" cy="30%" r="70%"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#cbd5e1"/></radialGradient></defs>
+      <rect x="8" y="10" width="184" height="100" rx="13" fill="rgba(0,0,0,.35)" transform="translate(2 4)"/>
+      <rect x="8" y="10" width="184" height="100" rx="13" fill="url(#wood-${id})" stroke="#24120a" stroke-width="1.5"/>
+      <rect x="10.5" y="12.5" width="179" height="95" rx="11" fill="none" stroke="rgba(255,226,180,.28)" stroke-width="1.2"/>
+      <rect x="21" y="23" width="158" height="74" rx="3" fill="url(#felt-${id})" stroke="rgba(0,0,0,.45)" stroke-width="2"/>
+      <path d="M60.5 25v70" stroke="rgba(255,255,255,.12)" stroke-width="1"/><circle cx="139.5" cy="60" r="1.1" fill="rgba(255,255,255,.3)"/>
+      ${diamonds.map(([x, y]) => `<path d="M${x} ${y - 1.6}l1.3 1.6 -1.3 1.6 -1.3 -1.6z" fill="#f5f0e1" opacity=".9"/>`).join('')}
+      ${pockets.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="6.4" fill="#c9a46a"/><circle cx="${x}" cy="${y}" r="5.2" fill="#050505"/>`).join('')}
+      <path d="M63.2 70 L117.4 60" stroke="rgba(255,255,255,.55)" stroke-width="1" stroke-dasharray="2.5 2.5"/>
+      <circle cx="117.4" cy="60" r="5.4" fill="none" stroke="rgba(255,255,255,.45)" stroke-width="1" stroke-dasharray="1.6 1.6"/>
+      ${balls}
+      <ellipse cx="59.6" cy="73.4" rx="5.4" ry="4.3" fill="rgba(0,0,0,.35)"/><circle cx="58" cy="71" r="5.4" fill="url(#cue-${id})"/>
+      <path d="M50.6 72.2 L47.6 72.7" stroke="#38bdf8" stroke-width="2.6" stroke-linecap="round"/>
+      <path d="M47.6 72.7 L44.2 73.2" stroke="#f8fafc" stroke-width="2.9"/>
+      <path d="M44.2 73.2 L4 79.3" stroke="#e9c98f" stroke-width="3.1"/>
+      <path d="M4 79.3 L-30 84.5" stroke="#3a1a08" stroke-width="4.4"/>${extra}`, from, to);
+  };
+  ART.billiards = poolArt('billiards', '#0f8a4a', '#065f35', '#0b3d2e', '#14532d');
+  ART['billiards-solo'] = poolArt('billiards2', '#1f6fd1', '#123f8a', '#0c1d4a', '#1e3a8a', emoji(186, 12, 13, '⏱️'));
+  // Neon Flappy: a synthwave night, glowing pipes and a cute bird (the online card adds ghost birds)
+  const flappyArt = (id, from, to, ghosts, extra = '') => {
+    const glow = (d, col, w = 2.2) => `<path d="${d}" fill="none" stroke="${col}" stroke-width="${w * 3.2}" opacity=".22" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linejoin="round"/>`;
+    const pipe = (x, top, bot, col) => `<rect x="${x}" y="-2" width="22" height="${top + 2}" fill="rgba(8,3,28,.62)"/><rect x="${x}" y="${bot}" width="22" height="${96 - bot}" fill="rgba(8,3,28,.62)"/>
+      ${glow(`M${x} -2V${top - 9}M${x + 22} -2V${top - 9}M${x - 3} ${top - 9}h28v9h-28z`, col)}${glow(`M${x} 96V${bot + 9}M${x + 22} 96V${bot + 9}M${x - 3} ${bot}h28v9h-28z`, col)}`;
+    const bird = (x, y, rot, s, a, body = '#ffd23f', wing = '#ffb21e', line = '#a85400') => `<g transform="translate(${x} ${y}) rotate(${rot}) scale(${s})" opacity="${a}">
+      <circle r="11.5" fill="${body}" stroke="${line}" stroke-width="1.6"/><ellipse cx="-1" cy="5" rx="7.5" ry="4.6" fill="#fff3c4" opacity=".9"/>
+      <path d="M-11 1q-8-10 3-9q6 3-3 9z" fill="${wing}" stroke="${line}" stroke-width="1.3" stroke-linejoin="round"/>
+      <circle cx="4.5" cy="-3.5" r="4.6" fill="#fff" stroke="${line}" stroke-width="1"/><circle cx="6" cy="-3.3" r="2.2" fill="#1e1b4b"/><circle cx="6.7" cy="-4.2" r=".8" fill="#fff"/>
+      <path d="M9 0.5l9 3-9 3.2z" fill="#ff7b29" stroke="${line}" stroke-width="1" stroke-linejoin="round"/><circle cx="1.5" cy="3.4" r="2" fill="#fb7185" opacity=".55"/></g>`;
+    const stars = [[14, 12], [36, 30], [58, 8], [92, 22], [118, 10], [136, 34], [176, 14], [194, 40], [8, 48], [104, 44]];
+    const towers = [[0, 66, 16], [14, 58, 14], [30, 72, 18], [96, 62, 14], [112, 70, 20], [168, 60, 16], [184, 68, 18]];
+    return svg(id, `
+      <defs><linearGradient id="sun-${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fde047"/><stop offset=".55" stop-color="#fb923c"/><stop offset="1" stop-color="#ff4fd8"/></linearGradient></defs>
+      ${stars.map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i % 3 ? 0.7 : 1.1}" fill="#fff" opacity="${i % 2 ? 0.5 : 0.85}"/>`).join('')}
+      <circle cx="150" cy="84" r="30" fill="url(#sun-${id})" opacity=".95"/>
+      ${[70, 77, 83, 88, 92].map((y, i) => `<rect x="118" y="${y}" width="64" height="${1.4 + i * 0.6}" fill="${from}"/>`).join('')}
+      ${towers.map(([x, y, w]) => `<rect x="${x}" y="${y}" width="${w}" height="${96 - y}" fill="rgba(12,6,40,.88)"/><path d="M${x} ${y}h${w}" stroke="#a78bfa" stroke-width="1" opacity=".7"/>`).join('')}
+      ${towers.map(([x, y, w], i) => `<rect x="${x + 4}" y="${y + 6}" width="2.2" height="2.2" fill="${i % 2 ? '#22d3ee' : '#fde68a'}" opacity=".8"/><rect x="${x + w - 7}" y="${y + 14}" width="2.2" height="2.2" fill="#fde68a" opacity=".7"/>`).join('')}
+      ${pipe(70, 30, 74, '#22d3ee')}${pipe(150, 42, 84, '#ff4fd8')}
+      <rect y="96" width="200" height="24" fill="#12062e"/>
+      <g stroke="#ff4fd8" stroke-width=".9" opacity=".55">${[-60, -20, 20, 60, 100, 140, 180, 220, 260].map((x) => `<path d="M${(x + 100) / 2} 96L${x} 120"/>`).join('')}<path d="M0 104h200M0 112h200"/></g>
+      ${glow('M0 96h200', '#ff4fd8', 1.8)}
+      <path d="M8 74 q 14 -26 34 -16" stroke="#fde047" stroke-width="2.4" stroke-dasharray="1 5.5" stroke-linecap="round" fill="none" opacity=".9"/>
+      ${ghosts ? `${bird(22, 36, -12, 0.82, 0.45, '#ece9ff', '#d9d3ff', '#7c6fd6')}${bird(36, 86, 18, 0.82, 0.45, '#a7b4c6', '#7c8aa0', '#2c3644')}` : ''}
+      <circle cx="50" cy="56" r="20" fill="#facc15" opacity=".16"/>
+      ${bird(50, 56, -14, 1.15, 1)}
+      ${extra}`, from, to);
+  };
+  ART.flappy = flappyArt('flappy', '#1e0b4b', '#7e22ce', true);
+  ART['flappy-solo'] = flappyArt('flappy2', '#0b1a4b', '#be185d', false, emoji(186, 14, 14, '🥇'));
+  // Mini Golf: a little green with wooden rails, a windmill and a waving flag (online adds friends' balls,
+  // solo is Spooky Hollow by moonlight)
+  const golfArt = (id, from, to, night, extra = '') => {
+    const turf = night ? ['#2f7a52', '#286a47'] : ['#4fc06a', '#45b05f'];
+    const rail = night ? '#5b5570' : '#c98a4b'; const railTop = night ? '#857ea0' : '#e9b57a';
+    const stripes = [0, 1, 2, 3, 4, 5].map((i) => `<path d="M${38 + i * 22} 104 L${62 + i * 18} 46 L${71 + i * 18} 46 L${49 + i * 22} 104z" fill="${turf[i % 2]}"/>`).join('');
+    const ball = (x, y, c, r = 4.2, a = 1) => `<g opacity="${a}"><ellipse cx="${x + 1.2}" cy="${y + r * 0.85}" rx="${r}" ry="${r * 0.42}" fill="rgba(0,0,0,.3)"/><circle cx="${x}" cy="${y}" r="${r}" fill="${c}" stroke="rgba(0,0,0,.25)" stroke-width=".6"/><circle cx="${x - r * 0.35}" cy="${y - r * 0.35}" r="${r * 0.35}" fill="#fff" opacity=".7"/></g>`;
+    return svg(id, `
+      ${night ? `<circle cx="168" cy="22" r="11" fill="#fef3c7"/><circle cx="173" cy="19" r="9.5" fill="${from}"/>
+        ${[[20, 14], [48, 26], [92, 10], [128, 30], [190, 46], [8, 40]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r=".9" fill="#fff" opacity=".8"/>`).join('')}
+        <path d="M120 20q4-4 8 0q4-4 8 0q-4 1-8 4q-4-3-8-4z" fill="#1e1236"/><path d="M60 34q3-3 6 0q3-3 6 0q-3 1-6 3q-3-2-6-3z" fill="#1e1236"/>`
+        : `<circle cx="172" cy="20" r="12" fill="#fde68a" opacity=".95"/><ellipse cx="40" cy="22" rx="20" ry="6" fill="#fff" opacity=".7"/><ellipse cx="120" cy="14" rx="16" ry="5" fill="#fff" opacity=".55"/>`}
+      <path d="M0 62 Q50 44 100 56 T200 52 V120 H0z" fill="${night ? '#1d3b33' : '#7cc96b'}"/>
+      <path d="M0 78 Q60 62 120 74 T200 70 V120 H0z" fill="${night ? '#183128' : '#5fb35a'}"/>
+      ${night ? `<path d="M14 80l4-14 4 14z" fill="#3c3552"/><rect x="11" y="78" width="14" height="4" rx="1" fill="#2b2540"/><circle cx="186" cy="88" r="6" fill="#f97316"/><path d="M183 87l1.5-1.5 1.5 1.5M187 87l1.5-1.5 1.5 1.5M183.5 90q2.5 2 5 0" stroke="#3b1500" stroke-width=".9" fill="none"/><circle cx="186" cy="88" r="10" fill="#fb923c" opacity=".18"/>`
+        : `<circle cx="16" cy="74" r="9" fill="#2f8f4e"/><circle cx="24" cy="70" r="7" fill="#3aa25a"/><rect x="18" y="78" width="3" height="8" fill="#7c4a24"/><circle cx="186" cy="80" r="8" fill="#2f8f4e"/><rect x="185" y="84" width="3" height="7" fill="#7c4a24"/>`}
+      <path d="M34 108 L60 44 L150 44 L172 108z" fill="rgba(0,0,0,.28)" transform="translate(2 3)"/>
+      <path d="M36 104 L62 46 L148 46 L168 104z" fill="${turf[0]}"/>${stripes}
+      <path d="M36 104 L62 46 L148 46 L168 104z" fill="none" stroke="${rail}" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M36 104 L62 46 L148 46 L168 104z" fill="none" stroke="${railTop}" stroke-width="1.6" stroke-linejoin="round" transform="translate(0 -1.6)"/>
+      <ellipse cx="118" cy="58" rx="6" ry="2.6" fill="#0b1a10"/><ellipse cx="118" cy="57.4" rx="6" ry="2.2" fill="none" stroke="rgba(255,255,255,.35)" stroke-width=".6"/>
+      <path d="M118 58 V28" stroke="#e5e7eb" stroke-width="1.4"/>
+      <path d="M118 28 q8 2 15 0 q-3 4 0 9 q-7 2 -15 0z" fill="${night ? '#a855f7' : '#ef4444'}"/>
+      <g transform="translate(78 64)">
+        <path d="M-7 18 L-4 -6 L4 -6 L7 18z" fill="${night ? '#3b3350' : '#f1e3c8'}" stroke="rgba(0,0,0,.3)" stroke-width=".8"/>
+        <path d="M-6 -6 L0 -14 L6 -6z" fill="${night ? '#2a2340' : '#b91c1c'}"/>
+        <rect x="-2.6" y="10" width="5.2" height="8" rx="2.6" fill="#1f2937"/>
+        <g transform="translate(0 -4) rotate(18)" fill="${night ? '#1e1236' : '#fafafa'}" stroke="rgba(0,0,0,.35)" stroke-width=".6">
+          <path d="M0 0 L-3 -20 L3 -20z"/><path d="M0 0 L20 -3 L20 3z"/><path d="M0 0 L3 20 L-3 20z"/><path d="M0 0 L-20 3 L-20 -3z"/></g>
+        <circle cy="-4" r="1.8" fill="#78350f"/>
+      </g>
+      <path d="M108 94 Q114 80 117 62" stroke="#fff" stroke-width="1.6" stroke-dasharray="1 4" stroke-linecap="round" fill="none" opacity=".9"/>
+      ${ball(106, 97, '#ffffff', 4.6)}
+      ${extra}`, from, to);
+  };
+  ART.golf = golfArt('golf', '#38bdf8', '#bae6fd', false,
+    `<circle cx="132" cy="80" r="3.6" fill="#ff4fd8" opacity=".7" stroke="rgba(0,0,0,.25)" stroke-width=".6"/><circle cx="148" cy="92" r="3.6" fill="#facc15" opacity=".7" stroke="rgba(0,0,0,.25)" stroke-width=".6"/><circle cx="92" cy="84" r="3.6" fill="#22d3ee" opacity=".7" stroke="rgba(0,0,0,.25)" stroke-width=".6"/>`);
+  ART['golf-solo'] = golfArt('golf2', '#0f0a24', '#3b1d5e', true, emoji(186, 14, 14, '🏆'));
+
   // ---------------------------------------------------------------- cards
   const ONLINE = [
     { key: 'dash', title: 'Neon Dash', icon: '🟪', desc: 'A mini Geometry Dash! Race your friends through the same level of spikes, jump pads and orbs.', players: '1–12 players', glow: 'rgba(168,85,247,.7)', feature: true },
@@ -148,6 +261,9 @@
     { key: 'mines', title: 'Minesweeper', icon: '💣', desc: 'Race your friends on the same board, or battle on one shared board for the most squares!', players: '1–8 players', glow: 'rgba(99,102,241,.6)', isNew: true },
     { key: 'blitz', title: 'Party Blitz', icon: '⚡', desc: 'Rapid-fire minigames: reaction, mashing, math, memory and more.', players: '1–12 players', glow: 'rgba(250,204,21,.6)' },
     { key: 'casino', title: 'Casino Night', icon: '🎰', desc: 'Fake-coin casino party: roulette, blackjack, slots, dice, poker and 1v1 duels. Most coins wins!', players: '1–6 players', glow: 'rgba(251,191,36,.6)' },
+    { key: 'billiards', title: 'Billiards', icon: '🎱', desc: '8-ball or 9-ball pool with real physics: spin, banks and kisses. Two players at the table, everyone else watches. Winner stays on!', players: '2 + spectators', glow: 'rgba(16,185,129,.6)', isNew: true },
+    { key: 'flappy', title: 'Flappy Royale', icon: '🐤', desc: 'Neon Flappy online: everyone flies the same glowing pipes at once and sees the others as ghost birds. Last bird flying wins the round!', players: '1–12 players', glow: 'rgba(250,204,21,.6)', isNew: true },
+    { key: 'golf', title: 'Mini Golf', icon: '⛳', desc: '3D mini golf with friends: everyone plays the same hole at once and sees the others as ghost balls. Windmills, ramps, a haunted house — lowest score wins!', players: '1–8 players', glow: 'rgba(74,222,128,.6)', isNew: true },
     { key: 'connect4', title: 'Connect 4', icon: '🔴', desc: 'The classic. Drop discs, get four in a row, talk trash in chat.', players: '2 + spectators', glow: 'rgba(59,130,246,.6)' },
   ];
   const SOLO = [
@@ -155,6 +271,9 @@
     { key: 'poly-solo', href: '/games/poly?solo=1', title: 'Poly Racer Time Trial', icon: '🏁', desc: 'Six tracks, medals to win and your own ghost to beat. Every track has a leaderboard!', players: 'Solo', isNew: true },
     { key: 'front-solo', href: '/games/front?solo=1', title: 'Front Wars vs Bots', icon: '🤖', desc: 'Take on up to 40 bots and conquer the whole map. Easy, medium or hard!', players: 'Solo', isNew: true },
     { key: 'slope', title: 'Slope', icon: '🛝', desc: 'Roll a ball down an endless neon slope. Steer, dodge the red blocks, don’t fall off!', players: 'Solo', isNew: true },
+    { key: 'billiards-solo', href: '/games/billiards?solo=1', title: 'Billiards Solo', icon: '🎱', desc: 'Beat the CPU (easy, medium or hard), race the clock in Speed Clear, or just practice your break.', players: 'Solo', isNew: true },
+    { key: 'flappy-solo', href: '/games/flappy?solo=1', title: 'Neon Flappy', icon: '🐤', desc: 'Tap to flap through glowing neon pipes! Win medals, unlock new birds and chase the high score.', players: 'Solo', isNew: true },
+    { key: 'golf-solo', href: '/games/golf?solo=1', title: 'Mini Golf', icon: '⛳', desc: 'Two 9-hole courses: Classic Meadow and Spooky Hollow. Beat par, chase holes-in-one and your best score.', players: 'Solo', isNew: true },
     { key: 'mines-solo', href: '/games/mines?solo=1', title: 'Minesweeper', icon: '💣', desc: 'The classic! Easy, Medium and Hard boards. Your first click is always safe.', players: 'Solo' },
     { key: 'snake', title: 'Neon Snake', icon: '🐍', desc: 'Eat, grow, don’t bite yourself. Gets faster every apple.', players: 'Solo' },
     { key: '2048', title: '2048', icon: '🔢', desc: 'Slide and merge tiles. Can you reach 2048?', players: 'Solo' },
@@ -222,34 +341,34 @@
   });
 
   // ---------------------------------------------------------------- limited-time event
+  // A small "🎃 Halloween quests: 3/8 · ends in 22 days →" strip linking to /quests (hide it for the day with ×).
   async function renderEvent() {
     const box = $('#event-banner');
     const [ev] = await PA.Unlocks.activeEvents();
-    if (!ev) { box.classList.add('hidden'); return; }
+    const today = new Date().toISOString().slice(0, 10);
+    const hidden = PA.store.get('pa_ev_hide', null);
+    if (!ev || (hidden && hidden.id === ev.id && hidden.day === today)) { box.classList.add('hidden'); return; }
     const d = await PA.Unlocks.load();
-    const achs = d.achievements.filter((a) => a.event === ev.id);
-    let stats = null;
+    const quests = PA.Unlocks.quests(d, ev.id);
+    if (!quests.length) { box.classList.add('hidden'); return; }
     const u = PA.Account.user;
-    if (u) { try { stats = (await Net.request('profile:get', { name: u.name })).profile.stats || {}; } catch { /* offline */ } }
-    const rewardsFor = (id) => ['auras', 'anims', 'balls'].flatMap((k) => d[k].filter((x) => x.rule && x.rule.ach === id).map((x) => x.name));
+    let done = null;
+    if (u) {
+      try {
+        const { profile } = await Net.request('profile:get', { name: u.name });
+        const achs = PA.Unlocks.earned(d, profile.level, profile.stats || {});
+        done = quests.filter((a) => achs.has(a.id)).length;
+      } catch { /* offline */ }
+    }
+    const left = ev.daysLeft <= 1 ? 'ends today!' : `ends in ${ev.daysLeft} days`;
     box.classList.remove('hidden');
     fill(box,
-      h('div', { class: 'ev-head' }, h('span', { class: 'ev-emoji' }, ev.emoji),
-        h('div', {}, h('h2', {}, `${ev.name} event`), h('p', { class: 'muted small' }, `${ev.about} Ends ${ev.last}${ev.daysLeft <= 7 ? ` — only ${ev.daysLeft} day${ev.daysLeft === 1 ? '' : 's'} left!` : '.'}`))),
-      h('div', { class: 'ev-goals' }, achs.map((a) => {
-        const r = a.rule || {};
-        const have = stats ? Math.min(r.gte || 0, stats[r.stat] || 0) : 0;
-        const done = stats && have >= (r.gte || 0);
-        return h('div', { class: 'ev-goal' + (done ? ' done' : '') },
-          h('span', { class: 'e' }, done ? '✅' : a.emoji),
-          h('div', { class: 'grow' }, h('b', {}, a.name), h('div', { class: 'small muted' }, a.desc), h('div', { class: 'tiny' }, '🎁 ', rewardsFor(a.id).join(' + ')),
-            stats ? h('div', { class: 'ev-bar' }, h('i', { style: { width: `${(have / (r.gte || 1)) * 100}%` } })) : null),
-          stats ? h('span', { class: 'ev-n' }, `${have}/${r.gte}`) : null);
-      })),
-      h('div', { class: 'ev-btns' },
-        h('a', { class: 'btn btn-pink btn-sm', href: '/games/prophunt' }, '🔫 Play Prop Hunt'),
-        u ? h('a', { class: 'btn btn-ghost btn-sm', href: '/settings#rewards' }, '✨ See the rewards')
-          : h('button', { class: 'btn btn-ghost btn-sm', onclick: () => UI.accountModal({ view: 'signup' }) }, '✨ Make an account to earn them')));
+      h('a', { class: 'evb-link', href: '/quests' },
+        h('span', { class: 'evb-e' }, ev.emoji),
+        h('span', { class: 'evb-t' }, h('b', {}, `${ev.name} quests`), done != null ? h('span', { class: 'evb-n' }, `${done}/${quests.length}`) : null,
+          h('span', { class: 'evb-s' }, done != null && done >= quests.length ? '· theme unlocked 🎉' : `· ${left}`, done == null ? ' · win a spooky theme' : '')),
+        h('span', { class: 'evb-go' }, '→')),
+      h('button', { class: 'icon-btn evb-x', 'aria-label': 'Hide for today', title: 'Hide for today', onclick: () => { PA.store.set('pa_ev_hide', { id: ev.id, day: today }); box.classList.add('hidden'); } }, PA.icon('x')));
   }
   renderEvent();
   PA.on('auth', renderEvent);

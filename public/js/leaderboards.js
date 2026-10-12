@@ -5,8 +5,8 @@
   const FX = PA.FX || {};
   const GROUPS = [
     ['General', ['xp', 'wins', 'games']],
-    ['Online games', ['dash', 'life', 'life_age', 'doodle', 'blitz', 'casino', 'casino_big', 'c4', 'impostor', 'impostor_rounds', 'mines', 'front']],
-    ['Solo', ['snake', '2048', 'memory', 'dash_solo', 'mines_medium', 'mines_hard', 'slope', 'front_solo']],
+    ['Online games', ['dash', 'life', 'life_age', 'doodle', 'blitz', 'casino', 'casino_big', 'c4', 'pool', 'impostor', 'impostor_rounds', 'mines', 'front', 'golf']],
+    ['Solo', ['snake', '2048', 'memory', 'dash_solo', 'mines_medium', 'mines_hard', 'slope', 'front_solo', 'pool_speed', 'pool_cpu', 'flappy', 'golf_classic', 'golf_spooky']],
   ];
   let boards = [];
   let current = new URLSearchParams(location.search).get('b') || store.get('lb_board', 'xp');
@@ -20,6 +20,7 @@
     if (f === 'coins') return `🪙 ${n.toLocaleString('en-US')}`;
     if (f === 'time') return `${(n / 1000).toFixed(2)}s`;
     if (f === 'years') return `${n} years`;
+    if (f === 'strokes') return `${n} strokes`;
     return n.toLocaleString('en-US');
   }
 

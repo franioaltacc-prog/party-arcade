@@ -5,7 +5,7 @@
 
   // The site's version. Bump it with every update, together with a new entry at the
   // top of public/js/changelog.js (the /changelog page).
-  const VERSION = '2.17.4';
+  const VERSION = '2.18.0';
 
   // ---------------------------------------------------------------- helpers
   const $ = (s, r = document) => r.querySelector(s);
@@ -168,6 +168,115 @@
     s.innerHTML = (ART && ART.icons[name]) || '';
     return s;
   }
+
+  // ---------------------------------------------------------------- site theme
+  // Picked in Settings. Logged-in players wear it like a reward (it follows their account and the
+  // server checks it's unlocked); guests can use the free ones (kept in Settings). It's applied
+  // while this file first runs, before the page is painted, so the default look never flashes.
+  const THEMES = {
+    neon: { bg: '#0b0920' }, midnight: { bg: '#050b1a' }, sunset: { bg: '#170612' }, ocean: { bg: '#021519' },
+    forest: { bg: '#06120a' }, candy: { bg: '#1a0a1d' }, retro: { bg: '#020602', fonts: 'Silkscreen&family=VT323' },
+    halloween: { bg: '#0b0510', fonts: 'Creepster' },
+  };
+  const Theme = (() => {
+    let current = null;
+    let batTimer = 0;
+    const calm = () => document.documentElement.classList.contains('calm');
+    /** What to show: the theme the account wears, else the (free) one this browser picked. */
+    function wanted() {
+      const u = store.get('pa_user', null);   // read straight from storage: Account isn't set up yet on the first call
+      const worn = u && u.look && u.look.theme;
+      const local = Settings.get().theme;
+      return (THEMES[worn] && worn) || (THEMES[local] && local !== 'halloween' && local) || 'neon';
+    }
+    /** Load a theme's extra Google font (Retro's pixel fonts, Halloween's Creepster) once. */
+    function font(id) {
+      const f = THEMES[id] && THEMES[id].fonts;
+      if (!f || document.querySelector(`link[data-theme-font="${id}"]`)) return;
+      document.head.append(h('link', { rel: 'stylesheet', 'data-theme-font': id, href: `https://fonts.googleapis.com/css2?family=${f}&display=swap` }));
+    }
+    function apply(id = wanted()) {
+      if (!THEMES[id]) id = 'neon';
+      const root = document.documentElement;
+      root.dataset.theme = id;
+      if (id === current) { ambience(); return id; }
+      current = id;
+      font(id);
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', THEMES[id].bg);
+      store.set('pa_theme', id);
+      if (document.body) ambience(); else document.addEventListener('DOMContentLoaded', ambience, { once: true });
+      emit('theme', id);
+      return id;
+    }
+
+    // ---- Halloween ambience: a big moon, drifting fog, cobwebs, glowing pumpkins and the odd bat
+    function web(cls) {
+      const s = document.createElementNS(SVG_NS, 'svg');
+      s.setAttribute('viewBox', '0 0 200 200');
+      s.setAttribute('class', 'hw-web ' + cls);
+      const P = (a, r) => `${(Math.cos(a) * r).toFixed(1)} ${(Math.sin(a) * r).toFixed(1)}`;
+      const angles = [0, 1, 2, 3, 4, 5, 6].map((i) => (i / 6) * Math.PI / 2);
+      let d = angles.map((a) => `M0 0L${P(a, 200)}`).join('');
+      for (const r of [28, 58, 92, 130, 172]) {
+        for (let i = 0; i < 6; i++) d += `M${P(angles[i], r)}Q${P((angles[i] + angles[i + 1]) / 2, r * 0.84)} ${P(angles[i + 1], r)}`;
+      }
+      s.innerHTML = `<path d="${d}" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>`;
+      return s;
+    }
+    const BAT = '<svg viewBox="0 0 100 50" aria-hidden="true"><path class="wl" fill="currentColor" d="M50 27C42 15 26 9 3 15c8 4 11 10 10 17 6-4 12-3 16 3 3-6 9-8 15-4 2-2 4-3 6-4z"/>'
+      + '<path class="wr" fill="currentColor" d="M50 27c8-12 24-18 47-12-8 4-11 10-10 17-6-4-12-3-16 3-3-6-9-8-15-4-2-2-4-3-6-4z"/>'
+      + '<path fill="currentColor" d="M44 15l2-7 3 5h2l3-5 2 7c2 3 2 7 1 10l-2 14c-1 3-3 4-4 4s-3-1-4-4l-2-14c-1-3-1-7-1-10z"/>'
+      + '<circle cx="47.6" cy="18" r="1.3" fill="#ffb347"/><circle cx="52.4" cy="18" r="1.3" fill="#ffb347"/></svg>';
+    function flyBat(delay = 0) {
+      if (calm() || document.hidden || current !== 'halloween') return;
+      const back = /^\/games\//.test(location.pathname);   // during games they fly behind everything
+      const bat = h('div', { class: 'hw-bat' + (back ? ' back' : ''), 'aria-hidden': 'true', html: BAT });
+      document.body.append(bat);
+      const W = innerWidth;
+      const ltr = Math.random() < 0.5;
+      const y0 = innerHeight * (0.1 + Math.random() * 0.35);
+      const s = 0.65 + Math.random() * 0.55;
+      const frames = [];
+      for (let i = 0; i <= 12; i++) {
+        const t = i / 12;
+        const x = ltr ? -80 + t * (W + 160) : W + 80 - t * (W + 160);
+        frames.push({ transform: `translate(${x.toFixed(0)}px, ${(y0 + Math.sin(t * Math.PI * 3) * 36 * s - t * 70).toFixed(0)}px) scale(${s.toFixed(2)})` });
+      }
+      const anim = bat.animate(frames, { duration: 5200 + Math.random() * 2600, delay, easing: 'linear', fill: 'both' });
+      anim.onfinish = () => bat.remove();
+      anim.oncancel = () => bat.remove();
+    }
+    function scheduleBats(first) {
+      clearTimeout(batTimer);
+      if (current !== 'halloween') return;
+      batTimer = setTimeout(() => {
+        const n = Math.random() < 0.35 ? 2 + Math.floor(Math.random() * 2) : 1;   // sometimes a little colony
+        for (let i = 0; i < n; i++) flyBat(i * (250 + Math.random() * 500));
+        scheduleBats(false);
+      }, first ? 2500 + Math.random() * 3000 : 18000 + Math.random() * 26000);
+    }
+    function ambience() {
+      let amb = document.querySelector('.hw-amb');
+      if (calm()) document.querySelectorAll('.hw-bat').forEach((b) => b.remove());
+      if (current !== 'halloween') {
+        if (amb) amb.remove();
+        document.querySelectorAll('.hw-bat').forEach((b) => b.remove());
+        clearTimeout(batTimer);
+        return;
+      }
+      if (!amb) {
+        amb = h('div', { class: 'hw-amb', 'aria-hidden': 'true' },
+          h('div', { class: 'hw-moon' }), h('div', { class: 'hw-fog hw-fog2' }), h('div', { class: 'hw-fog hw-fog1' }),
+          web('hw-web-l'), web('hw-web-r'), h('div', { class: 'hw-spider' }),
+          h('div', { class: 'hw-jack hw-jack-l' }, '🎃'), h('div', { class: 'hw-jack hw-jack-r' }, '🎃'));
+        document.body.prepend(amb);
+        scheduleBats(true);
+      }
+    }
+    return { list: THEMES, wanted, apply, font, flyBat, get current() { return current; } };
+  })();
+  Theme.apply();
 
   // ---------------------------------------------------------------- profile & account
   const AVATARS = ['😎', '🤖', '👽', '🐸', '🦊', '🐼', '🐙', '🦄', '🐯', '🐵', '👻', '🎃', '🍕', '🌮', '🚀', '⚡', '🔥', '💎', '🐧', '🦖', '🐱', '🐶', '🤠', '🥷', '🧙', '🐲', '🍩', '🐝'];
@@ -1051,6 +1160,12 @@
     },
   };
   const invites = new Map();
+  // an admin reviewed one of your Neon Dash levels (shows on every page you have open)
+  Net.on('dash:reviewed', (m) => {
+    if (m.status === 'approved') { UI.toast(`✅ Your level “${m.name}” was approved! Everyone can play it now.`, 'good', 6000); Sfx.play('win'); }
+    else if (m.status === 'rejected') UI.toast(`❌ Your level “${m.name}” wasn’t approved${m.reason ? `: ${m.reason}` : '.'}`, 'bad', 7000);
+    else if (m.status === 'unlisted') UI.toast(`🙈 Your level “${m.name}” was unlisted${m.reason ? `: ${m.reason}` : '.'}`, 'bad', 7000);
+  });
   Net.on('friends:invite', (m) => {
     const r = m.room;
     if (!r || (window.Room && window.Room.code === r.code)) return;
@@ -1145,23 +1260,49 @@
   const Unlocks = {
     data: null,
     async load() {
-      if (!Unlocks.data) Unlocks.data = fetch('/data/unlocks.json').then((r) => r.json()).catch(() => ({ achievements: [], auras: [], anims: [], balls: [] }));
+      if (!Unlocks.data) Unlocks.data = fetch('/data/unlocks.json').then((r) => r.json()).catch(() => ({ achievements: [], auras: [], anims: [], balls: [], themes: [] }));
       return Unlocks.data;
     },
     ok(rule, level, stats, achs) {
       if (!rule) return true;
       if ('level' in rule) return level >= rule.level;
       if ('ach' in rule) return achs.has(rule.ach);
-      const v = stats[rule.stat] || 0;
+      if ('achs' in rule) return rule.achs.every((a) => achs.has(a));
+      const v = Unlocks.value(rule, stats);
       return (!('gte' in rule) || v >= rule.gte) && (!('gt' in rule) || v > rule.gt) && (!('lte' in rule) || v <= rule.lte);
+    },
+    /** A stat rule's number for this player ("stat" can be a list of stats, which are added up). */
+    value(rule, stats) {
+      return (Array.isArray(rule.stat) ? rule.stat : [rule.stat]).reduce((n, k) => n + (+stats[k] || 0), 0);
+    },
+    /** Achievement ids earned (repeated so ones that need other achievements work in any order). */
+    earned(d, level, stats) {
+      let achs = new Set();
+      for (let i = 0; i < 4; i++) {
+        const more = new Set(d.achievements.filter((a) => Unlocks.ok(a.rule, level, stats, achs)).map((a) => a.id));
+        if (more.size === achs.size) break;
+        achs = more;
+      }
+      return achs;
     },
     /** What a player has unlocked, from their level and stats. */
     async of(level, stats) {
       const d = await Unlocks.load();
-      const achs = new Set(d.achievements.filter((a) => Unlocks.ok(a.rule, level, stats, new Set())).map((a) => a.id));
-      const has = (list) => new Set(list.filter((c) => Unlocks.ok(c.rule, level, stats, achs)).map((c) => c.id));
-      return { achievements: achs, aura: has(d.auras), anim: has(d.anims), ball: has(d.balls) };
+      const achs = Unlocks.earned(d, level, stats);
+      const has = (list) => new Set((list || []).filter((c) => Unlocks.ok(c.rule, level, stats, achs)).map((c) => c.id));
+      return { achievements: achs, aura: has(d.auras), anim: has(d.anims), ball: has(d.balls), theme: has(d.themes) };
     },
+    /** How far along an achievement (or reward rule) is: { have, need, done }. */
+    progress(item, stats, achs = new Set()) {
+      const r = (item && item.rule) || {};
+      if ('achs' in r) { const have = r.achs.filter((a) => achs.has(a)).length; return { have, need: r.achs.length, done: have >= r.achs.length }; }
+      if ('ach' in r) { const done = achs.has(r.ach); return { have: +done, need: 1, done }; }
+      const need = r.gte != null ? r.gte : r.gt != null ? r.gt + 1 : 1;
+      const done = Unlocks.ok(r, 0, stats, achs);
+      return { have: done ? need : Math.min(need, Math.floor(Unlocks.value(r, stats))), need, done };
+    },
+    /** The achievements (quests) of a limited-time event. */
+    quests(d, eventId) { return d.achievements.filter((a) => a.event === eventId); },
     /** A limited-time event (dates are UTC days; "until" is the first day it's over), with active/over and a nice end date. */
     event(d, id) {
       const ev = ((d && d.events) || []).find((e) => e.id === id);
@@ -1188,9 +1329,32 @@
       if (!rule) return 'Free';
       if ('level' in rule) return `Reach level ${rule.level}`;
       if ('ach' in rule) { const a = d.achievements.find((x) => x.id === rule.ach); return a ? `${a.emoji} ${a.name}: ${a.desc}` : 'An achievement'; }
+      if ('achs' in rule) {
+        const first = d.achievements.find((x) => x.id === rule.achs[0]);
+        const ev = first && first.event && Unlocks.event(d, first.event);
+        return ev ? `Complete all ${ev.name} quests` : `Earn ${rule.achs.length} achievements`;
+      }
       return 'A secret';
     },
   };
+
+  /** Wear a site theme: saved on the account when logged in (the server checks it's unlocked)
+      and, for the free ones, in this browser too so it stays when you log out. */
+  Theme.set = async (id) => {
+    const d = await Unlocks.load();
+    const t = (d.themes || []).find((x) => x.id === id);
+    if (!t || !THEMES[id]) throw new Error('Unknown theme.');
+    if (Account.user) await Account.wear({ theme: id });
+    else if (t.rule) throw new Error('Make a free account to unlock this theme!');
+    if (!t.rule) Settings.set({ theme: id });
+    return Theme.apply();
+  };
+  on('account', () => Theme.apply());
+  on('settings', () => { applyCalm(); Theme.apply(); });   // (calm first, so "Less motion" stops the bats too)
+  // another tab logged in/out or changed the theme
+  addEventListener('storage', (e) => {
+    if (e.key === 'pa_user' || e.key === 'pa_settings') { applyCalm(); Theme.apply(); }
+  });
 
   // ---------------------------------------------------------------- footer
   // Every page gets the version and links to the privacy policy and changelog. A page with
@@ -1202,5 +1366,5 @@
     document.body.append(h('footer', { class: 'footer' }, '🕹️ Party Arcade · ', h('a', { href: '/credits' }, '🎬 Credits'), ...links));
   })();
 
-  window.PA = { $, $$, h, fill, esc, rand, clamp, sleep, fmtMoney, fmtTime, store, on, emit, Profile, Account, Net, Sfx, UI, Emoji, icon, AVATARS, COLORS, VERSION, Settings, Unlocks, Friends };
+  window.PA = { $, $$, h, fill, esc, rand, clamp, sleep, fmtMoney, fmtTime, store, on, emit, Profile, Account, Net, Sfx, UI, Emoji, icon, AVATARS, COLORS, VERSION, Settings, Unlocks, Friends, Theme };
 })();

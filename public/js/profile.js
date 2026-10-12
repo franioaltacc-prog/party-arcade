@@ -13,12 +13,14 @@
 
   // game sections: [title, emoji, color, [[label, stat key, format]]]
   const SECTIONS = [
-    ['Neon Dash', '🟪', '#a855f7', [['Races', 'dash.races'], ['Wins', 'dash.wins'], ['Top 3', 'dash.podiums'], ['Finished', 'dash.finishes']]],
+    ['Neon Dash', '🟪', '#a855f7', [['Races', 'dash.races'], ['Wins', 'dash.wins'], ['Top 3', 'dash.podiums'], ['Finished', 'dash.finishes'], ['Levels posted', 'dash.levels_posted'], ['Levels approved', 'dash.levels_approved']]],
     ['Family Life', '🏡', '#22c55e', [['Lives', 'life.lives'], ['Wins', 'life.wins'], ['Best score', 'life.best'], ['Oldest', 'life.oldest', (v) => `${v} yrs`], ['Richest', 'life.richest', (v) => PA.fmtMoney(v)]]],
     ['Doodle Guess', '🎨', '#f43f5e', [['Games', 'doodle.games'], ['Wins', 'doodle.wins'], ['Best game', 'doodle.best'], ['Total points', 'doodle.points']]],
     ['Party Blitz', '⚡', '#facc15', [['Games', 'blitz.games'], ['Wins', 'blitz.wins'], ['Best game', 'blitz.best'], ['Total points', 'blitz.points']]],
     ['Casino Night', '🎰', '#fbbf24', [['Matches', 'casino.games'], ['Wins', 'casino.wins'], ['Biggest win', 'casino.best_win', (v) => `🪙 ${num(v)}`], ['Most coins', 'casino.best_coins', (v) => `🪙 ${num(v)}`]]],
     ['Connect 4', '🔴', '#3b82f6', [['Wins', 'c4.wins'], ['Losses', 'c4.losses'], ['Draws', 'c4.draws']]],
+    ['Billiards', '🎱', '#10b981', [['Games', 'pool.games'], ['Wins', 'pool.wins'], ['Losses', 'pool.losses'], ['Frames won', 'pool.frames'], ['Run-outs', 'pool.runs'],
+      ['Speed clear best', 'poolspeed.best', secs], ['Wins vs CPU', 'poolcpu.wins']]],
     ['Impostor', '🕵️', '#f43f5e', [['Games', 'impostor.games'], ['Wins', 'impostor.wins'], ['Rounds as impostor', 'impostor.imp_rounds'],
       ['Won as impostor', 'impostor.imp_wins'], ['Survived as impostor', 'impostor.survived'], ['Correct votes', 'impostor.correct_votes']]],
     ['Minesweeper', '💣', '#6366f1', [['Games', 'mines.games'], ['Wins', 'mines.wins'], ['Race boards cleared', 'mines.cleared'], ['Best battle', 'mines.best'],
@@ -28,6 +30,9 @@
     ['Prop Hunt', '🔫', '#f43f5e', [['Games', 'prophunt.games'], ['Wins', 'prophunt.wins'], ['Total points', 'prophunt.points'], ['Best game', 'prophunt.best'],
       ['Catches as killer', 'prophunt.catches'], ['Caught everyone', 'prophunt.aces'], ['Rounds survived', 'prophunt.survived']]],
     ['Poly Racer', '🏎️', '#0ea5e9', [['Races', 'poly.races'], ['Wins', 'poly.wins'], ['Top 3', 'poly.podiums'], ['🌱 First Lap', 'poly1.best', secs], ['⛰️ Hill Climb', 'poly2.best', secs], ['🌀 Hairpins', 'poly3.best', secs], ['🚀 Big Air', 'poly4.best', secs], ['☁️ Sky Highway', 'poly5.best', secs], ['🌋 Chaos', 'poly6.best', secs]]],
+    ['Neon Flappy', '🐤', '#facc15', [['Best score', 'flappy.best'], ['Royale games', 'flappy.games'], ['Royale wins', 'flappy.wins'], ['Best Royale round', 'flappy.best_online']]],
+    ['Mini Golf', '⛳', '#4ade80', [['Games', 'golf.games'], ['Wins', 'golf.wins'], ['Holes played', 'golf.holes'], ['Holes in one', 'golf.aces'], ['Best 9 online', 'golf.best', (v) => `${v} strokes`],
+      ['⛳ Classic Meadow', 'golfclassic.best', (v) => `${v} strokes`], ['🎃 Spooky Hollow', 'golfspooky.best', (v) => `${v} strokes`], ['Spooky rounds finished', 'golf.spooky_done']]],
     ['Tournaments', '🏆', '#facc15', [['Played', 'tour.played'], ['Won', 'tour.wins']]],
     ['Party mode', '🎉', '#ff4fd8', [['Parties', 'party.games'], ['Party wins', 'party.wins'], ['Party points', 'party.points']]],
     ['Solo arcade', '🕹️', '#22d3ee', [['🐍 Snake best', 'snake.best'], ['🔢 2048 best', '2048.best'], ['🃏 Memory (Normal)', 'memory.best', secs], ['🟦 Dash levels', 'dashsolo.levels'], ['🛝 Slope best', 'slope.best']]],
@@ -35,8 +40,8 @@
 
   // achievements (and the rewards they unlock) come from /data/unlocks.json, shared with the server
 
-  const GAME_EMOJI = { dash: '🟪', life: '🏡', doodle: '🎨', blitz: '⚡', connect4: '🔴', casino: '🎰', impostor: '🕵️', slope: '🛝', front: '🌍', frontsolo: '🤖', mines: '💣', mines_easy: '💣', mines_medium: '💣', mines_hard: '💣', snake: '🐍', 2048: '🔢', memory: '🃏', dashsolo: '🟦', party: '🎉', prophunt: '🔫', tour: '🏆', poly: '🏎️', poly1: '🏁', poly2: '🏁', poly3: '🏁', poly4: '🏁', poly5: '🏁', poly6: '🏁' };
-  const GAME_NAME = { dash: 'Neon Dash', life: 'Family Life', doodle: 'Doodle Guess', blitz: 'Party Blitz', connect4: 'Connect 4', casino: 'Casino Night', impostor: 'Impostor', slope: 'Slope', front: 'Front Wars', frontsolo: 'Front Wars solo', mines: 'Minesweeper', mines_easy: 'Minesweeper Easy', mines_medium: 'Minesweeper Medium', mines_hard: 'Minesweeper Hard', snake: 'Neon Snake', 2048: '2048', memory: 'Memory Flip', dashsolo: 'Dash practice', party: 'Party mode', prophunt: 'Prop Hunt', tour: 'Tournament', poly: 'Poly Racer', poly1: 'Poly Racer · First Lap', poly2: 'Poly Racer · Hill Climb', poly3: 'Poly Racer · Hairpins', poly4: 'Poly Racer · Big Air', poly5: 'Poly Racer · Sky Highway', poly6: 'Poly Racer · Chaos' };
+  const GAME_EMOJI = { dash: '🟪', life: '🏡', doodle: '🎨', blitz: '⚡', connect4: '🔴', billiards: '🎱', poolspeed: '⏱️', poolcpu: '🤖', casino: '🎰', impostor: '🕵️', slope: '🛝', front: '🌍', frontsolo: '🤖', mines: '💣', mines_easy: '💣', mines_medium: '💣', mines_hard: '💣', snake: '🐍', 2048: '🔢', memory: '🃏', dashsolo: '🟦', party: '🎉', prophunt: '🔫', tour: '🏆', poly: '🏎️', poly1: '🏁', poly2: '🏁', poly3: '🏁', poly4: '🏁', poly5: '🏁', poly6: '🏁', flappy: '🐤', golf: '⛳', golfclassic: '⛳', golfspooky: '🎃' };
+  const GAME_NAME = { dash: 'Neon Dash', life: 'Family Life', doodle: 'Doodle Guess', blitz: 'Party Blitz', connect4: 'Connect 4', billiards: 'Billiards', poolspeed: 'Billiards speed clear', poolcpu: 'Billiards vs CPU', casino: 'Casino Night', impostor: 'Impostor', slope: 'Slope', front: 'Front Wars', frontsolo: 'Front Wars solo', mines: 'Minesweeper', mines_easy: 'Minesweeper Easy', mines_medium: 'Minesweeper Medium', mines_hard: 'Minesweeper Hard', snake: 'Neon Snake', 2048: '2048', memory: 'Memory Flip', dashsolo: 'Dash practice', party: 'Party mode', prophunt: 'Prop Hunt', tour: 'Tournament', poly: 'Poly Racer', poly1: 'Poly Racer · First Lap', poly2: 'Poly Racer · Hill Climb', poly3: 'Poly Racer · Hairpins', poly4: 'Poly Racer · Big Air', poly5: 'Poly Racer · Sky Highway', poly6: 'Poly Racer · Chaos', flappy: 'Neon Flappy', golf: 'Mini Golf', golfclassic: 'Mini Golf · Classic Meadow', golfspooky: 'Mini Golf · Spooky Hollow' };
   const OUTCOME = { win: ['WIN', 'win'], loss: ['LOSS', 'loss'], draw: ['DRAW', 'draw'], play: ['PLAYED', 'play'] };
 
   function message(emoji, title, text, ...kids) {
@@ -106,6 +111,7 @@
               h('div', { class: 'gstat-head' }, h('span', { class: 'e' }, emoji), h('b', {}, title)),
               h('div', { class: 'gstat-grid' }, items.map(([label, key, f]) => h('div', {}, h('b', {}, st[key] ? (f ? f(st[key]) : num(st[key])) : '–'), h('span', {}, label)))))))
             : h('p', { class: 'muted panel' }, mine ? 'No games saved yet. Finish an online game and your stats show up here!' : 'No games saved yet.'),
+          h('div', { id: 'prof-dash' }),
           h('h2', { class: 'prof-h' }, '🎖️ Achievements'),
           h('div', { class: 'achs' }, U.achievements.filter((a) => !PA.Unlocks.gone(U, a, have.achievements.has(a.id))).map((a) => {
             const ok = have.achievements.has(a.id);
@@ -129,6 +135,7 @@
             }))
             : h('p', { class: 'muted small panel' }, 'Nothing yet.'))));
 
+    if (st['dash.levels_approved']) dashLevels(p);
     if (FX.on) {
       const g = FX.gsap;
       g.from('.prof-head', { y: 30, autoAlpha: 0, duration: 0.6, ease: 'back.out(1.5)', clearProps: 'transform,opacity,visibility' });
@@ -138,6 +145,19 @@
       const bar = root.querySelector('.xpbar-track i');
       if (bar) g.from(bar, { width: 0, duration: 1.2, ease: 'power3.out', delay: 0.3 });
     }
+  }
+
+  /** Their approved Neon Dash community levels. */
+  async function dashLevels(p) {
+    let r;
+    try { r = await Net.request('dash:list', { by: p.name, sort: 'new' }); } catch { return; }
+    const box = $('#prof-dash');
+    if (!box || !r.levels.length) return;
+    fill(box, h('h2', { class: 'prof-h' }, '🛠️ Neon Dash levels'),
+      h('div', { class: 'prof-levels' }, r.levels.map((l) => h('a', { class: 'prof-level', href: `/games/dash?level=${l.id}` },
+        h('span', { class: 'e' }, '🟪'),
+        h('div', { class: 'grow' }, h('b', {}, l.name), h('div', { class: 'tiny muted' }, `${Math.round((l.preview.len || 0) / 10.4)}s · ▶ ${num(l.plays)} plays · 👍 ${num(l.likes)}`)),
+        h('span', { class: 'play' }, '▶')))));
   }
 
   async function load() {

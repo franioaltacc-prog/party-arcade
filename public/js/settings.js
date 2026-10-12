@@ -1,4 +1,4 @@
-/* Settings: sound, motion, rewards (auras / animated avatars / Slope ball skins), account, data. */
+/* Settings: site theme, sound, motion, rewards (auras / animated avatars / Slope ball skins), account, data. */
 (() => {
   'use strict';
   const { $, h, fill, UI, Net, Sfx, Account, Profile, Settings, Unlocks, store, on } = PA;
@@ -41,6 +41,45 @@
         h('button', { class: st.motion === 'less' ? 'on' : '', onclick: () => pick('less') }, '🧘 Less motion')),
       h('p', { class: 'st-note' }, 'Less motion stops page animations, moving auras and animated avatars. Handy if motion makes you dizzy or your device is slow.',
         device ? ' Your device already asks for reduced motion, so it’s on anyway.' : '', ' Some pages fully update after a reload.'));
+  }
+
+  // ---- site theme
+  /** A tiny picture of a page in that theme (the tile carries its own data-theme, so the colours are real). */
+  function themePreview(id) {
+    PA.Theme.font(id);
+    return h('div', { class: 'theme-prev', 'data-theme': id, 'aria-hidden': 'true' },
+      h('div', { class: 'tp-bar' }, h('span', { class: 'tp-logo' }), h('span', { class: 'tp-title' }, 'Party ', h('i', {}, 'Arcade'))),
+      h('div', { class: 'tp-body' }, h('div', { class: 'tp-card' }, h('i'), h('i')), h('div', { class: 'tp-card' }, h('i'), h('i')), h('span', { class: 'tp-btn' }, 'Play')),
+      id === 'halloween' ? [h('span', { class: 'tp-moon' }), h('span', { class: 'tp-jack' }, '🎃')] : null);
+  }
+  async function pickTheme(t) {
+    try {
+      await PA.Theme.set(t.id);
+      Sfx.play(t.id === 'halloween' ? 'win' : 'coin');
+      UI.toast(`${t.emoji} ${t.name} theme on!`, 'good');
+      if (t.id === 'halloween' && PA.Theme.flyBat) for (let i = 0; i < 3; i++) PA.Theme.flyBat(i * 350);
+    } catch (e) { UI.toast(e.message, 'bad'); }
+  }
+  function themePanel() {
+    const themes = (U.themes || []).filter((t) => !Unlocks.gone(U, t, have && have.theme.has(t.id)));
+    const now = PA.Theme.current;
+    return h('section', { class: 'panel', id: 'theme' },
+      h('h2', {}, '🎨 Theme'),
+      h('p', { class: 'muted small', style: { marginBottom: '12px' } }, 'Change how the whole arcade looks. ',
+        Account.user ? 'Your theme is saved on your account, so it follows you to other devices.' : 'It’s saved in this browser.'),
+      h('div', { class: 'th-grid' }, themes.map((t) => {
+        const ev = t.event && Unlocks.event(U, t.event);
+        const ok = !t.rule || !!(have && have.theme.has(t.id));
+        const on = now === t.id;
+        const lock = !ok && (Account.user ? hints[t.id + 'theme'] : 'Make a free account, then complete all the quests');
+        return h('div', { class: 'th' + (on ? ' on' : '') + (ok ? '' : ' locked') + (t.id === 'halloween' ? ' th-spooky' : '') },
+          h('button', { class: 'th-pick', disabled: !ok || on, 'aria-pressed': on ? 'true' : 'false', title: ok ? `Use the ${t.name} theme` : `${t.name}: ${lock}`, onclick: () => pickTheme(t) },
+            themePreview(t.id),
+            on ? h('span', { class: 'tag' }, '✅') : !ok ? h('span', { class: 'tag' }, '🔒') : null,
+            h('span', { class: 'th-name' }, h('b', {}, `${t.emoji} ${t.name}`), h('span', { class: 'hint' }, on ? 'Using it now' : ok ? t.about : lock),
+              ev ? h('span', { class: 'lim', title: `Limited: ${ev.name} event` }, ok ? `${ev.emoji} Limited · yours forever` : `${ev.emoji} Limited · until ${ev.last}`) : null)),
+          !ok && ev ? h('a', { class: 'th-quest', href: '/quests' }, ev.active ? `${ev.emoji} See the quests →` : 'See what you got →') : null);
+      })));
   }
 
   // ---- rewards
@@ -134,19 +173,22 @@
       } catch { have = null; }
     }
     hints = {};
-    for (const [slot, list] of [['aura', U.auras], ['anim', U.anims], ['ball', U.balls]]) {
+    for (const [slot, list] of [['aura', U.auras], ['anim', U.anims], ['ball', U.balls], ['theme', U.themes || []]]) {
       for (const item of list) hints[item.id + slot] = await Unlocks.hint(item.rule);
     }
     const y = scrollY;
     fill(root,
       h('section', { class: 'page-head' }, h('h1', { class: 'display' }, 'Settings ', h('span', { class: 'gradient-text' }, '⚙️')),
-        h('p', { class: 'muted' }, 'Sound, animations, your rewards and your account.')),
-      soundPanel(), motionPanel(), rewardsPanel(), accountPanel(), dataPanel());
+        h('p', { class: 'muted' }, 'Theme, sound, animations, your rewards and your account.')),
+      themePanel(), soundPanel(), motionPanel(), rewardsPanel(), accountPanel(), dataPanel());
     scrollTo(0, y);
     if (location.hash && !render.jumped) { render.jumped = true; const el = $(location.hash); if (el) el.scrollIntoView(); }
   }
 
-  on('account', () => render());
+  // several of these can fire together (wearing a theme changes the account and the theme): draw once
+  const rerender = () => { clearTimeout(rerender.t); rerender.t = setTimeout(render, 40); };
+  on('account', rerender);
+  on('theme', () => { if (U) rerender(); });
   on('muted', () => render());
   Account.ready().then(render);
   if (FX.on && FX.list) setTimeout(() => FX.list([...root.children].slice(0, 3), { y: 10, duration: 0.4, stagger: 0.06 }), 50);

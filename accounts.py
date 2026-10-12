@@ -72,6 +72,13 @@ BOARDS = {
     "poly4": ("🚀 Poly Racer: Big Air", "poly4.best", "asc", "time"),
     "poly5": ("☁️ Poly Racer: Sky Highway", "poly5.best", "asc", "time"),
     "poly6": ("🌋 Poly Racer: Chaos", "poly6.best", "asc", "time"),
+    "pool": ("🎱 Billiards wins", "pool.wins", "desc", "int"),
+    "pool_speed": ("⏱️ Billiards speed clear", "poolspeed.best", "asc", "time"),
+    "pool_cpu": ("🤖 Billiards wins vs CPU", "poolcpu.wins", "desc", "int"),
+    "flappy": ("🐤 Neon Flappy best score", "flappy.best", "desc", "int"),
+    "golf": ("⛳ Mini Golf wins", "golf.wins", "desc", "int"),
+    "golf_classic": ("⛳ Mini Golf: Classic Meadow", "golfclassic.best", "asc", "strokes"),
+    "golf_spooky": ("🎃 Mini Golf: Spooky Hollow", "golfspooky.best", "asc", "strokes"),
 }
 
 # Scores the browser reports for solo games: game -> (stat ops, lowest, highest)
@@ -92,8 +99,13 @@ SOLO = {
     "poly-4": ("poly4", 17625, 3_600_000),
     "poly-5": ("poly5", 17700, 3_600_000),
     "poly-6": ("poly6", 22275, 3_600_000),
+    "pool-speed": ("poolspeed", 15000, 3_600_000),   # Billiards speed clear: ms to pocket all 15 balls
+    "pool-cpu": ("poolcpu", 1, 3),                   # a win vs the CPU at this level (1 easy, 2 medium, 3 hard)
+    "flappy": ("flappy", 1, 10000),                  # Neon Flappy: pipes passed in one run
+    "golf-classic": ("golfclassic", 9, 72),          # Mini Golf solo: strokes for all 9 holes (max 8 a hole)
+    "golf-spooky": ("golfspooky", 9, 72),            # (a finished Spooky Hollow round also counts as golf.spooky_done)
 }
-FASTEST = {"memory", "dash-solo", "mines-easy", "mines-medium", "mines-hard"} | {f"poly-{i}" for i in range(1, 7)}   # solo games where a lower time wins
+FASTEST = {"memory", "dash-solo", "mines-easy", "mines-medium", "mines-hard", "pool-speed", "golf-classic", "golf-spooky"} | {f"poly-{i}" for i in range(1, 7)}   # solo games where a lower time wins
 
 SCHEMA = [
     """CREATE TABLE IF NOT EXISTS users (
@@ -146,6 +158,30 @@ SCHEMA = [
         host TEXT NOT NULL DEFAULT '',
         banned TEXT NOT NULL DEFAULT '[]',
         saved INTEGER NOT NULL)""",
+    # Neon Dash community levels (dashlevels.py): status is pending / approved / rejected / deleted / unlisted.
+    # Rows stay when a level is rejected or deleted, because every post counts toward the 3 a day.
+    """CREATE TABLE IF NOT EXISTS dash_levels (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        descr TEXT NOT NULL DEFAULT '',
+        data TEXT NOT NULL,
+        replay TEXT NOT NULL DEFAULT '',
+        preview TEXT NOT NULL DEFAULT '{}',
+        status TEXT NOT NULL DEFAULT 'pending',
+        reason TEXT NOT NULL DEFAULT '',
+        created INTEGER NOT NULL,
+        reviewed INTEGER NOT NULL DEFAULT 0,
+        reviewer INTEGER NOT NULL DEFAULT 0,
+        plays INTEGER NOT NULL DEFAULT 0,
+        likes INTEGER NOT NULL DEFAULT 0)""",
+    "CREATE INDEX IF NOT EXISTS dash_levels_user ON dash_levels(user_id, created)",
+    "CREATE INDEX IF NOT EXISTS dash_levels_status ON dash_levels(status, reviewed)",
+    """CREATE TABLE IF NOT EXISTS dash_likes (
+        user_id INTEGER NOT NULL,
+        level_id INTEGER NOT NULL,
+        PRIMARY KEY (user_id, level_id))""",
+    "CREATE INDEX IF NOT EXISTS dash_likes_level ON dash_likes(level_id)",
 ]
 ROOM_KEEP = 600   # seconds a room saved at shutdown can be picked up again
 
@@ -155,8 +191,8 @@ UNLOCKS_FILE = Path(__file__).resolve().parent / "public" / "data" / "unlocks.js
 try:
     UNLOCKS = json.loads(UNLOCKS_FILE.read_text(encoding="utf-8"))
 except (OSError, ValueError):
-    UNLOCKS = {"achievements": [], "auras": [], "anims": [], "balls": []}
-LOOK_SLOTS = {"aura": "auras", "anim": "anims", "ball": "balls"}   # what you can wear -> list in UNLOCKS
+    UNLOCKS = {"achievements": [], "auras": [], "anims": [], "balls": [], "themes": []}
+LOOK_SLOTS = {"aura": "auras", "anim": "anims", "ball": "balls", "theme": "themes"}   # what you can wear -> list in UNLOCKS
 
 
 def event_window(ev):
@@ -185,16 +221,30 @@ def rule_ok(rule, level, stats, achs):
         return level >= rule["level"]
     if "ach" in rule:
         return rule["ach"] in achs
-    v = stats.get(rule.get("stat"), 0) or 0
+    if "achs" in rule:
+        return all(a in achs for a in rule["achs"])
+    stat = rule.get("stat")
+    v = sum(stats.get(s, 0) or 0 for s in stat) if isinstance(stat, list) else stats.get(stat, 0) or 0
     return (("gte" not in rule or v >= rule["gte"]) and ("gt" not in rule or v > rule["gt"])
             and ("lte" not in rule or v <= rule["lte"]))
 
 
 def unlocked_items(xp, stats):
-    """Every reward this player has unlocked: {"aura": {...}, "anim": {...}, "ball": {...}}."""
+    """Every reward this player has unlocked: {"aura": {...}, "anim": {...}, "ball": {...}, "theme": {...}}."""
     level = level_info(xp)["level"]
-    achs = {a["id"] for a in UNLOCKS["achievements"] if rule_ok(a.get("rule"), level, stats, set())}
-    return {slot: {c["id"] for c in UNLOCKS[kind] if rule_ok(c.get("rule"), level, stats, achs)} for slot, kind in LOOK_SLOTS.items()}
+    achs = earned_achievements(level, stats)
+    return {slot: {c["id"] for c in UNLOCKS.get(kind, []) if rule_ok(c.get("rule"), level, stats, achs)} for slot, kind in LOOK_SLOTS.items()}
+
+
+def earned_achievements(level, stats):
+    """Achievement ids earned; repeated so ones that need other achievements ({"ach"} / {"achs"}) work in any order."""
+    achs = set()
+    for _ in range(4):
+        more = {a["id"] for a in UNLOCKS["achievements"] if rule_ok(a.get("rule"), level, stats, achs)}
+        if more == achs:
+            break
+        achs = more
+    return achs
 
 
 def parse_look(raw):
@@ -699,7 +749,12 @@ class Accounts:
         await self.wipe(user_id)
 
     async def wipe(self, user_id):
-        await self.many([(f"DELETE FROM {table} WHERE user_id = ?", (user_id,)) for table in ("sessions", "stats", "matches", "looks", "friends")]
+        # Neon Dash levels: take back the likes they gave, then remove their levels and the likes on them
+        dash = [("UPDATE dash_levels SET likes = MAX(0, likes - 1) WHERE id IN (SELECT level_id FROM dash_likes WHERE user_id = ?)", (user_id,)),
+                ("DELETE FROM dash_likes WHERE user_id = ?", (user_id,)),
+                ("DELETE FROM dash_likes WHERE level_id IN (SELECT id FROM dash_levels WHERE user_id = ?)", (user_id,)),
+                ("DELETE FROM dash_levels WHERE user_id = ?", (user_id,))]
+        await self.many(dash + [(f"DELETE FROM {table} WHERE user_id = ?", (user_id,)) for table in ("sessions", "stats", "matches", "looks", "friends")]
                         + [("DELETE FROM friends WHERE friend_id = ?", (user_id,)), ("DELETE FROM users WHERE id = ?", (user_id,))])
         self.board_cache.clear()
 
@@ -716,10 +771,11 @@ class Accounts:
                 ops["wins"] = ("add", 1)
         ops.update(stats or {})
         # limited-time events count some stats separately while they're on (e.g. games played at Halloween)
+        # ("add" counts up, "max"/"min" keep the event's best, e.g. a high score during Halloween)
         for ev in active_events():
             for name, base in ev.get("track", {}).items():
-                if base in ops and ops[base][0] == "add":
-                    ops[f"ev.{ev['id']}.{name}"] = ("add", ops[base][1])
+                if base in ops and ops[base][0] in ("add", "max", "min"):
+                    ops[f"ev.{ev['id']}.{name}"] = ops[base]
         stmts = []
         for key, (op, value) in ops.items():
             if op in UPSERT and isinstance(value, (int, float)) and math.isfinite(value):
@@ -747,12 +803,16 @@ class Accounts:
             raise AuthError("That score doesn't look right 🤔")
         if game == "front-solo":
             stats = {"frontsolo.wins": ("add", 1), "frontsolo.best": ("max", value)}
+        elif game == "pool-cpu":
+            stats = {"poolcpu.wins": ("add", 1), "poolcpu.best": ("max", value)}
         elif game == "dash-solo":
             stats = {"dashsolo.levels": ("add", 1), "dashsolo.best": ("min", value)}
         elif game in FASTEST:
             stats = {f"{prefix}.best": ("min", value), f"{prefix}.wins": ("add", 1)}
         else:
             stats = {f"{prefix}.best": ("max", value)}
+        if game == "golf-spooky":
+            stats["golf.spooky_done"] = ("add", 1)   # the Halloween "Haunted hole" quest counts solo rounds too
         before = await self.q("SELECT value FROM stats WHERE user_id = ? AND key = ?", user_id, f"{prefix}.best")
         old = before["rows"][0]["value"] if before["rows"] else None
         gained, xp_before, xp_after = await self.record(user_id, prefix, "play", stats, self.solo_detail(game, value), xp=5, totals=False)
@@ -763,6 +823,10 @@ class Accounts:
     def solo_detail(game, value):
         if game == "front-solo":
             return f"Beat {value} bot{'s' if value != 1 else ''}"
+        if game == "pool-cpu":
+            return f"Beat the {('Easy', 'Medium', 'Hard')[value - 1]} CPU"
+        if game.startswith("golf-"):
+            return f"{value} strokes"
         if game in FASTEST:
             return f"Finished in {value / 1000:.2f}s"
         return f"Scored {value:,}"

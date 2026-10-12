@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
+  <script>try { document.documentElement.dataset.theme = JSON.parse(localStorage.getItem('pa_theme')) || 'neon'; } catch (e) { /* storage blocked */ }</script>
   <style>
     .fw-setup { max-width: 760px; margin: 0 auto; }
     .fw-set { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -20,14 +21,14 @@
     .mode-card { text-align: left; padding: 14px; border-radius: 18px; border: 2px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; }
     .mode-card b { display: block; font-size: 1.1rem; margin-bottom: 4px; }
     .mode-card span { font-size: .85rem; color: var(--muted); }
-    .mode-card.on { border-color: var(--pink); background: rgba(255,79,216,.14); }
+    .mode-card.on { border-color: var(--pink); background: color-mix(in srgb, var(--pink) 14%, transparent); }
     .mode-card:disabled { cursor: default; }
     .fw-teams { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-top: 12px; }
     .fw-team { padding: 10px; border-radius: 14px; border: 2px solid color-mix(in srgb, var(--tc) 60%, transparent); background: color-mix(in srgb, var(--tc) 14%, transparent); }
     .fw-team b { display: block; margin-bottom: 6px; color: var(--tc); }
     .fw-team .who { display: flex; flex-wrap: wrap; gap: 4px; min-height: 28px; font-size: .85rem; }
     .fw-team .who span { padding: 2px 8px; border-radius: 999px; background: rgba(0,0,0,.3); }
-    .fw-result { margin-bottom: 14px; padding: 14px; border-radius: 18px; background: linear-gradient(160deg, rgba(250,204,21,.16), rgba(255,79,216,.1)); border: 1px solid rgba(250,204,21,.4); text-align: center; }
+    .fw-result { margin-bottom: 14px; padding: 14px; border-radius: 18px; background: linear-gradient(160deg, rgba(250,204,21,.16), color-mix(in srgb, var(--pink) 10%, transparent)); border: 1px solid rgba(250,204,21,.4); text-align: center; }
     .fw-result h3 { font-family: var(--font-display); font-weight: 400; font-size: 1.4rem; margin-bottom: 8px; }
     .fw-result .rr { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 12px; text-align: left; }
     .fw-result .rr.won { background: rgba(250,204,21,.14); }

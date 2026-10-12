@@ -10,6 +10,27 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
+  <script>try { document.documentElement.dataset.theme = JSON.parse(localStorage.getItem('pa_theme')) || 'neon'; } catch (e) { /* storage blocked */ }</script>
+  <style>
+    /* Neon Dash level queue */
+    .dq-badge { font-size: .74rem; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: rgba(250,204,21,.18); color: #fde68a; }
+    .dq-tabs { margin-bottom: 12px; flex-wrap: wrap; }
+    .dq-list { display: flex; flex-direction: column; gap: 8px; }
+    .dq-row { display: flex; align-items: center; gap: 14px; padding: 10px; border-radius: 16px; background: rgba(255,255,255,.04); border: 1px solid var(--border); }
+    .dq-row .grow { flex: 1; min-width: 0; }
+    .dq-prev { position: relative; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 12px; overflow: hidden; flex: none; }
+    .dq-strip { width: 210px; height: 68px; display: block; }
+    .dq-play { position: absolute; inset: 0; display: grid; place-items: center; font-size: 1.6rem; background: rgba(0,0,0,.25); opacity: .85; transition: opacity .15s; }
+    .dq-prev:hover .dq-play { opacity: 1; background: rgba(0,0,0,.4); }
+    .dq-btns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; max-width: 300px; }
+    .dq-frame { width: 100%; aspect-ratio: 16 / 9; border: 1px solid var(--border-strong); border-radius: 16px; background: #0b0920; display: block; }
+    @media (max-width: 760px) {
+      .dq-row { flex-wrap: wrap; }
+      .dq-prev, .dq-strip { width: 100%; }
+      .dq-btns { max-width: none; justify-content: flex-start; }
+      .dq-frame { aspect-ratio: 4 / 5; }
+    }
+  </style>
 </head>
 <body>
   <main class="page admin-page" id="admin">

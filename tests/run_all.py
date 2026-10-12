@@ -22,9 +22,10 @@ ADMIN = "test-admin-code-123"      # only for the throwaway test server
 BATCHES = [
     ["accbot", "polybot", "socialbot", "phbot", "tourbot"],
     ["gamesbot", "cheatbot", "minesbot", "frontbot", "frontbot2", "lookbot"],
+    ["dasheditbot", "poolbot", "flappybot", "golfbot", "themebot"],
 ]
-UNIT = ["phunit", "phunit2", "tourunit"]
-JS = ["polytest.js", "polyends.js"]
+UNIT = ["phunit", "phunit2", "tourunit", "poolunit"]
+JS = ["polytest.js", "polyends.js", "dashedit.js", "poolai.js", "flappytest.js", "golftest.js"]
 FLAKY = ["doodle word"]            # known to fail now and then; reported as a warning
 
 
@@ -129,7 +130,7 @@ def main():
         for js in JS if runner else []:
             out = subprocess.run(runner(os.path.join(HERE, js)), cwd=ROOT, capture_output=True, text=True, timeout=600)
             text = out.stdout + out.stderr
-            bad = [line for line in text.splitlines() if "DNF" in line or "fell true" in line or "respawns 1" in line]
+            bad = [line for line in text.splitlines() if "DNF" in line or "fell true" in line or "respawns 1" in line or line.startswith("FAIL ")]
             ok = out.returncode == 0 and text.strip() and not bad
             print(f"  {js:<10} {'ok' if ok else 'FAILED':<7} {len(text.strip().splitlines())} tracks")
             if not ok:

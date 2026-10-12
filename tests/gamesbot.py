@@ -50,6 +50,33 @@ async def main():
     await room(a, b, "blitz"); a.send({"t": "g:settings", "rounds": 3}); a.send({"t": "g:start"})
     await a.wait("g:final", timeout=90); await asyncio.sleep(0.5)
     s = await stats(a, na); check(s.get("blitz.games") == 1 and not s.get("blitz.wins"), f"blitz recorded, 0-0 is not a win {s}")
+    await crown_test()
     print("FAILED:", check.failed)
+
+
+async def crown_test():
+    """The host keeps the crown through a page reload or a game switch (socket drops, then rejoins),
+    but not after really leaving the room."""
+    async def guest(uid, name):
+        w = WS(); await w.connect(uid, name); await w.wait("welcome"); return w
+    def drop(w):
+        w.task.cancel(); w.w.close()
+    ua, ub = "crownA" + U + "x", "crownB" + U + "x"
+    a, b = await guest(ua, "CrownA"), await guest(ub, "CrownB")
+    a.send({"t": "room:create", "game": "connect4"}); code = (await a.wait("room:joined"))["code"]
+    b.send({"t": "room:join", "code": code, "game": "connect4"}); await b.wait("room:joined")
+    drop(a); await asyncio.sleep(0.4)              # the host reloads the page
+    check([m for m in b.drain() if m["t"] == "room:players"][-1]["host"] == ub, "crown moves on while the host is away")
+    a = await guest(ua, "CrownA"); a.send({"t": "room:join", "code": code, "game": "connect4"})
+    j = await a.wait("room:joined"); check(j["host"] == ua, f"host gets the crown back after a reload ({j['host']})")
+    a.send({"t": "room:switch", "game": "mines"}); await a.wait("room:goto")
+    drop(a); await asyncio.sleep(0.3)              # the host's old page closes first, then everyone rejoins
+    b.send({"t": "room:join", "code": code, "game": "mines"}); await b.wait("room:joined")
+    a = await guest(ua, "CrownA"); a.send({"t": "room:join", "code": code, "game": "mines"})
+    j = await a.wait("room:joined"); check(j["host"] == ua, f"host keeps the crown through a game switch ({j['host']})")
+    a.send({"t": "room:leave"}); await asyncio.sleep(0.3)
+    a.send({"t": "room:join", "code": code, "game": "mines"})
+    j = await a.wait("room:joined"); check(j["host"] == ub, f"a host who left doesn't take the crown back ({j['host']})")
+    a.send({"t": "room:leave"}); b.send({"t": "room:leave"}); await asyncio.sleep(0.2)
 
 asyncio.run(main())

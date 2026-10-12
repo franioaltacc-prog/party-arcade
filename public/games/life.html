@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
+  <script>try { document.documentElement.dataset.theme = JSON.parse(localStorage.getItem('pa_theme')) || 'neon'; } catch (e) { /* storage blocked */ }</script>
   <style>
     /* ---------- lobby ---------- */
     .lobby-grid { display: grid; gap: 16px; }
@@ -31,7 +32,7 @@
 
     /* ---------- results ---------- */
     .awards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 18px; }
-    .award { text-align: center; padding: 12px 8px; border-radius: 18px; background: linear-gradient(160deg, rgba(250,204,21,.18), rgba(255,79,216,.12)); border: 1px solid rgba(250,204,21,.35); animation: pop-in .4s backwards; }
+    .award { text-align: center; padding: 12px 8px; border-radius: 18px; background: linear-gradient(160deg, rgba(250,204,21,.18), color-mix(in srgb, var(--pink) 12%, transparent)); border: 1px solid rgba(250,204,21,.35); animation: pop-in .4s backwards; }
     .award .ae { font-size: 2rem; }
     .award .at { font-weight: 700; font-size: .78rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
     .award .an { font-family: var(--font-display); font-size: 1.15rem; margin: 2px 0; }
@@ -73,7 +74,7 @@
 
     .req { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 18px; margin-bottom: 12px; flex-wrap: wrap;
       background: rgba(34,211,238,.14); border: 1px solid rgba(34,211,238,.45); animation: pop-in .3s cubic-bezier(.2,1.4,.4,1); }
-    .event-card { border-radius: 22px; padding: 16px; margin-bottom: 12px; background: linear-gradient(160deg, rgba(139,92,246,.35), rgba(255,79,216,.2)); border: 2px solid rgba(255,79,216,.5); box-shadow: 0 0 40px -12px rgba(255,79,216,.6); animation: pop-in .35s cubic-bezier(.2,1.4,.4,1); }
+    .event-card { border-radius: 22px; padding: 16px; margin-bottom: 12px; background: linear-gradient(160deg, color-mix(in srgb, var(--purple) 35%, transparent), color-mix(in srgb, var(--pink) 20%, transparent)); border: 2px solid color-mix(in srgb, var(--pink) 50%, transparent); box-shadow: 0 0 40px -12px color-mix(in srgb, var(--pink) 60%, transparent); animation: pop-in .35s cubic-bezier(.2,1.4,.4,1); }
     .event-card .q { font-size: 1.15rem; font-weight: 700; margin-bottom: 10px; }
     .event-card .choices { display: grid; gap: 8px; }
     .event-card .choices .btn { justify-content: flex-start; white-space: normal; text-align: left; }
@@ -86,7 +87,7 @@
 
     .act-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 14px 0 10px; }
     .act-tabs button { border: 1px solid var(--border); background: var(--panel); border-radius: 12px; padding: 7px 11px; cursor: pointer; font-weight: 700; font-size: .85rem; color: var(--muted); }
-    .act-tabs button.on { background: var(--purple); color: #fff; border-color: transparent; }
+    .act-tabs button.on { background: var(--purple); color: var(--on-purple); border-color: transparent; }
     .act-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 7px; min-height: 52px; }
     .act { display: flex; align-items: center; gap: 8px; padding: 10px; border-radius: 14px; border: 1px solid var(--border); background: rgba(255,255,255,.05); cursor: pointer; text-align: left; font-weight: 600; font-size: .87rem; line-height: 1.15; transition: transform .1s, background .15s; color: var(--text); }
     .act:hover:not(:disabled) { background: rgba(255,255,255,.1); transform: translateY(-1px); }
@@ -103,8 +104,8 @@
     /* ---------- side ---------- */
     .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
     .tabs button { flex: 1; border: 1px solid var(--border); background: var(--panel); border-radius: 12px; padding: 8px 6px; cursor: pointer; font-weight: 700; font-size: .85rem; color: var(--muted); position: relative; white-space: nowrap; }
-    .tabs button.on { background: var(--purple); color: #fff; border-color: transparent; }
-    .tabs .dotn { position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; background: var(--pink); color: #fff; font-size: .7rem; display: none; place-items: center; }
+    .tabs button.on { background: var(--purple); color: var(--on-purple); border-color: transparent; }
+    .tabs .dotn { position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; background: var(--pink); color: var(--on-pink); font-size: .7rem; display: none; place-items: center; }
     .tabs .dotn.on { display: grid; }
     .side-body { max-height: 720px; overflow-y: auto; padding-right: 4px; }
     .sib { border-radius: 18px; padding: 12px; background: rgba(255,255,255,.05); margin-bottom: 10px; border: 1px solid transparent; }

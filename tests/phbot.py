@@ -2,7 +2,7 @@
 import os as _os, sys as _sys
 _HERE = _os.path.dirname(_os.path.abspath(__file__))
 _sys.path[:0] = [_HERE, _os.path.dirname(_HERE)]   # tests/ (the bot helpers) and the repo (the game code)
-import asyncio, sys, random, time, math
+import asyncio, collections, sys, random, time, math
 from wsbot import WS
 from accbot import req, check
 from games import prophunt as P
@@ -111,24 +111,55 @@ def line_of_fire(town, kx, ky, hx, hy):
     return d < P.GUN_RANGE - 40
 
 
-async def bring_into_sight(town, k, hb, cx, cy):
-    """Walk a hider somewhere on the plaza the killer can shoot."""
-    for rad in (150, 120, 180):
-        for ang in range(0, 360, 12):
-            a = math.radians(ang)
-            tx, ty = cx + math.cos(a) * rad, cy + math.sin(a) * rad
-            if town.blocked(tx, ty, P.PLAYER_R + 6) or not line_of_fire(town, k.x, k.y, tx, ty):
-                continue
-            if clear_path(town, hb.x, hb.y, tx, ty):
-                return await hb.walk_to(town, tx, ty)
-            # go via the middle ring
-            for ang2 in range(0, 360, 20):
-                b = math.radians(ang2)
-                mx, my = cx + math.cos(b) * 110, cy + math.sin(b) * 110
-                if clear_path(town, hb.x, hb.y, mx, my) and clear_path(town, mx, my, tx, ty):
-                    await hb.walk_to(town, mx, my)
-                    return await hb.walk_to(town, tx, ty)
-    return False
+async def bring_into_sight(town, k, hb, cx, cy, others=()):
+    """Walk a hider to a spot the killer can shoot (clear line, no other player in the way).
+    Finds the way with a breadth-first search on a small grid, so a hider tucked behind props still gets out."""
+    kroom = town.room_of(k.x, k.y)
+    def good(x, y):
+        if town.room_of(x, y) != kroom:     # inside another building: the killer can't see in
+            return False
+        if town.blocked(x, y, P.PLAYER_R + 6) or not 90 < math.hypot(x - k.x, y - k.y) < P.VIEW - 160 or not line_of_fire(town, k.x, k.y, x, y):
+            return False
+        for o in others:    # nobody else standing in the line of fire
+            dx, dy = x - k.x, y - k.y
+            t = max(0.0, min(1.0, ((o.x - k.x) * dx + (o.y - k.y) * dy) / (dx * dx + dy * dy)))
+            if math.hypot(k.x + dx * t - o.x, k.y + dy * t - o.y) < P.PLAYER_R * 2 + 12:
+                return False
+        return True
+    step = 12
+    start = (round(hb.x / step), round(hb.y / step))
+    prev = {start: None}
+    queue = collections.deque([start])
+    goal = None
+    while queue and len(prev) < 60000:
+        c = queue.popleft()
+        x, y = c[0] * step, c[1] * step
+        if c != start and good(x, y):
+            goal = c
+            break
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)):
+            n = (c[0] + dx, c[1] + dy)
+            if n not in prev and not town.blocked(n[0] * step, n[1] * step, P.PLAYER_R + 1):
+                prev[n] = c
+                queue.append(n)
+    if goal is None:
+        print("bring_into_sight: no way out from", round(hb.x), round(hb.y), "searched", len(prev))
+        return False
+    path = []
+    while goal is not None:
+        path.append(goal)
+        goal = prev[goal]
+    path.reverse()
+    # straighten the path: walk to the furthest cell still in a clear straight line
+    i = 0
+    while i < len(path) - 1:
+        j = len(path) - 1
+        while j > i + 1 and not clear_path(town, hb.x, hb.y, path[j][0] * step, path[j][1] * step):
+            j -= 1
+        if not await hb.walk_to(town, path[j][0] * step, path[j][1] * step):
+            return False
+        i = j
+    return True
 
 
 async def prophunt():
@@ -205,7 +236,7 @@ async def prophunt():
         # catch both hiders
         for n, u in enumerate(hid):
             hb = bots[u]
-            ok = await bring_into_sight(town, k, hb, cx, cy)
+            ok = await bring_into_sight(town, k, hb, cx, cy, [bots[o] for o in hid[n + 1:]])
             check(ok, f"hider walks into the open ({u[:3]})")
             await asyncio.sleep(0.4)
             if rnd == 1 and n == 0:
