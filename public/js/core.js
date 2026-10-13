@@ -5,7 +5,7 @@
 
   // The site's version. Bump it with every update, together with a new entry at the
   // top of public/js/changelog.js (the /changelog page).
-  const VERSION = '2.18.2';
+  const VERSION = '2.19.0';
 
   // ---------------------------------------------------------------- helpers
   const $ = (s, r = document) => r.querySelector(s);
@@ -158,14 +158,21 @@
     return { parse, url, image, watch };
   })();
 
-  /** A Phosphor icon as an inline SVG element. */
+  // icons drawn here (same 256 grid and bold weight as the Phosphor set in art.js)
+  const EXTRA_ICONS = {
+    calendar: '<path d="M48,40H208a20,20,0,0,1,20,20V208a20,20,0,0,1-20,20H48a20,20,0,0,1-20-20V60A20,20,0,0,1,48,40ZM52,64V76H204V64ZM52,100V204H204V100Z"/>'
+      + '<path d="M80,16a12,12,0,0,1,12,12V56H68V28A12,12,0,0,1,80,16Zm96,0a12,12,0,0,1,12,12V56H164V28A12,12,0,0,1,176,16Z"/>'
+      + '<path d="M76,124h24v24H76Zm40,0h24v24H116Zm40,0h24v24H156ZM76,164h24v24H76Zm40,0h24v24H116Z"/>',
+  };
+
+  /** A Phosphor icon (or one of EXTRA_ICONS) as an inline SVG element. */
   function icon(name, cls = '') {
     const s = document.createElementNS(SVG_NS, 'svg');
     s.setAttribute('viewBox', '0 0 256 256');
     s.setAttribute('class', ('ico ' + cls).trim());
     s.setAttribute('aria-hidden', 'true');
     s.setAttribute('fill', 'currentColor');
-    s.innerHTML = (ART && ART.icons[name]) || '';
+    s.innerHTML = (ART && ART.icons[name]) || EXTRA_ICONS[name] || '';
     return s;
   }
 
@@ -290,6 +297,10 @@
     known: false,            // true once the server told us who we are
     get token() { return store.get('pa_token', null); },
     get admin() { return !!(Account.user && Account.user.admin); },
+    /** '' (a player), 'tester', 'developer' or 'admin'. Only you (and admins) see your role. */
+    get role() { return (Account.user && (Account.user.admin ? 'admin' : Account.user.role)) || ''; },
+    /** Whether you're at least this role: tester < developer < admin. The server checks it again. */
+    can(need) { const rank = { '': 0, tester: 1, developer: 2, admin: 3 }; return (rank[Account.role] || 0) >= rank[need]; },
     save(user, token) {
       Account.user = user;
       store.set('pa_user', user);
@@ -776,6 +787,7 @@
                 h('a', { class: 'btn btn-ghost btn-sm', href: '/profile?u=' + encodeURIComponent(u.name) }, icon('user'), 'My profile'),
                 h('a', { class: 'btn btn-ghost btn-sm', href: '/leaderboards' }, icon('trophy'), 'Leaderboards'),
                 u.admin ? h('a', { class: 'btn btn-ghost btn-sm', href: '/admin' }, icon('shield-star'), 'Admin') : null,
+                Account.can('tester') ? h('a', { class: 'btn btn-ghost btn-sm', href: '/calendar' }, icon('calendar'), 'Calendar') : null,
                 h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: () => go('password') }, icon('lock-key'), 'Password'),
                 h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: async () => { await Account.logout(); UI.toast('Logged out. See you soon! 👋'); done(null); } }, icon('sign-out'), 'Log out')),
               h('div', { class: 'acct-foot' },
@@ -980,6 +992,7 @@
             { icon: 'user-plus', label: 'Friends', onClick: () => Friends.open() },
             { icon: 'gear', label: 'Settings & rewards', href: '/settings' },
             { icon: 'film-strip', label: 'Credits', href: '/credits' },
+            Account.can('tester') ? { icon: 'calendar', label: 'Update calendar', href: '/calendar' } : null,
             u.admin ? { icon: 'shield-star', label: 'Admin panel', href: '/admin' } : null,
             '-',
             { icon: 'sign-out', label: 'Log out', onClick: async () => { await Account.logout(); UI.toast('Logged out. See you soon! 👋'); } }];

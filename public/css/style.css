@@ -648,6 +648,13 @@ label.field { display: flex; flex-direction: column; gap: 6px; font-weight: 600;
 .adm-user.banned { opacity: 0.6; }
 .tag { font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; margin-left: 6px; }
 .tag.adm { background: rgba(250, 204, 21, 0.18); color: #fde68a; }
+.tag.tester { background: rgba(34, 211, 238, 0.16); color: #a5f3fc; }
+.tag.developer { background: rgba(163, 230, 53, 0.16); color: #d9f99d; }
+/* admin panel: pick a role */
+.role-pick { display: grid; gap: 8px; }
+.role-opt { display: grid; gap: 2px; text-align: left; padding: 10px 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--panel); color: var(--text); font: inherit; cursor: pointer; }
+.role-opt:hover:not(:disabled) { border-color: var(--cyan); background: var(--panel-2); }
+.role-opt.on { border-color: var(--yellow); cursor: default; }
 .tag.ban { background: rgba(244, 63, 94, 0.2); color: #fecdd3; }
 
 @media (max-width: 860px) {

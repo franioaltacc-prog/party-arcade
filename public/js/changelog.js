@@ -6,6 +6,13 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '2.19.0', date: '2026-10-13', emoji: '🧪', title: 'Testers, developers and the update calendar', items: [
+      'Two new roles an admin can give people: Tester and Developer',
+      'The update calendar: developers plan what’s coming to Party Arcade in a month calendar, an ideas shelf or a spreadsheet, and can drag updates to another day',
+      'Testers get a sneak peek: they see the updates developers share with them, but can’t change anything',
+      'Testers and developers don’t get the admin panel, cheats or XP tools, and only admins have a name tag',
+      'Open the calendar from your account menu once you have a role. It updates live when someone changes it',
+    ] },
     { v: '2.18.2', date: '2026-10-13', emoji: '📣', title: 'The next big update is coming Monday', items: [
       'The next big update was planned for Wednesday, but it’s moving to Monday 19 October so it’s ready to go',
       'A news strip at the top of the site counts down the days. 🎧 Hint: warm up your ears…',

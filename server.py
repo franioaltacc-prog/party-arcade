@@ -26,10 +26,11 @@ import traceback
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-from accounts import Accounts, AuthError, StoreError, level_info, parse_look
+from accounts import Accounts, AuthError, StoreError, level_info, parse_look, role_of
 from games import GAMES
 import tournaments
 from dashlevels import DashLevels, level_id
+from planner import Planner
 
 ROOT = Path(__file__).resolve().parent
 PUBLIC = (ROOT / "public").resolve()
@@ -98,7 +99,7 @@ class Client:
         self.open = True
         self.last_chat = 0.0
         self.voted = set()
-        self.account = None     # {"id", "name", "admin"} when logged in
+        self.account = None     # {"id", "name", "admin", "role"} when logged in
         self.device = None      # one id per browser, shared by its tabs
         self.heard = time.time()
         self.ip = "?"
@@ -536,6 +537,7 @@ class Hub:
         self._online_scheduled = False
         self.accounts = Accounts(DATA)
         self.dash_levels = DashLevels(self.accounts)   # Neon Dash community levels
+        self.planner = Planner(self.accounts)          # the update calendar for testers and developers
         self.tasks = set()
         self.started = time.time()
         self.restoring = {}     # room code -> task looking it up in saved rooms
@@ -908,7 +910,7 @@ class Hub:
 
     def attach(self, c, user):
         """Log this connection in as `user` (a row from the users table)."""
-        c.account = {"id": user["id"], "name": user["name"], "admin": bool(user["admin"])}
+        c.account = {"id": user["id"], "name": user["name"], "admin": bool(user["admin"]), "role": role_of(user)}
         c.name, c.avatar, c.color = user["name"], user["avatar"], user["color"]
         c.look = parse_look(user.get("look"))
         self.refresh_member(c)
@@ -934,7 +936,7 @@ class Hub:
             return
         if user and c.open:
             self.attach(c, user)
-            c.send("auth:state", user=self.accounts.public(user))
+            c.send("auth:state", user=self.accounts.me(user))
         else:
             c.send("auth:state", user=None, expired=True)
 
@@ -1016,11 +1018,11 @@ class Hub:
         if t == "auth:signup":
             user, token = await acc.signup(msg.get("name"), msg.get("password"), msg.get("avatar"), msg.get("color"), c.ip)
             self.attach(c, user)
-            return {"token": token, "user": acc.public(user)}
+            return {"token": token, "user": acc.me(user)}
         if t == "auth:login":
             user, token = await acc.login(msg.get("name"), msg.get("password"), c.ip)
             self.attach(c, user)
-            return {"token": token, "user": acc.public(user)}
+            return {"token": token, "user": acc.me(user)}
         if t == "auth:logout":
             await acc.logout(msg.get("token"))
             self.detach(c)
@@ -1029,13 +1031,13 @@ class Hub:
             user = await acc.update_look(self.need_login(c), msg.get("avatar"), msg.get("color"), msg.get("bio"))
             for other in self.clients_of(user["id"]):
                 self.attach(other, user)
-            return {"user": acc.public(user)}
+            return {"user": acc.me(user)}
         if t == "account:look":
             look = msg.get("look") if isinstance(msg.get("look"), dict) else {}
             user = await acc.set_look(self.need_login(c), look)
             for other in self.clients_of(user["id"]):
                 self.attach(other, user)
-            return {"user": acc.public(user)}
+            return {"user": acc.me(user)}
         if t == "account:password":
             token = await acc.change_password(self.need_login(c), msg.get("old"), msg.get("new"))
             return {"token": token}
@@ -1146,11 +1148,13 @@ class Hub:
             user = await acc.unlock_admin(self.need_login(c), msg.get("code"))
             for other in self.clients_of(user["id"]):
                 self.attach(other, user)
-                other.send("auth:state", user=acc.public(user))
-            return {"user": acc.public(user)}
+                other.send("auth:state", user=acc.me(user))
+            return {"user": acc.me(user)}
 
         if t.startswith("dash:"):
             return await self.dash_op(c, t, msg)
+        if t.startswith("plan:"):
+            return await self.plan_op(c, t, msg)
 
         # everything below is admin only (checked against the database every time)
         actor = await acc.require_admin(self.need_login(c))
@@ -1174,8 +1178,8 @@ class Hub:
                     other.send("auth:state", user=None, banned=action == "ban", expired=True)
                 else:
                     self.attach(other, user)
-                    other.send("auth:state", user=acc.public(user))
-            return {"user": acc.public(user) if user else None}
+                    other.send("auth:state", user=acc.me(user))
+            return {"user": acc.me(user) if user else None}
         if t == "admin:announce":
             text = clean_text(msg.get("text"), 200)
             if not text:
@@ -1257,6 +1261,26 @@ class Hub:
             return {"id": done["id"], "status": done["status"]}
         raise AuthError("Unknown request.")
 
+    async def plan_op(self, c, t, msg):
+        """The update calendar: testers see the rows shared with them, developers and admins change it."""
+        acc, pl = self.accounts, self.planner
+        if t == "plan:list":
+            return await pl.list(await acc.require_role(self.need_login(c), "tester"))
+        user = await acc.require_role(self.need_login(c), "developer")
+        if acc.limited(f"plan:{user['id']}", 120, 60):
+            raise AuthError("Slow down a little. 🐢")
+        acc.hit(f"plan:{user['id']}")
+        if t == "plan:save":
+            pid = await pl.save(user, msg.get("item") if isinstance(msg.get("item"), dict) else {})
+        elif t == "plan:delete":
+            pid = await pl.delete(user, msg.get("id"))
+        else:
+            raise AuthError("Unknown request.")
+        for x in list(self.clients):    # open calendars reload (the list request checks who may see what)
+            if x.account and x.account.get("role"):
+                x.send("plan:changed", id=pid)
+        return {"id": pid}
+
     # -- housekeeping ----------------------------------------------------
     async def janitor(self):
         last_ping = 0.0
@@ -1292,7 +1316,7 @@ ACCOUNT_MESSAGES = {
     "dash:post", "dash:quota", "dash:mine", "dash:delete", "dash:get", "dash:list", "dash:like", "dash:play", "dash:queue", "dash:review",
     "auth:signup", "auth:login", "auth:logout", "account:update", "account:look", "account:password", "account:delete",
     "profile:get", "players:find", "lb:boards", "lb:get", "stats:solo", "admin:unlock", "admin:overview", "admin:users",
-    "admin:user", "admin:announce", "admin:room", "admin:cheat", "friends:list", "friends:add", "friends:remove", "friends:invite", "friends:invite-no",
+    "admin:user", "admin:announce", "admin:room", "admin:cheat", "plan:list", "plan:save", "plan:delete", "friends:list", "friends:add", "friends:remove", "friends:invite", "friends:invite-no",
 }
 GAME_TITLES = {"dash": "Neon Dash", "life": "Family Life", "doodle": "Doodle Guess", "blitz": "Party Blitz",
                "connect4": "Connect 4", "casino": "Casino Night", "snake": "Neon Snake", "2048": "2048",

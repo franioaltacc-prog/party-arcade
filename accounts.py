@@ -182,6 +182,24 @@ SCHEMA = [
         level_id INTEGER NOT NULL,
         PRIMARY KEY (user_id, level_id))""",
     "CREATE INDEX IF NOT EXISTS dash_likes_level ON dash_likes(level_id)",
+    # Roles an admin gives people in the admin panel: "tester" or "developer" (admins are users.admin).
+    """CREATE TABLE IF NOT EXISTS roles (
+        user_id INTEGER PRIMARY KEY,
+        role TEXT NOT NULL)""",
+    # The update calendar (planner.py). day is YYYY-MM-DD or '' (an idea with no date yet);
+    # testers = 1 lets testers see the row, developers and admins see them all.
+    """CREATE TABLE IF NOT EXISTS plans (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        day TEXT NOT NULL DEFAULT '',
+        kind TEXT NOT NULL DEFAULT 'small',
+        status TEXT NOT NULL DEFAULT 'planned',
+        version TEXT NOT NULL DEFAULT '',
+        notes TEXT NOT NULL DEFAULT '',
+        testers INTEGER NOT NULL DEFAULT 0,
+        by_user INTEGER NOT NULL DEFAULT 0,
+        created INTEGER NOT NULL,
+        updated INTEGER NOT NULL)""",
 ]
 ROOM_KEEP = 600   # seconds a room saved at shutdown can be picked up again
 
@@ -277,7 +295,23 @@ def now():
     return int(time.time())
 
 
-USER_COLS = "u.*, l.data AS look"   # a users row plus what they're wearing (LEFT JOIN looks l)
+# a users row plus what they're wearing (LEFT JOIN looks l) and their role
+USER_COLS = "u.*, l.data AS look, (SELECT role FROM roles WHERE roles.user_id = u.id) AS role"
+
+# Roles: testers see the update calendar rows developers share with them; developers see and change the whole
+# calendar; admins (users.admin) can do everything. Only admins get the admin panel, cheats and XP tools.
+ROLES = ("tester", "developer")
+RANK = {"": 0, "tester": 1, "developer": 2, "admin": 3}
+
+
+def role_of(u):
+    """'admin', 'developer', 'tester' or '' (a normal player)."""
+    if not u:
+        return ""
+    if u["admin"]:
+        return "admin"
+    role = u.get("role")
+    return role if role in ROLES else ""
 
 
 def tidy(v):
@@ -542,6 +576,12 @@ class Accounts:
                 "admin": bool(u["admin"]), "banned": bool(u.get("banned")), "created": u["created"],
                 "lastSeen": u["last_seen"], **info}
 
+    @classmethod
+    def me(cls, u):
+        """What a player gets about their own account (and admins about anyone): public() plus their role,
+        which isn't shown to other players."""
+        return {**cls.public(u), "role": role_of(u)}
+
     async def user_by_id(self, uid):
         rows = (await self.q(f"SELECT {USER_COLS} FROM users u LEFT JOIN looks l ON l.user_id = u.id WHERE u.id = ?", uid))["rows"]
         return rows[0] if rows else None
@@ -754,8 +794,9 @@ class Accounts:
                 ("DELETE FROM dash_likes WHERE user_id = ?", (user_id,)),
                 ("DELETE FROM dash_likes WHERE level_id IN (SELECT id FROM dash_levels WHERE user_id = ?)", (user_id,)),
                 ("DELETE FROM dash_levels WHERE user_id = ?", (user_id,))]
-        await self.many(dash + [(f"DELETE FROM {table} WHERE user_id = ?", (user_id,)) for table in ("sessions", "stats", "matches", "looks", "friends")]
-                        + [("DELETE FROM friends WHERE friend_id = ?", (user_id,)), ("DELETE FROM users WHERE id = ?", (user_id,))])
+        await self.many(dash + [(f"DELETE FROM {table} WHERE user_id = ?", (user_id,)) for table in ("sessions", "stats", "matches", "looks", "friends", "roles")]
+                        + [("DELETE FROM friends WHERE friend_id = ?", (user_id,)), ("UPDATE plans SET by_user = 0 WHERE by_user = ?", (user_id,)),
+                           ("DELETE FROM users WHERE id = ?", (user_id,))])
         self.board_cache.clear()
 
     # -- stats ---------------------------------------------------------------
@@ -935,11 +976,20 @@ class Accounts:
             raise AuthError("Admins only. 🛡️")
         return user
 
+    async def require_role(self, user_id, need):
+        """The user, if they're logged in, not banned and at least `need` (tester < developer < admin)."""
+        user = await self.user_by_id(user_id) if user_id else None
+        if not user or user["banned"] or RANK[role_of(user)] < RANK[need]:
+            raise AuthError("Only testers and developers can see the update calendar." if need == "tester"
+                            else "Only developers can change the update calendar.")
+        return user
+
     async def search(self, text):
         text = str(text or "").strip().lower()[:16]
         like = "%" + text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
-        res = await self.q("SELECT * FROM users WHERE name_key LIKE ? ESCAPE '\\' ORDER BY last_seen DESC LIMIT 40", like)
-        return [self.public(u) for u in res["rows"]]
+        res = await self.q(f"SELECT {USER_COLS} FROM users u LEFT JOIN looks l ON l.user_id = u.id "
+                           "WHERE u.name_key LIKE ? ESCAPE '\\' ORDER BY u.last_seen DESC LIMIT 40", like)
+        return [self.me(u) for u in res["rows"]]
 
     async def count_users(self):
         return (await self.q("SELECT COUNT(*) AS n FROM users"))["rows"][0]["n"]
@@ -959,6 +1009,16 @@ class Accounts:
             await self.q("UPDATE users SET admin = 1 WHERE id = ?", uid)
         elif action == "unadmin":
             await self.q("UPDATE users SET admin = 0 WHERE id = ?", uid)
+        elif action == "role":
+            role = str(value or "")
+            if role not in ("", "admin") + ROLES:
+                raise AuthError("Pick a role: player, tester, developer or admin.")
+            if uid == actor["id"] and role != "admin":
+                raise AuthError("You can't do that to your own account.")
+            stmts = [("UPDATE users SET admin = ? WHERE id = ?", (int(role == "admin"), uid)), ("DELETE FROM roles WHERE user_id = ?", (uid,))]
+            if role in ROLES:
+                stmts.append(("INSERT INTO roles (user_id, role) VALUES (?, ?)", (uid, role)))
+            await self.many(stmts)
         elif action == "xp":
             amount = int(max(-1_000_000, min(1_000_000, float(value or 0))))
             await self.q("UPDATE users SET xp = MAX(0, xp + ?) WHERE id = ?", amount, uid)

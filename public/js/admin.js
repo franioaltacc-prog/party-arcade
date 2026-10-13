@@ -165,8 +165,25 @@
     const btn = h('button', { class: 'btn btn-ghost btn-sm' }, 'Actions', icon('caret-down'));
     btn.onclick = () => UI.menu(btn, actionsFor(u));
     return h('div', { class: 'adm-user' + (u.banned ? ' banned' : '') }, UI.avatar(u),
-      h('div', { class: 'grow' }, h('div', {}, h('b', {}, u.name), u.admin ? h('span', { class: 'tag adm' }, '🛡️ admin') : null, u.banned ? h('span', { class: 'tag ban' }, '🚫 banned') : null),
+      h('div', { class: 'grow' }, h('div', {}, h('b', {}, u.name), u.admin ? h('span', { class: 'tag adm' }, '🛡️ admin') : null,
+        ROLE_TAGS[u.role] ? h('span', { class: 'tag ' + u.role, title: 'Only admins see this' }, ROLE_TAGS[u.role]) : null, u.banned ? h('span', { class: 'tag ban' }, '🚫 banned') : null),
         h('div', { class: 'tiny muted' }, `Lv ${u.level} · ${u.xp.toLocaleString('en-US')} XP · seen ${UI.timeAgo(u.lastSeen)}`)), btn);
+  }
+
+  // Roles an admin can give. Testers and developers get no name tag: only admins show one (🛡️).
+  const ROLE_TAGS = { tester: '🧪 tester', developer: '🛠️ developer' };
+  const ROLES = [
+    ['', '🎮 Player', 'A normal account.'],
+    ['tester', '🧪 Tester', 'Sees the update calendar rows that developers share with testers. Can’t change anything.'],
+    ['developer', '🛠️ Developer', 'Sees the whole update calendar and can add, change and delete updates. No admin panel, cheats or XP tools.'],
+    ['admin', '🛡️ Admin', 'Everything: the admin panel, bans, XP and stat tools, cheats and the update calendar.'],
+  ];
+  function pickRole(u, done) {
+    const now = u.admin ? 'admin' : u.role || '';
+    const close = UI.modal(h('div', { class: 'role-pick' }, h('h2', {}, `${u.name}’s role`),
+      h('p', { class: 'muted', style: { marginBottom: '12px' } }, 'Only admins show a name tag. Testers and developers look like everyone else.'),
+      ROLES.map(([key, label, about]) => h('button', { class: 'role-opt' + (key === now ? ' on' : ''), type: 'button', disabled: key === now,
+        onclick: () => { close(); done(key, label); } }, h('b', {}, label, key === now ? h('span', { class: 'tiny muted' }, ' · now') : null), h('span', { class: 'small muted' }, about)))));
   }
 
   function actionsFor(u) {
@@ -190,7 +207,10 @@
         const v = await ask(`New password for ${u.name}`, 'Use this when someone forgot their password. Tell them the new one, and they can change it in their account.', [{ key: 'p', label: 'New password', placeholder: 'At least 6 characters' }], 'Set password');
         if (v) act('password', v.p, `Password changed for ${u.name} 🔑`);
       } },
-      u.admin ? (me ? null : { label: '⬇️ Remove admin', onClick: () => act('unadmin', null, 'Admin removed') }) : { label: '🛡️ Make admin', onClick: async () => { if (await ask(`Make ${u.name} an admin?`, 'Admins can ban people, edit stats and use cheats.', [], 'Make admin')) act('admin', null, `${u.name} is an admin now`); } },
+      me ? null : { label: '🎭 Set role…', onClick: () => pickRole(u, async (role, label) => {
+        if (role === 'admin' && !(await ask(`Make ${u.name} an admin?`, 'Admins can ban people, edit stats and use cheats.', [], 'Make admin'))) return;
+        act('role', role, `${u.name} is now: ${label}`);
+      }) },
       me ? null : { label: '🚪 Log out everywhere', onClick: () => act('logout', null, `${u.name} was logged out`) },
       '-',
       me ? null : (u.banned ? { label: '✅ Unban', onClick: () => act('unban', null, `${u.name} was unbanned`) }

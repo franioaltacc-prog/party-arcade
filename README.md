@@ -40,6 +40,17 @@ ban/unban, reset password, give XP, set stats, reset stats, make admin, delete, 
 online game (casino coins, Family Life money/stats/time skip, Neon Dash god mode, Doodle word peek, Blitz points…).
 A game where an admin used a cheat doesn't count for anyone's stats or leaderboards.
 
+**Roles: testers and developers.** In `/admin`, a player's Actions → 🎭 Set role picks Player, Tester, Developer
+or Admin (the `roles` table; admins are still `users.admin`). Testers and developers get **no** admin panel, cheats or
+XP/stat tools, and no name tag: only admins show one (🛡️). Other players never see someone's role (it's only in your
+own account data and in the admin panel). Both roles get the **update calendar** at `/calendar` (in the account menu):
+- **Developers** (and admins) see every row and add, change, drag to another day and delete updates, in a month
+  calendar, an ideas shelf (no date yet) or a spreadsheet view. Ticking 🧪 *Testers* on an update shares it with testers.
+- **Testers** see only the shared rows, read-only: a sneak peek at what's coming.
+
+The server checks the role on every request (`planner.py`, `plans` table, at most 500 rows), and open calendars reload
+live when anything changes.
+
 ## Games
 - **Online:** Neon Dash (mini Geometry Dash race), Family Life (multiplayer BitLife with siblings), Doodle Guess, Impostor, Minesweeper (Race / Battle), Front Wars (OpenFront-style territory war: free-for-all with alliances or teams, bots, ports, warships, nukes and replays), Prop Hunt (top-down hide and seek with a killer), Poly Racer (low-poly 3D racing), Billiards (8-ball / 9-ball pool, winner stays on), Flappy Royale (Neon Flappy with everyone flying the same pipes), Mini Golf (3D, everyone on the same hole with ghost balls), Party Blitz, Connect 4
 - **Solo:** Mini Golf (Classic Meadow and Spooky Hollow, 9 holes each), Neon Flappy (medals, unlockable birds), Billiards (vs CPU, Speed Clear, practice), Poly Racer time trial, Neon Dash practice, Neon Dash level editor + community levels (beat your level to verify it, then post it: an admin approves it first, 3 posts a day; hosts can race community levels online), Minesweeper (Easy / Medium / Hard), Front Wars vs bots, Slope (3D, three.js), Snake, 2048, Memory Flip
@@ -226,7 +237,7 @@ python3 tests/run_all.py
 It starts a throwaway server (temporary SQLite database, test admin code `test-admin-code-123`) and runs ~800 checks:
 - Websocket bots that play the online games like real players: accounts, friends, invites, votes, party mode, watching,
   Prop Hunt, tournaments, Poly Racer, Minesweeper, Front Wars, Billiards, Flappy Royale, Mini Golf, the Dash level
-  editor (posting limit, admin review), themes and Halloween quests, cheats and rewards.
+  editor (posting limit, admin review), themes and Halloween quests, cheats and rewards, roles and the update calendar.
 - In-process tests of the Prop Hunt rules and tournament brackets, and the pool physics (Python vs JS, bit for bit).
 - If JavaScriptCore (macOS) or Node is installed, an autopilot drives every Poly Racer track, every Neon Flappy
   test level is checked to be flyable and every Mini Golf hole is solved within par + 1.
@@ -237,7 +248,8 @@ fails now and then (a known flaky test) and is reported as a warning.
 
 ## Project layout
 - `server.py`: HTTP + WebSocket server and rooms
-- `accounts.py`: accounts, sessions, stats, XP and leaderboards (SQLite file or Turso over HTTPS, same SQL)
+- `accounts.py`: accounts, sessions, roles, stats, XP and leaderboards (SQLite file or Turso over HTTPS, same SQL)
+- `planner.py`: the update calendar for testers and developers (`/calendar`)
 - `public/js/art.js`: list of Microsoft Fluent 3D emoji (MIT, loaded from the jsDelivr CDN) and Phosphor icons (MIT). `core.js` swaps every emoji on a page for its 3D image and `PA.icon(name)` / `data-icon="name"` add icons
 - `games/`: one module per online game (server side)
 - `games/casino/`: casino server. `match.py` runs the match (coins, scores, win conditions); every game is its own module
