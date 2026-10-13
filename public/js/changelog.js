@@ -6,6 +6,11 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '2.18.2', date: '2026-10-13', emoji: '📣', title: 'The next big update is coming Monday', items: [
+      'The next big update was planned for Wednesday, but it’s moving to Monday 19 October so it’s ready to go',
+      'A news strip at the top of the site counts down the days. 🎧 Hint: warm up your ears…',
+      'Hide it with × and it stays hidden. It doesn’t show inside the games, so it never gets in the way',
+    ] },
     { v: '2.18.1', date: '2026-10-12', emoji: '🟪', title: 'Neon Dash: attempts instead of times', items: [
       'Everyone moves at the same speed in Neon Dash, so the timer didn’t tell you anything. It’s gone',
       'The HUD shows how far through the level you are (📍 %) next to your attempts',

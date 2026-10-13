@@ -159,6 +159,12 @@ the first day it's over) and `track` (event stat → normal stat). While an even
 those stats: players keep what they earned, and rewards nobody can get any more are hidden once the event is over.
 The home page shows a banner with your progress while an event runs.
 
+## News strip
+`NEWS` in `public/js/core.js` puts a short message under the top bar on every page except the games: a title,
+a line of text and a hint, with a countdown to `day` ("in 6 days", "tomorrow!", then the `today` title on the day).
+It disappears by itself after that day, and × hides it for good (remembered per `id`, so give a new message a new
+id). Set `NEWS = null` when there's nothing to announce.
+
 ## Themes and Halloween quests
 Settings → 🎨 Theme changes the look of the whole site: Neon (default), Midnight, Sunset, Ocean, Forest, Candy and
 Retro are free for everyone (guests keep their pick in the browser). Themes are a reward category (`themes` in
