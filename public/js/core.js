@@ -5,7 +5,7 @@
 
   // The site's version. Bump it with every update, together with a new entry at the
   // top of public/js/changelog.js (the /changelog page).
-  const VERSION = '2.19.0';
+  const VERSION = '2.20.0';
 
   // ---------------------------------------------------------------- helpers
   const $ = (s, r = document) => r.querySelector(s);
@@ -865,9 +865,11 @@
       const menu = h('div', { class: 'pop-menu', role: 'menu' }, items.filter(Boolean).map((it) => {
         if (it === '-') return h('div', { class: 'sep' });
         if (it.head) return h('div', { class: 'mhead' }, it.head);
+        if (it.section) return h('div', { class: 'msec' }, it.section);
         const label = it.icon ? [icon(it.icon), h('span', {}, it.label)] : it.label;
-        if (it.href) return h('a', { class: 'mi', href: it.href, role: 'menuitem' }, label);
-        return h('button', { class: 'mi' + (it.danger ? ' danger' : ''), type: 'button', role: 'menuitem', onclick: () => { close(); it.onClick(); } }, label);
+        const cls = 'mi' + (it.danger ? ' danger' : '') + (it.cls ? ' ' + it.cls : '');
+        if (it.href) return h('a', { class: cls, href: it.href, role: 'menuitem' }, label);
+        return h('button', { class: cls, type: 'button', role: 'menuitem', onclick: () => { close(); it.onClick(); } }, label);
       }));
       document.body.append(menu);
       // open below the button, or above it if there isn't room; scroll inside if it's taller than the screen
@@ -981,30 +983,37 @@
       drawChip();
       on('profile', drawChip);
       on('account', drawChip);
+      // Only what's about you is in here. Friends has its own 👥 button, Credits and Find players are in the footer
+      // (and on the home page), and Leaderboards has the 🏆 button, so it's only listed on phones, where that's hidden.
       const accountMenu = () => {
         const u = Account.user;
+        const p = Profile.get();
+        const me = (...lines) => ({ head: h('div', { class: 'menu-me' }, UI.avatar(p, 'sm'), h('div', { class: 'grow' }, lines)) });
+        const look = { icon: 'palette', label: 'Edit my look', onClick: () => Profile.edit() };
+        const boards = { icon: 'trophy', label: 'Leaderboards', href: '/leaderboards', cls: 'only-sm' };
         if (u) {
-          return [{ head: h('div', {}, h('b', {}, u.name), h('div', { class: 'tiny muted' }, `Level ${u.level} · ${u.xp.toLocaleString('en-US')} XP`)) },
+          const pct = u.to > u.from ? Math.max(0, Math.min(100, ((u.xp - u.from) / (u.to - u.from)) * 100)) : 0;
+          return [
+            me(h('b', {}, u.name), h('div', { class: 'tiny muted' }, `Level ${u.level} · ${u.xp.toLocaleString('en-US')} XP`),
+              u.to > u.from ? h('div', { class: 'menu-xp', title: `${(u.to - u.xp).toLocaleString('en-US')} XP to level ${u.level + 1}` }, h('i', { style: { width: pct + '%' } })) : null),
             { icon: 'user', label: 'My profile', href: '/profile?u=' + encodeURIComponent(u.name) },
-            { icon: 'palette', label: 'Edit my look', onClick: () => Profile.edit() },
-            { icon: 'trophy', label: 'Leaderboards', href: '/leaderboards' },
-            { icon: 'magnifying-glass', label: 'Find players', href: '/players' },
-            { icon: 'user-plus', label: 'Friends', onClick: () => Friends.open() },
+            look,
             { icon: 'gear', label: 'Settings & rewards', href: '/settings' },
-            { icon: 'film-strip', label: 'Credits', href: '/credits' },
-            Account.can('tester') ? { icon: 'calendar', label: 'Update calendar', href: '/calendar' } : null,
-            u.admin ? { icon: 'shield-star', label: 'Admin panel', href: '/admin' } : null,
+            boards,
+            ...(Account.can('tester') ? [{ section: 'Team' },
+              { icon: 'calendar', label: 'Update calendar', href: '/calendar' },
+              u.admin ? { icon: 'shield-star', label: 'Admin panel', href: '/admin' } : null] : []),
             '-',
             { icon: 'sign-out', label: 'Log out', onClick: async () => { await Account.logout(); UI.toast('Logged out. See you soon! 👋'); } }];
         }
-        return [{ head: h('div', {}, h('b', {}, Profile.get().name), h('div', { class: 'tiny muted' }, 'Playing as a guest')) },
-          { icon: 'user-plus', label: 'Create an account', onClick: () => UI.accountModal({ view: 'signup' }) },
+        return [
+          me(h('b', {}, p.name), h('div', { class: 'tiny muted' }, 'Playing as a guest')),
+          { icon: 'user-plus', label: 'Create an account', cls: 'accent', onClick: () => UI.accountModal({ view: 'signup' }) },
           { icon: 'sign-in', label: 'Log in', onClick: () => UI.accountModal({ view: 'login' }) },
-          { icon: 'palette', label: 'Edit my look', onClick: () => Profile.edit() },
-          { icon: 'trophy', label: 'Leaderboards', href: '/leaderboards' },
-          { icon: 'magnifying-glass', label: 'Find players', href: '/players' },
+          '-',
+          look,
           { icon: 'gear', label: 'Settings', href: '/settings' },
-          { icon: 'film-strip', label: 'Credits', href: '/credits' }];
+          boards];
       };
       const lbBtn = h('a', { class: 'icon-btn hide-sm', href: '/leaderboards', title: 'Leaderboards', 'aria-label': 'Leaderboards' }, icon('trophy'));
       const friendBadge = h('span', { class: 'fr-badge hidden' });
@@ -1274,6 +1283,13 @@
       if (Account.user) UI.toast('⚠️ Accounts are offline right now — stats won’t save for a bit.', 'bad', 5000);
     } else if (Account.user) Account.clear();
     emit('auth', Account.user);
+  });
+  // the calendar team (testers, developers, admins) hears about new team announcements anywhere on the site
+  Net.on('team:news', (m) => {
+    if (!m.news || location.pathname === '/calendar' || (Account.user && m.news.by.id === Account.user.id)) return;
+    const text = m.news.text.replace(/\s+/g, ' ');
+    UI.toast(`📣 ${m.news.by.name || 'Team'}: ${text.length > 90 ? text.slice(0, 90) + '…' : text} (see the update calendar)`, 'good', 7000);
+    Sfx.play('message');
   });
   Net.on('account:xp', (m) => {
     if (Account.user) Account.save({ ...Account.user, xp: m.xp, level: m.level, from: m.from, to: m.to });

@@ -88,12 +88,25 @@ g.on_message(H1, "power", {"p": "decoy"})
 p1["power_at"] = 0
 g.on_message(H1, "power", {"p": "decoy"})
 check(len(g.decoys) == 2 and p1["powers"]["decoy"] == 0, "only 2 decoys")
-# killer sees the decoy (once hunting, and when near)
+# killer sees the decoy (once hunting, and when near). The map is random, so stand the killer somewhere
+# in the same room as the decoy (or outdoors with it) with nothing in the way: no wall, prop or other hider.
 g.phase = "hunting"
-cx, cy = g.r["map"]["spawn"]
-g.ps[k]["x"], g.ps[k]["y"] = p1["x"] + 100, p1["y"]
-if town.blocked(g.ps[k]["x"], g.ps[k]["y"]):
-    g.ps[k]["x"], g.ps[k]["y"] = p1["x"] - 100, p1["y"]
+d0 = next(iter(g.decoys.values()))
+q2 = g.ps[H2.uid]
+
+
+def clear_shot(x, y):
+    dist = math.hypot(d0["x"] - x, d0["y"] - y)
+    dx, dy = (d0["x"] - x) / dist, (d0["y"] - y) / dist
+    hits = [P.ray_rect(x, y, dx, dy, w) for w in town.walls] + [P.ray_circle(x, y, dx, dy, px, py, pr) for _, px, py, pr in town.props]
+    hits.append(P.ray_circle(x, y, dx, dy, q2["x"], q2["y"], P.RADIUS.get(q2["prop"], P.PLAYER_R) + 10 if q2["prop"] else P.PLAYER_R + 10))
+    return all(t is None or t >= dist for t in hits)
+
+
+spots = [(d0["x"] + rr * math.cos(math.radians(deg)), d0["y"] + rr * math.sin(math.radians(deg))) for rr in (100, 140, 70, 200, 55, 45, 35) for deg in range(0, 360, 5)]
+spot = next(((x, y) for x, y in spots if not town.blocked(x, y) and town.room_of(x, y) == d0["room"] and clear_shot(x, y)), None)
+check(spot is not None, "there's a spot for the killer near the decoy")
+g.ps[k]["x"], g.ps[k]["y"] = spot
 p1["x"] += 2000      # the real hider walked far away
 K.inbox.clear(); H2.inbox.clear()
 g.snapshots(time.time())

@@ -1155,6 +1155,8 @@ class Hub:
             return await self.dash_op(c, t, msg)
         if t.startswith("plan:"):
             return await self.plan_op(c, t, msg)
+        if t.startswith("team:"):
+            return await self.team_op(c, t, msg)
 
         # everything below is admin only (checked against the database every time)
         actor = await acc.require_admin(self.need_login(c))
@@ -1281,6 +1283,40 @@ class Hub:
                 x.send("plan:changed", id=pid)
         return {"id": pid}
 
+    def to_team(self, t, **data):
+        """Send to everyone online with a role (testers, developers, admins)."""
+        for x in list(self.clients):
+            if x.account and x.account.get("role"):
+                x.send(t, **data)
+
+    async def team_op(self, c, t, msg):
+        """The calendar team's announcements and group chat (everyone with a role)."""
+        acc, pl = self.accounts, self.planner
+        user = await acc.require_role(self.need_login(c), "developer" if t == "team:announce" else "tester")
+        uid = user["id"]
+        if t == "team:get":
+            return await pl.team(user)
+        if t == "team:say":
+            if acc.limited(f"tchat:{uid}", 8, 10):
+                raise AuthError("Slow down a little. 🐢")
+            acc.hit(f"tchat:{uid}")
+            m = await pl.say(user, msg.get("text"))
+            self.to_team("team:msg", msg=m)
+            return {"msg": m}
+        if t == "team:announce":
+            if acc.limited(f"tnews:{uid}", 10, 3600):
+                raise AuthError("That's a lot of announcements. Try again later.")
+            acc.hit(f"tnews:{uid}")
+            n = await pl.announce(user, msg.get("text"))
+            self.to_team("team:news", news=n)
+            return {"news": n}
+        if t in ("team:unsay", "team:unannounce"):
+            table = "team_chat" if t == "team:unsay" else "team_news"
+            pid = await pl.unpost(user, table, msg.get("id"))
+            self.to_team("team:gone", kind="msg" if t == "team:unsay" else "news", id=pid)
+            return {"id": pid}
+        raise AuthError("Unknown request.")
+
     # -- housekeeping ----------------------------------------------------
     async def janitor(self):
         last_ping = 0.0
@@ -1316,7 +1352,7 @@ ACCOUNT_MESSAGES = {
     "dash:post", "dash:quota", "dash:mine", "dash:delete", "dash:get", "dash:list", "dash:like", "dash:play", "dash:queue", "dash:review",
     "auth:signup", "auth:login", "auth:logout", "account:update", "account:look", "account:password", "account:delete",
     "profile:get", "players:find", "lb:boards", "lb:get", "stats:solo", "admin:unlock", "admin:overview", "admin:users",
-    "admin:user", "admin:announce", "admin:room", "admin:cheat", "plan:list", "plan:save", "plan:delete", "friends:list", "friends:add", "friends:remove", "friends:invite", "friends:invite-no",
+    "admin:user", "admin:announce", "admin:room", "admin:cheat", "plan:list", "plan:save", "plan:delete", "team:get", "team:say", "team:announce", "team:unsay", "team:unannounce", "friends:list", "friends:add", "friends:remove", "friends:invite", "friends:invite-no",
 }
 GAME_TITLES = {"dash": "Neon Dash", "life": "Family Life", "doodle": "Doodle Guess", "blitz": "Party Blitz",
                "connect4": "Connect 4", "casino": "Casino Night", "snake": "Neon Snake", "2048": "2048",

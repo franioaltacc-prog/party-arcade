@@ -1,6 +1,7 @@
 """Roles and the update calendar: an admin gives people the tester or developer role; testers see the
 calendar rows shared with them, developers change the calendar, and neither gets the admin panel,
-cheats or XP tools. Other players never see someone's role."""
+cheats or XP tools. Other players never see someone's role. The team (everyone with a role) has a
+group chat and announcements that developers and admins post."""
 import os as _os, sys as _sys
 _HERE = _os.path.dirname(_os.path.abspath(__file__))
 _sys.path[:0] = [_HERE, _os.path.dirname(_HERE)]   # tests/ (the bot helpers) and the repo (the game code)
@@ -129,6 +130,44 @@ async def main():
         r = await req(ws, "dash:queue")
         check(not r["ok"], f"a {who} can't review community levels")
 
+    # the team: group chat and announcements
+    r = await req(pat, "team:get")
+    check(not r["ok"], "a normal player can't open the team chat")
+    r = await req(tess, "team:get")
+    check(r["ok"] and r["chat"] == [] and r["news"] == [] and not r["canAnnounce"], "a tester opens the team page (testers can't announce)")
+    pat.drain()
+    r = await req(tess, "team:say", text="  hi   team  ")
+    check(r["ok"] and r["msg"]["text"] == "hi team" and r["msg"]["by"]["name"] == "RoleTess", "a tester chats with the team")
+    got = await dev.wait("team:msg")
+    check(got["msg"]["text"] == "hi team", "the developer gets the message live")
+    await asyncio.sleep(0.2)
+    check(not any(m["t"].startswith("team:") for m in pat.drain()), "players without a role don't")
+    r = await req(tess, "team:say", text="   ")
+    check(not r["ok"], "empty messages are refused")
+    r = await req(tess, "team:say", text="y" * 500)
+    check(r["ok"] and len(r["msg"]["text"]) == 300, "long messages are cut to 300 characters")
+    long_id = r["msg"]["id"]
+    r = await req(tess, "team:announce", text="Testers rule")
+    check(not r["ok"] and "Only developers" in r["error"], "a tester can't post announcements")
+    r = await req(dev, "team:announce", text="Big update on Monday!\n\n\n\nTesters: try the song game")
+    check(r["ok"] and r["news"]["text"] == "Big update on Monday!\n\nTesters: try the song game", "a developer posts an announcement (line breaks kept, tidied)")
+    news_id = r["news"]["id"]
+    got = await tess.wait("team:news")
+    check(got["news"]["id"] == news_id and got["news"]["by"]["name"] == "RoleDev", "testers get announcements live")
+    r = await req(tess, "team:get")
+    check([m["text"][:7] for m in r["chat"]] == ["hi team", "yyyyyyy"] and len(r["news"]) == 1, "the team page has the chat (oldest first) and announcements")
+    r = await req(tess, "team:unannounce", id=news_id)
+    check(not r["ok"] and "your own" in r["error"], "you can't delete someone else's announcement")
+    r = await req(tess, "team:unsay", id=long_id)
+    check(r["ok"], "you can delete your own message")
+    got = await dev.wait("team:gone")
+    check(got["kind"] == "msg" and got["id"] == long_id, "...and it disappears for everyone")
+    r = await req(dev, "team:say", text="hello from dev")
+    r = await req(boss, "team:unsay", id=r["msg"]["id"])
+    check(r["ok"], "an admin can delete anyone's message")
+    results = [await req(tess, "team:say", text=f"spam {i}") for i in range(9)]
+    check(any(not x["ok"] and "Slow down" in x["error"] for x in results), "the team chat has a speed limit")
+
     r = await req(boss, "admin:users", q="role")
     roles = {u["name"]: u["role"] for u in r["users"]}
     check(roles.get("RoleDev") == "developer" and roles.get("RoleTess") == "tester" and roles.get("RoleBoss") == "admin" and roles.get("RolePat") == "",
@@ -142,10 +181,16 @@ async def main():
     r = await req(boss, "admin:user", name="RoleDev", action="role", value="developer")
     check(r["ok"] and not r["user"]["admin"] and r["user"]["role"] == "developer", "...and turn them back into a developer")
 
+    await asyncio.sleep(10)    # let the chat speed limit pass
+    r = await req(dev, "team:say", text="bye from dev")
+    check(r["ok"], "the developer chats once more")
     r = await req(boss, "admin:user", name="RoleDev", action="delete")
     check(r["ok"], "the developer's account is deleted")
     r = await req(boss, "plan:list")
     check(r["ok"] and len(r["items"]) == 2 and all(i["by"] == "" for i in r["items"]), "their calendar rows stay, without a name")
+    r = await req(boss, "team:get")
+    check(not any(m["text"] == "bye from dev" for m in r["chat"]), "their chat messages are deleted with the account")
+    check(len(r["news"]) == 1 and r["news"][0]["by"]["name"] == "", "their announcements stay, without a name")
     print("FAILED:", check.failed)
 
 

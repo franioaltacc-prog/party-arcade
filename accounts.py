@@ -200,6 +200,17 @@ SCHEMA = [
         by_user INTEGER NOT NULL DEFAULT 0,
         created INTEGER NOT NULL,
         updated INTEGER NOT NULL)""",
+    # The calendar team's group chat (the last 300 messages are kept) and announcements (planner.py).
+    """CREATE TABLE IF NOT EXISTS team_chat (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        text TEXT NOT NULL,
+        ts INTEGER NOT NULL)""",
+    """CREATE TABLE IF NOT EXISTS team_news (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        text TEXT NOT NULL,
+        ts INTEGER NOT NULL)""",
 ]
 ROOM_KEEP = 600   # seconds a room saved at shutdown can be picked up again
 
@@ -794,8 +805,9 @@ class Accounts:
                 ("DELETE FROM dash_likes WHERE user_id = ?", (user_id,)),
                 ("DELETE FROM dash_likes WHERE level_id IN (SELECT id FROM dash_levels WHERE user_id = ?)", (user_id,)),
                 ("DELETE FROM dash_levels WHERE user_id = ?", (user_id,))]
-        await self.many(dash + [(f"DELETE FROM {table} WHERE user_id = ?", (user_id,)) for table in ("sessions", "stats", "matches", "looks", "friends", "roles")]
+        await self.many(dash + [(f"DELETE FROM {table} WHERE user_id = ?", (user_id,)) for table in ("sessions", "stats", "matches", "looks", "friends", "roles", "team_chat")]
                         + [("DELETE FROM friends WHERE friend_id = ?", (user_id,)), ("UPDATE plans SET by_user = 0 WHERE by_user = ?", (user_id,)),
+                           ("UPDATE team_news SET user_id = 0 WHERE user_id = ?", (user_id,)),
                            ("DELETE FROM users WHERE id = ?", (user_id,))])
         self.board_cache.clear()
 

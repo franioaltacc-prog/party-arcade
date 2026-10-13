@@ -51,6 +51,12 @@ own account data and in the admin panel). Both roles get the **update calendar**
 The server checks the role on every request (`planner.py`, `plans` table, at most 500 rows), and open calendars reload
 live when anything changes.
 
+The calendar page is also the **team's home**: everyone with a role reads the 📣 **announcements** at the top and talks
+in the 💬 **Team chat** tab (unread badge, the last 300 messages are kept, 8 messages per 10 s). Developers and admins
+post announcements (up to 600 characters, line breaks kept), and team members who are on another page get a pop-up.
+You can delete your own messages and announcements; admins can delete anyone's. Deleting an account deletes its chat
+messages; its announcements and calendar rows stay without a name (`team_chat`, `team_news` tables).
+
 ## Games
 - **Online:** Neon Dash (mini Geometry Dash race), Family Life (multiplayer BitLife with siblings), Doodle Guess, Impostor, Minesweeper (Race / Battle), Front Wars (OpenFront-style territory war: free-for-all with alliances or teams, bots, ports, warships, nukes and replays), Prop Hunt (top-down hide and seek with a killer), Poly Racer (low-poly 3D racing), Billiards (8-ball / 9-ball pool, winner stays on), Flappy Royale (Neon Flappy with everyone flying the same pipes), Mini Golf (3D, everyone on the same hole with ghost balls), Party Blitz, Connect 4
 - **Solo:** Mini Golf (Classic Meadow and Spooky Hollow, 9 holes each), Neon Flappy (medals, unlockable birds), Billiards (vs CPU, Speed Clear, practice), Poly Racer time trial, Neon Dash practice, Neon Dash level editor + community levels (beat your level to verify it, then post it: an admin approves it first, 3 posts a day; hosts can race community levels online), Minesweeper (Easy / Medium / Hard), Front Wars vs bots, Slope (3D, three.js), Snake, 2048, Memory Flip
@@ -249,7 +255,7 @@ fails now and then (a known flaky test) and is reported as a warning.
 ## Project layout
 - `server.py`: HTTP + WebSocket server and rooms
 - `accounts.py`: accounts, sessions, roles, stats, XP and leaderboards (SQLite file or Turso over HTTPS, same SQL)
-- `planner.py`: the update calendar for testers and developers (`/calendar`)
+- `planner.py`: the update calendar for testers and developers (`/calendar`), plus the team's announcements and chat
 - `public/js/art.js`: list of Microsoft Fluent 3D emoji (MIT, loaded from the jsDelivr CDN) and Phosphor icons (MIT). `core.js` swaps every emoji on a page for its 3D image and `PA.icon(name)` / `data-icon="name"` add icons
 - `games/`: one module per online game (server side)
 - `games/casino/`: casino server. `match.py` runs the match (coins, scores, win conditions); every game is its own module

@@ -6,6 +6,14 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '2.20.0', date: '2026-10-13', emoji: '💬', title: 'Team chat, announcements and a tidier menu', items: [
+      'The calendar team (testers, developers and admins) has its own group chat: the new 💬 Team chat tab on the update calendar, with a badge for messages you haven’t read',
+      'Team announcements at the top of the calendar: developers and admins post them, and everyone on the team sees them, with NEW on the ones you haven’t seen',
+      'Team members on another page get a pop-up when there’s a new announcement',
+      'Delete your own messages and announcements (admins can delete any)',
+      'Fixed: the Sheet tab showed the calendar above it',
+      'A tidier account menu: your level with a progress bar on top, then your profile, look and settings, and a Team section for the calendar and admin panel. Friends, Find players and Credits moved out (they have their own button or are in the footer)',
+    ] },
     { v: '2.19.0', date: '2026-10-13', emoji: '🧪', title: 'Testers, developers and the update calendar', items: [
       'Two new roles an admin can give people: Tester and Developer',
       'The update calendar: developers plan what’s coming to Party Arcade in a month calendar, an ideas shelf or a spreadsheet, and can drag updates to another day',

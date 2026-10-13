@@ -13,6 +13,8 @@
   <link rel="stylesheet" href="/css/style.css">
   <script>try { document.documentElement.dataset.theme = JSON.parse(localStorage.getItem('pa_theme')) || 'neon'; } catch (e) { /* storage blocked */ }</script>
   <style>
+    /* this page shows and hides parts with the hidden attribute: keep it working on elements that set their own display */
+    [hidden] { display: none !important; }
     /* kinds of update: one colour each */
     .k-big { --k: var(--pink); } .k-small { --k: var(--cyan); } .k-fix { --k: var(--lime); } .k-event { --k: var(--orange); }
     .cdot { width: 8px; height: 8px; border-radius: 50%; background: var(--k, var(--faint)); flex: none; }
@@ -128,6 +130,36 @@
     .plan-view .pv-tags { display: flex; flex-wrap: wrap; gap: 6px; }
     .plan-view .pv-tags span { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; background: var(--panel-2); font-weight: 600; font-size: .85rem; }
     .plan-view p { white-space: pre-line; }
+
+    /* team announcements and group chat */
+    .team-news { margin-bottom: 16px; }
+    .team-news .panel-title { flex-wrap: wrap; }
+    .team-news .panel-title .count { margin-left: 4px; }
+    .tn-new-btn { margin-left: auto; }
+    .tn-compose { display: grid; gap: 8px; margin-bottom: 12px; }
+    .tn-compose textarea { min-height: 84px; resize: vertical; }
+    .tn-list { display: grid; gap: 10px; }
+    .tn-item { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 14px; background: var(--panel); border: 1px solid var(--border); }
+    .tn-item.new { border-color: color-mix(in srgb, var(--yellow) 55%, transparent); box-shadow: 0 0 22px -12px var(--yellow); }
+    .tn-body { flex: 1; min-width: 0; display: grid; gap: 4px; }
+    .tn-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+    .tn-text { white-space: pre-line; overflow-wrap: anywhere; line-height: 1.45; }
+    .tn-new { padding: 1px 8px; border-radius: 999px; background: var(--yellow); color: #1f1300; font-weight: 800; font-size: .68rem; letter-spacing: .08em; }
+    .tn-more { margin-top: 8px; padding: 0; border: 0; background: none; color: var(--cyan); font: inherit; font-weight: 600; cursor: pointer; }
+    .tn-more:hover { text-decoration: underline; }
+    .tiny-del { margin-left: auto; padding: 0 7px; border-radius: 8px; border: 1px solid transparent; background: none; color: var(--faint); font: inherit; font-size: .75rem; line-height: 1.6; cursor: pointer; }
+    .tiny-del:hover, .tiny-del:focus-visible { color: var(--red); border-color: var(--border-strong); }
+    .tiny-del.armed { background: var(--red); border-color: var(--red); color: #fff; }
+    .tab-badge { margin-left: 6px; padding: 0 6px; min-width: 18px; display: inline-block; border-radius: 999px; background: var(--pink); color: #fff; font-size: .72rem; font-weight: 800; line-height: 18px; text-align: center; }
+    .team-chat { height: min(640px, calc(100vh - 200px)); min-height: 380px; display: flex; flex-direction: column; }
+    .team-chat .panel-title .count { font-weight: 500; }
+    .team-chat .chat-msg .who { display: flex; align-items: center; gap: 6px; }
+    .team-chat .chat-msg .bubble { min-width: 0; max-width: min(640px, 100%); }
+    .team-chat .chat-msg.mine .bubble { background: color-mix(in srgb, var(--pink) 16%, transparent); }
+    .team-chat .when { color: var(--faint); font-weight: 500; font-size: .72rem; }
+    .team-chat .chat-msg .tiny-del { opacity: 0; }
+    .team-chat .chat-msg:hover .tiny-del, .team-chat .chat-msg .tiny-del:focus-visible, .team-chat .chat-msg .tiny-del.armed { opacity: 1; }
+    @media (hover: none) { .team-chat .chat-msg .tiny-del { opacity: .7; } }
 
     @media (max-width: 1020px) { .cal-layout { grid-template-columns: minmax(0, 1fr); } }
     @media (max-width: 700px) {

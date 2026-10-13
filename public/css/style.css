@@ -523,6 +523,17 @@ label.field { display: flex; flex-direction: column; gap: 6px; font-weight: 600;
 .pop-menu .mi.danger { color: #fda4af; }
 .pop-menu .sep { height: 1px; background: var(--border); margin: 6px 4px; }
 .pop-menu .mhead { padding: 8px 12px 10px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+.pop-menu .msec { padding: 10px 12px 3px; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); }
+.pop-menu .mi.accent { background: color-mix(in srgb, var(--pink) 16%, transparent); }
+.pop-menu .mi.accent:hover { background: color-mix(in srgb, var(--pink) 26%, transparent); }
+.pop-menu .mi.only-sm { display: none; }
+@media (max-width: 700px) { .pop-menu .mi.only-sm { display: flex; } }
+/* the account menu's header: you, your level and how far you are to the next one */
+.menu-me { display: flex; align-items: center; gap: 10px; min-width: 210px; }
+.menu-me .grow { flex: 1; min-width: 0; }
+.menu-me b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-xp { height: 5px; margin-top: 6px; border-radius: 999px; background: var(--panel-2); overflow: hidden; }
+.menu-xp i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--pink), var(--yellow)); }
 
 /* profile card popup */
 .pcard-head { text-align: center; display: grid; justify-items: center; gap: 6px; margin-bottom: 14px; }

@@ -1,6 +1,7 @@
-/* Update calendar (/calendar): what's coming to Party Arcade and when.
+/* Update calendar (/calendar): what's coming to Party Arcade and when, plus the team's announcements and group chat.
    Testers see the updates developers share with them ("Testers" ticked) and can't change anything.
-   Developers and admins see everything and add, change, move (drag) and delete updates.
+   Developers and admins see everything and add, change, move (drag) and delete updates, and post announcements.
+   Everyone with a role reads the announcements and uses the team chat.
    The server checks the role on every request (planner.py); open calendars reload when anything changes. */
 (() => {
   'use strict';
@@ -33,6 +34,7 @@
   const S = {
     items: new Map(), canEdit: false, role: '', builtFor: null,
     month: { y: now.getFullYear(), m: now.getMonth() }, selected: todayKey(), view: store.get('pa_cal_view', 'cal'), showShipped: true,
+    team: null, unread: 0, newsOpen: false, seenNews: store.get('pa_team_seen', 0),   // announcements newer than seenNews say NEW
   };
 
   // ------------------------------------------------------------ who can see this page
@@ -54,6 +56,7 @@
     }
     if (S.builtFor !== Account.role) build();
     load();
+    loadTeam();
   }
 
   async function load() {
@@ -107,7 +110,7 @@
     S.canEdit = Account.can('developer');
     S.role = Account.role;
     const edit = S.canEdit;
-    const tab = (key, label) => h('button', { type: 'button', role: 'tab', id: 'tab-' + key, 'aria-selected': String(S.view === key), onclick: () => setView(key) }, label);
+    const tab = (key, ...label) => h('button', { type: 'button', role: 'tab', id: 'tab-' + key, 'aria-selected': String(S.view === key), onclick: () => setView(key) }, label);
     fill(root,
       h('header', { class: 'cal-head' },
         h('div', { class: 'cal-brand' },
@@ -116,8 +119,10 @@
             : 'A sneak peek at what’s coming to Party Arcade. Keep it to yourself! 🤫'),
           h('span', { class: 'cal-role', title: 'Only you can see your role' }, ROLE_LABEL[S.role] || '', edit ? ' · can edit' : ' · view only')),
         h('section', { class: 'nx', id: 'nx', 'aria-label': 'Next update' })),
+      h('section', { class: 'panel team-news', id: 'news', 'aria-label': 'Team announcements' }),
       h('div', { class: 'cal-bar' },
-        h('div', { class: 'cal-tabs', role: 'tablist', 'aria-label': 'View' }, tab('cal', 'Calendar'), tab('sheet', 'Sheet')),
+        h('div', { class: 'cal-tabs', role: 'tablist', 'aria-label': 'View' }, tab('cal', 'Calendar'), tab('sheet', 'Sheet'),
+          tab('chat', '💬 Team chat', h('span', { class: 'tab-badge', id: 'chat-badge', hidden: true }))),
         h('div', { class: 'cal-month', id: 'month-nav' },
           h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Previous month', onclick: () => moveMonth(-1) }, '‹'),
           h('h2', { id: 'month', 'aria-live': 'polite' }),
@@ -143,22 +148,38 @@
           h('table', { class: 'sheet' },
             h('thead', {}, h('tr', {}, ['Date', 'Update', 'Type', 'Status', 'Version', 'Notes', ...(edit ? ['Testers', 'Added by', ''] : [])].map((t) => h('th', {}, t)))),
             h('tbody', { id: 'rows' })),
-          h('p', { class: 'muted sheet-empty', id: 'sheet-empty', hidden: true }, edit ? 'Nothing planned yet. Use “+ Add update” to plan the first one.' : 'Nothing to preview yet. Check back soon!'))));
+          h('p', { class: 'muted sheet-empty', id: 'sheet-empty', hidden: true }, edit ? 'Nothing planned yet. Use “+ Add update” to plan the first one.' : 'Nothing to preview yet. Check back soon!'))),
+      h('section', { id: 'view-chat', role: 'tabpanel', 'aria-labelledby': 'tab-chat' },
+        h('div', { class: 'panel team-chat' },
+          h('div', { class: 'panel-title' }, '💬 Team chat', h('span', { class: 'count' }, 'Only testers, developers and admins can see this')),
+          h('div', { class: 'chat' },
+            h('div', { class: 'chat-log', id: 'chat-log', 'aria-live': 'polite' }),
+            h('form', { class: 'chat-form', onsubmit: sendChat },
+              h('input', { class: 'input', id: 'chat-input', maxlength: 300, placeholder: 'Message the team…', autocomplete: 'off', 'aria-label': 'Message the team' }),
+              h('button', { class: 'btn btn-cyan btn-sm', type: 'submit', title: 'Send', 'aria-label': 'Send' }, icon('paper-plane-tilt')))))));
     root.classList.toggle('can-edit', edit);
     rowEls.clear();
     wire();
     setView(S.view);
     renderAll();
+    if (S.team) { renderNews(); renderChat(); }
   }
 
   function setView(v) {
-    S.view = v === 'sheet' ? 'sheet' : 'cal';
+    S.view = ['cal', 'sheet', 'chat'].includes(v) ? v : 'cal';
     store.set('pa_cal_view', S.view);
-    $('#tab-cal').setAttribute('aria-selected', String(S.view === 'cal'));
-    $('#tab-sheet').setAttribute('aria-selected', String(S.view === 'sheet'));
-    $('#view-cal').hidden = S.view !== 'cal';
-    $('#view-sheet').hidden = S.view !== 'sheet';
+    for (const key of ['cal', 'sheet', 'chat']) {
+      $('#tab-' + key).setAttribute('aria-selected', String(S.view === key));
+      $('#view-' + key).hidden = S.view !== key;
+    }
     $('#month-nav').hidden = S.view !== 'cal';
+    if (S.view === 'chat') {
+      S.unread = 0;
+      drawBadge();
+      const log = $('#chat-log');
+      log.scrollTop = log.scrollHeight;
+      if (!narrow.matches) $('#chat-input').focus();
+    }
   }
   function moveMonth(d) { const { y, m } = S.month; const t = new Date(y, m + d, 1); S.month = { y: t.getFullYear(), m: t.getMonth() }; renderGrid(); }
   function goToday() { const d = new Date(); S.month = { y: d.getFullYear(), m: d.getMonth() }; S.selected = keyOf(d); renderGrid(); renderDayPanel(); }
@@ -288,6 +309,129 @@
     });
     $('#sheet-empty').hidden = list.length > 0;
   }
+
+  // ------------------------------------------------------------ the team: announcements and group chat
+  async function loadTeam() {
+    try { S.team = await Net.request('team:get'); } catch (e) { return; }
+    if (!S.builtFor) return;
+    renderNews();
+    renderChat();
+  }
+  const mine = (p) => S.team && p.by.id === S.team.me;
+  const canDelete = (p) => S.team && (mine(p) || S.team.admin);
+  const isNew = (n) => n.id > S.seenNews && !mine(n);
+  const nameOf = (p) => h('b', { style: { color: p.by.color } }, p.by.name || 'Someone', p.by.admin ? h('span', { title: 'Admin' }, ' 🛡️') : null);
+  function clock(ts) {
+    const d = new Date(ts * 1000);
+    const t = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    return keyOf(d) === todayKey() ? t : `${fmtDay(keyOf(d))} ${t}`;
+  }
+  /** A small Delete button that asks "Sure?" first. */
+  function delButton(label, onYes) {
+    let armed = null;
+    const b = h('button', { type: 'button', class: 'tiny-del', 'aria-label': label, title: label, onclick: () => {
+      if (!armed) { b.classList.add('armed'); b.textContent = 'Sure?'; armed = setTimeout(() => { armed = null; b.classList.remove('armed'); b.textContent = '✕'; }, 3000); return; }
+      clearTimeout(armed);
+      onYes();
+    } }, '✕');
+    return b;
+  }
+
+  function renderNews() {
+    const box = $('#news');
+    if (!box || !S.team) return;
+    const list = S.team.news.slice().reverse();     // newest first
+    const shown = S.newsOpen ? list : list.slice(0, 2);
+    const composer = h('form', { class: 'tn-compose', hidden: true, onsubmit: async (e) => {
+      e.preventDefault();
+      const text = area.value.trim();
+      if (!text) { area.focus(); return; }
+      try { await Net.request('team:announce', { text }); UI.toast('📣 Announcement posted', 'good'); } catch (ex) { UI.toast(ex.message, 'bad', 4500); }
+    } });
+    const area = h('textarea', { class: 'input', maxlength: 600, placeholder: 'Tell the team what’s happening… (testers see this too)', 'aria-label': 'Announcement' });
+    fill(composer, area, h('div', { class: 'row', style: { justifyContent: 'flex-end', gap: '8px' } },
+      h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: () => { composer.hidden = true; } }, 'Cancel'),
+      h('button', { class: 'btn btn-pink btn-sm', type: 'submit' }, '📣 Post')));
+    fill(box,
+      h('div', { class: 'panel-title' }, '📣 Announcements', list.length ? h('span', { class: 'count' }, `${list.length}`) : null,
+        S.team.canAnnounce ? h('button', { class: 'btn btn-ghost btn-sm tn-new-btn', type: 'button', onclick: () => { composer.hidden = !composer.hidden; if (!composer.hidden) area.focus(); } }, '+ New') : null),
+      S.team.canAnnounce ? composer : null,
+      list.length ? h('div', { class: 'tn-list' }, shown.map((n) => h('article', { class: 'tn-item' + (isNew(n) ? ' new' : '') },
+        UI.avatar(n.by, 'sm'),
+        h('div', { class: 'tn-body' },
+          h('div', { class: 'tn-head' }, nameOf(n), h('span', { class: 'muted tiny' }, UI.timeAgo(n.ts)), isNew(n) ? h('span', { class: 'tn-new' }, 'NEW') : null,
+            canDelete(n) ? delButton('Delete this announcement', () => unpost('team:unannounce', n.id)) : null),
+          h('div', { class: 'tn-text' }, n.text)))))
+        : h('p', { class: 'muted small' }, S.team.canAnnounce ? 'No announcements yet. Post one to tell the team what’s happening.' : 'No announcements yet.'),
+      list.length > 2 ? h('button', { class: 'tn-more', type: 'button', onclick: () => { S.newsOpen = !S.newsOpen; renderNews(); } }, S.newsOpen ? 'Show less' : `Show all ${list.length}`) : null);
+    const newest = list.length ? list[0].id : 0;
+    if (newest > store.get('pa_team_seen', 0)) store.set('pa_team_seen', newest);
+  }
+
+  function chatRow(m) {
+    return h('div', { class: 'chat-msg' + (mine(m) ? ' mine' : ''), 'data-id': m.id },
+      UI.avatar(m.by, 'sm'),
+      h('div', { class: 'bubble' },
+        h('div', { class: 'who' }, nameOf(m), h('span', { class: 'when' }, clock(m.ts)),
+          canDelete(m) ? delButton('Delete this message', () => unpost('team:unsay', m.id)) : null),
+        m.text));
+  }
+  function renderChat() {
+    const log = $('#chat-log');
+    if (!log || !S.team) return;
+    fill(log, S.team.chat.length ? S.team.chat.map(chatRow) : h('div', { class: 'chat-msg sys' }, 'No messages yet. Say hi to the team! 👋'));
+    log.scrollTop = log.scrollHeight;
+  }
+  function drawBadge() {
+    const b = $('#chat-badge');
+    if (!b) return;
+    b.textContent = S.unread > 9 ? '9+' : String(S.unread);
+    b.hidden = !S.unread;
+  }
+  async function sendChat(e) {
+    e.preventDefault();
+    const input = $('#chat-input');
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    try { await Net.request('team:say', { text }); } catch (ex) { input.value = text; UI.toast(ex.message, 'bad', 4500); }
+  }
+  async function unpost(t, id) {
+    try { await Net.request(t, { id }); } catch (e) { UI.toast(e.message, 'bad', 4500); }
+  }
+
+  Net.on('team:msg', (m) => {
+    if (!S.team || !S.builtFor) return;
+    S.team.chat.push(m.msg);
+    if (S.team.chat.length > 150) S.team.chat.shift();
+    const log = $('#chat-log');
+    const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
+    log.querySelectorAll('.sys').forEach((x) => x.remove());
+    log.append(chatRow(m.msg));
+    while (log.children.length > 150) log.firstChild.remove();
+    if (atBottom || mine(m.msg)) log.scrollTop = log.scrollHeight;
+    if (!mine(m.msg)) {
+      PA.Sfx.play('message');
+      if (S.view !== 'chat' || document.hidden) { S.unread += 1; drawBadge(); }
+    }
+  });
+  Net.on('team:news', (m) => {
+    if (!S.team || !S.builtFor) return;
+    S.team.news.push(m.news);
+    if (m.news.by.id !== S.team.me) { PA.Sfx.play('coin'); UI.toast(`📣 New announcement from ${m.news.by.name || 'someone'}`, 'good', 4000); }
+    renderNews();
+  });
+  Net.on('team:gone', (m) => {
+    if (!S.team || !S.builtFor) return;
+    if (m.kind === 'msg') {
+      S.team.chat = S.team.chat.filter((x) => x.id !== m.id);
+      const row = $(`#chat-log [data-id="${m.id}"]`);
+      if (row) row.remove();
+    } else {
+      S.team.news = S.team.news.filter((x) => x.id !== m.id);
+      renderNews();
+    }
+  });
 
   // ------------------------------------------------------------ add, view and change one update
   function open(id) { const it = S.items.get(id); if (it) (S.canEdit ? showForm(it) : showView(it)); }
