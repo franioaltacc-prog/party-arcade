@@ -4,7 +4,7 @@
   const { $, h, fill, Net, UI, Account, on, icon } = PA;
   const FX = PA.FX || {};
   const root = $('#admin');
-  const GAMES = { dash: ['🟪', 'Neon Dash'], life: ['🏡', 'Family Life'], doodle: ['🎨', 'Doodle Guess'], blitz: ['⚡', 'Party Blitz'], connect4: ['🔴', 'Connect 4'], billiards: ['🎱', 'Billiards'], casino: ['🎰', 'Casino Night'], impostor: ['🕵️', 'Impostor'], mines: ['💣', 'Minesweeper'], flappy: ['🐤', 'Neon Flappy'], golf: ['⛳', 'Mini Golf'], poly: ['🏎️', 'Poly Racer'], prophunt: ['🔫', 'Prop Hunt'], front: ['🌍', 'Front Wars'] };
+  const GAMES = { dash: ['🟪', 'Neon Dash'], life: ['🏡', 'Family Life'], doodle: ['🎨', 'Doodle Guess'], songs: ['🎧', 'Song Rush'], blitz: ['⚡', 'Party Blitz'], connect4: ['🔴', 'Connect 4'], billiards: ['🎱', 'Billiards'], casino: ['🎰', 'Casino Night'], impostor: ['🕵️', 'Impostor'], mines: ['💣', 'Minesweeper'], flappy: ['🐤', 'Neon Flappy'], golf: ['⛳', 'Mini Golf'], poly: ['🏎️', 'Poly Racer'], prophunt: ['🔫', 'Prop Hunt'], front: ['🌍', 'Front Wars'] };
   let timer = null;
   let mode = null;
   let lastQuery = '';
@@ -101,7 +101,7 @@
       h('section', { class: 'panel', style: { marginTop: '16px' } }, h('div', { class: 'panel-title' }, '👥 Accounts'), search, h('div', { id: 'adm-users', style: { marginTop: '12px' } })),
 
       h('section', { class: 'panel adm-help', style: { marginTop: '16px' } }, h('div', { class: 'panel-title' }, '🛠️ Cheats'),
-        h('p', { class: 'muted' }, 'Join any online game and press the 🛡️ button in the bottom-left corner for that game’s cheats: free coins in Casino, money and maxed stats in Family Life, god mode in Neon Dash, see the word in Doodle Guess, and more. Games where you cheat don’t count for anyone’s leaderboards.')),
+        h('p', { class: 'muted' }, 'Join any online game and press the 🛡️ button in the bottom-left corner for that game’s cheats: free coins in Casino, money and maxed stats in Family Life, god mode in Neon Dash, see the word in Doodle Guess, the answer in Song Rush, and more. Games where you cheat don’t count for anyone’s leaderboards.')),
     );
     refresh();
     findUsers('');

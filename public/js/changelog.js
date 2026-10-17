@@ -6,6 +6,17 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '2.22.0', date: '2026-10-19', emoji: '🎧', title: 'The big update: Song Rush!', items: [
+      'A brand new online game: 🎧 Song Rush. A song starts playing and everyone races to name it',
+      'Type it: type the song’s name and the artist in the chat (or the movie, for movie songs). Spelling doesn’t have to be perfect, and you can type both at once',
+      'Pick from 4: choose the right song before the time runs out',
+      'The faster you answer, the more points you get, plus a bonus for being first and a 🔥 streak bonus for songs in a row',
+      'Stuck? Hints show up as time runs out: how many letters the title has, then the year, then the first letters of each word and the artist’s initials',
+      'Over 450 songs in 11 playlists: 2020s, 2010s, 2000s, 90s and 80s hits, Classics, Rock anthems, Movies & Disney, K-pop, Party classics and 🎃 Spooky songs for Halloween, or everything mixed up',
+      'See the album cover at the end of every song, and a list of every song you heard with links to Apple Music',
+      'Play alone or with up to 16 friends. Song Rush works in party mode too, with a new 🎧 Music night playlist',
+      'New leaderboards: Song Rush wins and the most songs named. Your profile shows your Song Rush stats',
+    ] },
     { v: '2.21.0', date: '2026-10-17', emoji: '🏡', title: 'Family Life: a shop, a lifestyle and a real casino', items: [
       'A 🛍️ Shop with almost 70 things: cars, supercars, yachts, a private jet, homes from a studio to a castle or a private island, rental apartments, businesses, crypto and gold, art, a racehorse, a pet tiger, staff (a trainer, stylist, tutor, publicist, lawyer…) and experiences (a world cruise, a pop star at your birthday, a trip to space)',
       'Own as many cars and homes as you like. Everything has yearly upkeep, values go up or down every birthday, rentals and businesses earn (or lose) money, and you can sell things in 🧾 My stuff',

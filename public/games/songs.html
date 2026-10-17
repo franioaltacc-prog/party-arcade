@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Song Rush · Party Arcade</title>
+  <meta name="description" content="Song Rush: a song starts playing and everyone races to name it. Play with friends on Party Arcade.">
+  <meta name="theme-color" content="#0b0920">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://audio-ssl.itunes.apple.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <script>try { document.documentElement.dataset.theme = JSON.parse(localStorage.getItem('pa_theme')) || 'neon'; } catch (e) { /* storage blocked */ }</script>
+  <style>
+    .sr-grid { display: grid; grid-template-columns: 240px minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+    .sr-grid > * { min-width: 0; }
+    .sr-top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+    .sr-top .round { font-weight: 700; color: var(--muted); white-space: nowrap; }
+    .sr-top .sr-pl { flex: 1; min-width: 0; text-align: center; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sr-top .clock { font-family: var(--font-display); font-size: 1.4rem; min-width: 64px; text-align: center; padding: 6px 10px; border-radius: 14px; background: var(--panel-2); }
+    .sr-top .clock.low { background: color-mix(in srgb, var(--red) 30%, transparent); }
+
+    /* the record player */
+    .sr-deck { position: relative; border-radius: 22px; overflow: hidden; height: clamp(280px, 44vh, 400px); container-type: size;
+      background: radial-gradient(120% 90% at 30% 20%, color-mix(in srgb, var(--pink) 28%, transparent), transparent 60%),
+                  radial-gradient(90% 80% at 85% 90%, color-mix(in srgb, var(--cyan) 22%, transparent), transparent 60%), rgba(0, 0, 0, .35);
+      border: 1px solid var(--border); display: grid; place-items: center; }
+    .sr-viz { position: absolute; inset: auto 0 0 0; width: 100%; height: 45%; opacity: .85; pointer-events: none; }
+    .sr-disc { position: relative; width: min(62cqh, 46cqw, 240px); aspect-ratio: 1; border-radius: 50%;
+      background: repeating-radial-gradient(circle, #15102a 0 3px, #0d0a1c 3px 6px); box-shadow: 0 18px 50px -12px rgba(0, 0, 0, .8), 0 0 0 3px rgba(255, 255, 255, .06);
+      display: grid; place-items: center; }
+    .sr-disc::before { content: ''; position: absolute; inset: 8%; border-radius: 50%; background: conic-gradient(from 30deg, transparent 0 8%, rgba(255, 255, 255, .14) 12%, transparent 18% 58%, rgba(255, 255, 255, .1) 62%, transparent 68%); }
+    .sr-disc.spin { animation: sr-spin 1.8s linear infinite; }
+    @keyframes sr-spin { to { transform: rotate(360deg); } }
+    .sr-label { position: relative; width: 38%; aspect-ratio: 1; border-radius: 50%; background: linear-gradient(135deg, var(--pink), var(--purple)); display: grid; place-items: center;
+      font-family: var(--font-display); font-size: clamp(1.2rem, 3vw, 2rem); color: #fff; overflow: hidden; box-shadow: inset 0 0 0 3px rgba(0, 0, 0, .25); }
+    .sr-label img.sr-cover { width: 100%; height: 100%; object-fit: cover; }
+    .sr-label::after { content: ''; position: absolute; width: 9%; aspect-ratio: 1; border-radius: 50%; background: #0d0a1c; }
+    .sr-over { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 18px; background: rgba(8, 6, 22, .72); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); z-index: 2; }
+    .sr-over .big { font-family: var(--font-display); font-size: clamp(2.6rem, 9vw, 5rem); line-height: 1; }
+    .sr-tap { position: absolute; z-index: 3; }
+    .sr-reveal { display: flex; gap: 18px; align-items: center; text-align: left; max-width: 100%; }
+    .sr-reveal img.sr-cover { width: min(200px, 62cqh, 38cqw); aspect-ratio: 1; border-radius: 14px; box-shadow: 0 16px 40px -10px rgba(0, 0, 0, .8); object-fit: cover; background: var(--panel-2); flex: none; }
+    .sr-reveal .sr-t { font-family: var(--font-display); font-size: clamp(1.05rem, 5.5cqw, 1.9rem); line-height: 1.1; overflow-wrap: anywhere; }
+    .sr-reveal .sr-a { font-size: clamp(1rem, 2.4vw, 1.25rem); font-weight: 700; margin-top: 6px; }
+    .sr-reveal .sr-m { color: var(--muted); margin-top: 4px; }
+    .sr-reveal a.sr-am { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; font-weight: 700; font-size: .85rem; padding: 6px 12px; border-radius: 999px; background: rgba(255, 255, 255, .1); color: var(--text); }
+    .sr-reveal a.sr-am:hover { background: rgba(255, 255, 255, .18); text-decoration: none; }
+
+    /* hints */
+    .sr-hints { display: grid; gap: 10px; margin-top: 14px; }
+    .sr-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: 16px; background: var(--panel); border: 1px solid var(--border); min-height: 54px; }
+    .sr-row .lbl { font-weight: 700; color: var(--muted); white-space: nowrap; min-width: 84px; }
+    .sr-row.got { background: color-mix(in srgb, var(--green) 16%, transparent); border-color: color-mix(in srgb, var(--green) 45%, transparent); }
+    .sr-row.got .val, .sr-row.was .val { font-weight: 700; font-size: 1.1rem; }
+    .sr-row.was { border-color: var(--border-strong); }
+    .sr-mask { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+    .sr-word { display: inline-flex; gap: 3px; align-items: flex-end; }
+    .sr-ch { display: inline-grid; place-items: center; width: 1.25em; height: 1.6em; border-bottom: 3px solid var(--muted); font-style: normal; font-weight: 700; font-size: 1.05rem; text-transform: uppercase; }
+    .sr-ch.on { color: var(--yellow); border-color: var(--yellow); }
+    .sr-word b { font-size: 1.1rem; padding-bottom: 2px; }
+    .sr-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--panel-2); font-weight: 600; font-size: .9rem; }
+    .sr-wait { color: var(--faint); font-style: italic; }
+
+    /* pick mode */
+    .sr-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+    .sr-opt { text-align: left; padding: 14px 16px; border-radius: 16px; border: 2px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; font: inherit;
+      display: flex; gap: 12px; align-items: center; transition: transform .12s, background .15s, border-color .15s; min-height: 72px; }
+    .sr-opt:hover:not(:disabled) { transform: translateY(-2px); background: var(--panel-2); border-color: var(--border-strong); }
+    .sr-opt:disabled { cursor: default; }
+    .sr-opt .k { font-family: var(--font-display); width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex: none; color: #fff; }
+    .sr-opt .t { font-weight: 700; line-height: 1.2; }
+    .sr-opt .a { color: var(--muted); font-size: .9rem; }
+    .sr-opt.mine { border-color: var(--yellow); background: color-mix(in srgb, var(--yellow) 14%, transparent); }
+    .sr-opt.right { border-color: var(--green); background: color-mix(in srgb, var(--green) 22%, transparent); }
+    .sr-opt.wrong { border-color: var(--red); background: color-mix(in srgb, var(--red) 18%, transparent); opacity: .85; }
+    .sr-opt.dim { opacity: .45; }
+
+    .sr-bottom { display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+    .sr-vol { display: flex; align-items: center; gap: 8px; }
+    .sr-vol input { width: 130px; accent-color: var(--pink); }
+    .sr-muted { padding: 10px 14px; border-radius: 14px; background: color-mix(in srgb, var(--red) 22%, transparent); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+
+    /* scores */
+    .score-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 14px; background: rgba(255, 255, 255, .04); margin-bottom: 7px; }
+    .score-row.done { background: color-mix(in srgb, var(--green) 15%, transparent); }
+    .score-row .pts { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .score-row .st { white-space: nowrap; font-size: .95rem; }
+    .score-row .plus { font-size: .78rem; font-weight: 700; color: var(--lime); white-space: nowrap; }
+    .score-row .streak { font-size: .78rem; font-weight: 700; color: var(--yellow); white-space: nowrap; }
+    #play-chat { height: 600px; }
+
+    /* lobby */
+    .pl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+    .pl-card { text-align: left; padding: 10px 12px; border-radius: 14px; border: 2px solid var(--border); background: var(--panel); color: var(--text); font: inherit; cursor: pointer; display: grid; gap: 2px; }
+    .pl-card:disabled { cursor: default; }
+    .pl-card:hover:not(:disabled) { border-color: var(--border-strong); background: var(--panel-2); }
+    .pl-card.on { border-color: var(--pink); background: color-mix(in srgb, var(--pink) 16%, transparent); }
+    .pl-card .e { font-size: 1.5rem; }
+    .pl-card .n { font-weight: 700; line-height: 1.15; }
+    .pl-card .c { font-size: .78rem; color: var(--muted); }
+    .sr-setrow { margin-bottom: 14px; }
+    .sr-played { display: grid; gap: 6px; margin: 4px 0 18px; max-height: 330px; overflow: auto; padding-right: 4px; }
+    .sr-played a { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 12px; color: var(--text); background: rgba(255, 255, 255, .04); }
+    .sr-played a:hover { background: var(--panel-2); text-decoration: none; }
+    .sr-played img.sr-cover { width: 42px; height: 42px; border-radius: 8px; object-fit: cover; flex: none; background: var(--panel-2); }
+    .sr-played .grow { min-width: 0; }
+    .sr-played .t { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sr-played .a { font-size: .85rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sr-credit { font-size: .75rem; color: var(--faint); text-align: center; margin-top: 10px; }
+
+    .calm .sr-disc.spin { animation: none; }
+    @media (max-width: 1100px) { .sr-grid { grid-template-columns: minmax(0, 1fr) 300px; } .sr-grid .scores { grid-column: 1 / -1; order: 3; } }
+    @media (max-width: 760px) {
+      .sr-grid { grid-template-columns: 1fr; }
+      #play-chat { height: 320px; order: 2; }
+      .sr-grid .scores { order: 3; }
+      .sr-deck { height: 290px; }
+      .sr-options { grid-template-columns: 1fr; }
+      .sr-reveal { flex-direction: column; text-align: center; gap: 10px; }
+      .sr-reveal img.sr-cover { width: min(150px, 38cqh); }
+      .sr-row .lbl { min-width: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div id="entry"></div>
+    <section id="room" class="hidden room-layout">
+      <div class="col">
+        <div class="panel" id="room-code"></div>
+        <div class="panel" id="room-players"></div>
+      </div>
+      <div class="panel room-main" id="room-main"></div>
+      <div class="panel chat-panel" id="room-chat"></div>
+    </section>
+    <section id="play" class="hidden sr-grid">
+      <aside class="panel scores"><div class="panel-title">🏆 Scores</div><div id="scores"></div></aside>
+      <div class="panel">
+        <div class="sr-top"><span class="round" id="round"></span><span class="sr-pl" id="plname"></span><span class="clock" id="clock">--</span></div>
+        <div class="sr-deck" id="deck">
+          <canvas class="sr-viz" id="viz" width="640" height="200"></canvas>
+          <div class="sr-disc" id="disc"><div class="sr-label" id="label">♫</div></div>
+          <div class="sr-over hidden" id="over"></div>
+        </div>
+        <div id="muted-note"></div>
+        <div class="sr-hints" id="hints"></div>
+        <div class="sr-options" id="options"></div>
+        <div class="sr-bottom">
+          <label class="sr-vol" title="Song volume">🔊 <input type="range" id="vol" min="0" max="100" step="1" aria-label="Song volume"></label>
+          <span class="tiny faint" id="load-note"></span>
+        </div>
+      </div>
+      <div class="panel" id="play-chat"></div>
+    </section>
+  </main>
+  <script src="/js/art.js"></script>
+  <script src="/js/core.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollTrigger.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/Flip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/SplitText.min.js"></script>
+  <script src="/js/fx.js"></script>
+  <script src="/js/lobby.js"></script>
+  <script src="/js/games/songs.js"></script>
+</body>
+</html>

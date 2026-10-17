@@ -77,6 +77,8 @@ BOARDS = {
     "pool_cpu": ("🤖 Billiards wins vs CPU", "poolcpu.wins", "desc", "int"),
     "flappy": ("🐤 Neon Flappy best score", "flappy.best", "desc", "int"),
     "golf": ("⛳ Mini Golf wins", "golf.wins", "desc", "int"),
+    "songs": ("🎧 Song Rush wins", "songs.wins", "desc", "int"),
+    "songs_correct": ("🎵 Song Rush songs named", "songs.correct", "desc", "int"),
     "golf_classic": ("⛳ Mini Golf: Classic Meadow", "golfclassic.best", "asc", "strokes"),
     "golf_spooky": ("🎃 Mini Golf: Spooky Hollow", "golfspooky.best", "asc", "strokes"),
 }

@@ -249,8 +249,21 @@
     `<circle cx="132" cy="80" r="3.6" fill="#ff4fd8" opacity=".7" stroke="rgba(0,0,0,.25)" stroke-width=".6"/><circle cx="148" cy="92" r="3.6" fill="#facc15" opacity=".7" stroke="rgba(0,0,0,.25)" stroke-width=".6"/><circle cx="92" cy="84" r="3.6" fill="#22d3ee" opacity=".7" stroke="rgba(0,0,0,.25)" stroke-width=".6"/>`);
   ART['golf-solo'] = golfArt('golf2', '#0f0a24', '#3b1d5e', true, emoji(186, 14, 14, '🏆'));
 
+  // Song Rush: a spinning record, an equalizer and headphones
+  ART.songs = svg('songs', `
+      <circle cx="62" cy="62" r="70" fill="#ff4fd8" opacity=".12"/>
+      <g class="sr-disc"><circle cx="62" cy="62" r="44" fill="#120a24"/>
+      ${[40, 35, 30, 25, 20].map((r) => `<circle cx="62" cy="62" r="${r}" fill="none" stroke="rgba(255,255,255,.09)" stroke-width="1.2"/>`).join('')}
+      <path d="M30 40 A40 40 0 0 1 62 22" stroke="rgba(255,255,255,.25)" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <circle cx="62" cy="62" r="14" fill="#facc15"/><circle cx="62" cy="62" r="14" fill="url(#g-songs)" opacity=".55"/><circle cx="62" cy="62" r="2.6" fill="#120a24"/></g>
+      <path d="M118 14 L118 22 L96 58" stroke="#e5e7eb" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="118" cy="14" r="5" fill="#9ca3af"/><rect x="90" y="54" width="10" height="7" rx="2" transform="rotate(-30 95 58)" fill="#e5e7eb"/>
+      ${[0, 1, 2, 3, 4, 5, 6].map((i) => { const hgt = [22, 40, 30, 52, 34, 46, 26][i]; return `<rect x="${120 + i * 10}" y="${108 - hgt}" width="7" height="${hgt}" rx="3" fill="${['#22d3ee', '#a3e635', '#facc15', '#ff4fd8', '#a855f7', '#22d3ee', '#a3e635'][i]}" opacity=".9"/>`; }).join('')}
+      <path d="M114 108h82" stroke="rgba(255,255,255,.4)" stroke-width="1.5"/>
+      ${emoji(160, 42, 26, '🎧')}${emoji(128, 44, 12, '🎵')}${emoji(188, 60, 12, '🎶')}${emoji(22, 100, 13, '❓')}`, '#3b0764', '#db2777');
+
   // ---------------------------------------------------------------- cards
   const ONLINE = [
+    { key: 'songs', title: 'Song Rush', icon: '🎧', desc: 'A song starts playing… name it before everyone else! Type the title and the artist, or pick from four. Hits from the 2020s back to the 60s, Disney, K-pop, party songs and spooky Halloween tunes.', players: '1–16 players', glow: 'rgba(236,72,153,.7)', feature: true, isNew: true },
     { key: 'dash', title: 'Neon Dash', icon: '🟪', desc: 'A mini Geometry Dash! Race your friends through the same level of spikes, jump pads and orbs.', players: '1–12 players', glow: 'rgba(168,85,247,.7)', feature: true },
     { key: 'life', title: 'Family Life', icon: '🏡', desc: 'A multiplayer BitLife where you and your friends are siblings in one family. Vote to age up, plan family trips, prank each other. Best life wins!', players: '1–4 siblings', glow: 'rgba(34,197,94,.6)', feature: true },
     { key: 'doodle', title: 'Doodle Guess', icon: '🎨', desc: 'One person draws, everyone guesses. Fast fingers win!', players: '2–12 players', glow: 'rgba(244,63,94,.6)' },

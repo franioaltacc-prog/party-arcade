@@ -58,7 +58,7 @@ You can delete your own messages and announcements; admins can delete anyone's. 
 messages; its announcements and calendar rows stay without a name (`team_chat`, `team_news` tables).
 
 ## Games
-- **Online:** Neon Dash (mini Geometry Dash race), Family Life (multiplayer BitLife with siblings), Doodle Guess, Impostor, Minesweeper (Race / Battle), Front Wars (OpenFront-style territory war: free-for-all with alliances or teams, bots, ports, warships, nukes and replays), Prop Hunt (top-down hide and seek with a killer), Poly Racer (low-poly 3D racing), Billiards (8-ball / 9-ball pool, winner stays on), Flappy Royale (Neon Flappy with everyone flying the same pipes), Mini Golf (3D, everyone on the same hole with ghost balls), Party Blitz, Connect 4
+- **Online:** Song Rush (name the song from a 30-second preview), Neon Dash (mini Geometry Dash race), Family Life (multiplayer BitLife with siblings), Doodle Guess, Impostor, Minesweeper (Race / Battle), Front Wars (OpenFront-style territory war: free-for-all with alliances or teams, bots, ports, warships, nukes and replays), Prop Hunt (top-down hide and seek with a killer), Poly Racer (low-poly 3D racing), Billiards (8-ball / 9-ball pool, winner stays on), Flappy Royale (Neon Flappy with everyone flying the same pipes), Mini Golf (3D, everyone on the same hole with ghost balls), Party Blitz, Connect 4
 - **Solo:** Mini Golf (Classic Meadow and Spooky Hollow, 9 holes each), Neon Flappy (medals, unlockable birds), Billiards (vs CPU, Speed Clear, practice), Poly Racer time trial, Neon Dash practice, Neon Dash level editor + community levels (beat your level to verify it, then post it: an admin approves it first, 3 posts a day; hosts can race community levels online), Minesweeper (Easy / Medium / Hard), Front Wars vs bots, Slope (3D, three.js), Snake, 2048, Memory Flip
 - **Fun:** Spin the Wheel, Would You Rather (global votes), Magic 8-Ball
 - **Casino Night (fake coins only):** every match everyone starts with the same coins; most coins at the end wins.
@@ -161,6 +161,27 @@ out of bounds cost a stroke and put you back where you played from (not when a m
 - `tests/golftest.js` (`node tests/golftest.js`) solves every hole within par + 1 and fuzzes the physics (no escapes,
   no tunnelling, obstacles never push the ball through a rail); `tests/golfbot.py` plays Mini Golf over websockets.
 
+## Song Rush
+A song plays and everyone races to name it (`games/songs/`, `public/js/games/songs.js`, 1–16 players, party mode too).
+- **Type it:** guesses go through the chat. The server checks them (`games/songs/match.py`): capitals, accents,
+  punctuation, a leading "the", anything in brackets and small typos don't matter, and a guess can name the title and the
+  artist at once ("shake it off by taylor swift"). For movie songs the second answer is the movie (the singer also
+  counts). Close guesses get a private "so close!" and aren't shown to anyone. Once you know part of the answer, your
+  chat only goes to players who know at least as much. Hints at 30 / 55 / 78 % of the time: the year and genre, then
+  first letters and the artist's initials, then more letters (the title's blanks show from the start).
+- **Pick from 4:** three decoys from the same playlist by other artists, from around the same years. Points are added
+  at the reveal, so nobody can tell who was right while the song plays.
+- Points: title 100 + up to 400 for speed, +50 for the first one, +50 per song in a row (streak, up to +200); artist or
+  movie 50 + up to 200. Settings: playlist, mode, 5/10/15/20 songs, 15/20/30 s. A song nobody's browser can load is
+  skipped. Stats: `songs.games/wins/points/best/correct/perfect`; leaderboards `songs` and `songs_correct`. Admin
+  cheats: show the answer, +500 points, skip the song, end the game.
+- **Songs:** `games/songs/playlists.txt` lists them (`year | artist | title`, plus optional `movie:`, `also:` for other
+  ways to write the title, `who:` for the artist and `find:` search words). `python3 games/songs/build.py --check`
+  looks each one up in the iTunes Search API (clean versions only, about 20 searches a minute, cached in `data/`) and
+  writes `games/songs/songs.json` with the 30-second preview, cover and Apple Music link; `--check` lists matches worth
+  a second look. The server never calls Apple: browsers download the previews straight from Apple's CDN, decode them
+  with Web Audio (so everyone starts together and the equalizer is real) and fall back to an `<audio>` element.
+
 ## Tournaments
 `tournaments.py`. In any room the host presses “🏆 Start a tournament” and picks Connect 4, Billiards, Neon Dash, Minesweeper,
 Party Blitz, Prop Hunt or Mini Golf (3–16 players; watchers don't count). Everyone goes to the live bracket at
@@ -178,7 +199,8 @@ The home page shows a banner with your progress while an event runs.
 
 ## News strip
 `NEWS` in `public/js/core.js` puts a short message under the top bar on every page except the games: a title,
-a line of text and a hint, with a countdown to `day` ("in 6 days", "tomorrow!", then the `today` title on the day).
+a line of text and a hint, with a countdown to `day` ("in 6 days", "tomorrow!", then the `today` title on the day),
+or with `until` instead a plain message (and an optional `link: [href, label]` button) that shows up to that day.
 It disappears by itself after that day, and × hides it for good (remembered per `id`, so give a new message a new
 id). Set `NEWS = null` when there's nothing to announce.
 
@@ -256,8 +278,10 @@ python3 tests/run_all.py
 It starts a throwaway server (temporary SQLite database, test admin code `test-admin-code-123`) and runs ~800 checks:
 - Websocket bots that play the online games like real players: accounts, friends, invites, votes, party mode, watching,
   Prop Hunt, tournaments, Poly Racer, Minesweeper, Front Wars, Billiards, Flappy Royale, Mini Golf, the Dash level
-  editor (posting limit, admin review), themes and Halloween quests, cheats and rewards, roles and the update calendar, the Family Life shop and casino.
-- In-process tests of the Prop Hunt rules and tournament brackets, and the pool physics (Python vs JS, bit for bit).
+  editor (posting limit, admin review), themes and Halloween quests, cheats and rewards, roles and the update calendar, the Family Life shop and casino,
+  and Song Rush (both modes, scoring, private chat once you know the answer).
+- In-process tests of the Prop Hunt rules and tournament brackets, the pool physics (Python vs JS, bit for bit), and
+  Song Rush's answer checking, song list, hints and scoring.
 - If JavaScriptCore (macOS) or Node is installed, an autopilot drives every Poly Racer track, every Neon Flappy
   test level is checked to be flyable and every Mini Golf hole is solved within par + 1.
 
@@ -271,6 +295,7 @@ fails now and then (a known flaky test) and is reported as a warning.
 - `planner.py`: the update calendar for testers and developers (`/calendar`), plus the team's announcements and chat
 - `public/js/art.js`: list of Microsoft Fluent 3D emoji (MIT, loaded from the jsDelivr CDN) and Phosphor icons (MIT). `core.js` swaps every emoji on a page for its 3D image and `PA.icon(name)` / `data-icon="name"` add icons
 - `games/`: one module per online game (server side)
+- `games/songs/`: Song Rush: the game, answer checking, the playlists and the iTunes build script
 - `games/casino/`: casino server. `match.py` runs the match (coins, scores, win conditions); every game is its own module
   built on the shared bases in `tables.py`: `HouseTable` (vs house), `PlayersTable` (vs players) and `RoundTable` (shared betting round).
   To add a game: subclass one of them, decorate it with `@register`, import it in `match.py`, and add a matching

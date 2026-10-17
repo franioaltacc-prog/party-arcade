@@ -5,7 +5,7 @@
 
   // The site's version. Bump it with every update, together with a new entry at the
   // top of public/js/changelog.js (the /changelog page).
-  const VERSION = '2.21.0';
+  const VERSION = '2.22.0';
 
   // ---------------------------------------------------------------- helpers
   const $ = (s, r = document) => r.querySelector(s);
@@ -1047,29 +1047,33 @@
 
   // ---------------------------------------------------------------- news
   /* A heads-up strip under the top bar on every page except the games (so it never squeezes a game).
-     It shows until the end of `day` (the visitor's own day) and × hides it for good. Set NEWS = null when
-     there's nothing to say, and give a new message a new id so people who hid the last one see it. */
+     With `day` it counts down to that day (then shows `today` on the day); with `until` it's a plain message
+     (an optional `link` button) up to that day. It shows until the end of that day (the visitor's own day) and
+     × hides it for good. Set NEWS = null when there's nothing to say, and give a new message a new id so people
+     who hid the last one see it. */
   const NEWS = {
-    id: 'update-2026-10-19', day: '2026-10-19', emoji: '📣',
-    title: 'Big update moved to Monday 19 October',
-    today: 'The big update lands today! 🎉',
-    text: 'It was meant to come out on Wednesday, but it needs a few more days to be ready.',
-    hint: '🎧 Hint: warm up your ears… how well do you really know your songs?',
+    id: 'song-rush-out', until: '2026-10-26', emoji: '🎧',
+    title: 'Song Rush is here!',
+    text: 'The big update is out: a song starts playing, and you race your friends to name it.',
+    hint: '🎵 Over 450 songs, from 60s classics to K-pop, Disney and spooky Halloween tunes.',
+    link: ['/games/songs', '🎧 Play now'],
   };
   function news(bar) {
     if (!NEWS || store.get('pa_news_hide', null) === NEWS.id) return;
-    const [y, mo, d] = NEWS.day.split('-').map(Number);
+    const [y, mo, d] = (NEWS.until || NEWS.day).split('-').map(Number);
     const now = new Date();
     const days = Math.round((new Date(y, mo - 1, d) - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
     if (days < 0) return;
+    const countdown = !NEWS.until && days > 0;
     const strip = h('div', { class: 'news-wrap' },
       h('section', { class: 'news', 'aria-label': 'News' },
         h('span', { class: 'news-e', 'aria-hidden': 'true' }, NEWS.emoji),
         h('div', { class: 'news-t' },
-          h('div', { class: 'news-h' }, h('b', {}, days ? NEWS.title : NEWS.today),
-            days ? h('span', { class: 'news-n' }, days === 1 ? 'tomorrow!' : `in ${days} days`) : null),
-          h('div', { class: 'news-s' }, days ? h('span', { class: 'news-why' }, NEWS.text + ' ') : null, h('span', { class: 'news-hint' }, NEWS.hint))),
+          h('div', { class: 'news-h' }, h('b', {}, countdown || NEWS.until ? NEWS.title : NEWS.today),
+            countdown ? h('span', { class: 'news-n' }, days === 1 ? 'tomorrow!' : `in ${days} days`) : null),
+          h('div', { class: 'news-s' }, countdown || NEWS.until ? h('span', { class: 'news-why' }, NEWS.text + ' ') : null, h('span', { class: 'news-hint' }, NEWS.hint))),
         h('span', { class: 'news-notes', 'aria-hidden': 'true' }, h('i', {}, '🎵'), h('i', {}, '🎶'), h('i', {}, '🎵')),
+        NEWS.link ? h('a', { class: 'btn btn-yellow btn-sm news-go', href: NEWS.link[0] }, NEWS.link[1]) : null,
         h('button', { class: 'icon-btn news-x', 'aria-label': 'Hide this message', title: 'Hide this message',
           onclick: () => { store.set('pa_news_hide', NEWS.id); strip.remove(); } }, icon('x'))));
     bar.after(strip);

@@ -29,7 +29,7 @@
   ];
 
   const GAMES = [
-    ['🟪', 'Neon Dash'], ['🏡', 'Family Life'], ['🎨', 'Doodle Guess'], ['🕵️', 'Impostor'], ['💣', 'Minesweeper'],
+    ['🟪', 'Neon Dash'], ['🏡', 'Family Life'], ['🎨', 'Doodle Guess'], ['🎧', 'Song Rush'], ['🕵️', 'Impostor'], ['💣', 'Minesweeper'],
     ['⚡', 'Party Blitz'], ['🎰', 'Casino Night'], ['🔴', 'Connect 4'], ['🎱', 'Billiards'], ['🐍', 'Neon Snake'], ['🔢', '2048'],
     ['🃏', 'Memory Flip'], ['🛝', 'Slope'], ['🌍', 'Front Wars'], ['🔫', 'Prop Hunt'], ['🏎️', 'Poly Racer'], ['🐤', 'Neon Flappy'], ['⛳', 'Mini Golf'], ['🎡', 'Spin the Wheel'], ['🤔', 'Would You Rather'], ['🎱', 'Magic 8-Ball'],
   ];
@@ -46,9 +46,10 @@
     ['🤖', 'Claude by Anthropic', 'the AI that wrote the code with Franio'],
     ['😀', 'Fluent Emoji by Microsoft', '3D emoji (via LobeHub’s CDN)'],
     ['✏️', 'Phosphor Icons', 'button icons'],
+    ['🎵', 'Apple Music / iTunes', 'the 30-second song previews and album covers in Song Rush'],
   ];
 
-  const INSPIRED = ['Geometry Dash (RobTop Games)', 'BitLife (Candywriter)', 'Pictionary & skribbl.io', 'Spyfall-style "who\'s the impostor?" word games',
+  const INSPIRED = ['Geometry Dash (RobTop Games)', 'BitLife (Candywriter)', 'Pictionary & skribbl.io', 'Name That Tune, Heardle & SongTrivia', 'Spyfall-style "who\'s the impostor?" word games',
     'Classic Minesweeper', 'Slope (by Rob Kay)', 'OpenFront.io', 'Prop Hunt (the Garry’s Mod game mode)', 'PolyTrack (Kodub)', '2048 (Gabriele Cirulli)', 'Snake', 'Connect Four', 'Pool (8-ball and 9-ball)', 'Flappy Bird (Dong Nguyen)', 'WarioWare-style microgames'];
 
   function render(players) {

@@ -47,7 +47,7 @@ EMPTY_ROOM_TTL = 90            # seconds an empty room survives
 VOTE_SECONDS = 20              # "play again?" and "which game next?" votes
 PARTY_NEXT = 10                # seconds of party standings before the next game
 PARTY_POINTS = (10, 7, 5, 3)   # 1st, 2nd, 3rd, 4th in each party game; everyone else gets 1
-PARTY_GAMES = ("dash", "poly", "doodle", "blitz", "impostor", "mines", "front", "prophunt", "casino", "life", "flappy", "golf")   # games that work for groups
+PARTY_GAMES = ("dash", "poly", "doodle", "songs", "blitz", "impostor", "mines", "front", "prophunt", "casino", "life", "flappy", "golf")   # games that work for groups
 WATCHERS_EXTRA = 20            # watchers allowed on top of a game's player limit
 CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -1354,7 +1354,7 @@ ACCOUNT_MESSAGES = {
     "profile:get", "players:find", "lb:boards", "lb:get", "stats:solo", "admin:unlock", "admin:overview", "admin:users",
     "admin:user", "admin:announce", "admin:room", "admin:cheat", "plan:list", "plan:save", "plan:delete", "team:get", "team:say", "team:announce", "team:unsay", "team:unannounce", "friends:list", "friends:add", "friends:remove", "friends:invite", "friends:invite-no",
 }
-GAME_TITLES = {"dash": "Neon Dash", "life": "Family Life", "doodle": "Doodle Guess", "blitz": "Party Blitz",
+GAME_TITLES = {"dash": "Neon Dash", "life": "Family Life", "doodle": "Doodle Guess", "songs": "Song Rush", "blitz": "Party Blitz",
                "connect4": "Connect 4", "casino": "Casino Night", "snake": "Neon Snake", "2048": "2048",
                "memory": "Memory Flip", "dash-solo": "Neon Dash practice", "dashsolo": "Neon Dash practice",
                "impostor": "Impostor", "mines": "Minesweeper", "mines_easy": "Minesweeper (Easy)",

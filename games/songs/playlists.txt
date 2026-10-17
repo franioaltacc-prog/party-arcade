@@ -1,0 +1,559 @@
+# Song Rush playlists. `python3 games/songs/build.py` looks every song up in the iTunes Search API
+# (clean versions only) and writes songs.json, which is what the game uses.
+#
+# A playlist starts with:   @ id | emoji | name | description
+# then one song per line:   year | artist | title
+# optional extra columns:   | movie: Frozen          (the second answer is the movie, not the singer)
+#                           | also: seven rings       (more ways to write the title)
+#                           | who: pink               (more ways to write the artist)
+#                           | find: search words      (when the normal search finds the wrong version)
+
+@ 2020s | 📱 | 2020s hits | The biggest songs of the 2020s so far.
+2019 | The Weeknd | Blinding Lights
+2020 | Dua Lipa | Levitating
+2019 | Dua Lipa | Don't Start Now
+2019 | Harry Styles | Watermelon Sugar
+2022 | Harry Styles | As It Was
+2020 | BTS | Dynamite
+2019 | Doja Cat | Say So
+2021 | Olivia Rodrigo | drivers license
+2021 | Olivia Rodrigo | good 4 u
+2023 | Olivia Rodrigo | vampire
+2021 | The Kid LAROI & Justin Bieber | STAY
+2020 | Glass Animals | Heat Waves
+2021 | Ed Sheeran | Bad Habits
+2021 | Ed Sheeran | Shivers
+2021 | Adele | Easy On Me
+2022 | Taylor Swift | Anti-Hero
+2019 | Taylor Swift | Cruel Summer
+2025 | Taylor Swift | The Fate of Ophelia
+2023 | Miley Cyrus | Flowers
+2023 | Tate McRae | greedy
+2022 | Steve Lacy | Bad Habit
+2023 | Dua Lipa | Dance The Night
+2023 | Noah Kahan | Stick Season
+2024 | Sabrina Carpenter | Espresso
+2024 | Sabrina Carpenter | Please Please Please
+2024 | Sabrina Carpenter | Taste
+2025 | Sabrina Carpenter | Manchild
+2024 | Chappell Roan | Good Luck, Babe!
+2023 | Chappell Roan | HOT TO GO!
+2020 | Chappell Roan | Pink Pony Club
+2024 | Billie Eilish | BIRDS OF A FEATHER
+2024 | Benson Boone | Beautiful Things
+2025 | Benson Boone | Mystical Magical
+2024 | Hozier | Too Sweet
+2024 | Lady Gaga & Bruno Mars | Die With A Smile
+2025 | Lady Gaga | Abracadabra
+2024 | ROSÉ & Bruno Mars | APT. | who: rose
+2024 | Teddy Swims | Lose Control
+2024 | Gracie Abrams | That's So True
+2024 | Ariana Grande | we can't be friends (wait for your love)
+2024 | Ariana Grande | yes, and?
+2023 | Dua Lipa | Houdini
+2024 | Charli xcx | Apple
+2022 | Djo | End of Beginning
+2025 | Alex Warren | Ordinary
+2025 | Ed Sheeran | Azizam
+2025 | HUNTR/X | Golden | who: huntrix
+2025 | Olivia Dean | Man I Need
+2025 | sombr | back to friends
+2020 | Jason Derulo | Savage Love | find: Jason Derulo Savage Love Laxed Siren Beat
+2021 | Måneskin | Beggin' | who: maneskin
+2020 | 24kGoldn | Mood
+2022 | Harry Styles | Late Night Talking
+2023 | Taylor Swift | Is It Over Now?
+
+@ 2010s | 💿 | 2010s hits | Shake it off, it's the 2010s.
+2014 | Taylor Swift | Shake It Off
+2014 | Taylor Swift | Blank Space
+2014 | Mark Ronson feat. Bruno Mars | Uptown Funk
+2013 | Pharrell Williams | Happy | who: pharrell
+2010 | Adele | Rolling in the Deep
+2011 | Adele | Someone Like You
+2015 | Adele | Hello
+2011 | Carly Rae Jepsen | Call Me Maybe
+2013 | Lorde | Royals
+2017 | Ed Sheeran | Shape of You
+2017 | Ed Sheeran | Perfect
+2014 | Ed Sheeran | Thinking Out Loud
+2017 | Luis Fonsi & Daddy Yankee | Despacito
+2019 | Lil Nas X | Old Town Road | find: Lil Nas X Old Town Road Billy Ray Cyrus Remix
+2019 | Billie Eilish | bad guy
+2018 | Post Malone & Swae Lee | Sunflower | also: sunflower spider-man
+2019 | Shawn Mendes & Camila Cabello | Señorita | also: senorita
+2017 | Camila Cabello | Havana
+2013 | OneRepublic | Counting Stars
+2012 | Imagine Dragons | Radioactive
+2017 | Imagine Dragons | Believer
+2017 | Imagine Dragons | Thunder
+2016 | Justin Timberlake | CAN'T STOP THE FEELING!
+2015 | Justin Bieber | Sorry
+2015 | Justin Bieber | Love Yourself
+2010 | Justin Bieber | Baby
+2010 | Katy Perry | Firework
+2013 | Katy Perry | Roar
+2011 | Maroon 5 | Moves Like Jagger
+2015 | Maroon 5 | Sugar
+2019 | Maroon 5 | Memories
+2012 | Bruno Mars | Locked Out of Heaven
+2010 | Bruno Mars | Just the Way You Are
+2010 | Bruno Mars | Grenade
+2016 | Bruno Mars | 24K Magic
+2015 | Shawn Mendes | Stitches
+2016 | The Chainsmokers | Closer
+2017 | The Chainsmokers & Coldplay | Something Just Like This
+2011 | David Guetta feat. Sia | Titanium
+2013 | Avicii | Wake Me Up
+2011 | Gotye | Somebody That I Used to Know
+2013 | Bastille | Pompeii
+2013 | Vance Joy | Riptide
+2012 | The Lumineers | Ho Hey
+2014 | WALK THE MOON | Shut Up and Dance
+2015 | twenty one pilots | Stressed Out
+2019 | Tones and I | Dance Monkey
+2018 | Lewis Capaldi | Someone You Loved
+2018 | Lady Gaga & Bradley Cooper | Shallow
+2018 | Ariana Grande | thank u, next
+2019 | Ariana Grande | 7 rings | also: seven rings
+2013 | Daft Punk | Get Lucky
+2014 | Clean Bandit | Rather Be
+2015 | Major Lazer & DJ Snake | Lean On
+2015 | Alan Walker | Faded
+2013 | One Direction | Story of My Life
+2011 | One Direction | What Makes You Beautiful
+2017 | Harry Styles | Sign of the Times
+2014 | Coldplay | A Sky Full of Stars
+2011 | Coldplay | Paradise
+2016 | Coldplay | Hymn for the Weekend
+2015 | Wiz Khalifa feat. Charlie Puth | See You Again
+2016 | Drake | One Dance
+2016 | Sia | Cheap Thrills
+2014 | OMI | Cheerleader
+2019 | Post Malone | Circles
+
+@ 2000s | 📀 | 2000s hits | Flip phones, pop punk and the best choruses ever.
+2003 | Beyoncé | Crazy in Love | who: beyonce
+2008 | Beyoncé | Single Ladies (Put a Ring on It) | who: beyonce
+2008 | Beyoncé | Halo | who: beyonce
+2006 | Beyoncé | Irreplaceable | who: beyonce
+2003 | OutKast | Hey Ya!
+2004 | The Killers | Mr. Brightside
+2003 | Britney Spears | Toxic
+2007 | Rihanna | Umbrella
+2004 | Kelly Clarkson | Since U Been Gone
+2004 | Kelly Clarkson | Breakaway
+2002 | Avril Lavigne | Complicated
+2002 | Avril Lavigne | Sk8er Boi | also: skater boy; skater boi
+2007 | Avril Lavigne | Girlfriend
+2006 | Shakira | Hips Don't Lie
+2009 | Lady Gaga | Bad Romance
+2009 | Black Eyed Peas | I Gotta Feeling
+2009 | Black Eyed Peas | Boom Boom Pow
+2003 | Black Eyed Peas | Where Is the Love?
+2006 | Plain White T's | Hey There Delilah
+2008 | Coldplay | Viva la Vida
+2002 | Coldplay | Clocks
+2000 | Coldplay | Yellow
+2005 | Coldplay | Fix You
+2000 | Linkin Park | In the End
+2003 | Linkin Park | Numb
+2003 | The White Stripes | Seven Nation Army
+2008 | Kings of Leon | Use Somebody
+2007 | Leona Lewis | Bleeding Love
+2008 | Taylor Swift | Love Story
+2008 | Taylor Swift | You Belong With Me
+2009 | Miley Cyrus | Party in the U.S.A. | also: party in the usa
+2009 | Miley Cyrus | The Climb
+2008 | Katy Perry | Hot n Cold
+2007 | Timbaland feat. OneRepublic | Apologize
+2009 | Train | Hey, Soul Sister
+2007 | Colbie Caillat | Bubbly
+2008 | Jason Mraz | I'm Yours
+2000 | U2 | Beautiful Day
+2004 | Keane | Somewhere Only We Know
+2006 | Snow Patrol | Chasing Cars
+2003 | Evanescence | Bring Me to Life
+2005 | Fall Out Boy | Sugar, We're Goin Down
+2006 | My Chemical Romance | Welcome to the Black Parade
+2010 | Taio Cruz | Dynamite
+2009 | Iyaz | Replay
+2007 | Mark Ronson feat. Amy Winehouse | Valerie
+2006 | Gnarls Barkley | Crazy
+2005 | Gorillaz | Feel Good Inc.
+2004 | Jesse McCartney | Beautiful Soul
+2004 | Natasha Bedingfield | Unwritten
+2008 | Natasha Bedingfield | Pocketful of Sunshine
+2008 | Rihanna | Disturbia
+2005 | James Blunt | You're Beautiful
+
+@ 90s | 📼 | 90s hits | Boy bands, girl power and grunge.
+1998 | Britney Spears | ...Baby One More Time | also: baby one more time
+1996 | Spice Girls | Wannabe
+1999 | Backstreet Boys | I Want It That Way
+1997 | Backstreet Boys | Everybody (Backstreet's Back) | also: backstreets back
+2000 | *NSYNC | Bye Bye Bye | who: nsync
+1991 | Nirvana | Smells Like Teen Spirit
+1995 | Oasis | Wonderwall
+1996 | Oasis | Don't Look Back in Anger
+1997 | Céline Dion | My Heart Will Go On | who: celine dion
+1992 | Whitney Houston | I Will Always Love You
+1990 | Madonna | Vogue
+1997 | Aqua | Barbie Girl
+1998 | Eiffel 65 | Blue (Da Ba Dee)
+1999 | Lou Bega | Mambo No. 5 | also: mambo number 5; mambo no 5
+1999 | Ricky Martin | Livin' la Vida Loca
+1997 | Natalie Imbruglia | Torn
+1998 | Goo Goo Dolls | Iris
+1994 | The Cranberries | Zombie
+1991 | R.E.M. | Losing My Religion
+1991 | Michael Jackson | Black or White
+1999 | TLC | No Scrubs
+1998 | Cher | Believe
+1997 | Hanson | MMMBop
+1994 | Seal | Kiss from a Rose
+1999 | Smash Mouth | All Star
+1997 | The Verve | Bitter Sweet Symphony
+1997 | Blur | Song 2
+1994 | Green Day | Basket Case
+1995 | Alanis Morissette | Ironic
+1999 | Christina Aguilera | Genie in a Bottle
+1999 | Destiny's Child | Say My Name
+1990 | MC Hammer | U Can't Touch This
+1990 | Vanilla Ice | Ice Ice Baby
+1990 | C+C Music Factory | Gonna Make You Sweat (Everybody Dance Now) | also: everybody dance now
+1992 | Snap! | Rhythm Is a Dancer
+1993 | Haddaway | What Is Love
+1996 | Gala | Freed from Desire
+1997 | Savage Garden | Truly Madly Deeply
+1995 | The Rembrandts | I'll Be There for You
+1997 | Will Smith | Men in Black
+1998 | Will Smith | Gettin' Jiggy wit It
+1994 | Ace of Base | The Sign
+1993 | 4 Non Blondes | What's Up?
+1996 | Los del Río | Macarena | who: los del rio
+1999 | Santana | Smooth
+1993 | Meat Loaf | I'd Do Anything for Love (But I Won't Do That)
+
+@ 80s | 🕺 | 80s hits | Big hair, bigger synths.
+1982 | Michael Jackson | Billie Jean
+1982 | Michael Jackson | Beat It
+1987 | Michael Jackson | Smooth Criminal
+1987 | Michael Jackson | Man in the Mirror
+1985 | a-ha | Take On Me
+1981 | Journey | Don't Stop Believin'
+1986 | Bon Jovi | Livin' on a Prayer
+1987 | Guns N' Roses | Sweet Child O' Mine
+1983 | Cyndi Lauper | Girls Just Want to Have Fun
+1984 | Madonna | Material Girl
+1983 | The Police | Every Breath You Take
+1984 | Wham! | Wake Me Up Before You Go-Go
+1987 | Rick Astley | Never Gonna Give You Up
+1985 | Simple Minds | Don't You (Forget About Me)
+1982 | Toto | Africa
+1982 | Survivor | Eye of the Tiger
+1984 | Kenny Loggins | Footloose
+1986 | Kenny Loggins | Danger Zone
+1983 | Van Halen | Jump
+1986 | The Bangles | Walk Like an Egyptian
+1983 | Bonnie Tyler | Total Eclipse of the Heart
+1984 | Bonnie Tyler | Holding Out for a Hero
+1987 | Whitney Houston | I Wanna Dance with Somebody (Who Loves Me) | also: i wanna dance with somebody
+1981 | Queen & David Bowie | Under Pressure
+1980 | Queen | Another One Bites the Dust
+1984 | Queen | Radio Ga Ga
+1984 | Queen | I Want to Break Free
+1983 | David Bowie | Let's Dance
+1982 | Dexys Midnight Runners | Come On Eileen
+1981 | Soft Cell | Tainted Love
+1983 | Eurythmics | Sweet Dreams (Are Made of This)
+1984 | Prince | When Doves Cry
+1984 | Prince | Purple Rain
+1983 | Culture Club | Karma Chameleon
+1986 | Europe | The Final Countdown
+1980 | AC/DC | Back in Black
+1987 | Whitesnake | Here I Go Again
+1984 | Bryan Adams | Summer of '69
+1987 | George Michael | Faith
+1983 | Billy Joel | Uptown Girl
+1989 | Billy Joel | We Didn't Start the Fire
+1982 | Duran Duran | Hungry Like the Wolf
+1985 | Tears for Fears | Everybody Wants to Rule the World
+1985 | Kate Bush | Running Up That Hill (A Deal with God) | also: running up that hill
+1984 | Lionel Richie | Hello
+1983 | Irene Cara | Flashdance... What a Feeling | also: what a feeling; flashdance
+1985 | USA for Africa | We Are the World
+
+@ classics | 🎙️ | Classics | The 60s and 70s songs everyone still knows.
+1975 | Queen | Bohemian Rhapsody
+1978 | Queen | Don't Stop Me Now
+1977 | Queen | We Will Rock You
+1977 | Queen | We Are the Champions
+1976 | ABBA | Dancing Queen
+1975 | ABBA | Mamma Mia
+1974 | ABBA | Waterloo
+1979 | ABBA | Gimme! Gimme! Gimme! (A Man After Midnight) | also: gimme gimme gimme
+1977 | Bee Gees | Stayin' Alive
+1978 | Earth, Wind & Fire | September
+1978 | Chic | Le Freak
+1978 | Gloria Gaynor | I Will Survive
+1978 | Village People | Y.M.C.A. | also: ymca
+1972 | Stevie Wonder | Superstition
+1976 | Eagles | Hotel California
+1971 | John Lennon | Imagine
+1968 | The Beatles | Hey Jude
+1969 | The Beatles | Here Comes the Sun
+1970 | The Beatles | Let It Be
+1966 | The Beatles | Yellow Submarine
+1963 | The Beatles | Twist and Shout
+1958 | Chuck Berry | Johnny B. Goode
+1957 | Elvis Presley | Jailhouse Rock
+1961 | Elvis Presley | Can't Help Falling in Love
+1964 | The Temptations | My Girl
+1967 | Marvin Gaye & Tammi Terrell | Ain't No Mountain High Enough
+1967 | Aretha Franklin | Respect
+1965 | The Rolling Stones | (I Can't Get No) Satisfaction | also: satisfaction
+1969 | Neil Diamond | Sweet Caroline
+1968 | Steppenwolf | Born to Be Wild
+1977 | Electric Light Orchestra | Mr. Blue Sky | who: elo
+1977 | Fleetwood Mac | Go Your Own Way
+1977 | Fleetwood Mac | Dreams
+1972 | Elton John | Rocket Man
+1970 | Elton John | Your Song
+1972 | Elton John | Crocodile Rock
+1973 | Billy Joel | Piano Man
+1971 | John Denver | Take Me Home, Country Roads | also: country roads
+1979 | Blondie | Heart of Glass
+1966 | The Beach Boys | Good Vibrations
+1963 | The Beach Boys | Surfin' U.S.A. | also: surfin usa
+1961 | Ben E. King | Stand by Me
+1967 | Louis Armstrong | What a Wonderful World
+1976 | Boney M. | Daddy Cool
+1978 | Boney M. | Rasputin
+1974 | Carl Douglas | Kung Fu Fighting
+1975 | Bay City Rollers | Saturday Night
+1971 | The Jackson 5 | ABC | find: Jackson 5 ABC
+1966 | Nancy Sinatra | These Boots Are Made for Walkin'
+
+@ rock | 🎸 | Rock anthems | Turn it up to eleven.
+1990 | AC/DC | Thunderstruck
+1980 | AC/DC | Back in Black
+1977 | Queen | We Will Rock You
+1991 | Nirvana | Smells Like Teen Spirit
+2003 | The White Stripes | Seven Nation Army
+2004 | The Killers | Mr. Brightside
+1986 | Bon Jovi | Livin' on a Prayer
+2000 | Bon Jovi | It's My Life
+1987 | Guns N' Roses | Sweet Child O' Mine
+1981 | Journey | Don't Stop Believin'
+1982 | Survivor | Eye of the Tiger
+1986 | Europe | The Final Countdown
+1991 | Metallica | Enter Sandman
+1972 | Deep Purple | Smoke on the Water
+1970 | Black Sabbath | Paranoid
+1980 | Ozzy Osbourne | Crazy Train
+1975 | KISS | Rock and Roll All Nite
+1994 | Green Day | Basket Case
+2000 | Linkin Park | In the End
+2003 | Linkin Park | Numb
+2006 | My Chemical Romance | Welcome to the Black Parade
+2005 | Fall Out Boy | Sugar, We're Goin Down
+2013 | Fall Out Boy | My Songs Know What You Did in the Dark (Light Em Up) | also: light em up
+2009 | Muse | Uprising
+2006 | Muse | Supermassive Black Hole
+2000 | 3 Doors Down | Kryptonite
+2001 | The Strokes | Last Nite
+2013 | Arctic Monkeys | Do I Wanna Know?
+2007 | Arctic Monkeys | 505
+2005 | Weezer | Beverly Hills
+1994 | Weezer | Buddy Holly
+1999 | blink-182 | All the Small Things | who: blink 182
+2006 | Red Hot Chili Peppers | Snow (Hey Oh) | also: snow
+2005 | Foo Fighters | Best of You
+1997 | Foo Fighters | Everlong
+1983 | Def Leppard | Photograph
+1974 | Lynyrd Skynyrd | Sweet Home Alabama
+1969 | Creedence Clearwater Revival | Fortunate Son | who: ccr
+2012 | Imagine Dragons | Radioactive
+2009 | Paramore | Ignorance
+2017 | Måneskin | Beggin' | who: maneskin
+2009 | Skillet | Monster
+
+@ movies | 🍿 | Movies & Disney | Songs from films, cartoons and musicals. Guess the song and the movie!
+2013 | Idina Menzel | Let It Go | movie: Frozen
+2013 | Kristen Bell | Do You Want to Build a Snowman? | movie: Frozen
+2019 | Idina Menzel & AURORA | Into the Unknown | movie: Frozen 2
+2016 | Auli'i Cravalho | How Far I'll Go | movie: Moana
+2016 | Dwayne Johnson | You're Welcome | movie: Moana
+2021 | Encanto - Cast | We Don't Talk About Bruno | movie: Encanto | find: We Don't Talk About Bruno Encanto
+2021 | Jessica Darrow | Surface Pressure | movie: Encanto
+1989 | Samuel E. Wright | Under the Sea | movie: The Little Mermaid
+1989 | Jodi Benson | Part of Your World | movie: The Little Mermaid
+1994 | Carmen Twillie & Lebo M. | Circle of Life | movie: The Lion King | find: Circle of Life Lion King Carmen Twillie
+1994 | Nathan Lane, Ernie Sabella & Jason Weaver | Hakuna Matata | movie: The Lion King | find: Hakuna Matata Lion King Nathan Lane
+1994 | Jason Weaver, Rowan Atkinson & Laura Williams | I Just Can't Wait to Be King | movie: The Lion King | find: I Just Can't Wait to Be King Lion King 1994
+1992 | Brad Kane & Lea Salonga | A Whole New World | movie: Aladdin | find: A Whole New World Aladdin Brad Kane Lea Salonga
+1992 | Robin Williams | Friend Like Me | movie: Aladdin
+1991 | Jerry Orbach & Angela Lansbury | Be Our Guest | movie: Beauty and the Beast | find: Be Our Guest Jerry Orbach
+1995 | Randy Newman | You've Got a Friend in Me | movie: Toy Story
+1998 | Donny Osmond | I'll Make a Man Out of You | movie: Mulan
+1967 | Phil Harris & Bruce Reitherman | The Bare Necessities | movie: The Jungle Book
+2017 | Anthony Gonzalez & Gael García Bernal | Un Poco Loco | movie: Coco
+2017 | Benjamin Bratt | Remember Me | movie: Coco | find: Remember Me Coco Benjamin Bratt
+1995 | Judy Kuhn | Colors of the Wind | movie: Pocahontas
+2019 | Naomi Scott | Speechless | movie: Aladdin
+2017 | Keala Settle | This Is Me | movie: The Greatest Showman
+2017 | Hugh Jackman | The Greatest Show | movie: The Greatest Showman
+2017 | Hugh Jackman, Michelle Williams & Ziv Zaifman | A Million Dreams | movie: The Greatest Showman | find: A Million Dreams Greatest Showman
+2016 | Justin Timberlake | CAN'T STOP THE FEELING! | movie: Trolls
+2013 | Pharrell Williams | Happy | movie: Despicable Me 2
+2025 | HUNTR/X | Golden | movie: KPop Demon Hunters
+2025 | Saja Boys | Soda Pop | movie: KPop Demon Hunters
+2025 | Saja Boys | Your Idol | movie: KPop Demon Hunters
+2025 | HUNTR/X | How It's Done | movie: KPop Demon Hunters
+2023 | Jack Black | Peaches | movie: The Super Mario Bros. Movie | also: peaches peaches peaches
+2023 | Ryan Gosling | I'm Just Ken | movie: Barbie
+2023 | Billie Eilish | What Was I Made For? | movie: Barbie
+2024 | Cynthia Erivo & Ariana Grande | Defying Gravity | movie: Wicked
+2024 | Ariana Grande | Popular | movie: Wicked | find: Popular Ariana Grande Wicked
+1997 | Céline Dion | My Heart Will Go On | movie: Titanic
+1984 | Ray Parker Jr. | Ghostbusters | movie: Ghostbusters
+2015 | Wiz Khalifa feat. Charlie Puth | See You Again | movie: Furious 7
+2012 | Adele | Skyfall | movie: Skyfall
+2006 | Rascal Flatts | Life Is a Highway | movie: Cars
+2010 | Mandy Moore & Zachary Levi | I See the Light | movie: Tangled
+1998 | Lea Salonga | Reflection | movie: Mulan
+1964 | Julie Andrews & Dick Van Dyke | Supercalifragilisticexpialidocious | movie: Mary Poppins
+1997 | Susan Egan | I Won't Say (I'm in Love) | movie: Hercules
+2016 | Shakira | Try Everything | movie: Zootopia
+2014 | Tegan and Sara | Everything Is Awesome | movie: The LEGO Movie
+2022 | Lady Gaga | Hold My Hand | movie: Top Gun: Maverick
+2018 | Lady Gaga & Bradley Cooper | Shallow | movie: A Star Is Born
+1984 | Kenny Loggins | Footloose | movie: Footloose
+2008 | Meryl Streep | Mamma Mia | movie: Mamma Mia! | find: Mamma Mia Meryl Streep
+2006 | Zac Efron & Vanessa Hudgens | Breaking Free | movie: High School Musical | find: Breaking Free High School Musical
+2006 | High School Musical Cast | We're All in This Together | movie: High School Musical | find: We're All in This Together High School Musical
+2018 | Post Malone & Swae Lee | Sunflower | movie: Spider-Man: Into the Spider-Verse
+
+@ spooky | 🎃 | Spooky songs | Halloween bangers. Ghosts, monsters and things that go bump.
+1982 | Michael Jackson | Thriller
+1984 | Ray Parker Jr. | Ghostbusters
+1962 | Bobby "Boris" Pickett & The Crypt-Kickers | Monster Mash | who: bobby pickett
+1993 | Danny Elfman | This Is Halloween | find: This Is Halloween Nightmare Before Christmas
+1984 | Rockwell | Somebody's Watching Me
+2008 | Rihanna | Disturbia
+1972 | Stevie Wonder | Superstition
+1969 | Creedence Clearwater Revival | Bad Moon Rising | who: ccr
+1976 | Blue Öyster Cult | (Don't Fear) The Reaper | also: don't fear the reaper | who: blue oyster cult
+1956 | Screamin' Jay Hawkins | I Put a Spell on You
+1996 | Andrew Gold | Spooky Scary Skeletons
+1970 | Santana | Black Magic Woman
+1958 | David Seville | Witch Doctor
+1958 | Sheb Wooley | The Purple People Eater
+1981 | The Specials | Ghost Town
+1985 | Oingo Boingo | Dead Man's Party
+1978 | Warren Zevon | Werewolves of London
+1964 | The Searchers | Love Potion No. 9 | also: love potion number 9
+1991 | Metallica | Enter Sandman
+2021 | Justin Bieber | Ghost
+2020 | Shawn Mendes & Justin Bieber | Monster
+2011 | Katy Perry | E.T.
+2019 | Billie Eilish | bury a friend
+2018 | Billie Eilish | you should see me in a crown
+2025 | Lady Gaga | Abracadabra
+2009 | Skillet | Monster
+1983 | Michael Sembello | Maniac
+1975 | The Rocky Horror Picture Show Cast | Time Warp | find: Time Warp Rocky Horror Picture Show
+1983 | Eurythmics | Sweet Dreams (Are Made of This)
+2012 | Imagine Dragons | Demons
+1994 | The Cranberries | Zombie
+1972 | Eagles | Witchy Woman
+1966 | Donovan | Season of the Witch
+
+@ party | 🎉 | Party classics | Songs that get everyone dancing.
+2000 | DJ Casper | Cha Cha Slide | find: Cha-Cha Slide DJ Casper
+2007 | Cupid | Cupid Shuffle
+1996 | Los del Río | Macarena | who: los del rio
+1978 | Village People | Y.M.C.A. | also: ymca
+2002 | Las Ketchup | The Ketchup Song (Aserejé) | also: asereje; ketchup song
+2012 | PSY | Gangnam Style
+2013 | Ylvis | The Fox (What Does the Fox Say?) | also: what does the fox say
+2015 | Silentó | Watch Me (Whip/Nae Nae) | also: watch me; whip nae nae | who: silento
+1994 | Rednex | Cotton Eye Joe
+1999 | Lou Bega | Mambo No. 5 | also: mambo number 5; mambo no 5
+2006 | Shakira | Hips Don't Lie
+2010 | Shakira | Waka Waka (This Time for Africa) | also: waka waka
+2014 | Mark Ronson feat. Bruno Mars | Uptown Funk
+2013 | Pharrell Williams | Happy | who: pharrell
+2009 | Black Eyed Peas | I Gotta Feeling
+2011 | LMFAO | Party Rock Anthem
+1959 | The Isley Brothers | Shout
+1960 | Chubby Checker | The Twist
+1980 | Kool & The Gang | Celebration
+1976 | ABBA | Dancing Queen
+1978 | Earth, Wind & Fire | September
+1977 | Bee Gees | Stayin' Alive
+1999 | Ricky Martin | Livin' la Vida Loca
+1998 | Eiffel 65 | Blue (Da Ba Dee)
+1997 | Aqua | Barbie Girl
+1996 | Gala | Freed from Desire
+1978 | Boney M. | Rasputin
+2003 | OutKast | Hey Ya!
+2016 | Justin Timberlake | CAN'T STOP THE FEELING!
+2014 | Taylor Swift | Shake It Off
+2017 | Luis Fonsi & Daddy Yankee | Despacito
+2010 | Don Omar & Lucenzo | Danza Kuduro
+2014 | Enrique Iglesias | Bailando
+1990 | MC Hammer | U Can't Touch This
+2005 | Black Eyed Peas | Pump It
+2004 | Black Eyed Peas | Let's Get It Started
+2014 | WALK THE MOON | Shut Up and Dance
+2016 | Pinkfong | Baby Shark
+2000 | Baha Men | Who Let the Dogs Out
+1978 | Queen | Don't Stop Me Now
+1969 | Neil Diamond | Sweet Caroline
+2010 | Taio Cruz | Dynamite
+1990 | C+C Music Factory | Gonna Make You Sweat (Everybody Dance Now) | also: everybody dance now
+2009 | Miley Cyrus | Party in the U.S.A. | also: party in the usa
+2024 | ROSÉ & Bruno Mars | APT. | who: rose
+
+@ kpop | 💜 | K-pop | Idols, demon hunters and the catchiest hooks on the planet.
+2020 | BTS | Dynamite
+2021 | BTS | Butter
+2019 | BTS | Boy With Luv
+2018 | BLACKPINK | DDU-DU DDU-DU | also: ddu du ddu du; ddududdudu
+2020 | BLACKPINK | How You Like That
+2022 | BLACKPINK | Pink Venom
+2019 | BLACKPINK | Kill This Love
+2024 | ROSÉ & Bruno Mars | APT. | who: rose
+2012 | PSY | Gangnam Style
+2018 | TWICE | What is Love?
+2016 | TWICE | TT
+2023 | NewJeans | Super Shy
+2022 | NewJeans | Hype Boy
+2023 | NewJeans | OMG
+2022 | NewJeans | Ditto
+2023 | Stray Kids | S-Class
+2023 | Jung Kook | Seven | who: jungkook
+2023 | Jimin | Like Crazy
+2022 | LE SSERAFIM | ANTIFRAGILE
+2024 | aespa | Supernova
+2021 | aespa | Next Level
+2022 | IVE | LOVE DIVE
+2023 | IVE | I AM
+2020 | ITZY | WANNABE
+2019 | ITZY | DALLA DALLA
+2023 | i-dle | Queencard | who: gidle; g idle; (g)i-dle
+2023 | SEVENTEEN | Super | who: svt
+2019 | Red Velvet | Psycho
+2015 | BIGBANG | BANG BANG BANG
+2009 | Girls' Generation | Gee | who: snsd
+2025 | KATSEYE | Gnarly
+2025 | KATSEYE | Gabriela
+2024 | ILLIT | Magnetic
+2025 | HUNTR/X | Golden | who: huntrix
+2025 | Saja Boys | Soda Pop
+2025 | Saja Boys | Your Idol
+2025 | HUNTR/X | How It's Done | who: huntrix
+2025 | HUNTR/X | Takedown | who: huntrix
+2024 | BABYMONSTER | SHEESH

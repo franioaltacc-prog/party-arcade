@@ -9,6 +9,7 @@
     dash: { title: 'Neon Dash', emoji: '🟪' },
     life: { title: 'Family Life', emoji: '🏡' },
     doodle: { title: 'Doodle Guess', emoji: '🎨' },
+    songs: { title: 'Song Rush', emoji: '🎧' },
     blitz: { title: 'Party Blitz', emoji: '⚡' },
     connect4: { title: 'Connect 4', emoji: '🔴' },
     billiards: { title: 'Billiards', emoji: '🎱' },
@@ -150,7 +151,7 @@
   function refreshPlayers() { playerPanels.forEach(drawPlayers); }
 
   // ------------------------------------------------------------ watching, votes, party mode
-  const PARTY_GAMES = ['dash', 'poly', 'doodle', 'blitz', 'impostor', 'mines', 'front', 'prophunt', 'casino', 'life', 'flappy', 'golf'];
+  const PARTY_GAMES = ['dash', 'poly', 'doodle', 'songs', 'blitz', 'impostor', 'mines', 'front', 'prophunt', 'casino', 'life', 'flappy', 'golf'];
   const SWITCH_GAMES = [...PARTY_GAMES, 'connect4', 'billiards'];
   const PARTY_POINTS = [10, 7, 5, 3];
   const gTitle = (g) => (GAME_INFO[g] || {}).title || g;
@@ -201,6 +202,7 @@
     const grid = h('div', { class: 'game-grid' }, PARTY_GAMES.map((g) => gameTile(g, { onClick: () => { if (chosen.length < 8) { chosen.push(g); Sfx.play('pop'); draw(); } } })));
     const presets = [
       ['⚡ Quick party', ['blitz', 'doodle', 'dash']],
+      ['🎧 Music night', ['songs', 'blitz', 'doodle', 'songs']],
       ['🌍 Big night', ['doodle', 'blitz', 'front', 'mines', 'casino']],
       ['🧠 Brainy', ['blitz', 'impostor', 'mines']],
       ['🔫 Action', ['prophunt', 'dash', 'front']],
@@ -443,6 +445,7 @@
     life: [['money', '💰 +$100,000'], ['stats', '💪 Max my stats'], ['energy', '⚡ Refill my energy'], ['clean', '😇 Clear heat & jail'],
       ['event', '🎲 Give me an event'], ['skip', '⏩ Skip time (no vote)']],
     blitz: [['points', '💯 +500 points'], ['skip', '⏭️ Skip this round'], ['end', '🏁 End the game']],
+    songs: [['answer', '🤫 Show me the answer'], ['points', '💯 +500 points'], ['skip', '⏭️ Skip this song'], ['end', '🏁 End the game']],
     doodle: [['word', '🤫 Show me the word'], ['points', '💯 +500 points'], ['skip', '⏭️ Skip this turn'], ['end', '🏁 End the game']],
     connect4: [['win', '🏆 Win this game'], ['undo', '↩️ Undo last move'], ['reset', '🔄 New board']],
     dash: [['god', '😇 God mode (no deaths)', true], ['skip', '⏩ Teleport to the finish', true]],
@@ -462,7 +465,7 @@
     try {
       if (Room.code || !local) {
         const r = await Net.request('admin:cheat', { action });
-        UI.toast(r.text, 'good', action === 'word' ? 6000 : 2500);
+        UI.toast(r.text, 'good', action === 'word' || action === 'answer' ? 6000 : 2500);
       } else UI.toast('🛠️ Cheat on (practice mode)', 'good');
       Sfx.play('coin');
       PA.emit('admin:cheat', { action });
