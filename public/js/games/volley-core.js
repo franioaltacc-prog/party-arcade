@@ -1,5 +1,5 @@
 /* Screen Volley physics: the ball, the net, the walls and the hands, with no drawing.
-   Every screen measures its court in "heights": the floor is at y = 1, the top at y = 0, and the court is
+   Every screen measures its court in "heights": the floor is at y = 1, the screen's top at y = 0 (open sky above), and the court is
    w = width / height wide, so screens of any size line up. The net stands on the seam where two screens meet.
    The same steps always give the same result, so a screen can work out exactly when and where the ball will
    cross to the other screen before it gets there (VolleyCore.predict). */
@@ -26,9 +26,6 @@
     NET_E: 0.35,
     DRAG: 0.2,          // air drag per second
     MIN_LEAD: 0.24,     // a hit can't send the ball over the net sooner than this (time for the other screen to hear)
-    HOLD_MAX: 2,        // seconds you can hold the ball on your cursor
-    THROW: 0.85,        // a throw keeps this much of your hand's speed...
-    THROW_MAX: 2.6,     // ...up to this
   };
 
   /** A court: side 'left' has the net on its right edge, 'right' on its left edge. */
@@ -46,7 +43,7 @@
   }
 
   /** One step. Returns 'cross' (the centre went over the net onto the other screen), 'floor', a bounce
-     ('wall' / 'net' / 'top') or null. */
+     ('wall' / 'net') or null. There is no ceiling: negative y is above the screen. */
   function step(b, f) {
     const { DT, R } = C;
     const drag = 1 - C.DRAG * DT;
@@ -57,7 +54,6 @@
     b.a += b.spin * DT;
     b.spin *= 1 - 0.4 * DT;
     let ev = null;
-    if (b.y < R) { b.y = R; if (b.vy < 0) b.vy = -b.vy * 0.6; ev = 'top'; }
     // the outer wall
     const wallX = f.side === 'left' ? 0 : f.w;
     if (f.side === 'left' ? b.x < wallX + R : b.x > wallX - R) {
@@ -98,6 +94,20 @@
     for (let i = 1; i <= max; i++) {
       const ev = step(p, f);
       if (ev === 'cross' || ev === 'floor') return { steps: i, ev, ball: p };
+    }
+    return null;
+  }
+
+  /** Where and when a high ball will next come fully back into view, or leave for the other screen.
+      Uses the real steps (including outer-wall bounces), without changing the ball. */
+  function airTrack(b, f) {
+    if (b.y >= C.R) return null;
+    const p = copy(b);
+    for (let i = 1; i <= 720; i++) {
+      const ev = step(p, f);
+      if (ev === 'cross') return { kind: 'cross', seconds: i * C.DT, x: p.x };
+      if (p.y >= C.R && p.vy >= 0) return { kind: 'return', seconds: i * C.DT, x: p.x };
+      if (ev === 'floor') break;
     }
     return null;
   }
@@ -184,7 +194,7 @@
 
   /** The push-out mustn't put the ball through the net, the walls or the floor. */
   function keepIn(b, f) {
-    b.y = Math.min(1 - C.R - 1e-6, Math.max(C.R, b.y));
+    b.y = Math.min(1 - C.R - 1e-6, b.y);
     const wallX = f.side === 'left' ? 0 : f.w;
     if (f.side === 'left') b.x = Math.max(wallX + C.R, b.x); else b.x = Math.min(wallX - C.R, b.x);
     if ((b.x - f.seam) * f.dir > -C.R && b.y >= 1 - C.NET) b.x = f.seam - f.dir * C.R;
@@ -197,28 +207,6 @@
     if (vToward > 0 && toNet > 0 && toNet / vToward < C.MIN_LEAD) b.vx = f.dir * toNet / C.MIN_LEAD;
   }
 
-  /** Holding: the ball sits steadily on top of your hand and follows it smoothly. */
-  function hold(b, f, hx, hy, hvx, hvy, dt) {
-    const tx = hx; const ty = hy - (C.R + C.HAND) * 0.85;
-    const k = 1 - Math.exp(-dt / 0.035);
-    b.x += (tx - b.x) * k; b.y += (ty - b.y) * k;
-    b.vx = hvx; b.vy = hvy;
-    b.spin *= 0.9;
-    // you can't carry it over the net or into the floor
-    const lim = f.seam - f.dir * (C.R + 0.01);
-    if ((b.x - lim) * f.dir > 0) b.x = lim;
-    b.y = Math.min(1 - C.R - 0.01, Math.max(C.R, b.y));
-    const wallX = f.side === 'left' ? 0 : f.w;
-    if (f.side === 'left') b.x = Math.max(wallX + C.R, b.x); else b.x = Math.min(wallX - C.R, b.x);
-  }
-
-  /** Letting go: a throw keeps most of the hand's speed (capped), slowed near the net like a hit. */
-  function release(b, f) {
-    b.vx *= C.THROW; b.vy *= C.THROW;
-    capSpeed(b, C.THROW_MAX);
-    slowNearNet(b, f);
-  }
-
   /** The ball coming over from the other screen, as it was the moment its centre crossed the net. */
   const overshoot = (b, f) => (b.x - f.seam) * f.dir;
   function arrive(msg, f) {
@@ -229,7 +217,7 @@
     return b;
   }
 
-  const api = { C, field, ball, copy, step, predict, touch, sweep, reaches, hold, release, arrive, overshoot, capSpeed, slowNearNet };
+  const api = { C, field, ball, copy, step, predict, airTrack, touch, sweep, reaches, arrive, overshoot, capSpeed, slowNearNet };
   if (typeof window !== 'undefined') window.VolleyCore = api;
   if (typeof globalThis !== 'undefined') globalThis.VolleyCore = api;
 })();

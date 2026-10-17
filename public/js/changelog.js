@@ -6,6 +6,14 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.0.3', date: '2026-10-18', emoji: '🏐', title: 'Screen Volley: open sky, high-ball tracking and robot difficulties', items: [
+      'No more ceiling bounce: lob the ball above your screen and let it fall back naturally',
+      'A marker follows high balls, shows whether they are rising or falling, and counts down until they come back into view',
+      'High passes work between both laptops, with an above-screen incoming warning so the ball never arrives as a surprise',
+      'The practice robot’s mini-court also marks balls above its screen',
+      'Removed click-to-hold: hit, cushion and lob the ball with hand movement instead of grabbing it',
+      'Choose an Easy, Medium or Hard practice robot: different reaction speeds, accuracy and return shots. Your choice is remembered',
+    ] },
     { v: '3.0.2', date: '2026-10-17', emoji: '🏐', title: 'Screen Volley: no more hands through the ball', items: [
       'A really fast swipe could jump right over the ball between two frames and miss it. Now the game follows your hand’s whole path, so it always hits the ball where your hand first touches it',
       'Quick flicks hit at full power straight away (your hand’s speed used to take a moment to catch up)',

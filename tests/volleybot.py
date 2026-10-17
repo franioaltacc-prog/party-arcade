@@ -65,9 +65,9 @@ async def main():
 
     # A sends it over: B hears about it in advance
     at = time.time() * 1000 + 400
-    a.send({"t": "g:cross", "epoch": e, "at": at, "y": 0.42, "vx": 2.1, "vy": -0.5, "a": 1, "spin": 2, "d": 0.01})
+    a.send({"t": "g:cross", "epoch": e, "at": at, "y": -1.25, "vx": 2.1, "vy": -0.5, "a": 1, "spin": 2, "d": 0.01})
     c = await b.wait("g:cross")
-    check(c["epoch"] == e + 1 and c["at"] == at and c["y"] == 0.42 and c["vx"] == 2.1 and c["d"] == 0.01, "the other screen gets where and when the ball comes over")
+    check(c["epoch"] == e + 1 and c["at"] == at and c["y"] == -1.25 and c["vx"] == 2.1 and c["d"] == 0.01, "a ball crossing above the screen is relayed at its true height and time")
     check(not got(a, "g:cross"), "the sender doesn't get its own ball back")
     a.send({"t": "g:cross", "epoch": e, "at": at, "y": 0.42, "vx": 2.1, "vy": -0.5})
     await asyncio.sleep(0.2)
@@ -76,6 +76,10 @@ async def main():
     b.send({"t": "g:cross", "epoch": e + 1, "at": "soon", "y": 7, "vx": 1e9, "vy": 0})
     await asyncio.sleep(0.2)
     check(not got(a, "g:cross"), "impossible balls are ignored")
+    b.send({"t": "g:cross", "epoch": e + 1, "at": time.time() * 1000 + 200, "y": -4.1, "vx": -1, "vy": 0})
+    b.send({"t": "g:cross", "epoch": e + 1, "at": time.time() * 1000 + 200, "y": 0.8, "vx": -1, "vy": 0})
+    await asyncio.sleep(0.2)
+    check(not got(a, "g:cross"), "out-of-range heights and passes below the net are still rejected")
 
     # it drops on B's floor: A scores and serves
     b.send({"t": "g:drop", "epoch": e + 1})

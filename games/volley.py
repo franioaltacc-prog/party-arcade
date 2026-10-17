@@ -137,7 +137,9 @@ class Volley(Game):
         at = num(msg.get("at"), now_ms())
         ball = {k: num(msg.get(k), 0.0, -50, 50) for k in ("y", "vx", "vy", "a", "spin")}
         ball["d"] = num(msg.get("d"), 0.0, 0, 0.2)
-        if not 0 <= ball["y"] <= 1 or math.hypot(ball["vx"], ball["vy"]) > 6:
+        # Open sky: a lob can cross above either screen. Keep a generous finite bound
+        # (ordinary capped hits peak less than 3 court-heights above the view).
+        if not -4 <= ball["y"] < 0.7 or math.hypot(ball["vx"], ball["vy"]) > 6:
             return
         at = min(max(at, now_ms() - 2000), now_ms() + 3000)
         self.epoch += 1

@@ -4,11 +4,15 @@
    comes in right on time even over the internet. Two screens on the same Wi-Fi also connect directly. */
 (() => {
   'use strict';
-  const { $, h, fill, Net, Sfx, UI } = PA;
+  const { $, h, fill, Net, Sfx, UI, store } = PA;
   const V = window.VolleyCore;
+  const AI = window.VolleyAI;
   const C = V.C;
   const COLORS = { left: '#ff4fd8', right: '#22d3ee' };
   const qs = new URLSearchParams(location.search);
+  let robotLevel = qs.get('difficulty') || store.get('volley_robot', 'medium');
+  if (!Object.hasOwn(AI.LEVELS, robotLevel)) robotLevel = 'medium';
+  let practiceRound = 0;
 
   const S = { phase: 'lobby', settings: { mode: 'versus', target: 7 }, sides: { left: null, right: null }, score: { left: 0, right: 0 },
     owner: null, epoch: 0, rally: 0, best: 0, passes: 0, lives: 3, final: null };
@@ -17,7 +21,7 @@
   const mySide = () => (solo ? 'left' : S.sides.left === Net.id ? 'left' : S.sides.right === Net.id ? 'right' : null);
   const otherSide = (s) => (s === 'left' ? 'right' : 'left');
   const nameOf = (side) => {
-    if (solo) return side === 'left' ? 'You' : 'Robot';
+    if (solo) return side === 'left' ? 'You' : `${AI.level(robotLevel).name} robot`;
     const p = Room.player(S.sides[side]);
     return p ? p.name : side === 'left' ? 'Left' : 'Right';
   };
@@ -129,7 +133,7 @@
   function drawPing() {
     const el = $('#vb-ping');
     if (!el) return;
-    if (solo) { el.textContent = '🤖 Practice'; el.className = 'vb-ping good'; return; }
+    if (solo) { el.textContent = `🤖 ${AI.level(robotLevel).name}`; el.className = 'vb-ping good'; return; }
     const direct = Direct.open && Direct.rtt != null;
     const ms = Math.round(direct ? Direct.rtt : Clock.rtt);
     el.textContent = `📶 ${ms} ms · ${direct ? 'direct' : 'via server'}`;
@@ -141,10 +145,11 @@
   const cv = $('#court');
   const ctx = cv.getContext('2d');
   let Hpx = 1;     // canvas height in device pixels = 1 court unit
+  let airTop = 90;  // device pixels: the high-ball tracker sits below the score/buttons
   const G = {
     f: V.field(1.6, 'left'),
     ball: null, state: 'none',   // none | serve | mine | incoming | leaving | splash
-    epoch: 0, seen: 0, frozenUntil: 0, locked: null, held: false, heldFor: 0, acc: 0, last: 0, hb: 0,
+    epoch: 0, seen: 0, frozenUntil: 0, locked: null, acc: 0, last: 0, hb: 0,
     incoming: null, leaving: null, splash: null, hits: 0,
     hand: { x: -1, y: -1, px: -1, py: -1, sx: -1, sy: -1, st: 0, vx: 0, vy: 0, on: false, down: false, trail: [] },   // s: where (and when) the hand was at the last physics step
     msg: null, robot: null,
@@ -157,6 +162,8 @@
     cv.width = Math.round(r.width * dpr);
     cv.height = Math.round(r.height * dpr);
     Hpx = cv.height;
+    const hud = $('.vb-hud').getBoundingClientRect();
+    airTop = Math.max(cv.height * 0.1, (hud.bottom - r.top + 16) * dpr);
     G.f = V.field(r.width / r.height, mySide() || 'left');
     if (G.robot) G.robot.f = V.field(G.f.w, 'right');
   }
@@ -184,26 +191,14 @@
     try { cv.setPointerCapture(e.pointerId); } catch { /* fine */ }
     G.hand.down = true;
     Sfx.ac();
-    const b = G.ball;
-    if (G.state === 'mine' && b && !G.locked && Math.hypot(b.x - G.hand.x, b.y - G.hand.y) < (C.R + C.HAND) * 1.5) {
-      G.held = true; G.heldFor = 0; G.frozenUntil = 0;
-      Sfx.play('pop');
-    }
   });
   const handUp = (e) => {
     G.hand.down = false;
     if (e.pointerType !== 'mouse') G.hand.on = false;   // a finger lifted: no hand any more
-    if (G.held) letGo();
   };
   cv.addEventListener('pointerup', handUp);
   cv.addEventListener('pointercancel', handUp);
   cv.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse' && !G.hand.down) G.hand.on = false; });
-
-  function letGo() {
-    G.held = false;
-    if (G.ball) V.release(G.ball, G.f);
-    Sfx.play('swoosh');
-  }
 
   // ------------------------------------------------------------ passing the ball on
   function announce(msg) {
@@ -225,7 +220,7 @@
 
   function takeBall(b, epoch) {
     G.ball = b; G.epoch = epoch; G.state = 'mine';
-    G.locked = null; G.held = false; G.acc = 0; G.hb = 0;
+    G.locked = null; G.acc = 0; G.hb = 0;
     G.f = V.field(G.f.w, mySide() || 'left');
   }
 
@@ -237,17 +232,17 @@
       announce(G.locked);
     }
     G.leaving = { b: V.copy(b), until: performance.now() + 600 };
-    G.ball = null; G.locked = null; G.held = false;
+    G.ball = null; G.locked = null;
     G.state = 'none';
   }
 
   function hitFloor() {
     const b = G.ball;
     G.splash = { x: b.x, until: performance.now() + 700 };
-    G.ball = null; G.held = false; G.locked = null;
+    G.ball = null; G.locked = null;
     G.state = 'none';
     Sfx.play('boom');
-    if (solo) G.robot.lost('left');
+    if (solo) point('right', 'left');
     else Net.send('g:drop', { epoch: G.epoch });
   }
 
@@ -255,62 +250,13 @@
   /* The robot has its own invisible court to the right of yours (shown small in the corner). It runs the
      same physics and hits the ball back over the net, but not every time. */
   function Robot() {
-    const R = {
-      f: V.field(G.f.w, 'right'), ball: null, hand: { x: G.f.w * 0.6, y: 0.8 }, plan: null, wait: 0, misses: 0,
-      receive(msg) {
-        // like a real other screen: the ball arrives when it's due
-        R.pending = { due: performance.now() + Math.max(0, Clock.local(msg.at) - performance.now()), msg };
-      },
-      serve() { R.ball = V.ball(R.f.w * 0.6, 0.36); R.wait = 1.1; R.plan = null; R.served = true; },
-      lost(side) { point(otherSide(side), side); },
-      tick(dt) {
-        const now = performance.now();
-        if (R.pending && now >= R.pending.due) { R.ball = V.arrive(R.pending.msg, R.f); R.pending = null; R.plan = null; R.served = false; }
-        const b = R.ball;
-        if (!b) { R.hand.y += (0.82 - R.hand.y) * 0.05; return; }
-        if (R.wait > 0) { R.wait -= dt; R.hand.x += (b.x + 0.05 - R.hand.x) * 0.1; R.hand.y += (b.y + 0.14 - R.hand.y) * 0.1; if (R.wait <= 0) R.swing(b, true); return; }
-        // get under the ball where it'll be at hitting height, then knock it back over
-        if (!R.plan) {
-          const p = V.copy(b);
-          for (let i = 0; i < 400; i++) { V.step(p, R.f); if (p.vy > 0 && p.y > 0.58) break; }
-          R.plan = { x: p.x, miss: Math.random() < 0.14 };
-        }
-        const tx = R.plan.x + 0.06; const ty = 0.74;
-        const sp = 2.6 * dt;
-        R.hand.x += Math.max(-sp, Math.min(sp, tx - R.hand.x));
-        R.hand.y += Math.max(-sp, Math.min(sp, ty - R.hand.y));
-        if (!R.plan.miss && b.vy > 0 && b.y > 0.58 && Math.abs(b.x - R.plan.x) < 0.2) R.swing(b, false);
-        R.stepBall(dt);
-      },
-      swing(b, serve) {
-        // pick a return that clears the net (try a few, a bit random)
-        for (let k = 0; k < 14; k++) {
-          const t = V.copy(b);
-          t.vx = -(serve ? 1.0 : 0.9) - Math.random() * 1.1;
-          t.vy = -1.55 - Math.random() * 0.9;
-          t.spin = -6 + Math.random() * 12;
-          const p = V.predict(t, R.f, 600);
-          if (p && p.ev === 'cross') { Object.assign(b, t); R.hand.x = b.x + 0.06; R.hand.y = b.y + 0.1; R.plan = { x: b.x, done: true, miss: true }; Sfx.tone(380, 0.05, 'triangle', 0.05); return; }
-        }
-        R.plan = { x: b.x, miss: true };   // couldn't find one: it'll drop
-      },
-      stepBall(dt) {
-        R.acc = (R.acc || 0) + dt;
-        while (R.ball && R.acc >= C.DT) {
-          R.acc -= C.DT;
-          const ev = V.step(R.ball, R.f);
-          if (ev === 'cross') {
-            const b = R.ball;
-            R.ball = null;
-            incoming({ epoch: G.seen + 1, at: Clock.server(performance.now()), y: b.y, vx: b.vx, vy: b.vy, a: b.a, spin: b.spin, d: V.overshoot(b, R.f) });
-          } else if (ev === 'floor') {
-            R.ball = null;
-            point('left', 'right');
-          }
-        }
-      },
-    };
-    return R;
+    return AI.create(V.field(G.f.w, 'right'), robotLevel, {
+      now: () => performance.now(), toLocal: (at) => Clock.local(at),
+      onCross: (b) => incoming({ epoch: G.seen + 1, at: Clock.server(performance.now()), y: b.y,
+        vx: b.vx, vy: b.vy, a: b.a, spin: b.spin, d: V.overshoot(b, G.robot.f) }),
+      onMiss: () => point('left', 'right'),
+      onHit: () => Sfx.tone(380, 0.05, 'triangle', 0.05),
+    });
   }
 
   // ------------------------------------------------------------ scores, serves, messages
@@ -330,11 +276,13 @@
       fill(el, h('span', { class: 'who l' }, nameOf('left')), h('span', { class: 'n l' }, S.score.left), h('span', { class: 'mid' }, `to ${S.settings.target}`),
         h('span', { class: 'n r' }, S.score.right), h('span', { class: 'who r' }, nameOf('right')));
     }
-    $('#vb-hint').textContent = mySide() ? 'Move your cursor into the ball to hit it · hold the button to carry it · keep it off your floor!' : '';
+    $('#vb-hint').textContent = mySide() ? 'Move your cursor into the ball to hit it · flick up to lob it · keep it off your floor!' : '';
+    $('#vb-level').classList.toggle('hidden', !solo);
+    $('#vb-level').value = robotLevel;
   }
 
   function serveTo(side, epoch, atServer) {
-    G.ball = null; G.state = 'none'; G.locked = null; G.held = false; G.incoming = null;
+    G.ball = null; G.state = 'none'; G.locked = null; G.incoming = null;
     if (side === mySide()) {
       G.state = 'serve';
       G.serve = { due: Clock.local(atServer), epoch };
@@ -358,7 +306,8 @@
       return;
     }
     say(winner === 'left' ? 'Point!' : 'Robot scores', `${S.score.left} – ${S.score.right}`, 1300);
-    setTimeout(() => { if (!solo || S.phase !== 'playing') return; if (winner === 'left') serveTo('left', ++G.seen, Clock.server(performance.now() + 900)); else G.robot.serve(); }, 1400);
+    const round = practiceRound;
+    setTimeout(() => { if (!solo || S.phase !== 'playing' || round !== practiceRound) return; if (winner === 'left') serveTo('left', ++G.seen, Clock.server(performance.now() + 900)); else G.robot.serve(); }, 1400);
   }
 
   function endCard(big, small) {
@@ -367,6 +316,7 @@
       h('p', { class: 'muted', style: { margin: '8px 0 16px' } }, small),
       h('div', { class: 'row', style: { gap: '8px', justifyContent: 'center' } },
         h('button', { class: 'btn btn-pink', onclick: () => { end.remove(); startSolo(); } }, '🔁 Again'),
+        h('button', { class: 'btn btn-cyan', onclick: choosePractice }, '🤖 Difficulty'),
         h('button', { class: 'btn btn-ghost', onclick: () => { end.remove(); leaveCourt(); } }, 'Done'))));
     $('#play').append(end);
   }
@@ -407,16 +357,11 @@
 
     if (G.state === 'mine') {
       const b = G.ball;
-      if (G.held) {
-        G.heldFor += dt;
-        if (hd.on) V.hold(b, G.f, hd.x, hd.y, hd.vx, hd.vy, dt);
-        if (G.heldFor > C.HOLD_MAX || !hd.on) letGo();
-      }
       // a floating serve starts the moment your hand touches it (anywhere along this frame's path)
       if (G.frozenUntil && hd.on && hd.sx >= 0 && V.reaches(b, hd.sx, hd.sy, hd.x, hd.y)) G.frozenUntil = 0;
       const floating = G.frozenUntil && t < G.frozenUntil;
       if (!floating) G.frozenUntil = 0;
-      if (!G.held && !floating) {
+      if (!floating) {
         G.acc += dt;
         const n = Math.floor(G.acc / C.DT);
         if (n === 0 && !G.locked) keepPath = true;
@@ -523,8 +468,8 @@
       const b = G.ball;
       // shadow on the floor
       const hgt = 1 - b.y;
-      ctx.fillStyle = `rgba(0,0,0,${0.35 - hgt * 0.25})`;
-      ctx.beginPath(); ctx.ellipse(U(b.x), H - U(0.008), U(C.R * (1.2 - hgt * 0.5)), U(0.012), 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = `rgba(0,0,0,${Math.max(0.08, 0.35 - hgt * 0.25)})`;
+      ctx.beginPath(); ctx.ellipse(U(b.x), H - U(0.008), U(C.R * Math.max(0.35, 1.2 - hgt * 0.5)), U(0.012), 0, 0, Math.PI * 2); ctx.fill();
       if (G.locked) {   // on its way over (already sent to the other screen): a trail and a glowing ring
         ctx.strokeStyle = 'rgba(250,204,21,.35)'; ctx.lineWidth = U(C.R * 1.2); ctx.lineCap = 'round';
         ctx.beginPath(); ctx.moveTo(U(b.x - b.vx * 0.08), U(b.y - b.vy * 0.08)); ctx.lineTo(U(b.x), U(b.y)); ctx.stroke();
@@ -558,11 +503,69 @@
       const ghost = G.locked && G.ball && Math.hypot(G.ball.x - hd.x, G.ball.y - hd.y) < (C.R + C.HAND) * 1.6;
       ctx.save();
       if (ghost) { ctx.globalAlpha = 0.3; ctx.setLineDash([U(0.01), U(0.01)]); }
-      ctx.fillStyle = G.held ? col + 'cc' : col + '40';
+      ctx.fillStyle = col + '40';
       ctx.strokeStyle = col; ctx.lineWidth = U(0.006);
       ctx.beginPath(); ctx.arc(U(hd.x), U(hd.y), U(C.HAND), 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       ctx.restore();
     }
+    // Draw last, so the hand and the practice mini-court never cover the warning.
+    if (G.state === 'mine' && G.ball && G.ball.y < C.R) drawAirTracker(G.ball);
+    else if (G.state === 'incoming' && G.incoming && G.incoming.msg.y < C.R) {
+      drawAirTracker(V.arrive(G.incoming.msg, f), { incoming: Math.max(0, (G.incoming.due - t) / 1000) });
+    }
+  }
+
+  function drawAirTracker(b, opts = {}) {
+    const px = Hpx / Math.max(1, cv.clientHeight);
+    const rising = b.vy < -0.08; const falling = b.vy > 0.08;
+    const incoming = opts.incoming != null;
+    const color = incoming || falling ? '#facc15' : '#67e8f9';
+    const title = incoming ? 'INCOMING HIGH' : rising ? 'RISING' : falling ? 'COMING DOWN' : 'AT THE TOP';
+    const track = incoming ? null : V.airTrack(b, G.f);
+    const detail = incoming ? `Above your screen in ${opts.incoming.toFixed(1)}s`
+      : track ? `${track.kind === 'cross' ? 'Other screen' : 'Back in view'} in ${track.seconds.toFixed(1)}s`
+        : `${Math.max(0, -b.y).toFixed(1)} screens above`;
+    const height = `${Math.max(0, -b.y).toFixed(1)} screens up`;
+    const pad = 12 * px; const icon = 13 * px;
+    ctx.save();
+    ctx.font = `700 ${15 * px}px Fredoka, sans-serif`;
+    const titleWidth = ctx.measureText(title).width;
+    ctx.font = `600 ${12 * px}px Fredoka, sans-serif`;
+    const width = Math.min(cv.width - pad * 2, Math.max(196 * px, titleWidth + 70 * px,
+      ctx.measureText(detail).width + 28 * px));
+    const heightPx = (incoming ? 66 : 82) * px;
+    const ballX = Math.max(pad, Math.min(cv.width - pad, U(b.x)));
+    let x = Math.max(pad, Math.min(cv.width - width - pad, ballX - width / 2));
+    let y = airTop;
+    // Keep the practice mini-court readable; the guide still points to the ball's real x.
+    if (solo && G.robot) {
+      const miniW = cv.width * 0.24; const miniX = cv.width - miniW - U(0.03);
+      const miniY = U(0.11); const miniH = miniW / G.robot.f.w;
+      if (x + width + pad > miniX && y < miniY + miniH && y + heightPx > miniY) {
+        if (miniX - width - pad >= pad) x = miniX - width - pad;
+        else y = miniY + miniH + pad;
+      }
+    }
+    // The dashed stem and small triangle mark the ball's real horizontal position, even at an edge.
+    ctx.strokeStyle = color + '77'; ctx.lineWidth = 2 * px; ctx.setLineDash([4 * px, 5 * px]);
+    ctx.beginPath(); ctx.moveTo(ballX, 0); ctx.lineTo(ballX, y - 10 * px); ctx.stroke(); ctx.setLineDash([]);
+    const anchorX = Math.max(x + pad, Math.min(x + width - pad, ballX));
+    ctx.beginPath(); ctx.moveTo(ballX, y - 7 * px); ctx.lineTo(anchorX, y - 7 * px); ctx.lineTo(anchorX, y); ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.moveTo(ballX, y - 12 * px); ctx.lineTo(ballX - 6 * px, y - 3 * px); ctx.lineTo(ballX + 6 * px, y - 3 * px); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(10,7,28,.94)'; ctx.strokeStyle = color; ctx.lineWidth = 1.5 * px;
+    ctx.beginPath(); ctx.roundRect(x, y, width, heightPx, 15 * px); ctx.fill(); ctx.stroke();
+    const bx = x + 25 * px; const by = y + 22 * px;
+    ctx.fillStyle = '#f8fafc'; ctx.beginPath(); ctx.arc(bx, by, icon * 0.65, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = color; ctx.lineWidth = 2.3 * px;
+    const dir = !incoming && falling ? 1 : -1;
+    ctx.beginPath(); ctx.moveTo(bx - 5 * px, by + dir * 2 * px); ctx.lineTo(bx, by + dir * 7 * px); ctx.lineTo(bx + 5 * px, by + dir * 2 * px); ctx.stroke();
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = color;
+    ctx.font = `700 ${15 * px}px Fredoka, sans-serif`; ctx.fillText(title, x + 45 * px, by);
+    ctx.textAlign = 'center'; ctx.fillStyle = '#f5f3ff';
+    ctx.font = `600 ${12 * px}px Fredoka, sans-serif`; ctx.fillText(detail, x + width / 2, y + 46 * px);
+    if (!incoming) { ctx.fillStyle = 'rgba(255,255,255,.65)'; ctx.font = `500 ${11 * px}px Fredoka, sans-serif`; ctx.fillText(height, x + width / 2, y + 65 * px); }
+    ctx.restore();
   }
 
   function drawBall(b, alpha) {
@@ -601,7 +604,16 @@
     const k = bh;   // 1 unit = bh pixels
     ctx.fillStyle = '#22d3ee'; ctx.fillRect(bx, by + bh - 2, bw, 2);
     ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.fillRect(bx, by + k * (1 - C.NET), 3, k * C.NET);
-    if (R.ball) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(bx + R.ball.x * k, by + R.ball.y * k, C.R * k, 0, Math.PI * 2); ctx.fill(); }
+    if (R.ball) {
+      ctx.fillStyle = R.ball.y < C.R ? '#facc15' : '#fff';
+      const rx = Math.max(bx + 7, Math.min(bx + bw - 7, bx + R.ball.x * k));
+      const ry = Math.max(by + 7, by + R.ball.y * k);
+      ctx.beginPath(); ctx.arc(rx, ry, Math.max(3, C.R * k), 0, Math.PI * 2); ctx.fill();
+      if (R.ball.y < C.R) {
+        ctx.font = `700 ${Math.max(10, bh * 0.1)}px Fredoka, sans-serif`; ctx.textAlign = 'left';
+        ctx.fillText(R.ball.vy < 0 ? '↑' : '↓', rx + 7, by + 12);
+      }
+    }
     ctx.fillStyle = 'rgba(34,211,238,.5)'; ctx.beginPath(); ctx.arc(bx + R.hand.x * k, by + R.hand.y * k, C.HAND * k, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.font = `700 ${Math.round(bh * 0.1)}px Fredoka, sans-serif`; ctx.textAlign = 'right';
     ctx.fillText("🤖 Robot's screen", bx + bw - 8, by + bh * 0.14);
@@ -626,9 +638,10 @@
   }
   function leaveCourt() {
     if (solo) {
+      practiceRound++;
       solo = false; S.phase = 'lobby'; G.robot = null; G.state = 'none'; G.ball = null;
       hideCourt();
-      const url = new URL(location.href); url.searchParams.delete('solo'); history.replaceState(null, '', url);
+      const url = new URL(location.href); url.searchParams.delete('solo'); url.searchParams.delete('difficulty'); history.replaceState(null, '', url);
       if (!Room.code) Lobby.showEntry();
       return;
     }
@@ -636,6 +649,7 @@
     Lobby.leave();
   }
   $('#vb-leave').addEventListener('click', leaveCourt);
+  $('#vb-level').addEventListener('change', (e) => startSolo(e.target.value));
   $('#vb-full').addEventListener('click', () => {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     else ($('#play').requestFullscreen ? $('#play').requestFullscreen() : Promise.reject()).catch(() => UI.toast('Your browser won’t go full screen here. Try ⌃⌘F on a Mac.', '', 3000));
@@ -645,17 +659,33 @@
     if (document.hidden && !solo && G.state === 'mine') hitFloor();
   });
 
-  function startSolo() {
+  function choosePractice() {
+    const close = UI.modal(h('div', {}, h('h2', {}, '🤖 Choose your robot'),
+      h('p', { class: 'muted' }, 'First to 7 points. Pick your challenge.'),
+      h('div', { class: 'vb-practice' }, Object.entries(AI.LEVELS).map(([id, level]) =>
+        h('button', { class: 'btn ' + (id === 'easy' ? 'btn-cyan' : id === 'hard' ? 'btn-pink' : 'btn-yellow'),
+          onclick: () => {
+            close();
+            if (Room.code) { Lobby.leave(); setTimeout(() => startSolo(id), 50); }
+            else startSolo(id);
+          } }, h('b', {}, level.name + (id === robotLevel ? ' · selected' : '')), h('small', {}, level.about))))));
+  }
+
+  function startSolo(level = robotLevel) {
+    robotLevel = Object.hasOwn(AI.LEVELS, level) ? level : 'medium';
+    store.set('volley_robot', robotLevel);
+    practiceRound++;
     solo = true;
     Lobby.hideEntry();
     $('#room').classList.add('hidden');
     $('.vb-end') && $('.vb-end').remove();
     Object.assign(S, { phase: 'playing', settings: { mode: 'versus', target: 7 }, score: { left: 0, right: 0 } });
+    G.acc = 0; G.last = 0; G.leaving = null; G.splash = null; G.frozenUntil = 0;
     showCourt();
     G.robot = Robot();
     G.robot.f = V.field(G.f.w, 'right');
     G.seen = 0;
-    const url = new URL(location.href); url.searchParams.set('solo', '1'); history.replaceState(null, '', url);
+    const url = new URL(location.href); url.searchParams.set('solo', '1'); url.searchParams.set('difficulty', robotLevel); history.replaceState(null, '', url);
     serveTo('left', ++G.seen, Clock.server(performance.now() + 1200));
   }
 
@@ -711,8 +741,8 @@
           h('li', {}, 'Put the two laptops side by side: the LEFT player’s laptop on the left.'),
           h('li', {}, 'Press ⛶ Full screen in the game, so each court reaches the edges of its screen.'),
           h('li', {}, 'Same Wi-Fi? The laptops connect straight to each other and the ball flies faster. Look for “direct” on the 📶 sign.'),
-          h('li', {}, 'Move your cursor into the ball to hit it. Fast moves punch it, slow moves slow it down. Hold the button to carry it for a moment.'))),
-      h('button', { class: 'btn btn-ghost btn-block', style: { marginTop: '12px' }, onclick: () => { Lobby.leave(); setTimeout(startSolo, 50); } }, '🤖 Practice against the robot'),
+          h('li', {}, 'Move your cursor into the ball to hit it. Fast moves punch it, slow moves cushion it. Flick upward to lob it; clicking does not grab the ball.'))),
+      h('button', { class: 'btn btn-ghost btn-block', style: { marginTop: '12px' }, onclick: choosePractice }, '🤖 Practice against the robot'),
     );
     fill($('#room-main'), kids);
   }
@@ -723,8 +753,8 @@
     title: 'Screen Volley',
     emoji: '🏐',
     tagline: 'Two laptops side by side, one ball. Punch it across to your friend’s screen!',
-    solo: { label: '🤖 Practice against the robot', onClick: () => startSolo() },
-    howTo: '<b>How to play</b><ul><li>Put two laptops (or tablets) next to each other. One player takes the LEFT screen, the other the RIGHT one.</li><li>Your cursor is your hand: move it into the ball to hit it. Move fast to punch it, slowly to slow it down. Hold the button to carry it.</li><li>Get it over the net onto your friend’s screen. If it touches your floor, they score!</li><li>🤝 Keep it up: pass it back and forth together without dropping it.</li></ul>',
+    solo: { label: '🤖 Practice against the robot', onClick: choosePractice },
+    howTo: '<b>How to play</b><ul><li>Put two laptops (or tablets) next to each other. One player takes the LEFT screen, the other the RIGHT one.</li><li>Your cursor is your hand: move it into the ball to hit it. Move fast to punch it, slowly to cushion it. Flick upward to lob it; clicking does not grab the ball.</li><li>There’s no ceiling! If the ball goes above your screen, follow the marker: it shows where it is, whether it’s rising or falling, and when it will return.</li><li>Get it over the net onto your friend’s screen. If it touches your floor, they score!</li><li>🤝 Keep it up: pass it back and forth together without dropping it.</li></ul>',
   });
   Lobby.renderCode($('#room-code'));
   Lobby.renderPlayers($('#room-players'), { extra: (p) => (S.sides.left === p.id ? h('span', { title: 'Left screen' }, '⬅️') : S.sides.right === p.id ? h('span', { title: 'Right screen' }, '➡️') : null) });

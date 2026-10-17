@@ -47,13 +47,13 @@ for (let i = 0; i < 2000; i++) {
     if (ev === 'cross') { crosses++; if (b.y >= 1 - C.NET) leaks++; break; }
     if (ev === 'floor') break;
     const wallX = f.side === 'left' ? 0 : f.w;
-    if (Math.abs(b.x - wallX) < C.R - 1e-9 || b.y > 1 + 1e-9 || b.y < C.R - 1e-9) { escapes++; break; }
+    if (Math.abs(b.x - wallX) < C.R - 1e-9 || b.y > 1 + 1e-9) { escapes++; break; }
     if ((b.x - f.seam) * f.dir > 0) { leaks++; break; }   // on the other side without crossing above the net
   }
 }
 check(crosses > 300 && netHits > 50, `random throws: ${crosses} went over, ${netHits} hit the net`);
 check(leaks === 0, `nothing gets through or under the net (${leaks})`);
-check(escapes === 0 && nan === 0, `the ball never leaves the court or goes wrong (${escapes} escapes, ${nan} NaN)`);
+check(escapes === 0 && nan === 0, `the ball stays inside the side walls and above the floor (${escapes} escapes, ${nan} NaN)`);
 
 // 3. hands: gentle touches stay gentle, swipes smash, and a ball can be balanced on a hand
 /** Move the hand in a straight line over `steps` physics steps, touching and stepping the ball like the game does. */
@@ -131,19 +131,6 @@ function move(b, f, x0, y0, x1, y1, steps) {
   check(minLead >= C.MIN_LEAD - 0.03, `a smash right at the net still takes ${minLead.toFixed(2)}s to go over (at least ${C.MIN_LEAD}s)`);
 }
 
-// 5. holding: the ball stays on your side and off the floor, and a throw is capped
-{
-  const b = V.ball(1.4, 0.5);
-  for (let i = 0; i < 60; i++) V.hold(b, L, 1.7, 0.99, 3, 0, 1 / 60);
-  check(b.x <= L.w - C.R && b.y <= 1 - C.R, `you can't carry the ball over the net or into the floor (${b.x.toFixed(3)}, ${b.y.toFixed(3)})`);
-  const r = V.ball(0.3, 0.5);
-  for (let i = 0; i < 60; i++) V.hold(r, Rf, -0.3, 0.4, -3, 0, 1 / 60);
-  check(r.x >= C.R, `the same on the right screen (${r.x.toFixed(3)})`);
-  const t = V.ball(0.5, 0.5);
-  V.hold(t, L, 0.5, 0.6, 5, -5, 1 / 60); V.release(t, L);
-  check(Math.hypot(t.vx, t.vy) <= C.THROW_MAX + 1e-9, `a throw is never wild (${Math.hypot(t.vx, t.vy).toFixed(2)})`);
-}
-
 // 6. both screens behave the same, mirrored
 {
   let ok = true;
@@ -178,7 +165,7 @@ function move(b, f, x0, y0, x1, y1, steps) {
     const after = V.copy(r);
     const ev = V.step(after, Rf);
     worst = Math.max(worst, same ? 0 : 1);
-    if (ev) { bumped++; continue; }   // it touched the net top or the ceiling straight away: real physics, not a jump
+    if (ev) { bumped++; continue; }   // it touched the net top straight away: real physics, not a jump
     worst = Math.max(worst, Math.abs(after.x + L.w - twin.x), Math.abs(after.y - twin.y), Math.abs(after.vx - twin.vx));
     if (r.x < 0 || r.x > 0.04 || r.vx <= 0) worst = 9;
   }
@@ -197,4 +184,39 @@ function move(b, f, x0, y0, x1, y1, steps) {
   check(q && q.ev === 'floor', 'a weak push falls on your own floor (point to the other player)');
 }
 
+// 9. open sky: lobs leave the view, keep rising, then fall naturally; the tracker uses those same steps.
+{
+  const b = V.ball(0.7, 0.07, 0, -3);
+  V.step(b, L);
+  check(b.y < C.R && b.vy < 0, 'an upward hit passes the screen edge without a ceiling bounce');
+  const before = JSON.stringify(b); const track = V.airTrack(b, L);
+  const real = V.copy(b); let steps = 0; let high = b.y; let returned = false;
+  for (; steps < 720;) {
+    V.step(real, L); steps++; high = Math.min(high, real.y);
+    if (real.y >= C.R && real.vy >= 0) { returned = true; break; }
+  }
+  check(high < -1 && returned, `a high lob rises more than a screen above the view and comes back (${high.toFixed(2)})`);
+  check(track && track.kind === 'return' && track.seconds === steps * C.DT && track.x === real.x,
+    'the high-ball countdown and return position match the actual flight');
+  check(JSON.stringify(b) === before && V.airTrack(V.ball(0.5, 0.4), L) === null,
+    'tracking never changes the real ball and is hidden for a ball already in view');
+  const down = V.airTrack(V.ball(0.7, -0.1, 0, 1), L);
+  check(down && down.kind === 'return' && down.seconds < track.seconds, 'the countdown gets shorter as the ball approaches from above');
+  const wall = V.ball(0.2, -0.4, -1.5, -1);
+  const wp = V.airTrack(wall, L); const wr = V.copy(wall);
+  for (let i = 0; i < 720; i++) { V.step(wr, L); if (wr.y >= C.R && wr.vy >= 0) break; }
+  check(wp && wp.kind === 'return' && wp.x === wr.x, 'the return marker accounts for side-wall bounces above the screen');
+  const over = V.ball(1.4, -0.5, 1.2, -0.5);
+  const cp = V.predict(over, L, 600); const ct = V.airTrack(over, L);
+  check(cp && cp.ev === 'cross' && cp.ball.y < 0 && ct && ct.kind === 'cross' && ct.seconds === cp.steps * C.DT,
+    'a high ball can pass to the other screen while still out of view');
+  const next = V.arrive({ ...cp.ball, d: V.overshoot(cp.ball, L) }, Rf);
+  check(next.y === cp.ball.y && next.vy === cp.ball.vy && V.airTrack(next, Rf) != null,
+    'the receiver keeps the high ball above its screen and can track its return');
+  const soft = V.ball(0.5, -0.03);
+  V.touch(soft, L, 0.5, 0.06, 0, 0);
+  check(soft.y < 0, 'a gentle touch near the screen top does not snap a high ball back inside');
+}
+
 say('FAILED: ' + failed);
+if (hasNode && failed) process.exitCode = 1;

@@ -187,12 +187,15 @@ One volleyball court spread over two screens standing side by side (`games/volle
 `public/js/games/volley.js`). Players pick the LEFT or RIGHT screen; everyone else watches.
 - **Courts in "heights":** each screen's court is 1 high and width/height wide, so screens of any size line up; the net
   stands on the seam (the left screen's right edge, the right screen's left edge). `volley-core.js` holds the physics
-  (fixed 1/120 s steps, the same on every screen): gravity, walls, the net, the hand (the cursor or a finger), holding
-  the ball for up to 2 s, and smashes near the net slowed down so a ball always takes at least 0.24 s to go over.
+  (fixed 1/120 s steps, the same on every screen): gravity, walls, the net and the hand (the cursor or a finger).
+  Clicking does not grab the ball; move or flick the hand to hit it. Smashes near the net are slowed down so a ball
+  always takes at least 0.24 s to go over.
   The hand is swept along its whole path (`VolleyCore.sweep`: it meets the ball where it first touches it, so a fast
   flick can't jump over it), and its speed is smoothed over ~30 ms unless it's clearly fast (over 2.5 heights/s). Gentle touches pass on 45% of the hand's speed with almost no bounce, rising (squared) to 100% for full swipes
   (4 heights/s); the top of the hand is a flat, cupped palm, so a ball that lands gently rests there, slides to the
   middle and can be balanced and carried. Tune it in `VolleyCore.C`.
+- **Open sky:** there is no ceiling bounce. Above-screen balls have a marker at their horizontal position, a rising/falling
+  arrow, height and a return countdown calculated with the real physics. Incoming high passes get a warning too.
 - **The ball lives on one screen at a time.** That screen runs it, so hits have no lag. When the ball is about to go over
   (within the "lead time": the time a message takes plus a margin), the screen works out exactly when and where it will
   cross (`VolleyCore.predict`), sends that in advance, and from then on the ball can't be touched. The other screen
@@ -207,6 +210,9 @@ One volleyball court spread over two screens standing side by side (`games/volle
   (nobody's public address is shared). The left screen offers every 10 s until it works; the 📶 sign shows the ping and
   "direct" or "via server". Same `cross` message both ways, de-duplicated by epoch.
 - **Practice:** `/games/volley?solo=1` plays against a robot with its own invisible court (shown small in the corner).
+  Pick Easy, Medium or Hard before playing or from the court's difficulty selector (changing it starts a new match).
+  The choice is remembered in your browser; `&difficulty=hard` also works. `volley-ai.js` controls reaction delay,
+  hand speed, aim error, mistakes and return selection; Hard prefers quicker attacking shots.
 - `tests/volleytest.js` checks the physics (prediction = reality step for step, nothing gets through the net, mirror
   symmetry, seamless hand-offs, fast swipes); `tests/volleybot.py` plays it over websockets. `?debug=1` exposes `window.VB`.
 

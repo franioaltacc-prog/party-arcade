@@ -21,6 +21,11 @@
     .vb-hud > * { pointer-events: auto; }
     .vb-tools { display: flex; gap: 8px; flex-wrap: wrap; }
     .vb-tools .btn { cursor: pointer; }
+    .vb-level { max-width: 165px; color: #f8fafc; background: #241940; }
+    .vb-level option { background: #241940; color: #f8fafc; }
+    .vb-practice { display: grid; gap: 10px; margin-top: 18px; }
+    .vb-practice button { display: grid; gap: 5px; text-align: left; white-space: normal; }
+    .vb-practice small { font-family: var(--font); font-weight: 500; opacity: .85; }
     .vb-score { display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-radius: 999px; background: rgba(0, 0, 0, .45); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
       font-weight: 700; white-space: nowrap; pointer-events: none; }
     .vb-score .n { font-family: var(--font-display); font-size: 1.6rem; line-height: 1; font-variant-numeric: tabular-nums; }
@@ -71,6 +76,11 @@
       <div class="vb-tools">
         <button class="btn btn-ghost btn-sm" id="vb-leave" title="Leave the court">✕</button>
         <button class="btn btn-ghost btn-sm" id="vb-full" title="Full screen (so the court reaches the edges of your screen)">⛶ Full screen</button>
+        <select id="vb-level" class="btn btn-ghost btn-sm vb-level hidden" aria-label="Robot difficulty" title="Changing difficulty starts a new practice match">
+          <option value="easy">🤖 Easy robot</option>
+          <option value="medium">🤖 Medium robot</option>
+          <option value="hard">🤖 Hard robot</option>
+        </select>
       </div>
       <div class="vb-score" id="vb-score"></div>
       <span class="vb-ping" id="vb-ping"></span>
@@ -87,6 +97,7 @@
   <script src="/js/fx.js"></script>
   <script src="/js/lobby.js"></script>
   <script src="/js/games/volley-core.js"></script>
+  <script src="/js/games/volley-ai.js"></script>
   <script src="/js/games/volley.js"></script>
 </body>
 </html>
