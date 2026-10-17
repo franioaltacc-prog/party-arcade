@@ -6,6 +6,12 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.0.2', date: '2026-10-17', emoji: '🏐', title: 'Screen Volley: no more hands through the ball', items: [
+      'A really fast swipe could jump right over the ball between two frames and miss it. Now the game follows your hand’s whole path, so it always hits the ball where your hand first touches it',
+      'Quick flicks hit at full power straight away (your hand’s speed used to take a moment to catch up)',
+      'Fixed on fast 120 Hz screens: a bit of your hand’s movement could be skipped',
+      'A ball that’s already on its way over the net gets a glowing ring, and your hand fades if it passes through it (it’s already been sent to the other screen, so it can’t be hit again)',
+    ] },
     { v: '3.0.1', date: '2026-10-17', emoji: '🏐', title: 'Screen Volley: a ball you can control', items: [
       'Gentle touches are gentle now: a small nudge moves the ball a little, and only a real swipe smashes it',
       'Balance the ball on your cursor: it lands softly on top of your hand and stays there, even while you slowly move it around',

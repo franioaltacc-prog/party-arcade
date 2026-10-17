@@ -146,7 +146,7 @@
     ball: null, state: 'none',   // none | serve | mine | incoming | leaving | splash
     epoch: 0, seen: 0, frozenUntil: 0, locked: null, held: false, heldFor: 0, acc: 0, last: 0, hb: 0,
     incoming: null, leaving: null, splash: null, hits: 0,
-    hand: { x: -1, y: -1, px: -1, py: -1, vx: 0, vy: 0, on: false, down: false, trail: [] },
+    hand: { x: -1, y: -1, px: -1, py: -1, sx: -1, sy: -1, st: 0, vx: 0, vy: 0, on: false, down: false, trail: [] },   // s: where (and when) the hand was at the last physics step
     msg: null, robot: null,
   };
 
@@ -171,7 +171,7 @@
   function moveHand(e) {
     const [x, y] = toCourt(e);
     const hd = G.hand;
-    if (!hd.on) { hd.px = x; hd.py = y; hd.vx = 0; hd.vy = 0; hd.trail.length = 0; }
+    if (!hd.on) { hd.px = x; hd.py = y; hd.sx = x; hd.sy = y; hd.st = performance.now(); hd.vx = 0; hd.vy = 0; hd.trail.length = 0; }
     hd.x = x; hd.y = y; hd.on = true;
   }
   cv.addEventListener('pointermove', (e) => {
@@ -382,11 +382,18 @@
     G.last = t;
     if ($('#play').classList.contains('hidden')) return;
     const hd = G.hand;
-    // the hand's speed, smoothed over ~50 ms so a twitchy trackpad doesn't fling the ball
-    if (hd.on && hd.px >= 0 && dt > 0) {
-      const k = 1 - Math.exp(-dt / 0.05);
-      hd.vx += ((hd.x - hd.px) / dt - hd.vx) * k;
-      hd.vy += ((hd.y - hd.py) / dt - hd.vy) * k;
+    // the hand's speed: gentle moves are smoothed (a twitchy trackpad mustn't fling the ball), but a clearly fast
+    // move counts at its real speed straight away, so a quick flick hits at full power
+    let cvx = 0; let cvy = 0;
+    let keepPath = false;   // a free ball but no physics step this frame: the hand's path waits for the next one
+    if (hd.on && hd.sx >= 0 && dt > 0) {
+      // speed along the path since the last physics step (which can span a few frames on a fast screen)
+      const pdt = Math.max(dt, (t - hd.st) / 1000);
+      const rx = (hd.x - hd.sx) / pdt; const ry = (hd.y - hd.sy) / pdt;
+      const k = 1 - Math.exp(-dt / 0.03);
+      hd.vx += (rx - hd.vx) * k; hd.vy += (ry - hd.vy) * k;
+      const fast = Math.hypot(rx, ry) > 2.5 && Math.hypot(rx, ry) > Math.hypot(hd.vx, hd.vy);
+      cvx = fast ? rx : hd.vx; cvy = fast ? ry : hd.vy;
     } else if (!hd.on) { hd.vx = 0; hd.vy = 0; }
 
     if (G.state === 'serve' && t >= G.serve.due) {
@@ -405,21 +412,25 @@
         if (hd.on) V.hold(b, G.f, hd.x, hd.y, hd.vx, hd.vy, dt);
         if (G.heldFor > C.HOLD_MAX || !hd.on) letGo();
       }
-      // a floating serve starts the moment your hand touches it
-      if (G.frozenUntil && hd.on && Math.hypot(b.x - hd.x, b.y - hd.y) < C.R + C.HAND) G.frozenUntil = 0;
+      // a floating serve starts the moment your hand touches it (anywhere along this frame's path)
+      if (G.frozenUntil && hd.on && hd.sx >= 0 && V.reaches(b, hd.sx, hd.sy, hd.x, hd.y)) G.frozenUntil = 0;
       const floating = G.frozenUntil && t < G.frozenUntil;
       if (!floating) G.frozenUntil = 0;
       if (!G.held && !floating) {
         G.acc += dt;
         const n = Math.floor(G.acc / C.DT);
+        if (n === 0 && !G.locked) keepPath = true;
         let i = 0;
         while (G.state === 'mine' && G.acc >= C.DT) {
           G.acc -= C.DT;
           i++;
           // the hand meets the ball at every step, all along the path it moved this frame
-          if (!G.locked && hd.on && hd.px >= 0) {
-            const k = n ? i / n : 1;
-            const power = V.touch(G.ball, G.f, hd.px + (hd.x - hd.px) * k, hd.py + (hd.y - hd.py) * k, hd.vx, hd.vy);
+          if (!G.locked && hd.on && hd.sx >= 0) {
+            // the stretch of the hand's path since the last step (nothing is skipped, even on a 120 Hz screen)
+            const k = 1 / (n - i + 1);
+            const x1 = hd.sx + (hd.x - hd.sx) * k; const y1 = hd.sy + (hd.y - hd.sy) * k;
+            const power = V.sweep(G.ball, G.f, hd.sx, hd.sy, x1, y1, cvx, cvy);
+            hd.sx = x1; hd.sy = y1;
             if (power > 0.35 && t - (G.lastHit || 0) > 110) { Sfx.tone(240 + power * 160, 0.07, 'triangle', 0.04 + Math.min(0.06, power * 0.02)); G.lastHit = t; }
           }
           const ev = V.step(G.ball, G.f);
@@ -448,6 +459,7 @@
     }
     if (solo && G.robot && S.phase === 'playing') G.robot.tick(dt);
     hd.px = hd.x; hd.py = hd.y;
+    if (!keepPath) { hd.sx = hd.x; hd.sy = hd.y; hd.st = t; }
     if (hd.on) { hd.trail.push([hd.x, hd.y]); while (hd.trail.length > 7) hd.trail.shift(); }
     if (G.msg && t > G.msg.until) { G.msg = null; $('#vb-msg').style.opacity = '0'; }
     draw(t);
@@ -513,9 +525,11 @@
       const hgt = 1 - b.y;
       ctx.fillStyle = `rgba(0,0,0,${0.35 - hgt * 0.25})`;
       ctx.beginPath(); ctx.ellipse(U(b.x), H - U(0.008), U(C.R * (1.2 - hgt * 0.5)), U(0.012), 0, 0, Math.PI * 2); ctx.fill();
-      if (G.locked) {   // on its way over: a little trail
+      if (G.locked) {   // on its way over (already sent to the other screen): a trail and a glowing ring
         ctx.strokeStyle = 'rgba(250,204,21,.35)'; ctx.lineWidth = U(C.R * 1.2); ctx.lineCap = 'round';
-        ctx.beginPath(); ctx.moveTo(U(b.x - b.vx * 0.06), U(b.y - b.vy * 0.06)); ctx.lineTo(U(b.x), U(b.y)); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(U(b.x - b.vx * 0.08), U(b.y - b.vy * 0.08)); ctx.lineTo(U(b.x), U(b.y)); ctx.stroke();
+        ctx.strokeStyle = 'rgba(250,204,21,.8)'; ctx.lineWidth = U(0.006);
+        ctx.beginPath(); ctx.arc(U(b.x), U(b.y), U(C.R + 0.012), 0, Math.PI * 2); ctx.stroke();
       }
       if (G.frozenUntil) {
         ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = U(0.004);
@@ -540,9 +554,14 @@
         ctx.lineWidth = U(C.HAND * 1.4 * i / hd.trail.length);
         ctx.beginPath(); ctx.moveTo(U(hd.trail[i - 1][0]), U(hd.trail[i - 1][1])); ctx.lineTo(U(hd.trail[i][0]), U(hd.trail[i][1])); ctx.stroke();
       }
+      // passing through a ball that's already on its way over: the hand fades (it can't touch it)
+      const ghost = G.locked && G.ball && Math.hypot(G.ball.x - hd.x, G.ball.y - hd.y) < (C.R + C.HAND) * 1.6;
+      ctx.save();
+      if (ghost) { ctx.globalAlpha = 0.3; ctx.setLineDash([U(0.01), U(0.01)]); }
       ctx.fillStyle = G.held ? col + 'cc' : col + '40';
       ctx.strokeStyle = col; ctx.lineWidth = U(0.006);
       ctx.beginPath(); ctx.arc(U(hd.x), U(hd.y), U(C.HAND), 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.restore();
     }
   }
 

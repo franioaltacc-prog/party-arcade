@@ -61,10 +61,25 @@ function move(b, f, x0, y0, x1, y1, steps) {
   const hvx = (x1 - x0) / (steps * C.DT); const hvy = (y1 - y0) / (steps * C.DT);
   let power = 0;
   for (let i = 1; i <= steps; i++) {
-    power = Math.max(power, V.touch(b, f, x0 + (x1 - x0) * i / steps, y0 + (y1 - y0) * i / steps, hvx, hvy));
+    power = Math.max(power, V.sweep(b, f, x0 + (x1 - x0) * (i - 1) / steps, y0 + (y1 - y0) * (i - 1) / steps,
+      x0 + (x1 - x0) * i / steps, y0 + (y1 - y0) * i / steps, hvx, hvy));
     V.step(b, f);
   }
   return power;
+}
+{
+  // a flick so fast the hand jumps right over the ball between two steps still hits it, at full power
+  const b = V.ball(0.6, 0.5);
+  const missed = V.touch(V.copy(b), L, 0.9, 0.45, 72, -12);
+  const p = V.sweep(b, L, 0.3, 0.55, 0.9, 0.45, 72, -12);
+  check(missed === 0 && p > 0 && b.vx > 0 && Math.hypot(b.vx, b.vy) > C.MAXV * 0.9, `a flick that jumps over the ball in one step still hits it at full power (v ${b.vx.toFixed(2)}, ${b.vy.toFixed(2)})`);
+  const c = V.ball(0.6, 0.5);
+  check(V.sweep(c, L, 0.3, 0.75, 0.9, 0.75, 72, 0) === 0 && c.vx === 0 && !V.reaches(c, 0.3, 0.75, 0.9, 0.75), 'a fast swipe that passes close by doesn’t touch it');
+  check(V.reaches(c, 0.3, 0.55, 0.9, 0.45), '…and one that goes through it does');
+  // the same flick spread over a few steps hits just as hard
+  const d = V.ball(0.6, 0.5);
+  move(d, L, 0.3, 0.55, 0.9, 0.45, 3);
+  check(Math.hypot(d.vx, d.vy) > C.MAXV * 0.85, `fast flicks over a few steps hit hard too (${Math.hypot(d.vx, d.vy).toFixed(2)})`);
 }
 {
   const min = C.R + C.HAND;

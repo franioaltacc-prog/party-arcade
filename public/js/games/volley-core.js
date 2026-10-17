@@ -130,6 +130,36 @@
     return bump(b, f, nx, ny, hvx, hvy, -((b.vx - hvx) * nx + (b.vy - hvy) * ny));
   }
 
+  /** The hand moved from (x0, y0) to (x1, y1) during one step: it meets the ball exactly where it first touches it
+     on the way, so even a very fast swipe can't jump over the ball. */
+  function sweep(b, f, x0, y0, x1, y1, hvx, hvy) {
+    const min = C.R + C.HAND;
+    const ex = x1 - x0; const ey = y1 - y0;
+    const dx0 = x0 - b.x; const dy0 = y0 - b.y;
+    const qa = ex * ex + ey * ey;
+    const qc = dx0 * dx0 + dy0 * dy0 - min * min;
+    if (qa > 1e-12 && qc > 0) {
+      const qb = 2 * (dx0 * ex + dy0 * ey);
+      const disc = qb * qb - 4 * qa * qc;
+      if (disc >= 0) {
+        const t = (-qb - Math.sqrt(disc)) / (2 * qa);
+        if (t >= 0 && t <= 1) {
+          const cx = x0 + ex * t; const cy = y0 + ey * t;
+          return touch(b, f, cx + (b.x - cx) * 1e-4, cy + (b.y - cy) * 1e-4, hvx, hvy);   // a hair closer, so they touch
+        }
+      }
+    }
+    return touch(b, f, x1, y1, hvx, hvy);
+  }
+
+  /** Does a hand moving from (x0, y0) to (x1, y1) touch the ball anywhere on the way? */
+  function reaches(b, x0, y0, x1, y1) {
+    const ex = x1 - x0; const ey = y1 - y0;
+    const len2 = ex * ex + ey * ey;
+    const t = len2 > 1e-12 ? Math.max(0, Math.min(1, ((b.x - x0) * ex + (b.y - y0) * ey) / len2)) : 0;
+    return Math.hypot(b.x - (x0 + ex * t), b.y - (y0 + ey * t)) < C.R + C.HAND;
+  }
+
   function bump(b, f, nx, ny, hvx, hvy, approach) {
     if (approach > 0) {
       const s = Math.min(1, approach / C.HARD) ** 2;               // gentle touches stay very gentle
@@ -199,7 +229,7 @@
     return b;
   }
 
-  const api = { C, field, ball, copy, step, predict, touch, hold, release, arrive, overshoot, capSpeed, slowNearNet };
+  const api = { C, field, ball, copy, step, predict, touch, sweep, reaches, hold, release, arrive, overshoot, capSpeed, slowNearNet };
   if (typeof window !== 'undefined') window.VolleyCore = api;
   if (typeof globalThis !== 'undefined') globalThis.VolleyCore = api;
 })();
