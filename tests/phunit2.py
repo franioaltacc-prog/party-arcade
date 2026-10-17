@@ -89,8 +89,9 @@ p1["power_at"] = 0
 g.on_message(H1, "power", {"p": "decoy"})
 check(len(g.decoys) == 2 and p1["powers"]["decoy"] == 0, "only 2 decoys")
 # killer sees the decoy (once hunting, and when near). The map is random, so stand the killer somewhere
-# in the same room as the decoy (or outdoors with it) with nothing in the way: no wall, prop or other hider.
+# in the same room as the decoy (or outdoors with it) with no wall or prop in the way.
 g.phase = "hunting"
+cx, cy = g.r["map"]["spawn"]
 d0 = next(iter(g.decoys.values()))
 q2 = g.ps[H2.uid]
 
@@ -99,7 +100,6 @@ def clear_shot(x, y):
     dist = math.hypot(d0["x"] - x, d0["y"] - y)
     dx, dy = (d0["x"] - x) / dist, (d0["y"] - y) / dist
     hits = [P.ray_rect(x, y, dx, dy, w) for w in town.walls] + [P.ray_circle(x, y, dx, dy, px, py, pr) for _, px, py, pr in town.props]
-    hits.append(P.ray_circle(x, y, dx, dy, q2["x"], q2["y"], P.RADIUS.get(q2["prop"], P.PLAYER_R) + 10 if q2["prop"] else P.PLAYER_R + 10))
     return all(t is None or t >= dist for t in hits)
 
 
@@ -119,7 +119,10 @@ did, d = next(iter(g.decoys.items()))
 g.ps[k].update(ammo=6, reload_at=None, shot=0.0)
 ang = math.atan2(d["y"] - g.ps[k]["y"], d["x"] - g.ps[k]["x"])
 for m in ms: m.inbox.clear()
+h2_at = (q2["x"], q2["y"], list(q2["hist"]))
+q2["x"] += 3000; q2["hist"].clear()          # the other hider steps out of the line of fire
 g.on_message(K, "shoot", {"a": ang})
+q2["x"], q2["y"] = h2_at[0], h2_at[1]; q2["hist"][:] = h2_at[2]
 shot = K.last("g:shot")
 check(shot["hit"] == "decoy" and did not in g.decoys and A.last("g:decoy")["owner"] == H1.uid and p1["alive"], "shooting a decoy pops it, nobody is caught")
 # speed burst lets you move faster

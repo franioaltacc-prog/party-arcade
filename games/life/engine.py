@@ -30,7 +30,7 @@ def jail_str(quarters):
 
 def load_data():
     data = {}
-    for name in ("names", "jobs", "events", "family_events", "actions", "sibling_actions", "group_actions"):
+    for name in ("names", "jobs", "events", "family_events", "actions", "sibling_actions", "group_actions", "shop"):
         with open(DATA_DIR / f"{name}.json", encoding="utf-8") as f:
             data[name] = json.load(f)
     data["jobs"] = {k: v for k, v in data["jobs"].items() if not k.startswith("_")}
@@ -157,7 +157,7 @@ def validate(data):
                         compile_expr(v)
                     except ExprError as e:
                         problems.append(f"{where}.{k}: {e}")
-                elif k in ("fx", "each", "self", "target", "let") and isinstance(v, dict):
+                elif k in ("fx", "each", "self", "target", "let", "yearly") and isinstance(v, dict):
                     for fk, fv in v.items():
                         if isinstance(fv, str) and fk not in ("log", "uni", "next", "living", "ach", "partner", "count", "die"):
                             try:
@@ -216,13 +216,16 @@ class Sibling:
         self.ever_married = False
         self.kids = []
         self.pets = []
-        self.assets = []
+        self.assets = []        # things from the 🛍️ Shop: {"uid", "id", "cat", "name", "emoji", "value", "paid"}
+        self.once = set()       # once-in-a-lifetime experiences already bought
+        self.bought = set()     # shop items bought at least once (their bonus only counts the first time)
+        self.casino = None      # this turn's casino visit (see Life.casino_op)
         self.achievements = []
         self.peak_prestige = 0
         self.best_job = None
         self.happy_sum = 0
         self.years = 0
-        self.counters = {"chaos": 0, "crimes": 0, "pranks": 0, "arguments": 0, "gifts": 0, "hangouts": 0}
+        self.counters = {"chaos": 0, "crimes": 0, "pranks": 0, "arguments": 0, "gifts": 0, "hangouts": 0, "casino_net": 0}
         self.log = []
         self.energy = 3
         self.done = set()
@@ -295,8 +298,8 @@ class Sibling:
             return True
         return False
 
-    def has_asset(self, kind):
-        return any(a["kind"] == kind for a in self.assets)
+    def owns(self, item_id):
+        return sum(1 for a in self.assets if a["id"] == item_id)
 
 
 class Family:

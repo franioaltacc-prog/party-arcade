@@ -6,6 +6,14 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '2.21.0', date: '2026-10-17', emoji: '🏡', title: 'Family Life: a shop, a lifestyle and a real casino', items: [
+      'A 🛍️ Shop with almost 70 things: cars, supercars, yachts, a private jet, homes from a studio to a castle or a private island, rental apartments, businesses, crypto and gold, art, a racehorse, a pet tiger, staff (a trainer, stylist, tutor, publicist, lawyer…) and experiences (a world cruise, a pop star at your birthday, a trip to space)',
+      'Own as many cars and homes as you like. Everything has yearly upkeep, values go up or down every birthday, rentals and businesses earn (or lose) money, and you can sell things in 🧾 My stuff',
+      'A new 💎 Lifestyle tab: yacht parties, jet trips, race track days, car shows, mansion parties, ski trips, art nights, racing your horse, watching your own team, walking your tiger, charity galas and running for mayor',
+      'The 🎰 Casino is brand new: slots, roulette, blackjack, lucky dice, horse racing, scratch cards and the lottery, all animated so you see the reels stop, the wheel slow down or the horses cross the line before you find out if you won',
+      'Money is harder to make: bigger salaries pay more tax, the casino and lottery have a house edge (they used to pay out more than you bet!), stocks, businesses and heists pay a bit less, and if you fall into debt the bank takes your stuff',
+      'A new end-of-game award: 🍀 Luckiest Gambler',
+    ] },
     { v: '2.20.0', date: '2026-10-13', emoji: '💬', title: 'Team chat, announcements and a tidier menu', items: [
       'The calendar team (testers, developers and admins) has its own group chat: the new 💬 Team chat tab on the update calendar, with a badge for messages you haven’t read',
       'Team announcements at the top of the calendar: developers and admins post them, and everyone on the team sees them, with NEW on the ones you haven’t seen',

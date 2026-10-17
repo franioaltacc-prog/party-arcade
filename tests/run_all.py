@@ -25,7 +25,7 @@ BATCHES = [
     ["dasheditbot", "poolbot", "flappybot", "golfbot", "themebot"],
     ["rolebot"],
 ]
-UNIT = ["phunit", "phunit2", "tourunit", "poolunit"]
+UNIT = ["phunit", "phunit2", "tourunit", "poolunit", "lifeunit"]
 JS = ["polytest.js", "polyends.js", "dashedit.js", "poolai.js", "flappytest.js", "golftest.js"]
 FLAKY = ["doodle word"]            # known to fail now and then; reported as a warning
 

@@ -234,6 +234,19 @@ Everything lives in `games/life/data/*.json`. The files are re-read at the start
 - `family_events.json`: shared events (divorce, moving, pets, inheritance…).
 - `actions.json`: solo actions. `sibling_actions.json`: sibling-to-sibling actions (`consent: true` = target gets Accept/Decline). `group_actions.json`: voted actions, with `rule` set to unanimous or majority.
 - Conditions and weights are small expressions such as `age >= 18 and money > 500`, `100 - looks` or `rand(3, 8)`. Effects include `health happy smarts looks money fame karma`, `rel_parents`, `sib_rel`, `partner`, `marry`, `kid`, `pet`, `jail`, `ach`, and `log` (a Family Log line).
+- `shop.json`: the 🛍️ Shop (vehicles, homes, investments, luxury things, staff, experiences). Each item has a `price`,
+  yearly `upkeep`, `growth` (% its value changes every birthday), and optionally `income` (rentals and businesses, can be
+  negative), `bust` (yearly chance a business goes under), `fx` when you buy it, `yearly` effects (staff), `home`, `max`
+  and `once`. You can own several of most things; selling gets 90% of today's value. Lifestyle actions in `actions.json`
+  (`cat: "rich"`) use `own_<item id>` in their `cond` (e.g. `own_yacht or own_superyacht`).
+- Every birthday your stuff changes value, pays its upkeep and earns its income (one 🧾 line in your life story). If you
+  end up in debt, staff you can't pay quit and the bank takes your most valuable things (at 70%).
+- Salaries are taxed in brackets (15% up to $20k … 45% above $400k); an 🧮 accountant saves 20% of the tax.
+- 🎰 Casino (`games/life/casino.py`): one visit costs 1 energy and gives 15 games of slots, roulette, blackjack, lucky
+  dice, horse racing, scratch cards and the lottery. The server decides every game and the browser animates it
+  (`public/js/games/life-casino.js`); your new balance only shows once the reels stop or the horses finish. Every game
+  has a house edge (slots ~94%, roulette 97%, dice 92–96%, horses 94%, blackjack ~97–99%, scratch 80%, lottery 84%),
+  checked in `tests/lifeunit.py`.
 - Typos in expressions are printed when the server starts.
 
 ## Running the tests
@@ -243,7 +256,7 @@ python3 tests/run_all.py
 It starts a throwaway server (temporary SQLite database, test admin code `test-admin-code-123`) and runs ~800 checks:
 - Websocket bots that play the online games like real players: accounts, friends, invites, votes, party mode, watching,
   Prop Hunt, tournaments, Poly Racer, Minesweeper, Front Wars, Billiards, Flappy Royale, Mini Golf, the Dash level
-  editor (posting limit, admin review), themes and Halloween quests, cheats and rewards, roles and the update calendar.
+  editor (posting limit, admin review), themes and Halloween quests, cheats and rewards, roles and the update calendar, the Family Life shop and casino.
 - In-process tests of the Prop Hunt rules and tournament brackets, and the pool physics (Python vs JS, bit for bit).
 - If JavaScriptCore (macOS) or Node is installed, an autopilot drives every Poly Racer track, every Neon Flappy
   test level is checked to be flyable and every Mini Golf hole is solved within par + 1.

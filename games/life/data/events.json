@@ -2269,11 +2269,7 @@
        "fx": {
         "money": -40000,
         "happy": 15,
-        "asset": [
-         "car",
-         "🏎️ Sports car",
-         40000
-        ]
+        "asset": "roadster"
        }
       }
      ]

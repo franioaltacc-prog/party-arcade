@@ -21,7 +21,7 @@
   const prevBars = {};
 
   const STATS = [['health', '❤️', 'Health', '#22c55e'], ['happy', '😊', 'Happy', '#facc15'], ['smarts', '🧠', 'Smarts', '#3b82f6'], ['looks', '✨', 'Looks', '#ec4899']];
-  const ACT_TABS = [['activities', '🎯 Activities'], ['school', '🏫 School'], ['career', '💼 Career'], ['family', '🏠 Home'], ['love', '💞 Love'], ['money', '💰 Money'], ['risky', '🦹 Crime'], ['jail', '🔒 Jail'], ['group', '🗳️ Together']];
+  const ACT_TABS = [['activities', '🎯 Activities'], ['school', '🏫 School'], ['career', '💼 Career'], ['family', '🏠 Home'], ['love', '💞 Love'], ['money', '💰 Money'], ['rich', '💎 Lifestyle'], ['risky', '🦹 Crime'], ['jail', '🔒 Jail'], ['group', '🗳️ Together']];
   const SIB_LABELS = { hangout: '🤝 Hang out', teach: '🧑‍🏫 Help study', argue: '😤 Argue', prank: '😜 Prank', gift: '🎁 Gift money', borrow: '🙏 Borrow', payback: '💸 Pay back', bail: '🔓 Bail out', snitch: '🐀 Snitch' };
   const SEASONS = { 1: '❄️ Winter', 2: '🌸 Spring', 3: '☀️ Summer', 4: '🍂 Fall' };
   const RULES = { unanimous: 'Everyone must agree', majority: 'Majority wins', optin: 'Opt-in' };
@@ -229,7 +229,8 @@
     if (m.partner) chips.push(`${m.partner.married ? '💍 Married to' : '💞 Dating'} ${m.partner.first}`);
     m.kids.forEach((k) => chips.push(`🧒 ${k}`));
     m.pets.forEach((p) => chips.push(`${p.emoji} ${p.name}`));
-    m.assets.forEach((a) => chips.push(a.name));
+    const things = m.assets.filter((a) => a.cat !== 'staff');
+    const staff = m.assets.length - things.length;
     chips.push(`👩 Mom ${m.relMom}`, `👨 Dad ${m.relDad}`);
     fill(el,
       h('div', { class: 'me-head' },
@@ -242,6 +243,8 @@
           ? h('div', { class: 'money-box' }, h('div', { class: 'l' }, '💰 MONEY'), h('div', { class: 'v', style: { fontSize: '.9rem' } }, '🍼 Too young'))
           : h('div', { class: 'money-box' }, h('div', { class: 'l' }, '💰 MONEY'), h('div', { class: 'v' + (m.money < 0 ? ' neg' : '') }, fmtMoney(m.money)))),
       h('div', { class: 'chips' }, chips.map((c) => h('span', { class: 'chip' }, c)), m.fame ? h('span', { class: 'chip' }, `⭐ Fame ${m.fame}`) : null,
+        m.assets.length ? h('button', { class: 'chip chip-btn', title: 'See and sell your stuff', onclick: () => Shop.open('mine') },
+          `🧾 ${things.length ? `${things.length} thing${things.length === 1 ? '' : 's'} · ${fmtMoney(things.reduce((t, a) => t + a.value, 0))}` : ''}${things.length && staff ? ' · ' : ''}${staff ? `🤵 ${staff} staff` : ''}`) : null,
         m.trust ? h('span', { class: 'chip', title: 'Held for you until you turn 18', style: { background: 'rgba(34,197,94,.18)' } }, `🏦 Trust fund ${fmtMoney(m.trust)} (yours at 18)`) : null,
         m.heat ? h('span', { class: 'chip', title: 'Crimes raise your heat. High heat = more likely to get caught. It cools down over time (or lie low).', style: { background: m.heat >= 50 ? 'rgba(244,63,94,.3)' : 'rgba(251,146,60,.2)' } }, `🚨 Heat ${m.heat}`) : null,
         h('span', { class: 'chip' }, `🎸 ${m.skills.music}`), h('span', { class: 'chip' }, `🏅 ${m.skills.sport}`)),
@@ -324,8 +327,13 @@
         crime.length ? h('div', { class: 'label-h', style: { gridColumn: '1 / -1', marginTop: '8px' } }, '🦹 Crew heists · whoever votes yes joins the crew') : null,
         ...crime.map(card)].filter(Boolean);
     } else {
-      grid = m.actions.filter((a) => a.cat === actTab).map((a) => h('button', { class: 'act', disabled: (out && !a.client) || a.done, title: a.done ? 'Already done this year' : '', onclick: () => doAction(a) },
-        h('span', { class: 'e' }, a.emoji), h('span', {}, a.label + (a.done ? ' ✓' : ''))));
+      grid = m.actions.filter((a) => a.cat === actTab).map((a) => {
+        const visit = a.id === 'casino' && m.casino;
+        const done = a.done && !visit;
+        const label = visit ? `${a.label} · ${m.casino.left} left` : a.label + (done ? ' ✓' : '');
+        return h('button', { class: 'act' + (visit ? ' live' : ''), disabled: (out && !a.client) || done || (a.id === 'casino' && out && !visit), title: done ? 'Already done this year' : '', onclick: () => doAction(a) },
+          h('span', { class: 'e' }, a.emoji), h('span', {}, label));
+      });
     }
     fill(el,
       h('div', { class: 'act-tabs' }, tabs.map(([k, l]) => h('button', { class: k === actTab ? 'on' : '', onclick: () => { actTab = k; renderActs(S.me); Sfx.play('click'); if (FX.list) FX.list($$('#m-acts .act-grid > *'), { y: 14, scale: 0.9, stagger: 0.025, duration: 0.3, ease: 'back.out(2)' }); } }, l))),
@@ -371,6 +379,9 @@
   function doAction(a) {
     Sfx.play('click');
     if (a.client === 'jobs') return jobBoard();
+    if (a.client === 'shop') return Shop.open();
+    if (a.client === 'stuff') return Shop.open('mine');
+    if (a.client === 'casino') return Net.send('g:casino', { op: 'enter' });
     Net.send('g:act', { a: a.id });
   }
 
@@ -553,9 +564,19 @@
 
   Lobby.on('joined', (m) => { S = m.state; seenFamLog = -1; route(); });
   Lobby.on('players', () => { if (S.phase !== 'playing') renderLobby(); });
-  Net.on('g:state', (m) => {
+  let holding = false;
+  let held = null;
+  const Shop = LifeShop({ me: () => S.me });
+  const Casino = LifeCasino({
+    hold() { holding = true; },
+    release() { holding = false; if (held) { const st = held; held = null; applyState(st); } },
+  });
+  Net.on('g:shop', (m) => Shop.onItems(m.items));
+  Net.on('g:casino', (m) => Casino.onMessage(m));
+  Net.on('g:state', (m) => { if (holding) held = m.state; else applyState(m.state); });
+  function applyState(state) {
     const was = S.phase;
-    S = m.state;
+    S = state;
     if (was !== S.phase && S.phase === 'playing') {
       seenLog = -1; seenFamLog = -1; lastWhen = null; lastMoney = null;
       for (const k of Object.keys(prevBars)) delete prevBars[k];
@@ -564,9 +585,11 @@
       if (G) setTimeout(() => FX.banner(`🍼 The ${S.family ? S.family.last : ''} family`, 'A new life begins!', { color: '#a3e635', hold: 1.6 }), 300);
     }
     route();
-  });
+    Shop.refresh();
+  }
   const deltaChips = (delta) => (delta || []).map((d) => h('span', { class: 'delta' + (d.d < 0 ? ' neg' : '') }, `${d.d > 0 ? '+' : ''}${d.k === 'money' ? fmtMoney(d.d) : d.d} ${d.icon}`));
   Net.on('g:toast', (m) => {
+    if (m.warn) Casino.refused();
     const chips = deltaChips(m.delta);
     UI.toast(h('div', {}, h('div', {}, m.text), chips.length ? h('div', { class: 'result-pop' }, chips) : null), m.warn ? 'bad' : '', 3800);
     Sfx.play(m.warn ? 'wrong' : 'pop');

@@ -9,6 +9,7 @@ import random
 import time
 
 from ..base import Game, num as clean_num
+from . import casino as C
 from . import engine
 from .engine import (EXTRA, LEVELS, PLAIN_LETS, SEASONS, STATS, Family, Sibling, check, evaluate, fmt, jail_str,
                      money_str, num, pick_weighted)
@@ -23,6 +24,12 @@ ADULT = 18         # inheritance for younger kids waits in a trust fund until th
 HEIST_ROLES = [("🧠 Mastermind", "smarts"), ("💻 Hacker", "smarts"), ("🚗 Getaway driver", "sport"),
                ("💪 Muscle", "health"), ("🎭 Distraction", "looks")]
 SCALED = {"health", "happy", "smarts", "looks", "fame", "music", "sport", "perf"}
+# Salary tax: (up to this much a year, rate). Rich people pay more of each extra dollar.
+TAX_BRACKETS = [(20000, 0.15), (60000, 0.25), (150000, 0.33), (400000, 0.40), (None, 0.45)]
+CARS = {"usedcar", "sedan", "pickup", "electric", "roadster", "limo", "sportscar", "classic", "supercar"}
+SELL_RATE = 0.9           # selling something gets you 90% of what it's worth now
+REPO_RATE = 0.7           # the bank only gives you 70% when it takes your things
+CASINO_BIG = 50000        # wins and losses this big go in your life story
 BUSINESSES = ["{last} Bros Burgers 🍔", "{last} & Co. Tech 💻", "Sibling Slime Shop 🟢", "{last} Family Bakery 🥐",
               "The {last} Escape Room 🔐", "{last} Pet Hotel 🐶", "Double Trouble Coffee ☕"]
 
@@ -47,6 +54,8 @@ def reload_data():
         sib_map={a["id"]: a for a in data["sibling_actions"]["actions"]},
         group=data["group_actions"]["actions"],
         group_map={a["id"]: a for a in data["group_actions"]["actions"]},
+        shop=data["shop"]["items"],
+        shop_map={i["id"]: i for i in data["shop"]["items"]},
     )
 
 
@@ -55,6 +64,19 @@ reload_data()
 
 def clamp(v, lo=0, hi=100):
     return max(lo, min(hi, int(v)))
+
+
+def take_home(salary, accountant=False):
+    """A year's salary after tax (an accountant saves you 20% of the tax)."""
+    tax, low = 0.0, 0
+    for top, rate in TAX_BRACKETS:
+        high = salary if top is None else min(salary, top)
+        if high > low:
+            tax += (high - low) * rate
+        if top is None or salary <= top:
+            break
+        low = top
+    return int(salary - tax * (0.8 if accountant else 1))
 
 
 def join_names(names):
@@ -92,6 +114,7 @@ class Life(Game):
         self.ranking = None
         self.awards = None
         self.cooldown = {}
+        self.asset_seq = 0
 
     def listed(self):
         return self.phase in ("lobby", "over")
@@ -215,7 +238,11 @@ class Life(Game):
             "star_job": bool(s.job and D["jobs"].get(s.job["key"], {}).get("star")),
             "has_partner": bool(s.partner), "married": bool(s.partner and s.partner["married"]),
             "partner_years": s.partner["years"] if s.partner else 0, "kids": len(s.kids), "pets": len(s.pets),
-            "has_car": s.has_asset("car"), "has_house": s.has_asset("house"), "has_mansion": s.has_asset("mansion"),
+            "has_car": any(a["id"] in CARS for a in s.assets), "has_house": any(self.is_home(a) for a in s.assets),
+            "has_mansion": bool(s.owns("mansion") or s.owns("castle")),
+            "cars": sum(1 for a in s.assets if a["id"] in CARS), "homes": sum(1 for a in s.assets if self.is_home(a)),
+            "businesses": sum(1 for a in s.assets if D["shop_map"].get(a["id"], {}).get("income")),
+            "staff": sum(1 for a in s.assets if a["cat"] == "staff"), "stuff": sum(1 for a in s.assets if a["cat"] != "staff"),
             "retired": s.retired, "degrees": len(s.degrees), "living_home": s.living == "home",
             "male": s.gender == "m", "female": s.gender == "f", "siblings": len(others),
             "is_twin": any(o.age == s.age for o in others), "is_oldest": all(o.age < s.age for o in others),
@@ -226,6 +253,10 @@ class Life(Game):
         }
         for k in STATS + EXTRA:
             e[k] = getattr(s, k)
+        for item in D["shop"]:          # own_yacht, own_racehorse... = how many you own (for lifestyle actions)
+            e["own_" + item["id"]] = 0
+        for a in s.assets:
+            e["own_" + a["id"]] = e.get("own_" + a["id"], 0) + 1
         if sib:
             e.update(sib_age=sib.age, sib_smarts=sib.smarts, sib_rel=self.rel(s, sib), sib_money=sib.money, sib_health=sib.health)
         else:
@@ -339,9 +370,14 @@ class Life(Game):
                 if v:
                     self.add_pet(s.pets, s.age)
             elif k == "asset":
-                kind, name, value = v
-                if not s.has_asset(kind):
-                    s.assets.append({"kind": kind, "name": name, "value": value})
+                item = D["shop_map"].get(v if isinstance(v, str) else None)
+                if item and s.owns(item["id"]) < item.get("max", 1):
+                    self.add_asset(s, item)
+            elif k == "biz_grow":      # % change to the value of everything you own that earns money
+                pct = num(v, env)
+                for a in s.assets:
+                    if D["shop_map"].get(a["id"], {}).get("income"):
+                        a["value"] = max(0, int(a["value"] * (1 + pct / 100)))
             elif k == "ach":
                 s.achieve(v)
             elif k == "uni":
@@ -515,6 +551,16 @@ class Life(Game):
             return
         elif t == "act":
             self.do_action(m, s, msg)
+        elif t == "shop":
+            m.send("g:shop", items=self.shop_view(s))
+        elif t == "buy":
+            self.buy(m, s, msg.get("id"))
+        elif t == "sell":
+            uid = msg.get("uid")
+            if isinstance(uid, int) and not isinstance(uid, bool):
+                self.sell(m, s, uid)
+        elif t == "casino":
+            self.casino_op(m, s, msg)
         elif t == "sib":
             self.do_sib_action(m, s, msg)
         elif t == "respond":
@@ -744,6 +790,319 @@ class Life(Game):
             return f"{'You switched jobs! ' if had else ''}You got hired as a {j['title']}! {j['emoji']} ({money_str(j['salary'])}/yr)", True
         s.add("happy", -random.randint(2, 4))
         return f"The {j['title']} job went to someone else. Keep trying! 📭", True
+
+    # ------------------------------------------------------------------ the shop and your stuff
+    @staticmethod
+    def is_home(a):
+        return bool(D["shop_map"].get(a["id"], {}).get("home"))
+
+    def add_asset(self, s, item):
+        self.asset_seq += 1
+        a = {"uid": self.asset_seq, "id": item["id"], "cat": item["cat"], "name": item["name"], "emoji": item["emoji"],
+             "value": item["price"], "paid": item["price"]}
+        s.assets.append(a)
+        return a
+
+    def can_buy(self, s, item, env):
+        owned = s.owns(item["id"])
+        if s.jail:
+            return False, "Not from jail"
+        if s.age < item.get("age", 18):
+            return False, f"Must be {item.get('age', 18)}+"
+        if not check(item.get("cond"), env):
+            return False, item.get("need", "Not yet")
+        if item["cat"] == "fun":
+            if item.get("once") and item["id"] in s.once:
+                return False, "Once in a lifetime ✓"
+            if item["id"] in s.done:
+                return False, "Already did it this year"
+            if s.energy <= 0:
+                return False, "No energy left"
+        elif item["cat"] == "staff":
+            if owned:
+                return False, "Already hired"
+            if s.money < item["upkeep"]:
+                return False, f"Need {money_str(item['upkeep'])} to pay them"
+            return True, ""
+        elif owned >= item.get("max", 1):
+            return False, "You have the most you can own" if item.get("max", 1) > 1 else "You own one"
+        if s.money < item["price"]:
+            return False, "Not enough money"
+        return True, ""
+
+    def shop_view(self, s):
+        env = self.env(s)
+        out = []
+        for item in D["shop"]:
+            ok, why = self.can_buy(s, item, env)
+            out.append({k: item.get(k) for k in ("id", "cat", "emoji", "name", "price", "upkeep", "growth", "income", "desc", "home", "once", "bust")}
+                       | {"max": item.get("max", 1), "owned": s.owns(item["id"]), "ok": ok, "why": why, "age": item.get("age", 18)})
+        return out
+
+    def buy(self, m, s, item_id):
+        item = D["shop_map"].get(item_id)
+        if not item:
+            return
+        env = self.env(s)
+        ok, why = self.can_buy(s, item, env)
+        if not ok:
+            m.send("g:toast", text=f"You can't get that: {why}", delta=[], warn=True)
+            return
+        before = s.snap()
+        ctx = self.ctx(s)
+        s.money -= item["price"]
+        first = item["id"] not in s.bought        # buying and selling the same thing again doesn't give its bonus again
+        s.bought.add(item["id"])
+        if item["cat"] == "fun":
+            s.energy -= 1
+            s.done.add(item["id"])
+            if item.get("once"):
+                s.once.add(item["id"])
+            text = fmt(item.get("text", f"{item['emoji']} {item['name']}!"), ctx)
+        elif item["cat"] == "staff":
+            self.add_asset(s, item)
+            text = f"You hired a {item['name'].lower()}! {item['emoji']} They cost {money_str(item['upkeep'])} a year."
+        else:
+            self.add_asset(s, item)
+            text = f"You bought a {item['name'].lower()}{' for ' + money_str(item['price']) if item['price'] else ''}! {item['emoji']}"
+            if item.get("home") and s.living != "together" and s.age >= 18:
+                s.living = "own"
+                text += " You moved in. 🔑"
+        extra = self.apply_fx(s, item.get("fx"), env=env) if first or item["cat"] == "fun" else []
+        if item.get("log") and first:
+            self.flog(fmt(item["log"], ctx))
+        s.add_log(text)
+        m.send("g:toast", text=" ".join([text] + extra), delta=s.diff(before))
+        m.send("g:shop", items=self.shop_view(s))
+        self.after_change()
+
+    def sell(self, m, s, uid):
+        a = next((x for x in s.assets if x["uid"] == uid), None)
+        if not a:
+            return
+        s.assets.remove(a)
+        if a["cat"] == "staff":
+            text = f"You let your {a['name'].lower()} go. {a['emoji']}👋"
+        else:
+            got = int(a["value"] * SELL_RATE)
+            s.money += got
+            text = f"You sold your {a['name'].lower()} for {money_str(got)}. {a['emoji']}"
+            if self.is_home(a) and s.living == "own" and not any(self.is_home(x) for x in s.assets):
+                text += " You're renting a place now."
+        s.add_log(text)
+        m.send("g:toast", text=text, delta=[])
+        m.send("g:shop", items=self.shop_view(s))
+        self.after_change()
+
+    def yearly_stuff(self, s):
+        """Every birthday: values go up or down, rentals and businesses pay (or lose) money, everything has upkeep."""
+        income = upkeep = 0
+        for a in list(s.assets):
+            item = D["shop_map"].get(a["id"])
+            if not item:
+                continue
+            upkeep += item.get("upkeep", 0)
+            if a["cat"] == "staff":
+                self.apply_fx(s, item.get("yearly"))
+                continue
+            lo, hi = item.get("growth", [0, 0])
+            a["value"] = max(0, int(a["value"] * (1 + random.uniform(lo, hi) / 100)))
+            if item.get("income"):
+                if random.random() < item.get("bust", 0):
+                    s.assets.remove(a)
+                    s.add_log(f"💥 Your {a['name'].lower()} went out of business. It's gone.")
+                    if a["value"] >= 1_000_000:
+                        self.flog(f"💥 {s.first}'s {a['name'].lower()} went bust!")
+                    continue
+                income += int(random.randint(*item["income"]) * a["value"] / max(1, item["price"]))
+        if income or upkeep:
+            s.money += income - upkeep
+            bits = ([f"{'+' if income >= 0 else '-'}{money_str(abs(income))} from rentals & businesses"] if income else []) + \
+                   ([f"-{money_str(upkeep)} upkeep"] if upkeep else [])
+            s.add_log("🧾 Your stuff this year: " + ", ".join(bits) + ".")
+
+    def repossess(self, s):
+        """In debt: staff you can't pay quit, then the bank takes your most valuable things."""
+        for a in sorted((x for x in s.assets if x["cat"] == "staff"), key=lambda x: -D["shop_map"].get(x["id"], {}).get("upkeep", 0)):
+            if s.money >= 0:
+                return
+            s.assets.remove(a)
+            s.add_log(f"💸 You couldn't pay your {a['name'].lower()}, so they quit.")
+        while s.money < 0:
+            things = [x for x in s.assets if x["cat"] != "staff" and x["value"] > 0]
+            if not things:
+                return
+            a = max(things, key=lambda x: x["value"])
+            got = int(a["value"] * REPO_RATE)
+            s.assets.remove(a)
+            s.money += got
+            s.add("happy", -3)
+            s.add_log(f"🏦 You were in debt, so the bank took your {a['name'].lower()} (+{money_str(got)}).")
+            if a["value"] >= 1_000_000:
+                self.flog(f"🏦 The bank took {s.first}'s {a['name'].lower()}!")
+
+    # ------------------------------------------------------------------ the casino
+    def casino_public(self, s):
+        c = s.casino
+        out = {"left": c["left"], "played": c["played"], "net": c["won"] - c["lost"], "field": c["field"], "money": s.money,
+               "minBet": C.MIN_BET, "maxBet": C.MAX_BET, "scratch": C.SCRATCH_PRICES, "lotto": C.LOTTO_PRICE}
+        if c["bj"]:
+            out["bj"] = C.bj_public(c["bj"]) | {"bet": c["bj"]["bet"]}
+        return out
+
+    def casino_op(self, m, s, msg):
+        """Casino visits cost 1 energy and give you a few games. The server decides every game; the browser animates it."""
+        op = msg.get("op")
+        c = s.casino if s.casino and s.casino["turn"] == self.t else None
+        warn = lambda text: m.send("g:toast", text=text, delta=[], warn=True)
+        if op == "enter":
+            if s.age < 18 or s.jail:
+                return warn("🎰 The casino is for adults (and not from jail).")
+            if not c:
+                if "casino" in s.done:
+                    return warn("🎰 You already went to the casino this year.")
+                if s.energy <= 0:
+                    return warn("😴 You're out of energy this year!")
+                s.energy -= 1
+                s.done.add("casino")
+                s.casino = c = {"turn": self.t, "left": C.PLAYS_PER_VISIT, "played": 0, "won": 0, "lost": 0,
+                                "field": C.horse_field(), "bj": None, "at": 0}
+                self.after_change()
+            m.send("g:casino", op="enter", **self.casino_public(s))
+            return
+        if not c:
+            return warn("🎰 Go into the casino first.")
+        now = time.time()
+        if now - c["at"] < 0.3:
+            return
+        c["at"] = now
+        hand = c["bj"]
+        if op == "bj" and msg.get("move") in ("hit", "stand", "double") and hand and not hand["done"]:
+            self.bj_move(m, s, c, msg.get("move"))
+            return
+        if hand and not hand["done"]:
+            return warn("🃏 Finish your blackjack hand first.")
+        if c["left"] <= 0:
+            return warn("🎰 That's all your games for this visit. Come back next time!")
+        if op == "scratch":
+            bet = msg.get("price") if msg.get("price") in C.SCRATCH_PRICES else None
+        elif op == "lottery":
+            bet = C.LOTTO_PRICE
+        else:
+            bet = int(clean_num(msg.get("bet"), 0, 0, C.MAX_BET))
+        if not bet or bet < C.MIN_BET:
+            return warn(f"🎰 The smallest bet is {money_str(C.MIN_BET)}.")
+        if bet > s.money:
+            return warn("🎰 You don't have that much money.")
+        if op == "slots":
+            r = C.slots()
+            name = "🎰 Slots"
+        elif op == "roulette":
+            choice = C.roulette_choice(msg.get("choice"))
+            if choice is None:
+                return
+            r = C.roulette(choice) | {"choice": choice}
+            name = "🎡 Roulette"
+        elif op == "dice":
+            if msg.get("choice") not in C.DICE_PAYS:
+                return
+            r = C.dice(msg["choice"]) | {"choice": msg["choice"]}
+            name = "🎲 Lucky dice"
+        elif op == "horses":
+            pick = msg.get("pick")
+            if not isinstance(pick, int) or isinstance(pick, bool) or not 0 <= pick < len(c["field"]):
+                return
+            r = C.horse_race(c["field"], pick) | {"pick": pick, "field": c["field"]}
+            name = f"🐎 Horse race ({c['field'][pick]['name']})"
+            c["field"] = C.horse_field()
+        elif op == "scratch":
+            r = C.scratch(bet)
+            name = "🎟️ Scratch card"
+        elif op == "lottery":
+            r = C.lottery(C.lottery_picks(msg.get("picks")))
+            name = "🎱 Lottery"
+        elif op == "bj" and msg.get("move") == "deal":
+            s.money -= bet
+            c["left"] -= 1
+            hand = c["bj"] = C.bj_deal() | {"bet": bet}
+            if C.is_blackjack(hand["player"]) or C.is_blackjack(hand["dealer"]):
+                return self.bj_move(m, s, c, "stand")
+            m.send("g:casino", op="bj", bj=C.bj_public(hand) | {"bet": bet}, money=s.money, left=c["left"], net=c["won"] - c["lost"])
+            self.push()
+            return
+        else:
+            return
+        s.money -= bet
+        c["left"] -= 1
+        win = self.casino_pay(s, c, bet, r["mult"], name)
+        if r.get("jackpot") and s.achieve("🎰 Hit the jackpot"):
+            self.flog(f"🎰 {s.first} hit 7-7-7 on the slots!")
+        if op == "horses" and r["mult"] >= 30:
+            s.achieve("🐎 Long shot winner")
+        if op == "lottery" and r["hits"] == 5 and s.achieve("🍀 Lottery winner"):
+            self.flog(f"🍀 {s.first} WON THE LOTTERY JACKPOT!")
+        m.send("g:casino", op=op, result=r, bet=bet, win=win, money=s.money, left=c["left"], net=c["won"] - c["lost"],
+               field=c["field"])
+        self.push()
+
+    def casino_pay(self, s, c, bet, mult, name):
+        """Pay out a finished game (the bet was already taken). Returns what came back."""
+        win = int(round(bet * mult))
+        s.money += win
+        net = win - bet
+        c["played"] += 1
+        if net > 0:
+            c["won"] += net
+        else:
+            c["lost"] -= net
+        if net >= CASINO_BIG:
+            s.add_log(f"{name}: you won {money_str(net)}! 🤑")
+            if net >= 1_000_000:
+                self.flog(f"🎰 {s.first} won {money_str(net)} at the casino!")
+        elif -net >= CASINO_BIG:
+            s.add_log(f"{name}: you lost {money_str(-net)}. 😩")
+        return win
+
+    def bj_move(self, m, s, c, move):
+        hand = c["bj"]
+        if move == "double":
+            if len(hand["player"]) != 2 or s.money < hand["bet"]:
+                return m.send("g:toast", text="🃏 You can only double on your first two cards (with enough money).", delta=[], warn=True)
+            s.money -= hand["bet"]
+            hand["bet"] *= 2
+            hand["doubled"] = True
+            hand["player"].append(C.card())
+            C.bj_settle(hand)
+        elif move == "hit":
+            hand["player"].append(C.card())
+            if C.hand_value(hand["player"]) >= 21:
+                C.bj_settle(hand)
+        else:
+            C.bj_settle(hand)
+        win = 0
+        if hand["done"]:
+            win = self.casino_pay(s, c, hand["bet"], hand["mult"], "🃏 Blackjack")
+            if hand["outcome"] == "blackjack":
+                s.achieve("🃏 Blackjack!")
+        m.send("g:casino", op="bj", bj=C.bj_public(hand) | {"bet": hand["bet"]}, win=win, money=s.money, left=c["left"],
+               net=c["won"] - c["lost"])
+        self.push()
+
+    def casino_close(self, s):
+        """End of the turn: finish a blackjack hand that was left open and sum up the night."""
+        c, s.casino = s.casino, None
+        if not c:
+            return
+        if c["bj"] and not c["bj"]["done"]:
+            C.bj_settle(c["bj"])
+            self.casino_pay(s, c, c["bj"]["bet"], c["bj"]["mult"], "🃏 Blackjack")
+        if not c["played"]:
+            return
+        net = c["won"] - c["lost"]
+        s.counters["casino_net"] = s.counters.get("casino_net", 0) + net
+        s.add_log(f"🎰 Casino night: {c['played']} game{'s' if c['played'] != 1 else ''}, "
+                  f"{'up' if net >= 0 else 'down'} {money_str(abs(net))} overall.")
+        s.add("happy", random.randint(3, 6) if net > 0 else -random.randint(2, 5) if net < 0 else 0)
 
     # ------------------------------------------------------------------ sibling actions
     def sib_available(self, s, t):
@@ -1139,8 +1498,8 @@ class Life(Game):
         if pot < 1000:
             return f"🏢 {c['names']} tried to start “{name}” but nobody had any money. 🪙"
         avg_smarts = sum(s.smarts for s in involved) / len(involved)
-        if random.random() < 0.3 + avg_smarts / 250:
-            mult = random.uniform(1.6, 4.0)
+        if random.random() < 0.3 + avg_smarts / 300:
+            mult = random.uniform(1.4, 2.8)
             for s in involved:
                 gain = int(stakes[s.cid] * (mult - 1))
                 s.money += gain
@@ -1189,6 +1548,7 @@ class Life(Game):
     # ------------------------------------------------------------------ years
     def begin_turn(self):
         for s in self.alive():
+            self.casino_close(s)
             s.energy = (2 if self.quarterly else 3) if s.age >= 5 else 2
             s.done = set()
             if not s.event:
@@ -1230,9 +1590,11 @@ class Life(Game):
         """Things that happen every season: pay, rent, jail time, heat cooling down."""
         a = s.age
         if s.job and s.jail == 0:
-            s.money += int(s.job["salary"] * 0.75 / 4)
+            s.money += take_home(s.job["salary"], bool(s.owns("accountant"))) // 4
         if a >= 18 and s.jail == 0:
             rent = {"home": 3000, "own": 14000, "together": 8000}.get(s.living, 8000)
+            if s.living == "own" and any(self.is_home(x) for x in s.assets):
+                rent = 0            # you live in a home you own: you pay its upkeep instead
             s.money -= (rent + 3000 * len([k for k in s.kids if a - k["born"] < 18])) // 4
         if s.retired:
             s.money += s.pension // 4
@@ -1305,11 +1667,12 @@ class Life(Game):
             else:
                 s.job["perf"] -= 5
 
+        self.yearly_stuff(s)
+        if s.money < 0:
+            self.repossess(s)
         if s.money < 0:
             s.money = int(s.money * 1.05)
             s.add("happy", -random.randint(1, 3))
-        for asset in s.assets:
-            asset["value"] = int(asset["value"] * (0.9 if asset["kind"] == "car" else 1.03))
 
         if s.partner:
             s.partner["years"] = s.partner.get("years", 0) + 1
@@ -1558,6 +1921,7 @@ class Life(Game):
         if len(sibs) > 1:
             award("Best Sibling", "💞", self.sibling_love, lambda v: f"{v} sibling love")
         award("Longest Life", "🧓", lambda s: s.age, lambda v: f"{v} years")
+        award("Luckiest Gambler", "🍀", lambda s: s.counters.get("casino_net", 0), lambda v: f"+{money_str(v)} at the casino", lambda v: v > 0)
         award("Biggest Brain", "🧠", lambda s: s.smarts, lambda v: f"{v} smarts")
         award("Most Famous", "⭐", lambda s: s.fame, lambda v: f"{v} fame", lambda v: v > 0)
         award("Happiest", "😊", lambda s: int(s.happy_sum / max(1, s.years)), lambda v: f"{v} avg happiness")
@@ -1701,12 +2065,18 @@ class Life(Game):
             "uni": {"major": D["majors"][s.uni["major"]][0], "years": s.uni["years"]} if s.uni else None,
             "degrees": [D["majors"][d][0] for d in s.degrees], "jail": s.jail, "retired": s.retired,
             "partner": dict(s.partner) if s.partner else None, "kids": [k["name"] for k in s.kids], "pets": s.pets,
-            "assets": s.assets, "achievements": s.achievements, "log": s.log[-140:], "energy": s.energy,
+            "assets": [self.asset_public(a) for a in s.assets], "achievements": s.achievements, "log": s.log[-140:], "energy": s.energy,
+            "casino": self.casino_public(s) if s.casino and s.casino["turn"] == self.t else None,
             "maxEnergy": (2 if self.quarterly else 3) if s.age >= 5 else 2, "actions": actions, "jobs": jobs, "groups": groups,
             "event": {"text": s.event["text"], "choices": s.event["labels"]} if s.event else None,
             "requests": reqs, "outgoing": outgoing, "relMom": s.rel_mom, "relDad": s.rel_dad,
             "counters": s.counters, "score": s.score,
         }
+
+    @staticmethod
+    def asset_public(a):
+        item = D["shop_map"].get(a["id"], {})
+        return a | {k: item.get(k) for k in ("upkeep", "income", "growth", "home", "desc")} | {"sell": int(a["value"] * SELL_RATE)}
 
     def vote_public(self):
         v = self.vote
