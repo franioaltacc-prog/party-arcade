@@ -261,9 +261,22 @@
       <path d="M114 108h82" stroke="rgba(255,255,255,.4)" stroke-width="1.5"/>
       ${emoji(160, 42, 26, '🎧')}${emoji(128, 44, 12, '🎵')}${emoji(188, 60, 12, '🎶')}${emoji(22, 100, 13, '❓')}`, '#3b0764', '#db2777');
 
+  // Screen Volley: two laptops side by side, the ball flying from one screen to the other
+  const laptop = (x, c) => `<g transform="translate(${x} 34)"><rect x="0" y="0" width="74" height="48" rx="4" fill="#0f0a24" stroke="#cbd5e1" stroke-width="3"/>
+      <rect x="4" y="4" width="66" height="40" fill="url(#g-volley)" opacity=".55"/><path d="M4 42h66" stroke="${c}" stroke-width="2"/>
+      <path d="M-8 52h90l-6 6h-78z" fill="#cbd5e1"/></g>`;
+  ART.volley = svg('volley', `
+      <circle cx="100" cy="64" r="58" fill="#facc15" opacity=".1"/>
+      ${laptop(22, '#ff4fd8')}${laptop(104, '#22d3ee')}
+      <rect x="93" y="58" width="3" height="18" fill="#fff" opacity=".8"/><rect x="104" y="58" width="3" height="18" fill="#fff" opacity=".8"/>
+      <path d="M58 64 Q 100 6 142 56" stroke="#fde047" stroke-width="2.5" stroke-dasharray="2 6" stroke-linecap="round" fill="none"/>
+      <circle cx="58" cy="66" r="6" fill="none" stroke="#ff4fd8" stroke-width="2.5"/>
+      ${emoji(112, 22, 22, '🏐')}${emoji(166, 98, 14, '💥')}${emoji(20, 100, 13, '⚡')}`, '#1e1b4b', '#0e7490');
+
   // ---------------------------------------------------------------- cards
   const ONLINE = [
     { key: 'songs', title: 'Song Rush', icon: '🎧', desc: 'A song starts playing… name it before everyone else! Type the title and the artist, or pick from four. Hits from the 2020s back to the 60s, Disney, K-pop, party songs and spooky Halloween tunes.', players: '1–16 players', glow: 'rgba(236,72,153,.7)', feature: true, isNew: true },
+    { key: 'volley', title: 'Screen Volley', icon: '🏐', desc: 'Put two laptops side by side and punch a volleyball from your screen onto your friend’s! Your cursor is your hand. Fast reflexes win. No second laptop? Practice against the robot.', players: '2 players (+ robot practice)', glow: 'rgba(34,211,238,.7)', feature: true, isNew: true },
     { key: 'dash', title: 'Neon Dash', icon: '🟪', desc: 'A mini Geometry Dash! Race your friends through the same level of spikes, jump pads and orbs.', players: '1–12 players', glow: 'rgba(168,85,247,.7)', feature: true },
     { key: 'life', title: 'Family Life', icon: '🏡', desc: 'A multiplayer BitLife where you and your friends are siblings in one family. Vote to age up, plan family trips, prank each other. Best life wins!', players: '1–4 siblings', glow: 'rgba(34,197,94,.6)', feature: true },
     { key: 'doodle', title: 'Doodle Guess', icon: '🎨', desc: 'One person draws, everyone guesses. Fast fingers win!', players: '2–12 players', glow: 'rgba(244,63,94,.6)' },

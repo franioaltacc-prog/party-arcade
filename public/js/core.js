@@ -5,7 +5,7 @@
 
   // The site's version. Bump it with every update, together with a new entry at the
   // top of public/js/changelog.js (the /changelog page).
-  const VERSION = '2.22.0';
+  const VERSION = '3.0.0';
 
   // ---------------------------------------------------------------- helpers
   const $ = (s, r = document) => r.querySelector(s);
@@ -1052,11 +1052,11 @@
      × hides it for good. Set NEWS = null when there's nothing to say, and give a new message a new id so people
      who hid the last one see it. */
   const NEWS = {
-    id: 'song-rush-out', until: '2026-10-26', emoji: '🎧',
-    title: 'Song Rush is here!',
-    text: 'The big update is out: a song starts playing, and you race your friends to name it.',
-    hint: '🎵 Over 450 songs, from 60s classics to K-pop, Disney and spooky Halloween tunes.',
-    link: ['/games/songs', '🎧 Play now'],
+    id: 'massive-update-3', until: '2026-10-26', emoji: '💥',
+    title: 'MASSIVE UPDATE: two new games!',
+    text: 'Song Rush: name the song before your friends do. Screen Volley: punch a ball from your laptop onto your friend’s.',
+    hint: '🎧 Over 450 songs · 🏐 two laptops side by side, one ball',
+    links: [['/games/songs', '🎧 Song Rush'], ['/games/volley', '🏐 Screen Volley']],
   };
   function news(bar) {
     if (!NEWS || store.get('pa_news_hide', null) === NEWS.id) return;
@@ -1073,7 +1073,7 @@
             countdown ? h('span', { class: 'news-n' }, days === 1 ? 'tomorrow!' : `in ${days} days`) : null),
           h('div', { class: 'news-s' }, countdown || NEWS.until ? h('span', { class: 'news-why' }, NEWS.text + ' ') : null, h('span', { class: 'news-hint' }, NEWS.hint))),
         h('span', { class: 'news-notes', 'aria-hidden': 'true' }, h('i', {}, '🎵'), h('i', {}, '🎶'), h('i', {}, '🎵')),
-        NEWS.link ? h('a', { class: 'btn btn-yellow btn-sm news-go', href: NEWS.link[0] }, NEWS.link[1]) : null,
+        (NEWS.links || NEWS.link) ? h('div', { class: 'news-go' }, (NEWS.links || [NEWS.link]).map(([href, label]) => h('a', { class: 'btn btn-yellow btn-sm', href }, label))) : null,
         h('button', { class: 'icon-btn news-x', 'aria-label': 'Hide this message', title: 'Hide this message',
           onclick: () => { store.set('pa_news_hide', NEWS.id); strip.remove(); } }, icon('x'))));
     bar.after(strip);

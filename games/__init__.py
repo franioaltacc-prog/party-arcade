@@ -13,5 +13,6 @@ from .mines import Minesweeper
 from .poly import Poly
 from .prophunt import PropHunt
 from .songs import SongRush
+from .volley import Volley
 
-GAMES = {g.key: g for g in (Dash, Life, Doodle, SongRush, Blitz, Connect4, Casino, Impostor, Minesweeper, Front, PropHunt, Poly, Flappy, Golf, Billiards)}
+GAMES = {g.key: g for g in (Dash, Life, Doodle, SongRush, Blitz, Connect4, Casino, Impostor, Minesweeper, Front, PropHunt, Poly, Flappy, Golf, Billiards, Volley)}

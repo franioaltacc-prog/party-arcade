@@ -6,17 +6,33 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
-    { v: '2.22.0', date: '2026-10-19', emoji: '🎧', title: 'The big update: Song Rush!', items: [
-      'A brand new online game: 🎧 Song Rush. A song starts playing and everyone races to name it',
-      'Type it: type the song’s name and the artist in the chat (or the movie, for movie songs). Spelling doesn’t have to be perfect, and you can type both at once',
-      'Pick from 4: choose the right song before the time runs out',
-      'The faster you answer, the more points you get, plus a bonus for being first and a 🔥 streak bonus for songs in a row',
-      'Stuck? Hints show up as time runs out: how many letters the title has, then the year, then the first letters of each word and the artist’s initials',
-      'Over 450 songs in 11 playlists: 2020s, 2010s, 2000s, 90s and 80s hits, Classics, Rock anthems, Movies & Disney, K-pop, Party classics and 🎃 Spooky songs for Halloween, or everything mixed up',
-      'See the album cover at the end of every song, and a list of every song you heard with links to Apple Music',
-      'Play alone or with up to 16 friends. Song Rush works in party mode too, with a new 🎧 Music night playlist',
-      'New leaderboards: Song Rush wins and the most songs named. Your profile shows your Song Rush stats',
-    ] },
+    { v: '3.0.0', date: '2026-10-17', emoji: '💥', massive: true, title: 'MASSIVE UPDATE: Song Rush and Screen Volley',
+      intro: 'The biggest update yet: two brand new online games, both made to play with friends in the same room.', sections: [
+        ['🎧 Song Rush', [
+          'A song starts playing and everyone races to name it',
+          'Type it: type the song’s name and the artist in the chat (or the movie, for movie songs). Spelling doesn’t have to be perfect, and you can type both at once',
+          'Pick from 4: choose the right song before the time runs out',
+          'The faster you answer, the more points you get, plus a bonus for being first and a 🔥 streak bonus for songs in a row',
+          'Stuck? Hints show up as time runs out: how many letters the title has, then the year, then the first letters of each word and the artist’s initials',
+          'Over 450 songs in 11 playlists: 2020s, 2010s, 2000s, 90s and 80s hits, Classics, Rock anthems, Movies & Disney, K-pop, Party classics and 🎃 Spooky songs for Halloween, or everything mixed up',
+          'See the album cover after every song, and a list of every song you heard with links to Apple Music',
+          'Play alone or with up to 16 friends. It works in party mode too, with a new 🎧 Music night playlist',
+        ]],
+        ['🏐 Screen Volley', [
+          'Put two laptops side by side and punch a volleyball from your screen onto your friend’s!',
+          'Your cursor is your hand: move it into the ball to hit it. Fast moves smash it, slow ones cushion it, and holding the button lets you carry it for a moment',
+          'The ball really flies across the gap: each screen tells the other one exactly when and where the ball will come over before it gets there, so it lands right on time even over the internet',
+          'Laptops on the same Wi-Fi connect straight to each other for even less lag. The 📶 sign shows how good your connection is',
+          'Versus (first to 5, 7 or 11), 🤝 Keep it up together (pass it back and forth, 3 drops and you’re out), and 🤖 practice against a robot on one laptop',
+          'Press ⛶ Full screen so each court reaches the edges of its screen',
+          'The Privacy Policy explains the direct connection (it only works on the same Wi-Fi and only sends the ball)',
+        ]],
+        ['🌟 Also new', [
+          'New leaderboards: Song Rush wins, most songs named, Screen Volley wins and the longest rally',
+          'Your profile shows your Song Rush and Screen Volley stats',
+          'Big new cards for both games at the top of the home page',
+        ]],
+      ] },
     { v: '2.21.0', date: '2026-10-17', emoji: '🏡', title: 'Family Life: a shop, a lifestyle and a real casino', items: [
       'A 🛍️ Shop with almost 70 things: cars, supercars, yachts, a private jet, homes from a studio to a castle or a private island, rental apartments, businesses, crypto and gold, art, a racehorse, a pet tiger, staff (a trainer, stylist, tutor, publicist, lawyer…) and experiences (a world cruise, a pop star at your birthday, a trip to space)',
       'Own as many cars and homes as you like. Everything has yearly upkeep, values go up or down every birthday, rentals and businesses earn (or lose) money, and you can sell things in 🧾 My stuff',
@@ -241,13 +257,16 @@
     h('section', { class: 'page-head' },
       h('h1', { class: 'display' }, 'What’s new ', h('span', { class: 'gradient-text' }, '📜')),
       h('p', { class: 'muted' }, `Every Party Arcade update. You’re on version ${PA.VERSION}.`)),
-    h('div', { class: 'cl-list' }, CHANGELOG.map((e, i) => h('article', { class: 'panel cl-entry' + (i === 0 ? ' latest' : '') },
+    h('div', { class: 'cl-list' }, CHANGELOG.map((e, i) => h('article', { class: 'panel cl-entry' + (i === 0 ? ' latest' : '') + (e.massive ? ' massive' : '') },
       h('div', { class: 'cl-head' },
         h('span', { class: 'cl-v' }, 'v' + e.v),
         i === 0 ? h('span', { class: 'badge new' }, '✨ Latest') : null,
         h('span', { class: 'cl-date' }, nice(e.date))),
+      e.massive ? h('div', { class: 'cl-massive' }, '💥 MASSIVE UPDATE 💥') : null,
       h('h2', {}, `${e.emoji} ${e.title}`),
-      h('ul', {}, e.items.map((x) => h('li', {}, x)))))));
+      e.intro ? h('p', { class: 'cl-intro' }, e.intro) : null,
+      e.sections ? e.sections.map(([title, items]) => [h('h3', { class: 'cl-sec' }, title), h('ul', {}, items.map((x) => h('li', {}, x)))])
+        : h('ul', {}, e.items.map((x) => h('li', {}, x)))))));
   // one gentle fade-in for the newest updates; everything else is just there, nothing waits for scrolling
   if (FX.on && FX.list) FX.list([...root.querySelectorAll('.page-head, .cl-entry')].slice(0, 4), { y: 10, duration: 0.4, stagger: 0.06 });
 })();

@@ -79,6 +79,8 @@ BOARDS = {
     "golf": ("⛳ Mini Golf wins", "golf.wins", "desc", "int"),
     "songs": ("🎧 Song Rush wins", "songs.wins", "desc", "int"),
     "songs_correct": ("🎵 Song Rush songs named", "songs.correct", "desc", "int"),
+    "volley": ("🏐 Screen Volley wins", "volley.wins", "desc", "int"),
+    "volley_rally": ("🤝 Longest Screen Volley rally", "volley.best_rally", "desc", "int"),
     "golf_classic": ("⛳ Mini Golf: Classic Meadow", "golfclassic.best", "asc", "strokes"),
     "golf_spooky": ("🎃 Mini Golf: Spooky Hollow", "golfspooky.best", "asc", "strokes"),
 }

@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Screen Volley · Party Arcade</title>
+  <meta name="description" content="Screen Volley: put two laptops side by side and punch a volleyball from one screen to the other. Play on Party Arcade.">
+  <meta name="theme-color" content="#0b0920">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <script>try { document.documentElement.dataset.theme = JSON.parse(localStorage.getItem('pa_theme')) || 'neon'; } catch (e) { /* storage blocked */ }</script>
+  <style>
+    /* the court covers the whole window, right to the edges, so two screens side by side line up */
+    #play { position: fixed; inset: 0; z-index: 60; background: #0d0826; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+    #play.hidden { display: none; }
+    #court { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: none; }
+    .vb-hud { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 12px 14px; pointer-events: none; }
+    .vb-hud > * { pointer-events: auto; }
+    .vb-tools { display: flex; gap: 8px; flex-wrap: wrap; }
+    .vb-tools .btn { cursor: pointer; }
+    .vb-score { display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-radius: 999px; background: rgba(0, 0, 0, .45); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      font-weight: 700; white-space: nowrap; pointer-events: none; }
+    .vb-score .n { font-family: var(--font-display); font-size: 1.6rem; line-height: 1; font-variant-numeric: tabular-nums; }
+    .vb-score .who { max-width: 22vw; overflow: hidden; text-overflow: ellipsis; }
+    .vb-score .l { color: #ff7ad9; } .vb-score .r { color: #67e8f9; }
+    .vb-score .mid { color: var(--muted); font-size: .85rem; }
+    .vb-ping { font-size: .8rem; font-weight: 700; padding: 6px 10px; border-radius: 999px; background: rgba(0, 0, 0, .45); white-space: nowrap; }
+    .vb-ping.good { color: #86efac; } .vb-ping.ok { color: #fde68a; } .vb-ping.bad { color: #fda4af; }
+    .vb-msg { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; text-shadow: 0 4px 24px rgba(0, 0, 0, .6); }
+    .vb-msg .big { font-family: var(--font-display); font-size: clamp(1.8rem, 6vw, 3.6rem); line-height: 1.05; }
+    .vb-msg .small { font-weight: 700; margin-top: 8px; color: #e9e5ff; }
+    .vb-hint { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); font-size: .85rem; font-weight: 600; color: rgba(255, 255, 255, .6); pointer-events: none; text-align: center; white-space: nowrap; }
+    .vb-end { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(8, 6, 22, .7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); cursor: default; }
+    .vb-end .card { text-align: center; padding: 26px 30px; border-radius: 24px; background: var(--panel-solid, #1d1440); border: 1px solid var(--border); max-width: min(420px, 90vw); }
+
+    /* lobby */
+    .vb-seats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .vb-seat { padding: 14px; border-radius: 18px; border: 2px dashed var(--border-strong); background: var(--panel); text-align: center; display: grid; gap: 8px; justify-items: center; min-height: 150px; align-content: center; }
+    .vb-seat.taken { border-style: solid; }
+    .vb-seat.l.taken { border-color: #ff7ad9; background: color-mix(in srgb, #ff4fd8 12%, transparent); }
+    .vb-seat.r.taken { border-color: #67e8f9; background: color-mix(in srgb, #22d3ee 12%, transparent); }
+    .vb-seat .lap { font-size: 2rem; }
+    .vb-tips { margin-top: 14px; padding: 12px 14px; border-radius: 16px; background: var(--panel); font-size: .9rem; }
+    .vb-tips ol { margin: 6px 0 0 18px; display: grid; gap: 4px; }
+    .vb-live { text-align: center; padding: 14px; border-radius: 16px; background: var(--panel); margin-bottom: 14px; }
+    .vb-live .n { font-family: var(--font-display); font-size: 2.2rem; }
+    .vb-final { text-align: center; margin-bottom: 16px; }
+    .vb-final .big { font-family: var(--font-display); font-size: clamp(1.4rem, 4vw, 2.2rem); }
+    .vb-set { margin-bottom: 14px; }
+    @media (max-width: 520px) { .vb-seats { grid-template-columns: 1fr; } .vb-score .who { display: none; } .vb-hint { white-space: normal; width: 90vw; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div id="entry"></div>
+    <section id="room" class="hidden room-layout">
+      <div class="col">
+        <div class="panel" id="room-code"></div>
+        <div class="panel" id="room-players"></div>
+      </div>
+      <div class="panel room-main" id="room-main"></div>
+      <div class="panel chat-panel" id="room-chat"></div>
+    </section>
+  </main>
+  <section id="play" class="hidden">
+    <canvas id="court"></canvas>
+    <div class="vb-hud">
+      <div class="vb-tools">
+        <button class="btn btn-ghost btn-sm" id="vb-leave" title="Leave the court">✕</button>
+        <button class="btn btn-ghost btn-sm" id="vb-full" title="Full screen (so the court reaches the edges of your screen)">⛶ Full screen</button>
+      </div>
+      <div class="vb-score" id="vb-score"></div>
+      <span class="vb-ping" id="vb-ping"></span>
+    </div>
+    <div class="vb-msg" id="vb-msg"></div>
+    <div class="vb-hint" id="vb-hint"></div>
+  </section>
+  <script src="/js/art.js"></script>
+  <script src="/js/core.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollTrigger.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/Flip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/SplitText.min.js"></script>
+  <script src="/js/fx.js"></script>
+  <script src="/js/lobby.js"></script>
+  <script src="/js/games/volley-core.js"></script>
+  <script src="/js/games/volley.js"></script>
+</body>
+</html>

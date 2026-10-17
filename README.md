@@ -58,7 +58,7 @@ You can delete your own messages and announcements; admins can delete anyone's. 
 messages; its announcements and calendar rows stay without a name (`team_chat`, `team_news` tables).
 
 ## Games
-- **Online:** Song Rush (name the song from a 30-second preview), Neon Dash (mini Geometry Dash race), Family Life (multiplayer BitLife with siblings), Doodle Guess, Impostor, Minesweeper (Race / Battle), Front Wars (OpenFront-style territory war: free-for-all with alliances or teams, bots, ports, warships, nukes and replays), Prop Hunt (top-down hide and seek with a killer), Poly Racer (low-poly 3D racing), Billiards (8-ball / 9-ball pool, winner stays on), Flappy Royale (Neon Flappy with everyone flying the same pipes), Mini Golf (3D, everyone on the same hole with ghost balls), Party Blitz, Connect 4
+- **Online:** Song Rush (name the song from a 30-second preview), Screen Volley (two laptops side by side, one ball), Neon Dash (mini Geometry Dash race), Family Life (multiplayer BitLife with siblings), Doodle Guess, Impostor, Minesweeper (Race / Battle), Front Wars (OpenFront-style territory war: free-for-all with alliances or teams, bots, ports, warships, nukes and replays), Prop Hunt (top-down hide and seek with a killer), Poly Racer (low-poly 3D racing), Billiards (8-ball / 9-ball pool, winner stays on), Flappy Royale (Neon Flappy with everyone flying the same pipes), Mini Golf (3D, everyone on the same hole with ghost balls), Party Blitz, Connect 4
 - **Solo:** Mini Golf (Classic Meadow and Spooky Hollow, 9 holes each), Neon Flappy (medals, unlockable birds), Billiards (vs CPU, Speed Clear, practice), Poly Racer time trial, Neon Dash practice, Neon Dash level editor + community levels (beat your level to verify it, then post it: an admin approves it first, 3 posts a day; hosts can race community levels online), Minesweeper (Easy / Medium / Hard), Front Wars vs bots, Slope (3D, three.js), Snake, 2048, Memory Flip
 - **Fun:** Spin the Wheel, Would You Rather (global votes), Magic 8-Ball
 - **Casino Night (fake coins only):** every match everyone starts with the same coins; most coins at the end wins.
@@ -182,6 +182,31 @@ A song plays and everyone races to name it (`games/songs/`, `public/js/games/son
   a second look. The server never calls Apple: browsers download the previews straight from Apple's CDN, decode them
   with Web Audio (so everyone starts together and the equalizer is real) and fall back to an `<audio>` element.
 
+## Screen Volley
+One volleyball court spread over two screens standing side by side (`games/volley.py`, `public/js/games/volley-core.js`,
+`public/js/games/volley.js`). Players pick the LEFT or RIGHT screen; everyone else watches.
+- **Courts in "heights":** each screen's court is 1 high and width/height wide, so screens of any size line up; the net
+  stands on the seam (the left screen's right edge, the right screen's left edge). `volley-core.js` holds the physics
+  (fixed 1/120 s steps, the same on every screen): gravity, walls, the net, swept hand hits (the cursor or a finger is a
+  round hand; its speed goes into the ball), holding the ball for up to 1.5 s, and smashes near the net slowed down so a
+  ball always takes at least 0.24 s to go over.
+- **The ball lives on one screen at a time.** That screen runs it, so hits have no lag. When the ball is about to go over
+  (within the "lead time": the time a message takes plus a margin), the screen works out exactly when and where it will
+  cross (`VolleyCore.predict`), sends that in advance, and from then on the ball can't be touched. The other screen
+  shows a warning on its net and takes over at that moment (server time, synced with `g:sync` pings); a late message
+  just makes the ball come in a little late, never in the middle of the screen.
+- **Server:** keeps score, decides who owns the ball (`epoch` goes up every serve and crossing; only the owner may `cross`
+  or `drop`; a drop that overtakes its cross is held until the cross arrives), relays `rtc` messages, and gives the ball
+  away if the screen that has it goes quiet for 8 s. Versus to 5/7/11 (the scorer serves) or keep-it-up (3 drops, counts
+  passes). Leaving mid-game loses. Stats `volley.games/wins/points/best_rally/coop_best`; leaderboards `volley`,
+  `volley_rally`. Admin cheats: +1 point, end the game.
+- **Direct connection:** the two screens try WebRTC with no ICE servers, so it only connects on the same local network
+  (nobody's public address is shared). The left screen offers every 10 s until it works; the 📶 sign shows the ping and
+  "direct" or "via server". Same `cross` message both ways, de-duplicated by epoch.
+- **Practice:** `/games/volley?solo=1` plays against a robot with its own invisible court (shown small in the corner).
+- `tests/volleytest.js` checks the physics (prediction = reality step for step, nothing gets through the net, mirror
+  symmetry, seamless hand-offs, fast swipes); `tests/volleybot.py` plays it over websockets. `?debug=1` exposes `window.VB`.
+
 ## Tournaments
 `tournaments.py`. In any room the host presses “🏆 Start a tournament” and picks Connect 4, Billiards, Neon Dash, Minesweeper,
 Party Blitz, Prop Hunt or Mini Golf (3–16 players; watchers don't count). Everyone goes to the live bracket at
@@ -200,7 +225,7 @@ The home page shows a banner with your progress while an event runs.
 ## News strip
 `NEWS` in `public/js/core.js` puts a short message under the top bar on every page except the games: a title,
 a line of text and a hint, with a countdown to `day` ("in 6 days", "tomorrow!", then the `today` title on the day),
-or with `until` instead a plain message (and an optional `link: [href, label]` button) that shows up to that day.
+or with `until` instead a plain message (and optional `links: [[href, label], …]` buttons) that shows up to that day.
 It disappears by itself after that day, and × hides it for good (remembered per `id`, so give a new message a new
 id). Set `NEWS = null` when there's nothing to announce.
 
@@ -275,13 +300,13 @@ Everything lives in `games/life/data/*.json`. The files are re-read at the start
 ```
 python3 tests/run_all.py
 ```
-It starts a throwaway server (temporary SQLite database, test admin code `test-admin-code-123`) and runs ~800 checks:
+It starts a throwaway server (temporary SQLite database, test admin code `test-admin-code-123`) and runs ~1,100 checks:
 - Websocket bots that play the online games like real players: accounts, friends, invites, votes, party mode, watching,
   Prop Hunt, tournaments, Poly Racer, Minesweeper, Front Wars, Billiards, Flappy Royale, Mini Golf, the Dash level
   editor (posting limit, admin review), themes and Halloween quests, cheats and rewards, roles and the update calendar, the Family Life shop and casino,
-  and Song Rush (both modes, scoring, private chat once you know the answer).
+  Song Rush (both modes, scoring, private chat once you know the answer) and Screen Volley (serves, passes, points, forfeits).
 - In-process tests of the Prop Hunt rules and tournament brackets, the pool physics (Python vs JS, bit for bit), and
-  Song Rush's answer checking, song list, hints and scoring.
+  Song Rush's answer checking, song list, hints and scoring, and Screen Volley's physics.
 - If JavaScriptCore (macOS) or Node is installed, an autopilot drives every Poly Racer track, every Neon Flappy
   test level is checked to be flyable and every Mini Golf hole is solved within par + 1.
 
@@ -296,6 +321,7 @@ fails now and then (a known flaky test) and is reported as a warning.
 - `public/js/art.js`: list of Microsoft Fluent 3D emoji (MIT, loaded from the jsDelivr CDN) and Phosphor icons (MIT). `core.js` swaps every emoji on a page for its 3D image and `PA.icon(name)` / `data-icon="name"` add icons
 - `games/`: one module per online game (server side)
 - `games/songs/`: Song Rush: the game, answer checking, the playlists and the iTunes build script
+- `games/volley.py` + `public/js/games/volley-core.js`: Screen Volley's server and its shared ball physics
 - `games/casino/`: casino server. `match.py` runs the match (coins, scores, win conditions); every game is its own module
   built on the shared bases in `tables.py`: `HouseTable` (vs house), `PlayersTable` (vs players) and `RoundTable` (shared betting round).
   To add a game: subclass one of them, decorate it with `@register`, import it in `match.py`, and add a matching

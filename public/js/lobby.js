@@ -10,6 +10,7 @@
     life: { title: 'Family Life', emoji: '🏡' },
     doodle: { title: 'Doodle Guess', emoji: '🎨' },
     songs: { title: 'Song Rush', emoji: '🎧' },
+    volley: { title: 'Screen Volley', emoji: '🏐' },
     blitz: { title: 'Party Blitz', emoji: '⚡' },
     connect4: { title: 'Connect 4', emoji: '🔴' },
     billiards: { title: 'Billiards', emoji: '🎱' },
@@ -152,7 +153,7 @@
 
   // ------------------------------------------------------------ watching, votes, party mode
   const PARTY_GAMES = ['dash', 'poly', 'doodle', 'songs', 'blitz', 'impostor', 'mines', 'front', 'prophunt', 'casino', 'life', 'flappy', 'golf'];
-  const SWITCH_GAMES = [...PARTY_GAMES, 'connect4', 'billiards'];
+  const SWITCH_GAMES = [...PARTY_GAMES, 'connect4', 'billiards', 'volley'];
   const PARTY_POINTS = [10, 7, 5, 3];
   const gTitle = (g) => (GAME_INFO[g] || {}).title || g;
   const gEmoji = (g) => (GAME_INFO[g] || {}).emoji || '🎮';
@@ -445,6 +446,7 @@
     life: [['money', '💰 +$100,000'], ['stats', '💪 Max my stats'], ['energy', '⚡ Refill my energy'], ['clean', '😇 Clear heat & jail'],
       ['event', '🎲 Give me an event'], ['skip', '⏩ Skip time (no vote)']],
     blitz: [['points', '💯 +500 points'], ['skip', '⏭️ Skip this round'], ['end', '🏁 End the game']],
+    volley: [['point', '🏐 +1 point for me'], ['end', '🏁 End the game']],
     songs: [['answer', '🤫 Show me the answer'], ['points', '💯 +500 points'], ['skip', '⏭️ Skip this song'], ['end', '🏁 End the game']],
     doodle: [['word', '🤫 Show me the word'], ['points', '💯 +500 points'], ['skip', '⏭️ Skip this turn'], ['end', '🏁 End the game']],
     connect4: [['win', '🏆 Win this game'], ['undo', '↩️ Undo last move'], ['reset', '🔄 New board']],

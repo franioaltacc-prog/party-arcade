@@ -1354,7 +1354,7 @@ ACCOUNT_MESSAGES = {
     "profile:get", "players:find", "lb:boards", "lb:get", "stats:solo", "admin:unlock", "admin:overview", "admin:users",
     "admin:user", "admin:announce", "admin:room", "admin:cheat", "plan:list", "plan:save", "plan:delete", "team:get", "team:say", "team:announce", "team:unsay", "team:unannounce", "friends:list", "friends:add", "friends:remove", "friends:invite", "friends:invite-no",
 }
-GAME_TITLES = {"dash": "Neon Dash", "life": "Family Life", "doodle": "Doodle Guess", "songs": "Song Rush", "blitz": "Party Blitz",
+GAME_TITLES = {"dash": "Neon Dash", "life": "Family Life", "doodle": "Doodle Guess", "songs": "Song Rush", "volley": "Screen Volley", "blitz": "Party Blitz",
                "connect4": "Connect 4", "casino": "Casino Night", "snake": "Neon Snake", "2048": "2048",
                "memory": "Memory Flip", "dash-solo": "Neon Dash practice", "dashsolo": "Neon Dash practice",
                "impostor": "Impostor", "mines": "Minesweeper", "mines_easy": "Minesweeper (Easy)",
