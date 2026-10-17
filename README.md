@@ -187,9 +187,12 @@ One volleyball court spread over two screens standing side by side (`games/volle
 `public/js/games/volley.js`). Players pick the LEFT or RIGHT screen; everyone else watches.
 - **Courts in "heights":** each screen's court is 1 high and width/height wide, so screens of any size line up; the net
   stands on the seam (the left screen's right edge, the right screen's left edge). `volley-core.js` holds the physics
-  (fixed 1/120 s steps, the same on every screen): gravity, walls, the net, swept hand hits (the cursor or a finger is a
-  round hand; its speed goes into the ball), holding the ball for up to 1.5 s, and smashes near the net slowed down so a
-  ball always takes at least 0.24 s to go over.
+  (fixed 1/120 s steps, the same on every screen): gravity, walls, the net, the hand (the cursor or a finger), holding
+  the ball for up to 2 s, and smashes near the net slowed down so a ball always takes at least 0.24 s to go over.
+  The hand touches the ball at every physics step along the path it moved that frame, with its speed smoothed over
+  ~50 ms. Gentle touches pass on 45% of the hand's speed with almost no bounce, rising (squared) to 100% for full swipes
+  (4 heights/s); the top of the hand is a flat, cupped palm, so a ball that lands gently rests there, slides to the
+  middle and can be balanced and carried. Tune it in `VolleyCore.C`.
 - **The ball lives on one screen at a time.** That screen runs it, so hits have no lag. When the ball is about to go over
   (within the "lead time": the time a message takes plus a margin), the screen works out exactly when and where it will
   cross (`VolleyCore.predict`), sends that in advance, and from then on the ball can't be touched. The other screen

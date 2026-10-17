@@ -146,7 +146,7 @@
     ball: null, state: 'none',   // none | serve | mine | incoming | leaving | splash
     epoch: 0, seen: 0, frozenUntil: 0, locked: null, held: false, heldFor: 0, acc: 0, last: 0, hb: 0,
     incoming: null, leaving: null, splash: null, hits: 0,
-    hand: { x: -1, y: -1, px: -1, py: -1, vx: 0, vy: 0, on: false, down: false, samples: [], trail: [] },
+    hand: { x: -1, y: -1, px: -1, py: -1, vx: 0, vy: 0, on: false, down: false, trail: [] },
     msg: null, robot: null,
   };
 
@@ -171,10 +171,8 @@
   function moveHand(e) {
     const [x, y] = toCourt(e);
     const hd = G.hand;
-    if (!hd.on) { hd.px = x; hd.py = y; hd.trail.length = 0; }
+    if (!hd.on) { hd.px = x; hd.py = y; hd.vx = 0; hd.vy = 0; hd.trail.length = 0; }
     hd.x = x; hd.y = y; hd.on = true;
-    hd.samples.push([performance.now(), x, y]);
-    while (hd.samples.length > 12) hd.samples.shift();
   }
   cv.addEventListener('pointermove', (e) => {
     const list = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
@@ -200,14 +198,6 @@
   cv.addEventListener('pointerup', handUp);
   cv.addEventListener('pointercancel', handUp);
   cv.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse' && !G.hand.down) G.hand.on = false; });
-
-  function handVelocity(now) {
-    const s = G.hand.samples.filter((p) => now - p[0] < 70);
-    if (s.length < 2) return [0, 0];
-    const a = s[0]; const b = s[s.length - 1];
-    const dt = Math.max(0.008, (b[0] - a[0]) / 1000);
-    return [(b[1] - a[1]) / dt, (b[2] - a[2]) / dt];
-  }
 
   function letGo() {
     G.held = false;
@@ -392,8 +382,12 @@
     G.last = t;
     if ($('#play').classList.contains('hidden')) return;
     const hd = G.hand;
-    const [hvx, hvy] = hd.on ? handVelocity(t) : [0, 0];
-    hd.vx = hvx; hd.vy = hvy;
+    // the hand's speed, smoothed over ~50 ms so a twitchy trackpad doesn't fling the ball
+    if (hd.on && hd.px >= 0 && dt > 0) {
+      const k = 1 - Math.exp(-dt / 0.05);
+      hd.vx += ((hd.x - hd.px) / dt - hd.vx) * k;
+      hd.vy += ((hd.y - hd.py) / dt - hd.vy) * k;
+    } else if (!hd.on) { hd.vx = 0; hd.vy = 0; }
 
     if (G.state === 'serve' && t >= G.serve.due) {
       takeBall(V.ball(G.f.side === 'left' ? G.f.w * 0.4 : G.f.w * 0.6, 0.36), G.serve.epoch);
@@ -408,22 +402,26 @@
       const b = G.ball;
       if (G.held) {
         G.heldFor += dt;
-        if (hd.on) V.hold(b, G.f, hd.x, hd.y, hvx, hvy);
-        if (G.heldFor > C.HOLD_MAX) letGo();
-      } else if (!G.locked && hd.on && hd.px >= 0) {
-        if (V.hit(b, G.f, hd.px, hd.py, hd.x, hd.y, hvx, hvy)) {
-          G.frozenUntil = 0;
-          const sp = Math.hypot(b.vx, b.vy);
-          if (t - (G.lastHit || 0) > 90) Sfx.tone(260 + sp * 140, 0.07, 'triangle', 0.09);
-          G.lastHit = t;
-        }
+        if (hd.on) V.hold(b, G.f, hd.x, hd.y, hd.vx, hd.vy, dt);
+        if (G.heldFor > C.HOLD_MAX || !hd.on) letGo();
       }
+      // a floating serve starts the moment your hand touches it
+      if (G.frozenUntil && hd.on && Math.hypot(b.x - hd.x, b.y - hd.y) < C.R + C.HAND) G.frozenUntil = 0;
       const floating = G.frozenUntil && t < G.frozenUntil;
       if (!floating) G.frozenUntil = 0;
       if (!G.held && !floating) {
         G.acc += dt;
+        const n = Math.floor(G.acc / C.DT);
+        let i = 0;
         while (G.state === 'mine' && G.acc >= C.DT) {
           G.acc -= C.DT;
+          i++;
+          // the hand meets the ball at every step, all along the path it moved this frame
+          if (!G.locked && hd.on && hd.px >= 0) {
+            const k = n ? i / n : 1;
+            const power = V.touch(G.ball, G.f, hd.px + (hd.x - hd.px) * k, hd.py + (hd.y - hd.py) * k, hd.vx, hd.vy);
+            if (power > 0.35 && t - (G.lastHit || 0) > 110) { Sfx.tone(240 + power * 160, 0.07, 'triangle', 0.04 + Math.min(0.06, power * 0.02)); G.lastHit = t; }
+          }
           const ev = V.step(G.ball, G.f);
           if (ev === 'cross') crossedNow();
           else if (ev === 'floor') hitFloor();

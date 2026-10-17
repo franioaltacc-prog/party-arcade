@@ -7,19 +7,28 @@
   'use strict';
   const C = {
     DT: 1 / 120,        // physics step (seconds)
-    G: 2.1,             // gravity (heights per second²)
+    G: 1.7,             // gravity (heights per second²): a floaty volleyball
     R: 0.05,            // ball radius
     HAND: 0.055,        // hand (cursor) radius
     NET: 0.3,           // net height above the floor
-    MAXV: 3.3,          // top ball speed
-    HANDV: 7,           // top hand speed that counts
-    HIT_E: 0.5,         // how bouncy a hit is (the hand's own speed is added on top)
+    MAXV: 3.0,          // top ball speed
+    HANDV: 6,           // top hand speed that counts
+    // touches: soft ones stay soft (you can nudge, cushion and balance), real swipes still smash
+    HARD: 4,            // contact speed (heights per second) that counts as a full-power hit
+    E_SOFT: 0.06,       // bounciness of a gentle touch...
+    E_HARD: 0.42,       // ...and of a full-power hit
+    K_SOFT: 0.45,       // how much of the hand's speed a gentle touch passes on...
+    K_HARD: 1,          // ...and a full-power hit
+    GRIP: 0.3,          // how much a hand moving sideways under the ball carries it along
+    CUP: 14,            // a ball resting on top of your hand is pulled to its middle (so you can balance it)
+    CUP_DAMP: 5,
     WALL_E: 0.82,
     NET_E: 0.35,
-    FLOOR_E: 0.62,      // only used where the floor doesn't end the rally (practice robot's screen)
-    DRAG: 0.12,         // air drag per second
+    DRAG: 0.2,          // air drag per second
     MIN_LEAD: 0.24,     // a hit can't send the ball over the net sooner than this (time for the other screen to hear)
-    HOLD_MAX: 1.5,      // seconds you can hold the ball on your cursor
+    HOLD_MAX: 2,        // seconds you can hold the ball on your cursor
+    THROW: 0.85,        // a throw keeps this much of your hand's speed...
+    THROW_MAX: 2.6,     // ...up to this
   };
 
   /** A court: side 'left' has the net on its right edge, 'right' on its left edge. */
@@ -93,47 +102,62 @@
     return null;
   }
 
-  /** The hand moved from (x0, y0) to (x1, y1) this frame at (hvx, hvy): hit the ball if it touched it
-     anywhere along the way. Returns true on a hit. */
-  function hit(b, f, x0, y0, x1, y1, hvx, hvy) {
-    // where along the hand's path did it first touch the ball? (a fast hand can cross the whole ball in one frame)
+  /** The hand (at hx, hy, moving at hvx, hvy) against the ball, once per physics step. Returns how hard they met
+     (0 = not touching). Its top is a flat, slightly cupped palm: a ball that lands gently stays on it and slides
+     to the middle, so you can balance and carry it. Elsewhere it's round. Gentle touches pass on only part of the
+     hand's speed and barely bounce; fast swipes pass on all of it. */
+  function touch(b, f, hx, hy, hvx, hvy) {
     const min = C.R + C.HAND;
-    const ex = x1 - x0; const ey = y1 - y0;
-    const dx0 = x0 - b.x; const dy0 = y0 - b.y;
-    const qa = ex * ex + ey * ey; const qb = 2 * (dx0 * ex + dy0 * ey); const qc = dx0 * dx0 + dy0 * dy0 - min * min;
-    let t;
-    if (qc <= 0) t = 0;                       // it started the frame touching the ball
-    else {
-      const disc = qb * qb - 4 * qa * qc;
-      if (qa < 1e-12 || disc < 0) return false;
-      t = (-qb - Math.sqrt(disc)) / (2 * qa);
-      if (t < 0 || t > 1) return false;
-    }
-    const hx = x0 + ex * t; const hy = y0 + ey * t;
-    let nx = b.x - hx; let ny = b.y - hy;
-    const d = Math.hypot(nx, ny);
-    if (d < 1e-9) {   // dead centre: push it the way the hand is going (or up)
-      const hs = Math.hypot(hvx, hvy);
-      if (hs > 1e-6) { nx = hvx / hs; ny = hvy / hs; } else { nx = 0; ny = -1; }
-    } else { nx /= d; ny /= d; }
     const hs = Math.hypot(hvx, hvy);
     if (hs > C.HANDV) { hvx *= C.HANDV / hs; hvy *= C.HANDV / hs; }
+    const dx = b.x - hx;
+    if (Math.abs(dx) < min * 0.8 && b.y <= hy && b.y > hy - min - 1e-3 && b.vy - hvy < 0.8 && Math.abs(b.vx - hvx) < 1.2) {
+      // a gentle landing (or a gentle lift): the ball settles on the palm
+      const approach = b.vy - hvy;
+      b.y = Math.min(b.y, hy - min);
+      if (b.vy > hvy) b.vy = hvy;
+      b.vx += ((hx - b.x) * C.CUP - (b.vx - hvx) * C.CUP_DAMP) * C.DT;
+      b.spin *= 0.9;
+      keepIn(b, f);
+      return Math.max(0, approach);
+    }
+    // anything harder: the hand is round, so where you hit the ball decides where it goes
+    let nx = dx; let ny = b.y - hy;
+    const d = Math.hypot(nx, ny);
+    if (d >= min) return 0;
+    if (d < 1e-9) { nx = 0; ny = -1; } else { nx /= d; ny /= d; }
     b.x = hx + nx * min; b.y = hy + ny * min;
-    const rvx = b.vx - hvx; const rvy = b.vy - hvy;
-    const vn = rvx * nx + rvy * ny;
-    if (vn < 0) {
-      b.vx -= (1 + C.HIT_E) * vn * nx;
-      b.vy -= (1 + C.HIT_E) * vn * ny;
-      b.spin += (rvx * -ny + rvy * nx) * 18;
+    return bump(b, f, nx, ny, hvx, hvy, -((b.vx - hvx) * nx + (b.vy - hvy) * ny));
+  }
+
+  function bump(b, f, nx, ny, hvx, hvy, approach) {
+    if (approach > 0) {
+      const s = Math.min(1, approach / C.HARD) ** 2;               // gentle touches stay very gentle
+      const e = C.E_SOFT + (C.E_HARD - C.E_SOFT) * s;
+      const k = C.K_SOFT + (C.K_HARD - C.K_SOFT) * s;
+      const kvx = hvx * k; const kvy = hvy * k;                    // the part of the hand's speed that counts
+      const rvx = b.vx - kvx; const rvy = b.vy - kvy;
+      const vn = rvx * nx + rvy * ny;
+      if (vn < 0) {
+        b.vx -= (1 + e) * vn * nx; b.vy -= (1 + e) * vn * ny;
+        // grip: a hand sliding sideways drags the ball a little the same way
+        const tx = rvx - vn * nx; const ty = rvy - vn * ny;
+        b.vx -= C.GRIP * tx; b.vy -= C.GRIP * ty;
+        b.spin += (rvx * -ny + rvy * nx) * 12;
+      }
     }
     capSpeed(b);
     slowNearNet(b, f);
-    // the push-out mustn't put the ball through the net or the walls
+    keepIn(b, f);
+    return Math.max(0, approach);
+  }
+
+  /** The push-out mustn't put the ball through the net, the walls or the floor. */
+  function keepIn(b, f) {
     b.y = Math.min(1 - C.R - 1e-6, Math.max(C.R, b.y));
     const wallX = f.side === 'left' ? 0 : f.w;
     if (f.side === 'left') b.x = Math.max(wallX + C.R, b.x); else b.x = Math.min(wallX - C.R, b.x);
     if ((b.x - f.seam) * f.dir > -C.R && b.y >= 1 - C.NET) b.x = f.seam - f.dir * C.R;
-    return true;
   }
 
   /** Smashes right next to the net slow down, so the other screen always hears about the ball in time. */
@@ -143,13 +167,12 @@
     if (vToward > 0 && toNet > 0 && toNet / vToward < C.MIN_LEAD) b.vx = f.dir * toNet / C.MIN_LEAD;
   }
 
-  /** The ball sits on top of the hand while you hold it. */
-  function hold(b, f, hx, hy, hvx, hvy) {
-    const tx = hx; const ty = hy - (C.R + C.HAND) * 0.8;
-    b.x += (tx - b.x) * 0.45; b.y += (ty - b.y) * 0.45;
-    const hs = Math.hypot(hvx, hvy);
-    const k = hs > C.MAXV ? C.MAXV / hs : 1;
-    b.vx = hvx * k; b.vy = hvy * k;
+  /** Holding: the ball sits steadily on top of your hand and follows it smoothly. */
+  function hold(b, f, hx, hy, hvx, hvy, dt) {
+    const tx = hx; const ty = hy - (C.R + C.HAND) * 0.85;
+    const k = 1 - Math.exp(-dt / 0.035);
+    b.x += (tx - b.x) * k; b.y += (ty - b.y) * k;
+    b.vx = hvx; b.vy = hvy;
     b.spin *= 0.9;
     // you can't carry it over the net or into the floor
     const lim = f.seam - f.dir * (C.R + 0.01);
@@ -159,9 +182,10 @@
     if (f.side === 'left') b.x = Math.max(wallX + C.R, b.x); else b.x = Math.min(wallX - C.R, b.x);
   }
 
-  /** Throwing after a hold: the hand's speed, capped, and slowed near the net like a hit. */
+  /** Letting go: a throw keeps most of the hand's speed (capped), slowed near the net like a hit. */
   function release(b, f) {
-    capSpeed(b);
+    b.vx *= C.THROW; b.vy *= C.THROW;
+    capSpeed(b, C.THROW_MAX);
     slowNearNet(b, f);
   }
 
@@ -175,7 +199,7 @@
     return b;
   }
 
-  const api = { C, field, ball, copy, step, predict, hit, hold, release, arrive, overshoot, capSpeed, slowNearNet };
+  const api = { C, field, ball, copy, step, predict, touch, hold, release, arrive, overshoot, capSpeed, slowNearNet };
   if (typeof window !== 'undefined') window.VolleyCore = api;
   if (typeof globalThis !== 'undefined') globalThis.VolleyCore = api;
 })();

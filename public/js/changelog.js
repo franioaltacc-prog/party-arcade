@@ -6,6 +6,14 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.0.1', date: '2026-10-17', emoji: '🏐', title: 'Screen Volley: a ball you can control', items: [
+      'Gentle touches are gentle now: a small nudge moves the ball a little, and only a real swipe smashes it',
+      'Balance the ball on your cursor: it lands softly on top of your hand and stays there, even while you slowly move it around',
+      'A quick flick up from under the ball pops it up, so you can juggle it',
+      'Your hand’s speed is smoothed out, so a twitchy trackpad doesn’t send the ball flying',
+      'Holding the button carries the ball more steadily, for up to 2 seconds, and throws are never wild',
+      'The ball is a little floatier, so you have more time to react',
+    ] },
     { v: '3.0.0', date: '2026-10-17', emoji: '💥', massive: true, title: 'MASSIVE UPDATE: Song Rush and Screen Volley',
       intro: 'The biggest update yet: two brand new online games, both made to play with friends in the same room.', sections: [
         ['🎧 Song Rush', [

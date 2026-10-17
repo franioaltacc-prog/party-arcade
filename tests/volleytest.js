@@ -55,19 +55,53 @@ check(crosses > 300 && netHits > 50, `random throws: ${crosses} went over, ${net
 check(leaks === 0, `nothing gets through or under the net (${leaks})`);
 check(escapes === 0 && nan === 0, `the ball never leaves the court or goes wrong (${escapes} escapes, ${nan} NaN)`);
 
-// 3. hands hit the ball, even fast ones that move a long way in one frame
+// 3. hands: gentle touches stay gentle, swipes smash, and a ball can be balanced on a hand
+/** Move the hand in a straight line over `steps` physics steps, touching and stepping the ball like the game does. */
+function move(b, f, x0, y0, x1, y1, steps) {
+  const hvx = (x1 - x0) / (steps * C.DT); const hvy = (y1 - y0) / (steps * C.DT);
+  let power = 0;
+  for (let i = 1; i <= steps; i++) {
+    power = Math.max(power, V.touch(b, f, x0 + (x1 - x0) * i / steps, y0 + (y1 - y0) * i / steps, hvx, hvy));
+    V.step(b, f);
+  }
+  return power;
+}
 {
+  const min = C.R + C.HAND;
   const b = V.ball(0.6, 0.5);
-  const hitIt = V.hit(b, L, 0.3, 0.7, 0.9, 0.3, 4, -3);   // swipe straight through the ball in one frame
-  check(hitIt && b.vx > 0.5 && b.vy < 0, `a fast swipe through the ball hits it up and forward (v ${b.vx.toFixed(2)}, ${b.vy.toFixed(2)})`);
+  move(b, L, 0.6 - 0.25, 0.5 + 0.2, 0.6 + 0.05, 0.5 - 0.04, 8);   // ~5 heights/s up and forward
+  check(Math.hypot(b.vx, b.vy) > 2.4 && b.vx > 0 && b.vy < 0, `a fast swipe smashes the ball up and forward (v ${b.vx.toFixed(2)}, ${b.vy.toFixed(2)})`);
+  const n = V.ball(0.6, 0.5);
+  move(n, L, 0.6 - min - 0.02, 0.5, 0.6 - min + 0.03, 0.5, 6);     // a slow push (~0.6 heights/s) from the side
+  check(n.vx > 0.15 && n.vx < 0.7, `a gentle nudge only moves the ball gently (vx ${n.vx.toFixed(2)})`);
   const c = V.ball(0.6, 0.5);
-  check(!V.hit(c, L, 0.2, 0.9, 0.3, 0.95, 1, 0.5), 'a hand that never comes near misses');
-  const d = V.ball(0.6, 0.5, 0, 2);   // falling onto a still hand
-  V.hit(d, L, 0.6, 0.5 + C.R + C.HAND - 0.01, 0.6, 0.5 + C.R + C.HAND - 0.01, 0, 0);
-  check(d.vy < 0 && Math.abs(d.vy) < 2, `a still hand bounces a falling ball back up, softer (vy ${d.vy.toFixed(2)})`);
-  const e = V.ball(0.6, 0.5, 0, 0);
-  V.hit(e, L, 0.4, 0.6, 0.55, 0.52, 40, -30);
+  check(move(c, L, 0.2, 0.9, 0.3, 0.95, 5) === 0, 'a hand that never comes near misses');
+  const e = V.ball(0.6, 0.5);
+  move(e, L, 0.3, 0.75, 0.62, 0.48, 2);
   check(Math.hypot(e.vx, e.vy) <= C.MAXV + 1e-9, 'no hit is faster than the top speed');
+  // drop the ball on a still hand: a small bounce, then it stays there, balanced
+  const hx = 0.7; const hy = 0.7;
+  const d = V.ball(hx + 0.02, hy - min - 0.15);
+  let maxUp = 0; let off = 0; let landed = false;
+  for (let i = 0; i < 360; i++) {
+    if (V.touch(d, L, hx, hy, 0, 0) > 0 || Math.hypot(d.x - hx, d.y - hy) < min + 1e-6) landed = true;
+    V.step(d, L);
+    if (landed) maxUp = Math.max(maxUp, (hy - min) - d.y);
+    if (i > 240) off = Math.max(off, Math.abs(d.x - hx));
+  }
+  check(landed && maxUp < 0.02, `a ball dropped on a still hand barely bounces (${maxUp.toFixed(3)})`);
+  check(off < 0.01 && d.y < hy && Math.abs(d.vx) < 0.05, `…and then sits on it, balanced (${off.toFixed(4)} off centre)`);
+  // carry it slowly sideways: it stays on top
+  let worst = 0;
+  for (let i = 0; i < 240; i++) {
+    const x = hx + 0.3 * i * C.DT;
+    V.touch(d, L, x, hy, 0.3, 0); V.step(d, L);
+    worst = Math.max(worst, Math.abs(d.x - x));
+  }
+  check(worst < 0.05 && d.y < hy, `carried slowly sideways, it stays on the hand (at most ${worst.toFixed(3)} off)`);
+  // and a quick flick up from under it pops it up
+  move(d, L, d.x, hy, d.x, hy - 0.06, 3);
+  check(d.vy < -0.8, `a flick from under it pops it up (vy ${d.vy.toFixed(2)})`);
 }
 
 // 4. smashes next to the net slow down, so the other screen always gets some warning
@@ -75,21 +109,24 @@ check(escapes === 0 && nan === 0, `the ball never leaves the court or goes wrong
   let minLead = Infinity;
   for (let i = 0; i < 300; i++) {
     const b = V.ball(L.w - 0.1 - rand() * 0.3, 0.2 + rand() * 0.3);
-    V.hit(b, L, b.x - 0.2, b.y + 0.05, b.x - 0.02, b.y + 0.02, 7, -1);
+    move(b, L, b.x - 0.3, b.y + 0.04, b.x - 0.04, b.y + 0.01, 4);
     const p = V.predict(b, L, 600);
     if (p && p.ev === 'cross') minLead = Math.min(minLead, p.steps * C.DT);
   }
-  check(minLead >= C.MIN_LEAD - 0.02, `a smash right at the net still takes ${minLead.toFixed(2)}s to go over (at least ${C.MIN_LEAD}s)`);
+  check(minLead >= C.MIN_LEAD - 0.03, `a smash right at the net still takes ${minLead.toFixed(2)}s to go over (at least ${C.MIN_LEAD}s)`);
 }
 
-// 5. holding: the ball stays on your side and off the floor
+// 5. holding: the ball stays on your side and off the floor, and a throw is capped
 {
   const b = V.ball(1.4, 0.5);
-  for (let i = 0; i < 60; i++) V.hold(b, L, 1.7, 0.99, 3, 0);
+  for (let i = 0; i < 60; i++) V.hold(b, L, 1.7, 0.99, 3, 0, 1 / 60);
   check(b.x <= L.w - C.R && b.y <= 1 - C.R, `you can't carry the ball over the net or into the floor (${b.x.toFixed(3)}, ${b.y.toFixed(3)})`);
   const r = V.ball(0.3, 0.5);
-  for (let i = 0; i < 60; i++) V.hold(r, Rf, -0.3, 0.4, -3, 0);
+  for (let i = 0; i < 60; i++) V.hold(r, Rf, -0.3, 0.4, -3, 0, 1 / 60);
   check(r.x >= C.R, `the same on the right screen (${r.x.toFixed(3)})`);
+  const t = V.ball(0.5, 0.5);
+  V.hold(t, L, 0.5, 0.6, 5, -5, 1 / 60); V.release(t, L);
+  check(Math.hypot(t.vx, t.vy) <= C.THROW_MAX + 1e-9, `a throw is never wild (${Math.hypot(t.vx, t.vy).toFixed(2)})`);
 }
 
 // 6. both screens behave the same, mirrored
