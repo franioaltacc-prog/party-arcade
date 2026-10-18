@@ -6,6 +6,7 @@
 * All events and actions come from ./data/*.json.
 """
 import random
+import re
 import time
 
 from ..base import Game, num as clean_num
@@ -26,10 +27,13 @@ HEIST_ROLES = [("🧠 Mastermind", "smarts"), ("💻 Hacker", "smarts"), ("🚗 
 SCALED = {"health", "happy", "smarts", "looks", "fame", "music", "sport", "perf"}
 # Salary tax: (up to this much a year, rate). Rich people pay more of each extra dollar.
 TAX_BRACKETS = [(20000, 0.15), (60000, 0.25), (150000, 0.33), (400000, 0.40), (None, 0.45)]
-CARS = {"usedcar", "sedan", "pickup", "electric", "roadster", "limo", "sportscar", "classic", "supercar"}
+CARS = {"usedcar", "sedan", "pickup", "electric", "roadster", "limo", "sportscar", "classic", "supercar", "minivan", "suv",
+        "campervan", "hypercar"}
 SELL_RATE = 0.9           # selling something gets you 90% of what it's worth now
 REPO_RATE = 0.7           # the bank only gives you 70% when it takes your things
 CASINO_BIG = 50000        # wins and losses this big go in your life story
+TRADE_SCHOOLS = {"trade", "beauty", "culinary", "aviation"}       # short courses, not university degrees
+GRAD_SCHOOLS = {"masters", "mba", "phd", "veterinary", "pharmacy"}   # need a bachelor's degree first
 BUSINESSES = ["{last} Bros Burgers 🍔", "{last} & Co. Tech 💻", "Sibling Slime Shop 🟢", "{last} Family Bakery 🥐",
               "The {last} Escape Room 🔐", "{last} Pet Hotel 🐶", "Double Trouble Coffee ☕"]
 
@@ -56,7 +60,28 @@ def reload_data():
         group_map={a["id"]: a for a in data["group_actions"]["actions"]},
         shop=data["shop"]["items"],
         shop_map={i["id"]: i for i in data["shop"]["items"]},
+        habits={k: v for k, v in data["habits"].items() if not k.startswith("_")},
     )
+    flags, counters = set(D["habits"]), {"chaos", "crimes", "pranks", "arguments", "gifts", "hangouts", "casino_net"}
+    _scan(data, flags, counters)
+    D["flags"], D["counters"] = sorted(flags), sorted(counters)
+
+
+def _scan(obj, flags, counters):
+    """Every flag (f_name) and counter (c_name) the data files set or test, so expressions always know them."""
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k in ("flag", "unflag"):
+                flags.update(x for x in (v if isinstance(v, list) else [v]) if isinstance(x, str))
+            elif k == "count" and isinstance(v, str):
+                counters.add(v)
+            _scan(v, flags, counters)
+    elif isinstance(obj, list):
+        for v in obj:
+            _scan(v, flags, counters)
+    elif isinstance(obj, str):
+        flags.update(re.findall(r"\bf_(\w+)", obj))
+        counters.update(re.findall(r"\bc_(\w+)", obj))
 
 
 reload_data()
@@ -253,6 +278,16 @@ class Life(Game):
         }
         for k in STATS + EXTRA:
             e[k] = getattr(s, k)
+        for f in D["flags"]:            # f_driver, f_vegan, f_chess_club... = do you have it
+            e["f_" + f] = f in s.flags
+        for c in D["counters"]:         # c_crimes, c_gym... = how many times
+            e["c_" + c] = s.counters.get(c, 0)
+        e.update(bachelors=sum(1 for d in s.degrees if d not in TRADE_SCHOOLS | GRAD_SCHOOLS),
+                 trade_degrees=sum(1 for d in s.degrees if d in TRADE_SCHOOLS),
+                 grad_degrees=sum(1 for d in s.degrees if d in GRAD_SCHOOLS),
+                 studying_grad=bool(s.uni and s.uni["major"] in GRAD_SCHOOLS))
+        e.update(friends=len(s.friends), best_friend=max((x["rel"] for x in s.friends), default=0),
+                 abroad=bool(s.city), habits=sum(1 for f in s.flags if f in D["habits"]))
         for item in D["shop"]:          # own_yacht, own_racehorse... = how many you own (for lifestyle actions)
             e["own_" + item["id"]] = 0
         for a in s.assets:
@@ -280,7 +315,24 @@ class Life(Game):
                 "partner": s.partner["first"] if s.partner else "your partner",
                 "kid": s.kids[-1]["name"] if s.kids else "your kid",
                 "pet": pet["name"] if pet else "your pet", "petkind": pet["kind"] if pet else "pet",
-                "petemoji": pet["emoji"] if pet else "🐾", "city": f.place.split(" ", 1)[-1]}
+                "petemoji": pet["emoji"] if pet else "🐾", "city": (s.city or f.place).split(" ", 1)[-1],
+                "friend": self.friend_name(s)}
+
+    def friend_name(self, s):
+        x = self.friend_pick(s)
+        return x["name"] if x else "your friend"
+
+    @staticmethod
+    def friend_pick(s):
+        """The friend something happens with: the one in focus, else a random one."""
+        for x in s.friends:
+            if x["name"] == s.focus:
+                return x
+        if s.friends:
+            x = random.choice(s.friends)
+            s.focus = x["name"]
+            return x
+        return None
 
     def old_parent(self):
         cands = [p for p in self.family.parents() if not p["care"] and (p["age"] >= 70 or p["health"] < 30)]
@@ -382,7 +434,7 @@ class Life(Game):
                 s.achieve(v)
             elif k == "uni":
                 key = v if v in D["majors"] else "arts"
-                title, _, need = D["majors"][key]
+                title, need = D["majors"][key][0], D["majors"][key][2]
                 if s.smarts < need:
                     extra.append(f"😬 Your grades weren't good enough for {title} (needs 🧠 {need}). You enrolled in Arts instead!")
                     key = "arts"
@@ -425,6 +477,56 @@ class Life(Game):
                     p["rel"] = max(p["rel"], 45)
             elif k == "die":
                 self.kill(s, str(v))
+            elif k in ("flag", "unflag"):
+                for name in (v if isinstance(v, list) else [v]):
+                    (s.flags.add if k == "flag" else s.flags.discard)(name)
+            elif k == "friend":            # make a new friend
+                if v and len(s.friends) < 8:
+                    names = D["names"]
+                    taken = {x["name"] for x in s.friends} | {o.first for o in self.sibs.values()}
+                    pool = [n for n in names["first_m"] + names["first_f"] if n not in taken] or names["first_m"]
+                    new = {"name": random.choice(pool), "rel": random.randint(50, 70), "since": s.age}
+                    s.friends.append(new)
+                    s.focus = new["name"]
+                    if len(s.friends) >= 5:
+                        s.achieve("👫 Popular")
+            elif k == "friend_rel":
+                x = self.friend_pick(s)
+                if x:
+                    x["rel"] = clamp(x["rel"] + num(v, env))
+                    if x["rel"] <= 0:
+                        s.friends.remove(x)
+                        extra.append(f"💔 You and {x['name']} aren't friends any more.")
+                    elif x["rel"] >= 95:
+                        s.achieve("🤞 Best friends forever")
+            elif k == "unfriend":
+                x = self.friend_pick(s)
+                if v and x:
+                    s.friends.remove(x)
+            elif k == "emigrate":
+                if v:
+                    here = s.city or self.family.place
+                    s.city = random.choice([p for p in D["names"]["places"] if p != here])
+                    s.achieve("🌍 Moved abroad")
+            elif k == "home_city":
+                if v:
+                    s.city = None
+            elif k == "job":               # straight into a job (joining the army...)
+                j = D["jobs"].get(v)
+                if j:
+                    s.job = {"key": v, "title": j["title"], "emoji": j["emoji"], "salary": j["salary"], "level": 0, "perf": 30, "years": 0}
+                    if j["prestige"] > s.peak_prestige:
+                        s.peak_prestige, s.best_job = j["prestige"], j["title"]
+            elif k == "home_grow":         # % more for every home you own (renovating...)
+                pct = num(v, env)
+                for a in s.assets:
+                    if self.is_home(a):
+                        a["value"] = max(0, int(a["value"] * (1 + pct / 100)))
+            elif k == "adopt":
+                if v:
+                    names = D["names"]
+                    s.kids.append({"name": random.choice(names["first_m"] + names["first_f"]), "born": s.age - random.randint(0, 6), "adopted": True})
+                    s.achieve("👶 Parent")
         if fx.get("log"):
             self.flog(fmt(fx["log"], self.ctx(s, sib)))
         if nxt:
@@ -486,9 +588,10 @@ class Life(Game):
         if not choices:
             return None
         s.seen[ev["id"]] = s.age
+        s.focus = None
         ctx = self.ctx(s, sib)
         return {"id": ev["id"], "text": fmt(ev["text"], ctx), "choices": choices,
-                "labels": [fmt(c["label"], ctx) for c in choices], "sib": sib.cid if sib else None}
+                "labels": [fmt(c["label"], ctx) for c in choices], "sib": sib.cid if sib else None, "friend": s.focus}
 
     def event_ok(self, ev, s):
         if ev.get("scripted"):
@@ -505,7 +608,7 @@ class Life(Game):
     def pick_event(self, s):
         if s.age == 18 and s.jail == 0 and "grad" not in s.seen:
             return self.make_event(D["events_by_id"]["grad"], s, forced=True)
-        if s.age == 0 or s.jail or random.random() > (0.32 if self.quarterly else 0.55):
+        if s.age == 0 or s.jail or random.random() > (0.36 if self.quarterly else 0.62):
             return None
         pool = [e for e in D["events"] if self.event_ok(e, s)]
         for _ in range(6):
@@ -526,6 +629,7 @@ class Life(Game):
         sib = self.sibs.get(ev["sib"]) if ev["sib"] else None
         if sib and not sib.alive:
             sib = None
+        s.focus = ev.get("friend")   # the same friend the question was about
         env = self.env(s, sib)
         out = pick_weighted(choice["outcomes"], env) or {"text": "Nothing happened.", "fx": {}}
         before = s.snap()
@@ -724,6 +828,7 @@ class Life(Game):
         if key in s.done:
             m.send("g:toast", text="You already did that this year. Try something else! 🔁", delta=[], warn=True)
             return
+        s.focus = None
         lets = {}
         for k, expr in (spec.get("let") or {}).items():
             env[k] = lets[k] = num(expr, env)
@@ -737,6 +842,7 @@ class Life(Game):
             extra = self.apply_fx(s, out.get("fx", {}), None, env, scale=0.6 if self.quarterly else 1.0)
             ctx = self.ctx(s)
             ctx.update({k: (str(v) if k in PLAIN_LETS else money_str(v)) for k, v in lets.items()})
+            ctx.update({k: random.choice(v) for k, v in (spec.get("pick") or {}).items() if v})   # random words for the text
             text, used = " ".join([fmt(out.get("text", ""), ctx)] + extra), True
         if text is None:
             return
@@ -762,10 +868,13 @@ class Life(Game):
             majors = edu.split("|")
             if not any(d in majors for d in s.degrees):
                 return False, "Needs a " + " or ".join(D["majors"][x][0] for x in majors if x in D["majors"]) + " degree"
-        for stat in ("smarts", "health", "looks", "music", "sport"):
+        for stat in ("smarts", "health", "looks", "music", "sport", "fame"):
             need = j.get(stat)
             if need and getattr(s, stat) < need:
                 return False, f"Needs {engine.ICON[stat]} {need}+"
+        flag = j.get("flag")
+        if flag and flag not in s.flags:
+            return False, "Needs a " + D["habits"].get(flag, {}).get("label", flag).lower()
         return True, ""
 
     def apply_job(self, s, msg):
@@ -920,6 +1029,31 @@ class Life(Game):
             bits = ([f"{'+' if income >= 0 else '-'}{money_str(abs(income))} from rentals & businesses"] if income else []) + \
                    ([f"-{money_str(upkeep)} upkeep"] if upkeep else [])
             s.add_log("🧾 Your stuff this year: " + ", ".join(bits) + ".")
+
+    def yearly_habits(self, s):
+        """Clubs, diets, memberships, habits and addictions do something every year (habits.json)."""
+        for name in sorted(s.flags):
+            spec = D["habits"].get(name)
+            if not spec:
+                continue
+            if spec.get("until") is not None and s.age >= spec["until"]:
+                s.flags.discard(name)
+                if spec.get("end_text"):
+                    s.add_log(spec["end_text"])
+                continue
+            if spec.get("cost"):
+                s.money -= spec["cost"]
+            if spec.get("yearly"):
+                self.apply_fx(s, spec["yearly"])
+            if spec.get("fade") and random.random() < spec["fade"]:
+                s.flags.discard(name)
+                if spec.get("fade_text"):
+                    s.add_log(spec["fade_text"])
+        for x in list(s.friends):
+            x["rel"] = clamp(x["rel"] - random.randint(0, 4))
+            if x["rel"] < 12:
+                s.friends.remove(x)
+                s.add_log(f"👋 You and {x['name']} slowly drifted apart.")
 
     def repossess(self, s):
         """In debt: staff you can't pay quit, then the bank takes your most valuable things."""
@@ -1546,10 +1680,17 @@ class Life(Game):
         return f"📜 The inheritance of {money_str(total)} was split equally — {money_str(share)} each! 💰{note}"
 
     # ------------------------------------------------------------------ years
+    def max_energy(self, s):
+        if s.age < 5:
+            return 2
+        if self.quarterly:
+            return 2
+        return 4 if s.age >= 18 else 3
+
     def begin_turn(self):
         for s in self.alive():
             self.casino_close(s)
-            s.energy = (2 if self.quarterly else 3) if s.age >= 5 else 2
+            s.energy = self.max_energy(s)
             s.done = set()
             if not s.event:
                 s.event = self.pick_event(s)
@@ -1614,7 +1755,7 @@ class Life(Game):
         if pool:
             h = random.choices(pool, weights=[x.get("weight", 1) for x in pool])[0]
             self.apply_fx(s, h.get("fx"))
-            s.add_log(h["text"])
+            s.add_log(fmt(h["text"], self.ctx(s)))
 
     def age_up(self, s):
         s.age += 1
@@ -1628,9 +1769,10 @@ class Life(Game):
 
         if s.uni:
             s.uni["years"] += 1
-            s.money -= 12000
+            spec = D["majors"][s.uni["major"]]
+            s.money -= spec[4] if len(spec) > 4 else 12000
             s.add("smarts", random.randint(1, 3))
-            if s.uni["years"] >= 4:
+            if s.uni["years"] >= (spec[3] if len(spec) > 3 else 4):
                 major = s.uni["major"]
                 s.degrees.append(major)
                 s.uni = None
@@ -1668,6 +1810,7 @@ class Life(Game):
                 s.job["perf"] -= 5
 
         self.yearly_stuff(s)
+        self.yearly_habits(s)
         if s.money < 0:
             self.repossess(s)
         if s.money < 0:
@@ -2057,17 +2200,21 @@ class Life(Game):
                 for r in self.requests.values() if r["to"] == s.cid]
         outgoing = [{"id": r["id"], "kind": r["kind"], "to": r["to"]} for r in self.requests.values() if r["from"] == s.cid]
         return {
-            "cid": s.cid, "name": self.full(s), "first": s.first, "gender": s.gender, "place": self.family.place,
+            "cid": s.cid, "name": self.full(s), "first": s.first, "gender": s.gender, "place": s.city or self.family.place,
             "emoji": s.emoji(), "age": s.age, "alive": s.alive, "cause": s.cause, "status": s.status(D["majors"]),
             "stats": {k: getattr(s, k) for k in STATS}, "skills": {"music": s.music, "sport": s.sport},
             "fame": s.fame, "heat": s.heat, "money": s.money, "trust": s.trust, "worth": s.worth(), "living": s.living,
             "job": dict(s.job) if s.job else None,
-            "uni": {"major": D["majors"][s.uni["major"]][0], "years": s.uni["years"]} if s.uni else None,
+            "uni": {"major": D["majors"][s.uni["major"]][0], "years": s.uni["years"],
+                    "total": D["majors"][s.uni["major"]][3] if len(D["majors"][s.uni["major"]]) > 3 else 4} if s.uni else None,
             "degrees": [D["majors"][d][0] for d in s.degrees], "jail": s.jail, "retired": s.retired,
             "partner": dict(s.partner) if s.partner else None, "kids": [k["name"] for k in s.kids], "pets": s.pets,
             "assets": [self.asset_public(a) for a in s.assets], "achievements": s.achievements, "log": s.log[-140:], "energy": s.energy,
             "casino": self.casino_public(s) if s.casino and s.casino["turn"] == self.t else None,
-            "maxEnergy": (2 if self.quarterly else 3) if s.age >= 5 else 2, "actions": actions, "jobs": jobs, "groups": groups,
+            "maxEnergy": self.max_energy(s), "actions": actions, "jobs": jobs, "groups": groups,
+            "flags": [{"id": f, "emoji": D["habits"][f].get("emoji", "•"), "label": D["habits"][f]["label"]}
+                      for f in sorted(s.flags) if f in D["habits"] and not D["habits"][f].get("hidden")],
+            "friends": [{"name": x["name"], "rel": x["rel"]} for x in s.friends],
             "event": {"text": s.event["text"], "choices": s.event["labels"]} if s.event else None,
             "requests": reqs, "outgoing": outgoing, "relMom": s.rel_mom, "relDad": s.rel_dad,
             "counters": s.counters, "score": s.score,
@@ -2087,7 +2234,8 @@ class Life(Game):
 
     def state_for(self, m):
         st = {"phase": self.phase, "settings": self.settings, "chars": self.chars,
-              "groupInfo": [{"id": g["id"], "emoji": g["emoji"], "title": g["title"], "crime": bool(g.get("crime"))} for g in D["group"]]}
+              "groupInfo": [{"id": g["id"], "emoji": g["emoji"], "title": g["title"], "crime": bool(g.get("crime"))} for g in D["group"]],
+              "sibLabels": {a["id"]: f"{a['emoji']} {a['label']}" for a in D["sib_actions"]}}
         if self.phase in ("lobby", "over"):
             st["family"] = self.family.public()
             if self.phase == "over":

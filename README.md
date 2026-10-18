@@ -303,6 +303,22 @@ Everything lives in `games/life/data/*.json`. The files are re-read at the start
   (`public/js/games/life-casino.js`); your new balance only shows once the reels stop or the horses finish. Every game
   has a house edge (slots ~94%, roulette 97%, dice 92–96%, horses 94%, blackjack ~97–99%, scratch 80%, lottery 84%),
   checked in `tests/lifeunit.py`.
+- Actions show up in tabs by `cat`: activities, school, friends, hobbies, fun, health, career, family (🏠 Home), love,
+  kids, money, travel, rich (💎 Lifestyle), fame (needs ⭐), risky (🦹 Crime) and jail. `pick` adds random words to the
+  text (`{"color": ["red", "blue"]}` → `{color}`), `let` computes numbers (shown as money).
+- **Flags** (`habits.json`): licences (🚗 driver, ⛵ boater, 🛩️ pilot), school clubs and teams, diets, memberships, side
+  projects (YouTube, podcast, band, author, brand…) and habits or addictions. Switch them on with `{"flag": "name"}` and
+  off with `{"unflag": ...}`; expressions see `f_<name>`. Each can have `yearly` effects, a yearly `cost`, an `until` age
+  (school clubs end at 18) and a yearly `fade` chance (addictions wear off). Cars need `f_driver`, small boats `f_boater`,
+  planes `f_pilot` (shop `cond` + `need`), and jobs can ask for a `flag` or a minimum `fame`.
+- **Friends**: `{"friend": true}` makes a new one, `friend_rel` changes how close you are with one (`{friend}` in the
+  text is that friend), `unfriend` ends it. Friends you never see drift apart; expressions see `friends`/`best_friend`.
+- Other effects: `emigrate` / `home_city` (move abroad and back), `job` (straight into a job, e.g. joining the army),
+  `adopt`, `home_grow` (% on your homes' value), `count` (counters, seen as `c_<name>`). Majors in `names.json` are
+  `[title, emoji, smarts needed, years, cost a year]`; trade schools and grad schools (`bachelors`, `trade_degrees`,
+  `grad_degrees` in expressions) open more of the 86 jobs.
+- `tests/lifecontent.py` tries every action, every event choice, every habit, shop item and job with random people and
+  plays whole lives, and fails on any expression error or on a flag that's checked but never set.
 - Typos in expressions are printed when the server starts.
 
 ## Running the tests

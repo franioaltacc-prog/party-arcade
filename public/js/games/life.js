@@ -21,7 +21,9 @@
   const prevBars = {};
 
   const STATS = [['health', '❤️', 'Health', '#22c55e'], ['happy', '😊', 'Happy', '#facc15'], ['smarts', '🧠', 'Smarts', '#3b82f6'], ['looks', '✨', 'Looks', '#ec4899']];
-  const ACT_TABS = [['activities', '🎯 Activities'], ['school', '🏫 School'], ['career', '💼 Career'], ['family', '🏠 Home'], ['love', '💞 Love'], ['money', '💰 Money'], ['rich', '💎 Lifestyle'], ['risky', '🦹 Crime'], ['jail', '🔒 Jail'], ['group', '🗳️ Together']];
+  const ACT_TABS = [['activities', '🎯 Activities'], ['school', '🏫 School'], ['friends', '👫 Friends'], ['hobbies', '🎨 Hobbies'], ['fun', '🎉 Fun'],
+    ['health', '🩺 Health'], ['career', '💼 Career'], ['family', '🏠 Home'], ['love', '💞 Love'], ['kids', '👶 Kids'], ['money', '💰 Money'], ['travel', '✈️ Travel'],
+    ['rich', '💎 Lifestyle'], ['fame', '⭐ Fame'], ['risky', '🦹 Crime'], ['jail', '🔒 Jail'], ['group', '🗳️ Together']];
   const SIB_LABELS = { hangout: '🤝 Hang out', teach: '🧑‍🏫 Help study', argue: '😤 Argue', prank: '😜 Prank', gift: '🎁 Gift money', borrow: '🙏 Borrow', payback: '💸 Pay back', bail: '🔓 Bail out', snitch: '🐀 Snitch' };
   const SEASONS = { 1: '❄️ Winter', 2: '🌸 Spring', 3: '☀️ Summer', 4: '🍂 Fall' };
   const RULES = { unanimous: 'Everyone must agree', majority: 'Majority wins', optin: 'Opt-in' };
@@ -223,12 +225,14 @@
     }
     const chips = [];
     if (m.job) chips.push(`${m.job.emoji} ${m.job.title} · ${fmtMoney(m.job.salary)}/yr`);
-    if (m.uni) chips.push(`🎓 ${m.uni.major} (year ${m.uni.years + 1}/4)`);
+    if (m.uni) chips.push(`🎓 ${m.uni.major} (year ${m.uni.years + 1}/${m.uni.total || 4})`);
     m.degrees.forEach((d) => chips.push(`📜 ${d}`));
     chips.push(LIVING[m.living] || m.living);
     if (m.partner) chips.push(`${m.partner.married ? '💍 Married to' : '💞 Dating'} ${m.partner.first}`);
     m.kids.forEach((k) => chips.push(`🧒 ${k}`));
     m.pets.forEach((p) => chips.push(`${p.emoji} ${p.name}`));
+    (m.friends || []).forEach((x) => chips.push(`${x.rel >= 80 ? '💛' : '👫'} ${x.name}`));
+    (m.flags || []).forEach((x) => chips.push(`${x.emoji} ${x.label}`));
     const things = m.assets.filter((a) => a.cat !== 'staff');
     const staff = m.assets.length - things.length;
     chips.push(`👩 Mom ${m.relMom}`, `👨 Dad ${m.relDad}`);
@@ -266,7 +270,7 @@
         h('span', { style: { fontSize: '1.5rem' } }, r.emoji), h('div', { class: 'grow bold' }, r.text),
         h('button', { class: 'btn btn-green btn-sm', onclick: () => { Net.send('g:respond', { rid: r.id, accept: true }); Sfx.play('click'); } }, '✅ Accept'),
         h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { Net.send('g:respond', { rid: r.id, accept: false }); Sfx.play('click'); } }, 'Decline'))));
-      if (m.outgoing.length) kids.push(h('div', { class: 'chips', style: { marginTop: 0, marginBottom: '10px' } }, m.outgoing.map((o) => { const t = sib(o.to); return h('span', { class: 'chip' }, `⏳ Waiting for ${t ? t.first : '…'} (${SIB_LABELS[o.kind] || o.kind})`); })));
+      if (m.outgoing.length) kids.push(h('div', { class: 'chips', style: { marginTop: 0, marginBottom: '10px' } }, m.outgoing.map((o) => { const t = sib(o.to); return h('span', { class: 'chip' }, `⏳ Waiting for ${t ? t.first : '…'} (${(S.sibLabels && S.sibLabels[o.kind]) || SIB_LABELS[o.kind] || o.kind})`); })));
     }
     fill(el, kids);
     if (G) el.querySelectorAll('.req').forEach((r) => { if (!seenReq.has(r.dataset.rid)) { seenReq.add(r.dataset.rid); FX.pop(r, { from: 0.7 }); Sfx.play('boing'); } });
@@ -441,7 +445,7 @@
         if (me.alive && x.alive && x.acts) {
           card.append(h('div', { class: 'sib-acts' }, x.acts.length ? x.acts.map((a) => h('button', {
             disabled: me.energy <= 0, onclick: () => sibAction(a, x),
-          }, SIB_LABELS[a] || a)) : h('span', { class: 'tiny faint' }, x.silent ? 'Try a 🎁 gift to break the silence…' : 'Nothing more to do together this year.')));
+          }, (S.sibLabels && S.sibLabels[a]) || SIB_LABELS[a] || a)) : h('span', { class: 'tiny faint' }, x.silent ? 'Try a 🎁 gift to break the silence…' : 'Nothing more to do together this year.')));
         }
       }
       kids.push(card);

@@ -30,7 +30,7 @@ def jail_str(quarters):
 
 def load_data():
     data = {}
-    for name in ("names", "jobs", "events", "family_events", "actions", "sibling_actions", "group_actions", "shop"):
+    for name in ("names", "jobs", "events", "family_events", "actions", "sibling_actions", "group_actions", "shop", "habits"):
         with open(DATA_DIR / f"{name}.json", encoding="utf-8") as f:
             data[name] = json.load(f)
     data["jobs"] = {k: v for k, v in data["jobs"].items() if not k.startswith("_")}
@@ -159,7 +159,8 @@ def validate(data):
                         problems.append(f"{where}.{k}: {e}")
                 elif k in ("fx", "each", "self", "target", "let", "yearly") and isinstance(v, dict):
                     for fk, fv in v.items():
-                        if isinstance(fv, str) and fk not in ("log", "uni", "next", "living", "ach", "partner", "count", "die"):
+                        if isinstance(fv, str) and fk not in ("log", "uni", "next", "living", "ach", "partner", "count", "die",
+                                                              "flag", "unflag", "asset", "emigrate", "job"):
                             try:
                                 compile_expr(fv)
                             except ExprError as e:
@@ -217,6 +218,10 @@ class Sibling:
         self.kids = []
         self.pets = []
         self.assets = []        # things from the 🛍️ Shop: {"uid", "id", "cat", "name", "emoji", "value", "paid"}
+        self.flags = set()      # licences, clubs, diets, habits... (see habits.json; f_<name> in expressions)
+        self.friends = []       # {"name", "rel", "since"}
+        self.focus = None       # the friend the last thing happened with ({friend} in texts)
+        self.city = None        # where you live if you moved away from the family's city
         self.once = set()       # once-in-a-lifetime experiences already bought
         self.bought = set()     # shop items bought at least once (their bonus only counts the first time)
         self.casino = None      # this turn's casino visit (see Life.casino_op)

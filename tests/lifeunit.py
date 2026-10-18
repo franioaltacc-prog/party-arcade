@@ -115,6 +115,7 @@ check(g.phase == "playing", "the game starts")
 A = ms[0]
 s = g.sib_of("a")
 s.age, s.money, s.energy, s.jail = 30, 100_000, 3, 0
+s.flags.add("driver")      # cars need a driver's licence
 A.inbox.clear()
 
 g.on_message(A, "shop", {})

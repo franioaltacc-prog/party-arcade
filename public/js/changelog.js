@@ -6,6 +6,34 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.1.0', date: '2026-10-18', emoji: '🏡', massive: true, title: 'Family Life: the mega update', intro: 'Family Life got HUGE: almost 300 new things to do, 70 new life events, 66 new jobs and 70 new things to buy.', sections: [
+      ['🎯 New tabs full of things to do', [
+        '👫 Friends: make friends, hang out, sleepovers, road trips, surprise parties, game nights. Friends you never see slowly drift apart',
+        '🎨 Hobbies: guitar, piano, drums, singing, painting, comics, cooking, gardening, chess, coding, magic, skateboarding, surfing, climbing, karate (earn a black belt!) and more',
+        '🎉 Fun: movies, concerts, theme parks, water parks, the zoo, escape rooms, karaoke, go-karts, festivals, hot air balloons and more',
+        '🩺 Health: dentist, braces, glasses, diets (vegan, keto, junk food…), gym and yoga memberships, therapy, rehab, haircuts, hair dye, spa days',
+        '✈️ Travel: Paris, Tokyo, New York, Bali, Iceland, a safari in Kenya, Machu Picchu, Antarctica, a world tour and more',
+        '⭐ Fame (once you’re famous): talk shows, commercials, magazine covers, award shows, your own fashion brand, a memoir, a wax figure',
+        '👶 Kids: adopt, IVF, birthday parties, teaching them to ride a bike, bedtime stories, a college fund',
+      ]],
+      ['🏫 School, work and money', [
+        'Join school clubs (chess, drama, band, robotics…) or try out for a team: they help you every year until you graduate',
+        'Run for class president, enter the science fair or spelling bee, go to prom, win a scholarship',
+        '66 new jobs (86 in all): from dog walker and plumber to surgeon, judge, CEO, airline pilot, news anchor, supermodel… and President',
+        'Trade school, beauty school, culinary school, flight school, and grad school (Master’s, MBA, PhD, pharmacy, vet school)',
+        'Licences: pass your driving test to buy a car, get a boating licence for boats and a pilot’s licence for planes',
+        'Side hustles, YouTube channels, podcasts, bands and books that earn you money every year',
+        'Lottery tickets, index funds, lawsuits, crowdfunding, bank loans, donating to charity',
+      ]],
+      ['🌍 Life', [
+        '70 new life events: first day of school, losing a tooth, prom, job offers, jury duty, meeting a prince, getting knighted, a bucket list and many more',
+        'Habits: coffee, gaming, shopping or gambling addictions (rehab can help), early bird or night owl, regular volunteering',
+        'Move to another country, write your will, renovate your home, plan a dream wedding, elope, renew your vows',
+        'New sibling activities (play games, cook, work out, share a secret, road trip, tickle fights) and new family moments',
+        '70 new things in the 🛍️ Shop: camper vans, a hypercar, jet skis, a submarine, a lighthouse, a ranch, a vineyard, a theme park, a dinosaur fossil and more',
+        'Adults now get 4 actions a year instead of 3',
+      ]],
+    ] },
     { v: '3.0.3', date: '2026-10-18', emoji: '🏐', title: 'Screen Volley: open sky, high-ball tracking and robot difficulties', items: [
       'No more ceiling bounce: lob the ball above your screen and let it fall back naturally',
       'A marker follows high balls, shows whether they are rising or falling, and counts down until they come back into view',
