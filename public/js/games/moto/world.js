@@ -13,7 +13,7 @@ export const THEMES = {
     sun: [48, 125], turbidity: 4, rayleigh: 1.1, mie: 0.004, mieG: 0.82, exposure: 0.42,
     sunColor: '#fff0d8', sunI: 2.6, hemi: ['#d6e6ff', '#b88c5c', 0.55], envI: 0.55,
     fog: '#e6d3b6', fogD: 0.00075,
-    track: '#b98b5d', rut: '#93673f', berm: '#b8865a', ground: ['#ecd3a3', '#e2c38e', '#d9b47c', '#efdcb4'], side: '#c08c5a', far: '#d5a171', hill: 18,
+    track: '#b98b5d', rut: '#93673f', berm: '#b8865a', ground: ['#ecd3a3', '#e2c38e', '#d9b47c', '#efdcb4'], side: '#c08c5a', far: '#d5a171',
     puff: '#dcbf92', chunk: '#9b7448', water: null,
     trees: [['cactus', 0.5], ['rock', 0.9], ['shrub', 1.4], ['deadtree', 0.08]], mountains: 'mesa', snowing: false, lamps: false,
     arch: '#ff6a10', fence: '#ffffff',
@@ -22,7 +22,7 @@ export const THEMES = {
     sun: [22, 210], turbidity: 9, rayleigh: 2.2, mie: 0.012, mieG: 0.86, exposure: 0.36,
     sunColor: '#ffe2b8', sunI: 1.9, hemi: ['#bccbd8', '#3b3a22', 0.7], envI: 0.6,
     fog: '#a9b6aa', fogD: 0.0016,
-    track: '#5a3f28', rut: '#3a2717', berm: '#664a30', ground: ['#4d6b2c', '#56772f', '#3f5a26', '#5f6f34'], side: '#5b4630', far: '#3d5a34', hill: 30,
+    track: '#5a3f28', rut: '#3a2717', berm: '#664a30', ground: ['#4d6b2c', '#56772f', '#3f5a26', '#5f6f34'], side: '#5b4630', far: '#3d5a34',
     puff: '#6b5844', chunk: '#3b2a1a', water: '#3a3020',
     trees: [['pine', 2.2], ['broadleaf', 0.9], ['rock', 0.5], ['shrub', 1.6], ['log', 0.12]], mountains: 'hills', snowing: false, lamps: false,
     arch: '#2ecc71', fence: '#ff8a00',
@@ -31,7 +31,7 @@ export const THEMES = {
     sun: [4, 250], turbidity: 6, rayleigh: 2.6, mie: 0.006, mieG: 0.8, exposure: 0.33,
     sunColor: '#ffc9a0', sunI: 1.6, hemi: ['#b6c4f2', '#8d93b8', 0.85], envI: 0.75,
     fog: '#b9b6d2', fogD: 0.0011,
-    track: '#dfe5ef', rut: '#b9c3d4', berm: '#e8edf5', ground: ['#f4f7fc', '#eef2fa', '#e6ecf7', '#f8faff'], side: '#e2e8f2', far: '#dfe6f2', hill: 40,
+    track: '#dfe5ef', rut: '#b9c3d4', berm: '#e8edf5', ground: ['#f4f7fc', '#eef2fa', '#e6ecf7', '#f8faff'], side: '#e2e8f2', far: '#dfe6f2',
     puff: '#ffffff', chunk: '#e8eef8', water: null,
     trees: [['snowpine', 2.4], ['rock', 0.4], ['snowbank', 0.6]], mountains: 'peaks', snowing: true, lamps: true,
     arch: '#2a7fff', fence: '#ff3b5c',
@@ -141,56 +141,14 @@ export function buildWorld(renderer, T, opts = {}) {
   const hemi = new THREE.HemisphereLight(th.hemi[0], th.hemi[1], th.hemi[2]); scene.add(hemi);
 
   // ---------------------------------------------------------------- the track's path and the ground's height
-  const S0 = T.x0 - 140; const S1 = T.end + 180;
-  const pathAt = (s, out) => {   // centre line point (x, z) and heading, extended straight past both ends
-    if (s < T.x0) { const p = C.plan(T, T.x0); const d = s - T.x0; out.x = p.x + Math.cos(p.heading) * d; out.z = p.z + Math.sin(p.heading) * d; out.h = p.heading; return out; }
-    if (s > T.end) { const p = C.plan(T, T.end); const d = s - T.end; out.x = p.x + Math.cos(p.heading) * d; out.z = p.z + Math.sin(p.heading) * d; out.h = p.heading; return out; }
-    const p = C.plan(T, s); out.x = p.x; out.z = p.z; out.h = p.heading; return out;
-  };
-  const trackY = (s) => C.groundY(T, Math.min(T.end, Math.max(T.x0, s)));
-  // the natural ground level: the track's height smoothed a lot (jumps stand above it, dips sink into it)
-  const BASE_STEP = 1; const nb = Math.ceil((S1 - S0) / BASE_STEP) + 1;
-  const base = new Float32Array(nb);
-  {
-    const raw = new Float32Array(nb); for (let i = 0; i < nb; i++) raw[i] = trackY(S0 + i * BASE_STEP);
-    const W = 28; const pre = new Float64Array(nb + 1); for (let i = 0; i < nb; i++) pre[i + 1] = pre[i] + raw[i];
-    for (let i = 0; i < nb; i++) { const a = Math.max(0, i - W); const b = Math.min(nb, i + W + 1); base[i] = Math.min(raw[i], pre[b] - pre[a] === 0 ? 0 : (pre[b] - pre[a]) / (b - a)) - 0.12; }
-  }
-  const baseAt = (s) => { const f = Math.min(nb - 1.001, Math.max(0, (s - S0) / BASE_STEP)); const i = f | 0; return base[i] + (base[i + 1] - base[i]) * (f - i); };
-  // berms: how hard the track turns here (smoothed), and which way
-  const curve = (s) => {
-    let k = 0; let n = 0;
-    for (let d = -6; d <= 6; d += 2) { const a = pathAt(s + d - 0.5, {}).h; const b = pathAt(s + d + 0.5, {}).h; k += b - a; n++; }
-    return k / n;   // radians per metre
-  };
-  const bermK = new Float32Array(nb); for (let i = 0; i < nb; i++) bermK[i] = curve(S0 + i * BASE_STEP);
-  const bermAt = (s) => { const f = Math.min(nb - 1.001, Math.max(0, (s - S0) / BASE_STEP)); const i = f | 0; return bermK[i] + (bermK[i + 1] - bermK[i]) * (f - i); };
-  const TW = 4.4;   // half the riding width
-  /** How far the ground at lane u is above the riding line (berms tilt the track in corners). */
-  function bank(s, u) {
-    const k = bermAt(s); if (!k) return 0;
-    const amt = Math.min(1, Math.abs(k) * 22) * 1.5; const uo = -u * Math.sign(k);   // uo: towards the outside of the corner
-    if (uo <= 0) return 0;
-    return amt * smooth(0.5, TW + 1.8, uo) * (1 - smooth(TW + 2.2, TW + 6.5, uo)) + amt * 0.15 * smooth(TW + 2.2, TW + 6.5, uo);
-  }
-  const hill = th.hill;
-  function natural(s, u) {
-    const au = Math.abs(u);
-    const b = baseAt(s);
-    const n1 = fbm(s * 0.035, u * 0.035 + 17, 4) - 0.5; const n2 = vnoise(s * 0.4, u * 0.4) - 0.5;
-    const rise = Math.pow(Math.max(0, au - 14) / 110, 1.6) * hill;
-    const lumps = n1 * (0.6 + Math.min(1, au / 60) * hill * 0.35);
-    return b - 0.06 + rise + lumps + n2 * 0.06 * smooth(5, 12, au);
-  }
-  function height(s, u) {
-    const ty = trackY(s);
-    const nat = natural(s, u);
-    const dh = Math.abs(ty - nat);
-    const w = 2.2 + 1.5 * dh;
-    const t = smooth(TW, TW + w, Math.abs(u));
-    const crown = -0.04 * (u / TW) * (u / TW);
-    return ty + crown + bank(s, u) + (nat - ty - crown - bank(s, u)) * t;
-  }
+  // the ground comes from core.js, so what you see is exactly what the bike rides on
+  const S0 = T.S0; const S1 = T.S1;
+  const pathAt = (s, out) => C.pathAt(T, s, out);
+  const trackY = (s) => C.trackY(T, s);
+  const bermAt = (s) => C.bermAt(T, s);
+  const TW = C.P.TW;
+  const bank = (s, u) => C.bank(T, s, u);
+  const height = (s, u) => C.heightAt(T, s, u);
 
   // ---------------------------------------------------------------- placing things in the world
   const tmpP = {};

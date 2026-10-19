@@ -1,8 +1,8 @@
 """Motocross: 2–6 riders race the same track at once.
 
 Everyone presses Ready in the lobby; when the whole room is ready the race starts after a 3-2-1
-countdown. Each browser rides its own bike (public/js/games/moto/) and sends where it is a few times
-a second; the server passes that on so everyone sees the others as see-through bikes, keeps the live
+countdown. Each browser rides its own bike (public/js/games/moto/) and sends where it is (in 3D, and how far
+along the track) a few times a second; the server passes that on so everyone sees the others as see-through bikes, keeps the live
 order, checks finish times, decides the places and saves the results. The tracks are data
 (public/js/games/moto/tracks.json), so a track added there can be raced here too."""
 import json
@@ -130,7 +130,9 @@ class Moto(Game):
             return
         run["x"] = round(num(msg.get("x"), run["x"], -50, 5000), 1)
         run["cp"] = int(num(msg.get("cp"), run["cp"], -1, 50))
-        out = {k: round(num(msg.get(k), 0, -1e4, 1e4), 3) for k in ("y", "a", "rx", "ry", "c0", "c1", "l", "s")}
+        # x: how far along the track; px/pz/h: where the bike is (seen from above) and which way it points;
+        # the rest is its pose: height, pitch, rider, suspension, lean, roll and speed
+        out = {k: round(num(msg.get(k), 0, -1e4, 1e4), 3) for k in ("px", "pz", "h", "ro", "y", "a", "rx", "ry", "c0", "c1", "l", "s")}
         out["x"] = run["x"]
         out["r"] = int(num(msg.get("r"), 1700, 0, 16000))
         out["th"] = round(num(msg.get("th"), 0, 0, 1), 2)

@@ -114,13 +114,18 @@
     .mx-touch button.on { background: rgba(255,255,255,.35); }
     .mx-touch button.sm { width: 48px; height: 48px; font-size: 1.1rem; }
     .mx-touch button.nitro { border-color: #7dd3fc; color: #a5f3fc; }
-    @media (pointer: coarse) { .mx-touch { display: flex; } .mx-br { bottom: 96px; } .mx-bl { bottom: 96px; } }
+    .mx-touch.up { bottom: 92px; }
+    @media (pointer: coarse) { .mx-touch { display: flex; } .mx-br { bottom: 148px; } .mx-bl { bottom: 148px; } }
+    .mx-wrong { position: absolute; left: 0; right: 0; top: 14%; text-align: center; font-family: 'Kanit', var(--font); font-style: italic; font-weight: 900; font-size: clamp(1.6rem, 5vw, 2.8rem); color: #fca5a5; text-shadow: 0 3px 18px rgba(0,0,0,.5); opacity: 0; transition: opacity .2s; }
+    .mx-wrong.on { opacity: 1; animation: mxBlink .8s steps(2) infinite; }
+    @keyframes mxBlink { 50% { opacity: .35; } }
     @media (max-width: 600px) { .mx-tl { top: 58px; } .mx-tr { top: 58px; } }
     @media (max-width: 480px) {
       .mx-touch { padding: 0 8px; }
       .mx-touch .grp { gap: 6px; }
       .mx-touch button { width: 58px; height: 58px; font-size: 1.3rem; border-radius: 18px; }
-      .mx-touch button.sm { width: 42px; height: 42px; font-size: 1rem; border-radius: 14px; }
+      .mx-touch button.sm { width: 46px; height: 46px; font-size: 1rem; border-radius: 14px; }
+      .mx-touch.up { bottom: 80px; }
       .mx-btns button { width: 34px; height: 34px; }
     }
   </style>
@@ -147,6 +152,7 @@
       <div class="mx-br"><div class="mx-lab">SPEED</div><div class="mx-speed"><span id="hud-speed">0</span><small>KM/H</small></div><div class="mx-gear" id="hud-gear">1</div><div class="mx-nitro"><i id="hud-nitro"></i></div><div class="mx-nlab">NITRO</div></div>
       <div class="mx-msg" id="hud-msg"></div>
       <div class="mx-trick" id="hud-trick"></div>
+      <div class="mx-wrong" id="hud-wrong">⟲ WRONG WAY</div>
     </div>
     <div class="mx-center" id="hud-center"></div>
     <div class="mx-btns">
@@ -156,8 +162,12 @@
       <button id="mx-cam" title="Camera (C)" aria-label="Change camera">🎥</button>
     </div>
     <div class="mx-touch" id="mx-touch">
-      <div class="grp"><button data-k="back" aria-label="Lean back">⤺</button><button data-k="fwd" aria-label="Lean forward">⤻</button><button class="sm" data-k="respawn" aria-label="Back to checkpoint">↺</button></div>
-      <div class="grp"><button class="sm nitro" data-k="nitro" aria-label="Nitro">N₂O</button><button data-k="brake" aria-label="Brake">⏪</button><button data-k="gas" aria-label="Gas">⏩</button></div>
+      <div class="grp"><button data-k="left" aria-label="Steer left">◀</button><button data-k="right" aria-label="Steer right">▶</button></div>
+      <div class="grp"><button data-k="brake" aria-label="Brake (hold to back up)">▼</button><button data-k="gas" aria-label="Gas">▲</button></div>
+    </div>
+    <div class="mx-touch up">
+      <div class="grp"><button class="sm" data-k="back" aria-label="Lean back">⤺</button><button class="sm" data-k="fwd" aria-label="Lean forward">⤻</button></div>
+      <div class="grp"><button class="sm" data-k="respawn" aria-label="Back to checkpoint">↺</button><button class="sm nitro" data-k="nitro" aria-label="Nitro">N₂O</button></div>
     </div>
   </section>
   <script src="/js/art.js"></script>

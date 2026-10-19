@@ -1,16 +1,23 @@
-/* Motocross core: tracks, bike physics, tricks and a robot rider. Nothing is drawn here, so the same
-   code also runs in the tests (tests/mototest.js), where the robot rides every track.
+/* Motocross core: tracks, the ground, bike physics, tricks and a robot rider. Nothing is drawn here,
+   so the same code also runs in the tests (tests/mototest.js), where the robot rides every track.
 
-   The bike lives in a side-on plane: x is the distance along the track, y is the height (metres).
-   The frame (bike + rider, one rigid body) hangs on two wheels through a fork and a shock: each wheel
-   is its own little body, held on its suspension axis by a stiff spring and pushed out along it by
-   the suspension spring and damper. Tyres grip the ground with a slip-based friction, the engine
-   turns the rear wheel through a 5-speed gearbox (its torque also lifts the front: wheelies), the
-   brakes push the nose down, and leaning tilts the bike (on the ground a little, in the air a lot).
+   You ride anywhere in 3D: the bike has a position on the ground (px, pz) and a heading, and you steer
+   it with real bike geometry (how far the bars turn depends on your speed) and tyre grip (too fast and
+   you slide wide; a berm holds you in). Up and down it's a full suspension model in the bike's own
+   upright plane, which turns with the bike: each step the ground is sampled along the way the bike
+   points (slice()), and in that plane x is metres travelled and y is the height.
+   The frame hangs on two wheels through a fork and a shock: each wheel is its own little body, held
+   on its suspension axis by a stiff spring and pushed out along it by the suspension spring and
+   damper. Tyres grip the ground with a slip-based friction, the engine turns the rear wheel through a
+   5-speed gearbox (its torque also lifts the front: wheelies), the brakes push the nose down, and the
+   rider (a body on springy legs) leans: on the ground that moves their weight, in the air it spins the
+   bike. With no lean held in the air, the rider levels the bike for the landing by themselves.
 
    A track is a list of pieces (tracks.json), e.g. "double 8 2.0 12" = a takeoff 8 m long with its
    lip 2 m high, then a 12 m gap to the top of the landing. build() turns them into ground samples
-   every 25 cm, plus where the checkpoints, the finish line and the mud/ice patches are. */
+   every 25 cm along the middle of the track, plus where the checkpoints, the finish line and the
+   mud/ice patches are. heightAt() turns that into ground everywhere: the riding surface (banked in the
+   corners), the sides of the jumps, and the hills around (the 3D world draws exactly this ground). */
 (function (root) {
   'use strict';
   const DT = 1 / 120;        // one game step (seconds)
@@ -51,7 +58,14 @@
     BRAKE: [900, 430],       // front, rear brake torque (N·m)
     LEAN_AIR: 1500, LEAN_GROUND: 300, SPIN_MAX: 8.5,
     DRAG: 0.4, ROLL: 0.012,  // air drag, tyre rolling resistance on hard dirt (tracks add more: sand, mud)
-    BERM: 1.5,               // how much a corner's berm helps you round it (corner speed = √(grip·g·radius·BERM))
+    BERM: 1.5,               // how much a corner's berm helps you round it (the robot's corner speed = √(grip·g·radius·BERM))
+    WHEELBASE: 1.48, STEER: 0.55, STEER_FALL: 0.11,   // steering lock at walking pace, and how it narrows with speed
+    MU_SIDE: 1.0, BERM_GRIP: 0.6,                      // sideways grip (times the ground's), and how much more a berm gives
+    AIR_TWIST: 0.8,          // how fast you can twist the bike's direction in the air (rad/s)
+    ASSIST: 0.5,             // how strongly the rider levels the bike in the air when you don't lean
+    PADDLE: 650, BACK_MAX: 2.4,                        // paddling backwards when stopped with the brake held
+    TW: 4.4,                 // half the riding width (the tape is just outside it)
+    FENCE: 11.5,             // how far from the middle of the track you can go before the barrier stops you
     CRASH_TIME: 1.3,         // seconds of tumbling before you go back to the checkpoint
     HOLD_TIME: 1.0,          // ...and how long you wait there (together: the crash penalty)
   };
@@ -66,7 +80,7 @@
   function hash(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
 
   // ------------------------------------------------------------------ tracks
-  const SURFACE = { dirt: 0, mud: 1, ice: 2 };
+  const SURFACE = { dirt: 0, mud: 1, ice: 2, rough: 3 };   // rough = off the track
 
   /** Turn a track's pieces into ground samples. Throws on a piece it doesn't know. */
   function build(def) {
@@ -178,7 +192,7 @@
       id: def.id, name: def.name, theme: def.theme || 'desert', def,
       dx: DX, x0: X0, n, end: X0 + (n - 1) * DX,
       ys: Float32Array.from(ys), gr: Float32Array.from(gr, (g) => g * baseGrip), kd: Uint8Array.from(kd), hd: Float32Array.from(hd),
-      rr: Float32Array.from(rr), vm: Float32Array.from(vm),
+      rr: Float32Array.from(rr), vm: Float32Array.from(vm), baseGrip, baseRoll,
       start, finish, cps: cps.filter((c) => c > start && c < finish).sort((p, q) => p - q), features,
       robot: def.robot || null,
     };
@@ -190,6 +204,7 @@
     }
     // the speed that lands each gap jump in the sweet spot of its landing
     for (const f of features) if (f.top != null) f.speed = launchSpeed(T, f);
+    prepareGround(T);
     return T;
   }
 
@@ -226,6 +241,117 @@
     return { x: lerp(T.px[i], T.px[i + 1], t), z: lerp(T.pz[i], T.pz[i + 1], t), heading: lerp(T.hd[i], T.hd[i + 1], t) };
   }
 
+  // ------------------------------------------------------------------ the ground everywhere
+  // A point near the track is (s = metres along the middle of it, u = metres to its right). The riding
+  // surface follows the track's profile (tilted into a berm in the corners); further out it blends into
+  // natural ground, so jumps get dirt sides, and hills rise away from the track.
+  const HILLS = { desert: 18, forest: 30, snow: 40 };
+  function hash2(x, y) { let h = (x * 374761393 + y * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
+  function vnoise(x, y) {
+    const xi = Math.floor(x); const yi = Math.floor(y); const xf = x - xi; const yf = y - yi;
+    const u = xf * xf * (3 - 2 * xf); const v = yf * yf * (3 - 2 * yf);
+    const a = hash2(xi, yi); const b = hash2(xi + 1, yi); const c = hash2(xi, yi + 1); const d = hash2(xi + 1, yi + 1);
+    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+  }
+  function fbm(x, y, oct = 4) { let s = 0; let a = 0.5; let f = 1; for (let i = 0; i < oct; i++) { s += a * vnoise(x * f, y * f); f *= 2.03; a *= 0.5; } return s / (1 - Math.pow(0.5, oct)); }
+  const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+
+  /** Work out the natural ground level (the track's height smoothed a lot) and how hard each bit of it turns. */
+  function prepareGround(T) {
+    T.S0 = T.x0 - 140; T.S1 = T.end + 180; T.hill = HILLS[T.theme] || 20;
+    const nb = Math.ceil(T.S1 - T.S0) + 1;
+    const raw = new Float32Array(nb);
+    for (let i = 0; i < nb; i++) raw[i] = groundY(T, clamp(T.S0 + i, T.x0, T.end));
+    const pre = new Float64Array(nb + 1); for (let i = 0; i < nb; i++) pre[i + 1] = pre[i] + raw[i];
+    T.base = new Float32Array(nb); T.berm = new Float32Array(nb);
+    const W = 28; const tmp = {};
+    for (let i = 0; i < nb; i++) {
+      const a = Math.max(0, i - W); const b = Math.min(nb, i + W + 1);
+      T.base[i] = Math.min(raw[i], (pre[b] - pre[a]) / (b - a)) - 0.12;
+      let k = 0;
+      for (let d = -6; d <= 6; d += 2) k += pathAt(T, T.S0 + i + d + 0.5, tmp).h - pathAt(T, T.S0 + i + d - 0.5, tmp).h;
+      T.berm[i] = k / 7;   // radians per metre
+    }
+  }
+  const at1m = (T, arr, s) => { const f = clamp(s - T.S0, 0, arr.length - 1.001); const i = f | 0; return arr[i] + (arr[i + 1] - arr[i]) * (f - i); };
+  /** The middle of the track seen from above at s: { x, z, h (heading) }, carried on straight past both ends. */
+  function pathAt(T, s, out = {}) {
+    const e = s < T.x0 ? T.x0 : s > T.end ? T.end : s;
+    const f = index(T, e); const i = f | 0; const t = f - i;
+    const h = lerp(T.hd[i], T.hd[i + 1], t);
+    out.x = lerp(T.px[i], T.px[i + 1], t) + Math.cos(h) * (s - e); out.z = lerp(T.pz[i], T.pz[i + 1], t) + Math.sin(h) * (s - e); out.h = h;
+    return out;
+  }
+  const trackY = (T, s) => groundY(T, clamp(s, T.x0, T.end));
+  /** How much the track turns at s (radians per metre, + = right), smoothed over a few metres. */
+  function bermAt(T, s) { return at1m(T, T.berm, s); }
+  /** How far the ground at lane u is above the middle of the track: corners are banked into berms. */
+  function bank(T, s, u) {
+    const k = bermAt(T, s); if (!k) return 0;
+    const amt = Math.min(1, Math.abs(k) * 22) * 1.5; const uo = -u * Math.sign(k);   // uo: towards the outside of the corner
+    if (uo <= 0) return 0;
+    const TW = P.TW;
+    return amt * smooth(0.5, TW + 1.8, uo) * (1 - smooth(TW + 2.2, TW + 6.5, uo)) + amt * 0.15 * smooth(TW + 2.2, TW + 6.5, uo);
+  }
+  /** The natural ground away from the track: lumps nearby, hills rising further out. */
+  function natural(T, s, u) {
+    const au = Math.abs(u);
+    const n1 = fbm(s * 0.035, u * 0.035 + 17, 4) - 0.5; const n2 = vnoise(s * 0.4, u * 0.4) - 0.5;
+    const rise = Math.pow(Math.max(0, au - 14) / 110, 1.6) * T.hill;
+    const lumps = n1 * (0.6 + Math.min(1, au / 60) * T.hill * 0.35);
+    return at1m(T, T.base, s) - 0.06 + rise + lumps + n2 * 0.06 * smooth(5, 12, au);
+  }
+  /** The height of the ground at (s, u). */
+  function heightAt(T, s, u) {
+    const ty = trackY(T, s);
+    const nat = natural(T, s, u);
+    const w = 2.2 + 1.5 * Math.abs(ty - nat);
+    const t = smooth(P.TW, P.TW + w, Math.abs(u));
+    const top = ty - 0.04 * (u / P.TW) * (u / P.TW) + bank(T, s, u);
+    return top + (nat - top) * t;
+  }
+  /** Where a point seen from above is on the track: { s, u, h } (h = the track's heading there).
+      hint: a nearby s (the track never comes back close to itself, so the nearest point is found by walking). */
+  const loc = { s: 0, u: 0, h: 0 };
+  function locate(T, wx, wz, hint, out = loc) {
+    let i = clamp(Math.round((hint - T.x0) / T.dx), 0, T.n - 1);
+    const d2 = (k) => { const dx = wx - T.px[k]; const dz = wz - T.pz[k]; return dx * dx + dz * dz; };
+    let best = d2(i);
+    for (const st of [64, 16, 4, 1]) {
+      for (let moved = true; moved;) {
+        moved = false;
+        for (const k of [i - st, i + st]) if (k >= 0 && k < T.n) { const d = d2(k); if (d < best) { best = d; i = k; moved = true; } }
+      }
+    }
+    const k = i >= T.n - 1 ? T.n - 2 : i;
+    const h = T.hd[k]; const c = Math.cos(h); const sn = Math.sin(h);
+    const along = (wx - T.px[k]) * c + (wz - T.pz[k]) * sn;   // metres past sample k (can run past either end of the track)
+    out.s = T.x0 + k * T.dx + (k === 0 || k === T.n - 2 ? along : clamp(along, -T.dx, 2 * T.dx));
+    out.u = -(wx - T.px[k]) * sn + (wz - T.pz[k]) * c;
+    out.h = h;
+    return out;
+  }
+  /** The ground along the way the bike points, in its own plane (x = its odometer), for this step's physics.
+      Off the track it's rough and slow; mud and ice are only on the riding surface. */
+  const SLICE_N = 41;
+  function slice(T, b) {
+    const G = b.G || (b.G = { x0: 0, dx: 0.25, n: SLICE_N, ys: new Float32Array(SLICE_N), gr: new Float32Array(SLICE_N), kd: new Uint8Array(SLICE_N), rr: new Float32Array(SLICE_N), s: new Float32Array(SLICE_N) });
+    G.x0 = b.x - (SLICE_N - 1) / 2 * G.dx;
+    const c = Math.cos(b.h); const sn = Math.sin(b.h);
+    let hint = b.s;
+    for (let i = 0; i < SLICE_N; i++) {
+      const d = G.x0 + i * G.dx - b.x;
+      const L = locate(T, b.px + c * d, b.pz + sn * d, hint);
+      hint = L.s;
+      G.ys[i] = heightAt(T, L.s, L.u); G.s[i] = L.s;
+      if (Math.abs(L.u) < P.TW + 0.8) {
+        const j = Math.round(index(T, L.s));
+        G.gr[i] = T.gr[j]; G.kd[i] = T.kd[j]; G.rr[i] = T.rr[j];
+      } else { G.gr[i] = T.baseGrip * 0.8; G.kd[i] = SURFACE.rough; G.rr[i] = T.baseRoll + 0.16; }
+    }
+    return G;
+  }
+
   /** The ground point nearest to a circle (cx, cy, r) if it touches: { pen, nx, ny } or null. */
   const hit = { pen: 0, nx: 0, ny: 1 };
   function touch(T, cx, cy, r) {
@@ -250,9 +376,12 @@
   }
 
   // ------------------------------------------------------------------ the bike
-  function newBike(T, x) {
+  /** A bike standing on the track s metres along it, u metres right of the middle (default: the start, in the middle). */
+  function newBike(T, s, u = 0) {
     const b = {
-      x: 0, y: 0, a: 0, vx: 0, vy: 0, w: 0,
+      x: 0, y: 0, a: 0, vx: 0, vy: 0, w: 0,   // in the bike's upright plane: x = odometer, y = height, a = pitch
+      px: 0, pz: 0, h: 0,                     // seen from above: where the bike is and which way it points
+      s: 0, u: 0, steer: 0, yaw: 0, scrub: 0, wrong: false, off: false, backT: 0, fenceT: 0,
       rx: 0, ry: 0, rvx: 0, rvy: 0,     // the rider's hips
       wh: [0, 1].map(() => ({ x: 0, y: 0, vx: 0, vy: 0, sp: 0, ang: 0, c: 0, ct: false, nx: 0, ny: 1, load: 0, slip: 0, fx: 0, fy: 0, tq: 0 })),
       gear: 1, rpm: P.IDLE, thr: 0, brk: 0, lean: 0, shift: 0, nitro: 0, boost: false, limiter: false,
@@ -260,15 +389,20 @@
       crashed: 0, rider: null, hold: 0, cp: -1, t: 0, finished: null, crashes: 0, flips: 0, maxSpeed: 0,
       scrape: 0, slide: 0, bodyHit: false, lastLand: null,
     };
-    place(T, b, x == null ? T.start : x);
+    place(T, b, s == null ? T.start : s, u);
     return b;
   }
 
-  /** Put the bike upright on the ground at x, standing still, and let the suspension settle. */
-  function place(T, b, x) {
-    const a = slope(T, x);
+  /** Put the bike upright on the track at (s, u), pointing along it, standing still, and let the suspension settle. */
+  function place(T, b, s, u = 0) {
+    const p = pathAt(T, s);
+    b.h = p.h; b.px = p.x - Math.sin(p.h) * u; b.pz = p.z + Math.cos(p.h) * u; b.s = s; b.u = u;
+    const x = s;   // (the odometer starts at s: any number would do)
+    b.x = x;
+    const G = slice(T, b);
+    const a = slope(G, x);
     b.a = a; b.vx = b.vy = b.w = 0;
-    b.x = x; b.y = groundY(T, x) + 0.95;
+    b.y = groundY(G, x) + 0.95;
     const ca = Math.cos(a); const sa = Math.sin(a);
     for (let k = 0; k < 2; k++) {
       const s = P.SUS[k]; const w = b.wh[k];
@@ -276,14 +410,16 @@
       w.vx = w.vy = w.sp = 0; w.c = 0;
     }
     // lift everything so the lower wheel just touches, then settle
-    const lift = Math.max(...[0, 1].map((k) => groundY(T, b.wh[k].x) + P.R[k] - b.wh[k].y));
+    const lift = Math.max(...[0, 1].map((k) => groundY(G, b.wh[k].x) + P.R[k] - b.wh[k].y));
     b.y += lift; b.wh[0].y += lift; b.wh[1].y += lift;
     const rp = P.RIDER.rest;
     b.rx = b.x + ca * rp[0] - sa * rp[1]; b.ry = b.y + sa * rp[0] + ca * rp[1]; b.rvx = b.rvy = 0;
     b.crashed = 0; b.rider = null; b.air = 0; b.airRot = 0; b.landing = null; b.thr = 0; b.brk = 0; b.lean = 0; b.gear = 1; b.rpm = P.IDLE; b.boost = false;
+    b.steer = 0; b.yaw = 0; b.scrub = 0; b.wrong = false; b.backT = 0;
     for (let i = 0; i < 120; i++) step(T, b, { gas: 0, brake: 1, lean: 0, nitro: false, hold: true });
     const dx = x - b.x;
     b.x += dx; b.rx += dx; b.wh[0].x += dx; b.wh[1].x += dx;
+    b.h = p.h; b.px = p.x - Math.sin(p.h) * u; b.pz = p.z + Math.cos(p.h) * u; b.s = s; b.u = u;
     b.vx = b.vy = b.w = b.rvx = b.rvy = 0;
     for (const w of b.wh) { w.vx = w.vy = w.sp = 0; }
     b.air = 0; b.airRot = 0; b.landing = null; b.ground = 1;
@@ -353,6 +489,7 @@
       w.x += w.vx * h; w.y += w.vy * h; w.ang += w.sp * h;
     }
     tq += drive.lean;
+    fx += drive.push;
     // the rider: hips held over the pegs by springy legs and arms; leaning moves where they want to be
     let rfx = 0; let rfy = -P.MR * P.G;
     if (!b.crashed) {
@@ -410,10 +547,13 @@
     }
   }
 
-  /** One game step (1/120 s). inp = { gas 0..1, brake 0..1, lean -1 (back) .. 1 (forward), nitro, hold }.
-      Returns a list of events: ['land', {...}], ['crash'], ['cp', i], ['finish', time], ['shift', gear]. */
+  /** One game step (1/120 s). inp = { gas 0..1, brake 0..1, steer -1 (left) .. 1 (right), lean -1 (back) .. 1 (forward),
+      nitro, hold (stand at the gate), assist: false (no levelling in the air) }.
+      Returns a list of events: ['land', {...}], ['crash'], ['cp', i], ['finish', time], ['shift', gear], ['fence']. */
   function step(T, b, inp) {
     const ev = [];
+    const G = slice(T, b);
+    const x0 = b.x;
     const out = !!b.crashed;
     const gas = out || b.finished != null ? 0 : clamp(+inp.gas || 0, 0, 1);
     const brake = out ? 0.3 : b.finished != null ? 1 : clamp(+inp.brake || 0, 0, 1);
@@ -458,7 +598,7 @@
     if (!flying && !inp.hold) {
       // the rider's instinct on a wheelie: weight forward and ease off before it loops (looking a moment
       // ahead, so a fast pop is caught too). Hold lean-back to keep a wheelie going, up to a point.
-      const rel = b.a - slope(T, b.x) + Math.max(0, b.w) * 0.22;
+      const rel = b.a - slope(G, b.x) + Math.max(0, b.w) * 0.22;
       const wheelie = b.lean < -0.3 ? 0.75 : 0.24;
       if (rel > wheelie) {
         leanTq -= Math.min(1.5, (rel - wheelie) * 4) * P.LEAN_GROUND * 2.2;
@@ -471,43 +611,98 @@
         leanTq += Math.min(1, (-rel - stoppie) * 3) * P.LEAN_GROUND * 1.4;
       }
     }
-    const drive = { tq: engine, brake: [P.BRAKE[0] * b.brk * frontBrake, P.BRAKE[1] * b.brk], lean: leanTq };
+    // no lean held in the air: the rider levels the bike for the landing
+    if (flying && Math.abs(lean) < 0.05 && inp.assist !== false && !out) {
+      const L = predictLanding(T, b);
+      const err = b.a - L.slope;
+      leanTq += -clamp(err * 3 + b.w * 0.9, -1, 1) * P.LEAN_AIR * P.ASSIST;
+    }
+    // stopped with the brake held: paddle backwards (bikes have no reverse gear)
+    const grounded = b.wh[0].ct || b.wh[1].ct;
+    b.backT = grounded && !out && !inp.hold && b.finished == null && brake > 0.5 && gas < 0.1 && b.vx < 0.6 ? b.backT + DT : 0;
+    const backing = b.backT > 0.35;
+    const push = backing && b.vx > -P.BACK_MAX ? -P.PADDLE : 0;
+    const drive = { tq: engine, brake: backing ? [0, 0] : [P.BRAKE[0] * b.brk * frontBrake, P.BRAKE[1] * b.brk], lean: leanTq, push };
     const h = DT / SUB;
     for (const w of b.wh) { w.ct = false; w.load = 0; w.slip = 0; }
     b.scrape = 0; b.slide = 0; b.bodyHit = false;
-    for (let s = 0; s < SUB; s++) substep(T, b, h, drive);
+    for (let s = 0; s < SUB; s++) substep(G, b, h, drive);
     if (inp.hold) { b.vx *= 0.5; b.vy = Math.min(b.vy, 0); }
     if (!onGround && !(b.wh[0].ct || b.wh[1].ct) && Math.abs(b.w) > 0.3 && !b.scrape) b.w *= 1 - DT * 0.25;   // a little air resistance on spinning
     if (b.a > Math.PI || b.a < -Math.PI) b.a -= TAU * Math.round(b.a / TAU);   // (flips are counted in airRot)
-    let speed = Math.hypot(b.vx, b.vy);
-    // too fast for a corner: you slide wide in the berm and lose the extra speed
-    const vmax = cornerAt(T, b.x);
-    b.scrub = 0;
-    if (vmax && speed > vmax && (b.wh[0].ct || b.wh[1].ct)) {
-      const f = Math.max(vmax / speed, 1 - DT * (1.6 + (speed - vmax) * 0.35));
-      b.scrub = speed - vmax;
-      b.vx *= f; b.vy *= f;
-      for (const w of b.wh) { w.vx *= f; w.vy *= f; w.sp *= f; }
-      speed *= f;
-    }
+    // move over the ground the distance the bike went in its plane, then steer
+    const moved = b.x - x0;
+    b.px += Math.cos(b.h) * moved; b.pz += Math.sin(b.h) * moved;
+    steering(T, G, b, out || inp.hold || b.finished != null ? 0 : clamp(+inp.steer || 0, -1, 1), DT);
+    // where that is on the track, the barrier, and which way you're going
+    const L = locate(T, b.px, b.pz, b.s);
+    b.s = L.s; b.u = L.u;
+    b.off = Math.abs(b.u) > P.TW + 0.8;
+    if (b.fenceT > 0) b.fenceT -= DT;
+    if (Math.abs(b.u) > P.FENCE) fence(T, b, L, ev);
+    const speed = Math.hypot(b.vx, b.vy);
+    b.wrong = !out && speed > 1.5 && Math.cos(b.h - L.h) * Math.sign(b.vx) < -0.2;
     if (b.finished == null && !out) b.maxSpeed = Math.max(b.maxSpeed, speed);
-    tricks(T, b, ev);
+    tricks(G, b, ev);
     // crashing: your body hits the ground, or the bike lies upside down
     if (!b.crashed && !inp.hold) {
-      const rel = Math.atan2(Math.sin(b.a - slope(T, b.x)), Math.cos(b.a - slope(T, b.x)));
+      const rel = Math.atan2(Math.sin(b.a - slope(G, b.x)), Math.cos(b.a - slope(G, b.x)));
       if (b.bodyHit || (b.scrape && Math.abs(rel) > 1.75)) crash(T, b, ev);
     }
     if (b.crashed) {
       b.crashed += DT;
-      riderStep(T, b);
+      riderStep(G, b);
     }
-    // checkpoints and the finish
+    // checkpoints (in order, however you get there) and the finish
     if (!b.crashed && b.finished == null && !inp.hold) {
       b.t += DT;
-      while (b.cp + 1 < T.cps.length && b.x >= T.cps[b.cp + 1]) { b.cp++; ev.push(['cp', b.cp]); }
-      if (b.x >= T.finish && b.cp === T.cps.length - 1) { b.finished = b.t; ev.push(['finish', b.t]); }
+      while (b.cp + 1 < T.cps.length && b.s >= T.cps[b.cp + 1]) { b.cp++; ev.push(['cp', b.cp]); }
+      if (b.s >= T.finish && b.cp === T.cps.length - 1) { b.finished = b.t; ev.push(['finish', b.t]); }
     } else if (b.crashed && b.finished == null) b.t += DT;
     return ev;
+  }
+
+  /** Turn the bike. On the ground: the bars turn less the faster you go, and the tyres (and a berm, if
+      you're going round it) can only hold so much; past that you slide wide and scrub off speed. In the
+      air you can only twist it a little. */
+  function steering(T, G, b, input, dt) {
+    b.steer += clamp(input - b.steer, -dt * 5, dt * 5);
+    const v = b.vx;
+    let yaw = 0;
+    b.scrub = 0;
+    if (b.crashed) { b.yaw = 0; return; }
+    if (b.wh[0].ct || b.wh[1].ct) {
+      const lock = P.STEER / (1 + Math.abs(v) * P.STEER_FALL);
+      yaw = v * Math.tan(b.steer * lock) / P.WHEELBASE;
+      const k = bermAt(T, b.s);
+      const berm = k && Math.sign(k) === Math.sign(yaw) && Math.abs(b.u) < P.TW + 1.5 ? 1 + P.BERM_GRIP * Math.min(1, Math.abs(k) * 22) : 1;
+      const most = P.MU_SIDE * gripAt(G, b.x) * berm * P.G;   // the sideways acceleration the tyres can take
+      const lat = Math.abs(v * yaw);
+      if (lat > most && Math.abs(v) > 1) {
+        yaw = Math.sign(yaw) * most / Math.abs(v);
+        b.scrub = (lat - most) / P.G;
+        const f = 1 - dt * Math.min(2.5, 0.4 + b.scrub * 1.4);
+        b.vx *= f; for (const w of b.wh) { w.vx *= f; w.sp *= f; }
+      }
+    } else yaw = b.steer * P.AIR_TWIST;
+    b.yaw = yaw;
+    b.h += yaw * dt;
+  }
+
+  /** Too far off the track: the barrier stops you and turns you back along it. */
+  function fence(T, b, L, ev) {
+    const sgn = Math.sign(b.u); const over = Math.abs(b.u) - P.FENCE;
+    const rx = -Math.sin(L.h); const rz = Math.cos(L.h);
+    b.px -= rx * over * sgn; b.pz -= rz * over * sgn; b.u = sgn * P.FENCE;
+    const out = (Math.cos(b.h) * rx + Math.sin(b.h) * rz) * sgn * Math.sign(b.vx || 1);   // how much you're heading into it
+    if (out > 0) {
+      const along = Math.cos(b.h - L.h) >= 0 ? L.h : L.h + Math.PI;
+      let d = along - b.h; d = Math.atan2(Math.sin(d), Math.cos(d));
+      b.h += d * Math.min(1, 0.6 + out);
+      const f = 1 - 0.55 * out;
+      b.vx *= f; b.vy *= f; for (const w of b.wh) { w.vx *= f; w.sp *= f; }
+      if (b.fenceT <= 0) { ev.push(['fence', out]); b.fenceT = 0.5; }
+    }
   }
 
   /** Air time, flips and landings. Flips only count when you land them cleanly. */
@@ -581,27 +776,30 @@
     }
   }
 
-  /** Back to the last checkpoint (or the start). */
-  function respawn(T, b) {
+  /** Back to the last checkpoint (or the start), in the middle of the track (or a lane). */
+  function respawn(T, b, u = 0) {
     const x = b.cp >= 0 ? T.cps[b.cp] : T.start;
     const keep = { nitro: b.nitro, cp: b.cp, t: b.t, crashes: b.crashes, flips: b.flips, maxSpeed: b.maxSpeed };
-    place(T, b, x);
+    place(T, b, x, u);
     Object.assign(b, keep);
     b.hold = P.HOLD_TIME;
   }
 
   // ------------------------------------------------------------------ the robot rider
-  /** Where the bike will come down if nothing changes: { x, t, slope }. */
+  /** Where the bike will come down if nothing changes (going by the track's profile): { x (along the track), t, slope }
+      (the slope as the bike will meet it, so riding across a slope makes it gentler). */
   function predictLanding(T, b) {
-    let x = b.x; let y = b.y - 0.45; let vx = b.vx; let vy = b.vy; let t = 0;
-    for (let i = 0; i < 400; i++) {
-      t += 1 / 60; vy -= P.G / 60; x += vx / 60; y += vy / 60;
+    const c = Math.cos(b.h - pathAt(T, b.s, tmpPath).h);
+    let x = b.s; let y = b.y - 0.45; const vx = b.vx * c; let vy = b.vy; let t = 0;
+    for (let i = 0; i < 160; i++) {
+      t += 1 / 40; vy -= P.G / 40; x += vx / 40; y += vy / 40;
       if (y <= groundY(T, x) + 0.1 && vy < 0) break;
     }
     let sum = 0;   // the average slope around there (bumps and whoops would make it jumpy)
     for (let d = -1.5; d <= 1.5; d += 0.5) sum += slope(T, x + d);
-    return { x, t, slope: sum / 7 };
+    return { x, t, slope: Math.atan(Math.tan(sum / 7) * c) };
   }
+  const tmpPath = {};
 
   /** The speed the robot wants here: slow enough to brake for every corner ahead, and the right speed for the next jump. */
   function robotSpeed(T, x) {
@@ -624,26 +822,31 @@
     return { want, exact };
   }
 
-  /** What the robot presses this step. */
+  /** What the robot presses this step. It steers for a point a little way along its lane (b.lane, 0 = the middle). */
   function robot(T, b) {
-    const inp = { gas: 1, brake: 0, lean: 0, nitro: false };
+    const inp = { gas: 1, brake: 0, steer: 0, lean: 0, nitro: false, assist: false };
     if (b.crashed || b.finished != null) return inp;
     const onGround = b.wh[0].ct || b.wh[1].ct;
     const speed = Math.hypot(b.vx, b.vy);
+    const p = pathAt(T, b.s + 4 + Math.abs(b.vx) * 0.45, tmpPath); const lane = b.lane || 0;
+    let ang = Math.atan2(p.z + Math.cos(p.h) * lane - b.pz, p.x - Math.sin(p.h) * lane - b.px) - b.h;
+    ang = Math.atan2(Math.sin(ang), Math.cos(ang));
+    inp.steer = clamp(ang * 2.6 - b.yaw * 0.08, -1, 1);
+    const x = b.s;
     // in whoops: weight back and keep the front light, so the bike skims over the tops
-    const whoops = T.features.some((f) => (f.kind === 'whoops' || f.kind === 'rollers') && b.x > f.x0 - 3 && b.x < f.x1 + 2);
+    const whoops = T.features.some((f) => (f.kind === 'whoops' || f.kind === 'rollers') && x > f.x0 - 3 && x < f.x1 + 2);
     if (onGround) {
-      const rel = b.a - slope(T, b.x + 0.3);
+      const rel = b.a - slope(T, x + 0.3);
       inp.lean = clamp((rel - (whoops ? 0.14 : 0.04)) * 5 + b.w * 0.25, -1, 1);
-      const { want, exact } = robotSpeed(T, b.x);
-      const onFace = exact && b.x >= exact.f.x0 - 1;
+      const { want, exact } = robotSpeed(T, x);
+      const onFace = exact && x >= exact.f.x0 - 1;
       if (onFace) inp.gas = speed < want ? 1 : 0.35;          // never brake on a takeoff
       else if (speed > want + 0.6) { inp.gas = 0; inp.brake = clamp((speed - want) / 3, 0.3, 1); }
       else if (speed > want - 0.4) inp.gas = 0.45;
       if (rel > 0.4) inp.gas = Math.min(inp.gas, 0.3);
       // nitro on a flat run with nothing to slow down for
       let flat = true;
-      for (let d = 2; d < 34; d += 2) if (Math.abs(slope(T, b.x + d)) > 0.12) { flat = false; break; }
+      for (let d = 2; d < 34; d += 2) if (Math.abs(slope(T, x + d)) > 0.12) { flat = false; break; }
       inp.nitro = flat && b.nitro > 0.25 && speed < want - 3;
     } else {
       const L = predictLanding(T, b);
@@ -658,7 +861,8 @@
 
   /** The robot rides a track from the start (or a checkpoint) to the finish: { time, crashes, ... }. */
   function simulate(T, opts = {}) {
-    const b = newBike(T, opts.from != null ? T.cps[opts.from] : T.start);
+    const b = newBike(T, opts.from != null ? T.cps[opts.from] : T.start, opts.lane || 0);
+    b.lane = opts.lane || 0;
     if (opts.from != null) b.cp = opts.from;
     const ride = opts.rider || robot;
     const limit = opts.limit || 240;
@@ -669,7 +873,7 @@
       for (const [k, d] of ev) {
         if (k === 'land') landings.push(d);
       }
-      if (b.crashed > P.CRASH_TIME) { respawn(T, b); wait = P.HOLD_TIME; }
+      if (b.crashed > P.CRASH_TIME) { respawn(T, b, b.lane); wait = P.HOLD_TIME; }
       if (opts.onStep) opts.onStep(b);
     }
     return { time: b.finished, crashes: b.crashes, flips: b.flips, landings, maxSpeed: b.maxSpeed, bike: b };
@@ -678,5 +882,6 @@
   root.MotoCore = {
     DT, SUB, P, SURFACE, build, groundY, slope, gripAt, surfaceAt, plan, touch,
     newBike, place, step, respawn, robot, robotSpeed, predictLanding, simulate, torqueCurve, launchSpeed, rollAt, cornerAt,
+    pathAt, heightAt, natural, bank, bermAt, trackY, locate, slice, vnoise, fbm,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -96,15 +96,15 @@ const R = {
   goAt: 0, acc: 0, last: 0, finished: false, spectate: false, lane: 0, camMode: prefs.cam,
   cam: { pos: new THREE.Vector3(), look: new THREE.Vector3(), fov: 60, shake: 0, init: false },
   audio: null, others: new Map(), sentAt: 0, beeped: 0, gateDown: false, prScale: 1, slowFrames: 0,
-  stuck: 0, hudAt: 0, trickTimer: null, lastLand: 0, emitAcc: 0,
+  stuck: 0, hudAt: 0, trickTimer: null, lastLand: 0, emitAcc: 0, roll: 0,
 };
 const keys = {};
-const touch = { gas: false, brake: false, back: false, fwd: false, nitro: false };
+const touch = { gas: false, brake: false, left: false, right: false, back: false, fwd: false, nitro: false };
 
 function snap(b) {
   const f = b.wh[0]; const r = b.wh[1];
   return {
-    x: b.x, y: b.y, a: b.a, wf: [f.x, f.y, f.ang], wr: [r.x, r.y, r.ang], rx: b.rx, ry: b.ry, lean: b.lean,
+    x: b.x, y: b.y, a: b.a, wf: [f.x, f.y, f.ang], wr: [r.x, r.y, r.ang], rx: b.rx, ry: b.ry, lean: b.lean, px: b.px, pz: b.pz, h: b.h, s: b.s,
     boost: b.boost, crashed: b.crashed, ragdoll: b.rider ? { hip: { x: b.rider.hip.x, y: b.rider.hip.y }, head: { x: b.rider.head.x, y: b.rider.head.y } } : null,
   };
 }
@@ -113,26 +113,30 @@ function mix(p, q, t) {
   const L = (a, b) => a + (b - a) * t;
   return {
     x: L(p.x, q.x), y: L(p.y, q.y), a: lerpA(p.a, q.a, t), lean: L(p.lean, q.lean), rx: L(p.rx, q.rx), ry: L(p.ry, q.ry),
+    px: L(p.px, q.px), pz: L(p.pz, q.pz), h: lerpA(p.h, q.h, t), s: L(p.s, q.s),
     wf: [L(p.wf[0], q.wf[0]), L(p.wf[1], q.wf[1]), L(p.wf[2], q.wf[2])], wr: [L(p.wr[0], q.wr[0]), L(p.wr[1], q.wr[1]), L(p.wr[2], q.wr[2])],
     boost: q.boost, crashed: q.crashed, ragdoll: q.ragdoll && p.ragdoll ? { hip: { x: L(p.ragdoll.hip.x, q.ragdoll.hip.x), y: L(p.ragdoll.hip.y, q.ragdoll.hip.y) }, head: { x: L(p.ragdoll.head.x, q.ragdoll.head.x), y: L(p.ragdoll.head.y, q.ragdoll.head.y) } } : q.ragdoll,
   };
 }
 
-/** Read the controls: keyboard, the touch buttons and a gamepad. */
+/** Read the controls: keyboard (W/S gas and brake, A/D steer, Q/E lean back/forward, Space nitro; arrows work too),
+    the touch buttons and a gamepad (triggers, left stick to steer, right stick to lean). */
 function controls() {
-  let gas = keys.KeyD || keys.ArrowRight || touch.gas ? 1 : 0;
-  let brake = keys.KeyA || keys.ArrowLeft || touch.brake ? 1 : 0;
-  let lean = (keys.KeyS || keys.ArrowDown || touch.fwd ? 1 : 0) - (keys.KeyW || keys.ArrowUp || touch.back ? 1 : 0);
+  let gas = keys.KeyW || keys.ArrowUp || touch.gas ? 1 : 0;
+  let brake = keys.KeyS || keys.ArrowDown || touch.brake ? 1 : 0;
+  let steer = (keys.KeyD || keys.ArrowRight || touch.right ? 1 : 0) - (keys.KeyA || keys.ArrowLeft || touch.left ? 1 : 0);
+  let lean = (keys.KeyE || touch.fwd ? 1 : 0) - (keys.KeyQ || touch.back ? 1 : 0);
   let nitro = !!(keys.Space || keys.ShiftLeft || keys.ShiftRight || touch.nitro);
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];
   for (const p of pads) {
     if (!p) continue;
     gas = Math.max(gas, p.buttons[7] ? p.buttons[7].value : 0);
     brake = Math.max(brake, p.buttons[6] ? p.buttons[6].value : 0);
-    if (Math.abs(p.axes[1] || 0) > 0.2) lean = p.axes[1];
+    if (Math.abs(p.axes[0] || 0) > 0.15) steer = p.axes[0];
+    if (Math.abs(p.axes[3] || 0) > 0.2) lean = p.axes[3];
     if (p.buttons[0] && p.buttons[0].pressed) nitro = true;
   }
-  return { gas, brake, lean, nitro };
+  return { gas, brake, steer, lean, nitro };
 }
 
 /** Start a ride. mode 'solo' or 'online'; goAt: when the gate drops (performance.now() time). */
@@ -147,8 +151,8 @@ function begin(def, mode, goAt) {
   // let the loading message show before the (slow) world build
   setTimeout(() => {
     loadWorld(def);
-    R.lane = mode === 'online' ? laneFor(Net.id) : 0;
-    R.bike = C.newBike(R.T);
+    R.lane = mode === 'online' ? laneFor(Net.id) : 0;   // (your slot in the start gate)
+    R.bike = C.newBike(R.T, R.T.start, R.lane);
     R.prev = R.cur = snap(R.bike);
     if (R.model) disposeBike(R.model);
     R.model = makeBike({ livery: myLivery() });
@@ -244,6 +248,10 @@ function onEvent(k, d) {
     R.cam.shake = Math.max(R.cam.shake, Math.min(0.35, d.air * 0.15));
     burst(b.x, b.y - 0.4, Math.round(4 + d.air * 10), 'puff', 0.8 + d.air * 0.3);
     if (d.clean && (d.turns || d.perfect || d.air > 0.9)) trick(d);
+  } else if (k === 'fence') {
+    if (R.audio) R.audio.land(0.6);
+    R.cam.shake = Math.max(R.cam.shake, 0.25);
+    showMessage('STAY ON THE TRACK!', 'bad', 900);
   } else if (k === 'cp') {
     if (R.audio) R.audio.checkpoint();
     const t = b.t;
@@ -290,31 +298,34 @@ function showMessage(text, kind, ms) {
 // ------------------------------------------------------------------ drawing a frame
 const tmpV = new THREE.Vector3(); const tmpV2 = new THREE.Vector3(); const tmpV3 = new THREE.Vector3();
 const UPV = new THREE.Vector3(0, 1, 0);
+/** Turns a snapshot's upright-plane coordinates (x = odometer, y = height) into the world. */
+function placer(sn) {
+  const c = Math.cos(sn.h); const n = Math.sin(sn.h);
+  return (x, y, out) => out.set(sn.px + c * (x - sn.x), y, sn.pz + n * (x - sn.x));
+}
+const clampN = (v, a, b) => (v < a ? a : v > b ? b : v);
 function render(now, dt, alpha) {
   const w = world; const b = R.bike;
   const s = mix(R.prev, R.cur, alpha);
-  const heading = w.headingAt(s.x);
-  const lane = R.lane;
-  const lift = w.bank(s.x, lane);
-  const place = (x, y, out) => w.place(x, y + lift, lane, out);
-  // lean the bike into corners (berms tilt you; faster = more)
+  const place = placer(s);
   const speed = Math.hypot(b.vx, b.vy);
-  const k = (w.headingAt(s.x + 2) - w.headingAt(s.x - 2)) / 4;
-  const roll = Math.max(-0.6, Math.min(0.6, k * speed * speed * 0.09));
-  s.roll = roll;
-  poseBike(R.model, s, place, heading, now / 1000);
+  // lean into turns like a real bike: tan(lean) = sideways acceleration / gravity
+  const want = b.crashed || !(b.wh[0].ct || b.wh[1].ct) ? 0 : Math.atan(b.vx * b.yaw / C.P.G);
+  R.roll += (clampN(want, -0.85, 0.85) - R.roll) * (1 - Math.exp(-dt * 8));
+  s.roll = R.roll;
+  poseBike(R.model, s, place, s.h, now / 1000);
   R.model.root.visible = !R.spectate;
   // gates drop at GO
   if (R.gateDown) for (const gg of w.gates) gg.rotation.z = Math.min(Math.PI / 2 * 0.95, gg.rotation.z + dt * 7);
   // other riders
   const leader = drawOthers(now, dt);
   // dust, roost and smoke
-  if (!R.spectate) effects(s, dt, lane, lift);
-  if (R.spectate && leader) updateCamera(leader.snap, dt, w.headingAt(leader.snap.x), 20, leader.lane, w.bank(leader.snap.x, leader.lane));
-  else updateCamera(s, dt, heading, speed, lane, lift);
+  if (!R.spectate) effects(s, dt, place);
+  if (R.spectate && leader) updateCamera(leader.snap, dt, 20, leader.place);
+  else updateCamera(s, dt, speed, place);
   w.update(R.model.root.position, dt, camera);
   if (R.audio) {
-    R.audio.update(b, dt, { scrub: b.scrub, surface: C.surfaceAt(R.T, b.x) });
+    R.audio.update(b, dt, { scrub: b.scrub, surface: b.G ? C.surfaceAt(b.G, b.x) : 0 });
     if (R.mode === 'online') R.audio.others(otherSounds(b));
   }
   renderer.render(w.scene, camera);
@@ -322,35 +333,37 @@ function render(now, dt, alpha) {
   if (R.mode === 'online' && now - R.sentAt > 80) sendPos(false);
 }
 
-function updateCamera(s, dt, heading, speed, lane, lift) {
-  const w = world; const cam = R.cam;
+/** The ground height under a point in the world (near the track). */
+function groundUnder(x, z, hint) { const L = C.locate(R.T, x, z, hint); return C.heightAt(R.T, L.s, L.u); }
+
+function updateCamera(s, dt, speed, place) {
+  const cam = R.cam;
+  // swing round behind the way the bike points, like a 3D racing game (smoothly, so steering isn't jerky)
+  cam.h = cam.init ? lerpA(cam.h, s.h, 1 - Math.exp(-dt * 3.4)) : s.h;
+  const heading = cam.h;
   const D = tmpV.set(Math.cos(heading), 0, Math.sin(heading));
   const Rt = tmpV2.set(-Math.sin(heading), 0, Math.cos(heading));
-  const focusX = s.crashed && s.ragdoll ? s.ragdoll.hip.x : s.x;
-  const focusY = (s.crashed && s.ragdoll ? s.ragdoll.hip.y : s.y) + lift;
-  const P = w.place(focusX, focusY, lane, tmpV3);
-  const ground = w.trackY(focusX);
-  const air = Math.max(0, focusY - ground - 0.7);
+  const rag = s.crashed && s.ragdoll;
+  const P = place(rag ? s.ragdoll.hip.x : s.x, rag ? s.ragdoll.hip.y : s.y, tmpV3);
+  const air = Math.max(0, P.y - groundUnder(P.x, P.z, s.s) - 0.7);
   let want; let look; let fov = 56 + Math.min(10, speed * 0.32) + (camera.aspect < 1 ? 18 : 0);   // (a tall phone screen needs a wider view)
   if (R.camMode === 'side') {
     want = P.clone().addScaledVector(Rt, 10.5 + air * 0.5).addScaledVector(D, 2).add(UPV.clone().multiplyScalar(1.8 + air * 0.25));
     look = P.clone().addScaledVector(D, 3).add(UPV.clone().multiplyScalar(0.6));
     fov -= 6;
   } else if (R.camMode === 'close') {
-    want = P.clone().addScaledVector(D, -4.4).addScaledVector(Rt, 0.9).add(UPV.clone().multiplyScalar(1.7 + air * 0.25));
+    want = P.clone().addScaledVector(D, -4.2).add(UPV.clone().multiplyScalar(1.7 + air * 0.25));
     look = P.clone().addScaledVector(D, 5).add(UPV.clone().multiplyScalar(0.9));
   } else {
-    // Cork7-style chase: behind, a little to the side and above, looking down the track
-    want = P.clone().addScaledVector(D, -4.7).addScaledVector(Rt, 1.25).add(UPV.clone().multiplyScalar(1.85 + air * 0.3));
-    look = P.clone().addScaledVector(D, 5).add(UPV.clone().multiplyScalar(0.95 + air * 0.2));
+    // Cork7-style chase: behind and above, looking ahead
+    want = P.clone().addScaledVector(D, -5).add(UPV.clone().multiplyScalar(2.0 + air * 0.3));
+    look = P.clone().addScaledVector(D, 5).add(UPV.clone().multiplyScalar(1.0 + air * 0.2));
   }
   // keep the camera out of the ground
-  const sCam = focusX + (R.camMode === 'side' ? 2 : R.camMode === 'close' ? -4.4 : -4.7);
-  const uCam = lane + (R.camMode === 'side' ? 10.5 : R.camMode === 'close' ? 0.9 : 1.25);
-  want.y = Math.max(want.y, w.height(sCam, uCam) + 1.1);
+  want.y = Math.max(want.y, groundUnder(want.x, want.z, s.s) + 1.1);
   if (!cam.init) { cam.pos.copy(want); cam.look.copy(look); cam.fov = fov; cam.init = true; }
-  const kPos = 1 - Math.exp(-dt * (R.camMode === 'side' ? 5 : 4.2));
-  const kLook = 1 - Math.exp(-dt * 9);
+  const kPos = 1 - Math.exp(-dt * (R.camMode === 'side' ? 5 : 6));
+  const kLook = 1 - Math.exp(-dt * 10);
   cam.pos.lerp(want, kPos); cam.look.lerp(look, kLook);
   cam.fov += (fov - cam.fov) * (1 - Math.exp(-dt * 2));
   camera.position.copy(cam.pos);
@@ -363,22 +376,21 @@ function updateCamera(s, dt, heading, speed, lane, lift) {
 }
 
 /** Dust, roost, mud and snow from the wheels; a puff of exhaust smoke now and then. */
-function effects(s, dt, lane, lift) {
+function effects(s, dt, place) {
   const b = R.bike; const w = world; const fx = w.fx; const th = w.theme;
   R.emitAcc += dt;
   if (R.emitAcc < 1 / 60) return;
   const step = R.emitAcc; R.emitAcc = 0;
-  const heading = w.headingAt(b.x);
-  const D = [Math.cos(heading), Math.sin(heading)];
+  const D = [Math.cos(s.h), Math.sin(s.h)];
   const speed = Math.hypot(b.vx, b.vy);
-  const surface = C.surfaceAt(R.T, b.x);
+  const surface = b.G ? C.surfaceAt(b.G, b.x) : 0;
   const colPuff = surface === 1 ? fx.colors.mud : fx.colors.puff;
   const colChunk = surface === 1 ? fx.colors.mud : fx.colors.chunk;
   const rear = b.wh[1];
-  const emitAt = (wx, wy, n, kind, power) => {
-    const p = w.place(wx, wy + lift, lane, tmpV3);
+  const emitAt = (x, y, n, kind, power, side0 = 0) => {
+    const p = place(x, y, tmpV3);
     for (let i = 0; i < n; i++) {
-      const back = -(2 + Math.random() * 5) * power; const up = (0.8 + Math.random() * 3) * power; const side = (Math.random() - 0.5) * 2.4 * power;
+      const back = -(2 + Math.random() * 5) * power; const up = (0.8 + Math.random() * 3) * power; const side = (Math.random() - 0.5) * 2.4 * power + side0;
       const vx = D[0] * back - D[1] * side; const vz = D[1] * back + D[0] * side;
       if (kind === 'chunk') fx.chunk(p.x, p.y, p.z, vx, up, vz, { life: 0.6 + Math.random() * 0.4, size: 0.09 + Math.random() * 0.08, grow: 0.08, alpha: 0.95, grav: 9.8, drag: 0.4, color: colChunk });
       else fx.puff(p.x, p.y + 0.1, p.z, vx * 0.35, up * 0.3, vz * 0.35, { life: 1 + Math.random() * 0.8, size: 0.6 + Math.random() * 0.5, grow: 2.6 + Math.random() * 2 + (th.snowing ? 1 : 0), alpha: th.snowing ? 0.5 : 0.32, drag: 1.3, color: colPuff });
@@ -392,7 +404,8 @@ function effects(s, dt, lane, lift) {
     if (n) emitAt(cx, cy, n, 'chunk', 0.6 + roost * 0.6);
     if (Math.random() < Math.min(1, roost * 0.9 + speed * 0.012)) emitAt(cx, cy, 1, 'puff', 0.7);
   }
-  if (b.scrub > 0.5) emitAt(b.x, b.y - 0.55, 2, 'chunk', 1.2);
+  // sliding wide in a turn sprays dirt to the outside
+  if (b.scrub > 0.15) emitAt(rear.x, rear.y - 0.33, 1 + Math.floor(b.scrub * 4), 'chunk', 1.1, -Math.sign(b.yaw) * 4);
   if (!b.crashed && b.wh[0].ct && b.brk > 0.5 && speed > 4) emitAt(b.wh[0].x, b.wh[0].y - 0.33, 1, 'puff', 0.5);
   if (b.crashed && speed > 2 && Math.random() < 0.5) emitAt(b.x, b.y - 0.3, 2, 'puff', 0.8);
   // exhaust
@@ -402,9 +415,9 @@ function effects(s, dt, lane, lift) {
   }
 }
 function burst(x, y, n, kind, power) {
-  const w = world; if (!w) return;
-  const p = w.place(x, y + w.bank(x, R.lane), R.lane, new THREE.Vector3());
-  const col = C.surfaceAt(R.T, x) === 1 ? w.fx.colors.mud : w.fx.colors.puff;
+  const w = world; if (!w || !R.cur) return;
+  const p = placer(R.cur)(x, y, new THREE.Vector3());
+  const col = R.bike.G && C.surfaceAt(R.bike.G, x) === 1 ? w.fx.colors.mud : w.fx.colors.puff;
   for (let i = 0; i < n; i++) {
     const a = Math.random() * Math.PI * 2; const sp = (1 + Math.random() * 3) * power;
     w.fx.puff(p.x, p.y, p.z, Math.cos(a) * sp, 0.6 + Math.random() * power, Math.sin(a) * sp, { life: 1.2 + Math.random(), size: 0.8, grow: 3.5 + power * 2, alpha: w.theme.snowing ? 0.55 : 0.38, drag: 1.6, color: col });
@@ -413,23 +426,27 @@ function burst(x, y, n, kind, power) {
 
 // ------------------------------------------------------------------ HUD
 let mapBase = null;
+/** The track seen from above, turned so it runs left to right, with the checkpoints and the finish. */
 function drawMapBase() {
   const cv = $('#hud-map'); const T = R.T;
   const W = cv.width; const H = cv.height;
   mapBase = document.createElement('canvas'); mapBase.width = W; mapBase.height = H;
   const g = mapBase.getContext('2d');
-  let lo = Infinity; let hi = -Infinity;
-  for (let x = T.start; x <= T.finish; x += 2) { const y = C.groundY(T, x); lo = Math.min(lo, y); hi = Math.max(hi, y); }
-  const sx = (x) => 4 + (x - T.start) / (T.finish - T.start) * (W - 8);
-  const sy = (y) => H - 8 - (y - lo) / Math.max(4, hi - lo) * (H - 20);
-  R.mapX = sx; R.mapY = sy;
-  g.lineWidth = 2.5; g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineJoin = 'round';
-  g.beginPath();
-  for (let x = T.start; x <= T.finish; x += 1.5) { const px = sx(x); const py = sy(C.groundY(T, x)); if (x === T.start) g.moveTo(px, py); else g.lineTo(px, py); }
-  g.stroke();
-  g.fillStyle = 'rgba(255,255,255,.9)';
-  for (const c of T.cps) { g.fillRect(sx(c) - 1, 2, 2, H - 6); }
-  g.fillStyle = '#fff'; g.fillRect(sx(T.finish) - 2, 2, 4, H - 6);
+  const a = C.pathAt(T, T.start); const z = C.pathAt(T, T.finish);
+  const ang = Math.atan2(z.z - a.z, z.x - a.x); const c = Math.cos(-ang); const sn = Math.sin(-ang);
+  const rot = (x, y) => [(x - a.x) * c - (y - a.z) * sn, (x - a.x) * sn + (y - a.z) * c];
+  let x0 = Infinity; let x1 = -Infinity; let y0 = Infinity; let y1 = -Infinity;
+  for (let s = T.start - 10; s <= T.finish + 10; s += 4) { const p = C.pathAt(T, s); const [x, y] = rot(p.x, p.z); x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  const k = Math.min((W - 16) / (x1 - x0 || 1), (H - 16) / (y1 - y0 || 1));
+  const ox = (W - (x1 - x0) * k) / 2 - x0 * k; const oy = (H - (y1 - y0) * k) / 2 - y0 * k;
+  R.mapPt = (x, y) => { const [u, v] = rot(x, y); return [ox + u * k, oy + v * k]; };
+  g.lineWidth = 7; g.strokeStyle = 'rgba(10,12,20,.35)'; g.lineJoin = 'round'; g.lineCap = 'round';
+  const line = () => { g.beginPath(); for (let s = T.start; s <= T.finish; s += 2) { const p = C.pathAt(T, s); const [x, y] = R.mapPt(p.x, p.z); if (s === T.start) g.moveTo(x, y); else g.lineTo(x, y); } g.stroke(); };
+  line(); g.lineWidth = 3; g.strokeStyle = 'rgba(255,255,255,.9)'; line();
+  for (const s of [...T.cps, T.finish]) {
+    const p = C.pathAt(T, s); const [x, y] = R.mapPt(p.x, p.z);
+    g.fillStyle = s === T.finish ? '#fde047' : '#ffffff'; g.beginPath(); g.arc(x, y, s === T.finish ? 5 : 3.5, 0, 7); g.fill();
+  }
 }
 function hud(now) {
   const b = R.bike; const T = R.T;
@@ -441,13 +458,14 @@ function hud(now) {
   $('#hud-nitro').parentNode.classList.toggle('on', b.boost);
   $('#hud-nitro').parentNode.classList.toggle('full', b.nitro >= 0.999);
   $('#hud-sub').textContent = R.spectate ? 'WATCHING THE LEADER' : R.mode === 'online' && state.race ? `P${myPlace()} / ${Object.keys(state.race.runners).length}  ·  CP ${b.cp + 1}/${T.cps.length}` : `CHECKPOINT ${b.cp + 1} / ${T.cps.length}`;
-  $('#hud-left').textContent = `${Math.max(0, Math.round(T.finish - b.x))} M LEFT`;
-  // minimap: you and the others on the track's profile
+  $('#hud-left').textContent = `${Math.max(0, Math.round(T.finish - b.s))} M LEFT`;
+  // minimap: you and the others on the track seen from above
   const cv = $('#hud-map'); const g = cv.getContext('2d');
   g.clearRect(0, 0, cv.width, cv.height); g.drawImage(mapBase, 0, 0);
-  const dot = (x, col, r) => { const xx = Math.min(T.finish, Math.max(T.start, x)); g.fillStyle = col; g.beginPath(); g.arc(R.mapX(xx), R.mapY(C.groundY(T, xx)) - 3, r, 0, 7); g.fill(); g.strokeStyle = 'rgba(0,0,0,.5)'; g.lineWidth = 1; g.stroke(); };
-  for (const o of R.others.values()) if (o.x != null) dot(o.x, o.color, 4);
-  dot(b.x, '#ffd21a', 5.5);
+  const dot = (x, z, col, r) => { const [px, py] = R.mapPt(x, z); g.fillStyle = col; g.beginPath(); g.arc(px, py, r, 0, 7); g.fill(); g.strokeStyle = 'rgba(0,0,0,.55)'; g.lineWidth = 1.5; g.stroke(); };
+  for (const o of R.others.values()) if (o.snap) dot(o.snap.px, o.snap.pz, o.color, 5);
+  dot(b.px, b.pz, '#ffd21a', 7);
+  $('#hud-wrong').classList.toggle('on', !!b.wrong && !R.spectate && !R.finished);
   if (R.mode === 'online') drawBoard();
 }
 
@@ -491,7 +509,7 @@ async function showMenu() {
   const camNames = { chase: '🎥 Chase', side: '📺 Side', close: '🎬 Close' };
   fill($('#menu'),
     h('div', { class: 'menu-head' }, h('div', { class: 'game-icon' }, '🏍️'), h('h1', { class: 'display' }, 'Motocross'),
-      h('p', { class: 'muted' }, 'Pick a track and ride! Lean to land your jumps, flip for nitro, and beat the medal times. Your best times go on the leaderboards.')),
+      h('p', { class: 'muted' }, 'Pick a track and ride! WASD to ride and steer, Q/E to lean in the air, flips for nitro, and beat the medal times. Your best times go on the leaderboards.')),
     h('div', { class: 'tracks' }, DATA.tracks.map((t) => {
       const best = bestOf(t.id);
       const medal = best ? medalFor(t, best.ms / 1000) : -1;
@@ -510,7 +528,7 @@ async function showMenu() {
     h('div', { class: 'center', style: { marginTop: '16px', gap: '8px', flexWrap: 'wrap' } },
       h('a', { class: 'btn btn-ghost btn-sm', href: '/leaderboards' }, '🏆 Leaderboards'),
       h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { history.replaceState(null, '', location.pathname); showScreen('entry'); Lobby.showEntry(); } }, '👥 Race friends online')),
-    h('p', { class: 'mx-keys' }, 'D / → gas · A / ← brake · W / ↑ lean back · S / ↓ lean forward · Space nitro · R back to checkpoint · C camera · M mute'));
+    h('p', { class: 'mx-keys' }, 'W / ↑ gas · S / ↓ brake (hold to back up) · A D / ← → steer · Q lean back · E lean forward · Space nitro · R back to checkpoint · C camera · M mute'));
   if (FX.list) FX.list($('#menu .tracks').children, { y: 24, stagger: 0.05, duration: 0.45, ease: 'back.out(1.5)' });
 }
 let bikeList = []; const bikeHints = {};
@@ -573,7 +591,7 @@ addEventListener('keydown', (e) => {
 });
 addEventListener('keyup', (e) => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k of Object.keys(keys)) keys[k] = false; });
-for (const btn of document.querySelectorAll('#mx-touch [data-k]')) {
+for (const btn of document.querySelectorAll('#ride .mx-touch [data-k]')) {
   const k = btn.dataset.k;
   const set = (v) => (e) => {
     e.preventDefault();
@@ -679,12 +697,13 @@ function nameTag(name, color) {
   return sp;
 }
 
-/** Another rider's position message -> a snapshot poseBike understands. */
+/** Another rider's position message -> a snapshot poseBike understands (their upright plane, with x = 0 at the frame). */
 function otherSnap(m, o) {
   const P = C.P; const ca = Math.cos(m.a); const sa = Math.sin(m.a);
-  const wheel = (k, c, ang) => { const S = P.SUS[k]; const lx = S.p[0] + S.u[0] * c; const ly = S.p[1] + S.u[1] * c; return [m.x + ca * lx - sa * ly, m.y + sa * lx + ca * ly, ang]; };
+  const wheel = (k, c, ang) => { const S = P.SUS[k]; const lx = S.p[0] + S.u[0] * c; const ly = S.p[1] + S.u[1] * c; return [ca * lx - sa * ly, m.y + sa * lx + ca * ly, ang]; };
   return {
-    x: m.x, y: m.y, a: m.a, wf: wheel(0, m.c0, o.ang[0]), wr: wheel(1, m.c1, o.ang[1]), rx: m.x + m.rx, ry: m.y + m.ry, lean: m.l,
+    x: 0, y: m.y, a: m.a, wf: wheel(0, m.c0, o.ang[0]), wr: wheel(1, m.c1, o.ang[1]), rx: m.rx, ry: m.y + m.ry, lean: m.l,
+    px: m.px, pz: m.pz, h: m.h, s: m.x, roll: m.ro,
     boost: !!m.b, crashed: m.k, ragdoll: m.rg ? { hip: { x: m.rg[0], y: m.rg[1] }, head: { x: m.rg[2], y: m.rg[3] } } : null,
   };
 }
@@ -699,8 +718,8 @@ function sampleOther(o, now) {
   const k = Math.max(0, Math.min(1.2, (t - a.at) / (b.at - a.at)));
   const L = (p, q) => p + (q - p) * k;
   const out = { ...b };
-  for (const f of ['x', 'y', 'rx', 'ry', 'c0', 'c1', 'l', 's']) out[f] = L(a[f], b[f]);
-  out.a = lerpA(a.a, b.a, k);
+  for (const f of ['x', 'y', 'rx', 'ry', 'c0', 'c1', 'l', 's', 'px', 'pz', 'ro']) out[f] = L(a[f], b[f]);
+  out.a = lerpA(a.a, b.a, k); out.h = lerpA(a.h, b.h, k);
   return out;
 }
 function drawOthers(now, dt) {
@@ -713,11 +732,11 @@ function drawOthers(now, dt) {
     if (!m) continue;
     o.ang[0] += (m.s / 3.6 / 0.35) * dt; o.ang[1] += (m.s / 3.6 / 0.34) * dt;
     const s = otherSnap(m, o);
-    const lift = world.bank(s.x, o.lane);
-    poseBike(o.model, s, (x, y, out) => world.place(x, y + lift, o.lane, out), world.headingAt(s.x), now / 1000);
+    o.place = placer(s);
+    poseBike(o.model, s, o.place, s.h, now / 1000);
     o.tag.position.copy(o.model.root.position).add(tmpV.set(0, 2.1, 0));
     o.snap = s;
-    if (!leader || s.x > leader.snap.x) leader = o;
+    if (!leader || s.s > leader.snap.s) leader = o;
   }
   return leader;
 }
@@ -726,15 +745,18 @@ function sendPos(force) {
   if (!b || R.spectate || (R.finished && !force) || !state.race) return;
   R.sentAt = performance.now();
   const r2 = (v) => Math.round(v * 1000) / 1000;
-  const msg = { x: r2(b.x), y: r2(b.y), a: r2(b.a), rx: r2(b.rx - b.x), ry: r2(b.ry - b.y), c0: r2(b.wh[0].c), c1: r2(b.wh[1].c), l: r2(b.lean),
+  // x = how far along the track (for the order), px/pz/h = where you are and which way you point,
+  // the rest is the bike's pose in its upright plane (relative to the frame)
+  const msg = { x: r2(b.s), px: r2(b.px), pz: r2(b.pz), h: r2(b.h), ro: r2(R.roll), y: r2(b.y), a: r2(b.a), rx: r2(b.rx - b.x), ry: r2(b.ry - b.y),
+    c0: r2(b.wh[0].c), c1: r2(b.wh[1].c), l: r2(b.lean),
     s: Math.round(Math.hypot(b.vx, b.vy) * 36) / 10, r: Math.round(b.rpm), th: r2(b.thr), k: b.crashed ? 1 : 0, b: b.boost ? 1 : 0, cp: b.cp };
-  if (b.crashed && b.rider) msg.rg = [r2(b.rider.hip.x), r2(b.rider.hip.y), r2(b.rider.head.x), r2(b.rider.head.y)];
+  if (b.crashed && b.rider) msg.rg = [r2(b.rider.hip.x - b.x), r2(b.rider.hip.y), r2(b.rider.head.x - b.x), r2(b.rider.head.y)];
   Net.send('g:pos', msg);
 }
 function standings() {
   if (!state.race) return [];
   return Object.entries(state.race.runners).map(([id, r]) => {
-    const x = id === Net.id && R.bike ? R.bike.x : (R.others.get(id) || {}).x ?? r.x;
+    const x = id === Net.id && R.bike ? R.bike.s : (R.others.get(id) || {}).x ?? r.x;
     return { id, done: r.done, place: r.place, x: x || 0 };
   }).sort((p, q) => (p.done !== q.done ? (p.done ? -1 : 1) : p.done ? p.place - q.place : q.x - p.x));
 }
@@ -750,7 +772,7 @@ function drawBoard() {
 function otherSounds(b) {
   return [...R.others.values()].filter((o) => o.buf.length && o.model).map((o) => {
     const m = o.buf[o.buf.length - 1];
-    return { id: o.id, rpm: m.r, thr: m.th, dist: m.x - b.x, lane: o.lane - R.lane };
+    return { id: o.id, rpm: m.r, thr: m.th, dist: m.x - b.s, lane: 0 };
   }).sort((p, q) => Math.abs(p.dist) - Math.abs(q.dist));
 }
 function onlineFinish(t) {
@@ -809,9 +831,9 @@ async function init() {
   loadUnlocks();
   window.Lobby.init({
     game: 'moto', title: 'Motocross', emoji: '🏍️',
-    tagline: 'Realistic 3D dirt bikes! Huge jumps, flips for nitro, and races against your friends.',
+    tagline: 'Realistic 3D dirt bikes! Ride anywhere, huge jumps, flips for nitro, and races against your friends.',
     solo: { label: '🏁 Ride solo (time trial)', onClick: () => showMenu() },
-    howTo: '<b>How to ride</b><ul><li><b>D / →</b> gas, <b>A / ←</b> brake.</li><li><b>W / ↑</b> lean back, <b>S / ↓</b> lean forward: in the air that spins the bike, so match the slope you land on!</li><li>Land on your head or upside down and you crash: back to the last checkpoint.</li><li>Clean landings and flips fill your <b>nitro</b>. Hold <b>Space</b> to use it.</li></ul>',
+    howTo: '<b>How to ride</b><ul><li><b>W</b> gas, <b>S</b> brake (hold it when stopped to back up), <b>A / D</b> steer. Arrow keys work too.</li><li>Slow down for corners or you slide wide; the berms help you round them. Stay inside the barriers!</li><li><b>Q</b> lean back, <b>E</b> lean forward: in the air that flips the bike (let go and the rider levels it for the landing).</li><li>Land on your head or upside down and you crash: back to the last checkpoint.</li><li>Clean landings and flips fill your <b>nitro</b>. Hold <b>Space</b> to use it.</li></ul>',
   });
   Lobby.renderCode($('#room-code'));
   Lobby.renderPlayers($('#room-players'), { extra: (p) => [state.ready[p.id] && state.phase !== 'racing' ? h('span', { title: 'Ready' }, '✅') : null, state.wins[p.id] ? h('span', { title: 'Wins' }, `🏆${state.wins[p.id]}`) : null] });
@@ -832,7 +854,8 @@ async function init() {
         R.running = false;
         if (!fake) fake = performance.now();
         R.override = typeof held === 'function' ? held : null;
-        Object.assign(touch, { gas: false, brake: false, back: false, fwd: false, nitro: false }, R.override ? {} : held);
+        for (const k of Object.keys(touch)) touch[k] = false;
+        if (!R.override) Object.assign(touch, held);
         const n = Math.round(seconds / DT);
         for (let i = 0; i < n; i++) { fake += DT * 1000; if (fake >= R.goAt && !R.gateDown) { R.gateDown = true; } physicsStep(fake); }
         render(fake, 1 / 60, 1);

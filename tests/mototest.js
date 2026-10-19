@@ -66,6 +66,50 @@ const flat = C.build({ id: 'flat', name: 'Flat', course: ['flat 20', 'start', 'f
   for (let i = 0; i < 120 * 3; i++) { C.step(flat, s, { gas: 1, lean: 1 }); C.step(flat, n, { gas: 1, lean: 1, nitro: true }); }
   check(n.x > s.x + 2 && n.nitro < 1, `nitro: ${(n.x - s.x).toFixed(1)} m ahead after 3 s`);
 }
+// ---------------------------------------------------------------- riding in 3D
+{
+  // steering: A/D turn the bike, the faster you go the less the bars turn
+  const b = C.newBike(flat);
+  for (let i = 0; i < 120 * 3; i++) C.step(flat, b, { gas: 0.6 });
+  const h0 = b.h;
+  for (let i = 0; i < 120; i++) C.step(flat, b, { gas: 0.4, steer: 1 });
+  check(b.h - h0 > 0.4 && !b.crashed, `D turns the bike right (${(b.h - h0).toFixed(2)} rad in 1 s)`);
+  const h1 = b.h;
+  for (let i = 0; i < 120; i++) C.step(flat, b, { gas: 0.4, steer: -1 });
+  check(b.h < h1 - 0.4, 'A turns it left');
+  // the ground under the bike is the same ground the 3D world draws
+  const gy = C.heightAt(flat, b.s, b.u);
+  check(Math.abs(b.wh[1].y - C.P.R[1] - gy) < 0.08, `the wheels sit on the drawn ground (${(b.wh[1].y - C.P.R[1] - gy).toFixed(3)} m)`);
+}
+{
+  // too fast for a tight turn: you slide wide and lose speed instead of turning on the spot
+  const b = C.newBike(flat);
+  for (let i = 0; i < 120 * 6; i++) C.step(flat, b, { gas: 1, lean: 0.5 });
+  const v0 = b.vx; let scrub = 0;
+  for (let i = 0; i < 60; i++) { C.step(flat, b, { gas: 1, steer: 1 }); scrub = Math.max(scrub, b.scrub); }
+  check(scrub > 0.1 && b.vx < v0 && !b.crashed, `a hard turn at ${kmh(v0)} slides wide and scrubs off speed (${kmh(b.vx)})`);
+}
+{
+  // the barrier: you can leave the tape but not cut across the countryside
+  const b = C.newBike(flat); let most = 0; let hit = false;
+  for (let i = 0; i < 120 * 8; i++) { for (const [k] of C.step(flat, b, { gas: 0.5, steer: i < 120 ? 0.6 : 0 })) if (k === 'fence') hit = true; most = Math.max(most, Math.abs(b.u)); }
+  check(hit && most < C.P.FENCE + 0.5 && !b.crashed, `riding off the track ends at the barrier (${most.toFixed(1)} m out)`);
+}
+{
+  // off the track the ground is slower
+  const on = C.newBike(flat); const off = C.newBike(flat, flat.start, 8);
+  for (let i = 0; i < 120 * 4; i++) { C.step(flat, on, { gas: 1, lean: 0.4 }); C.step(flat, off, { gas: 1, lean: 0.4 }); }
+  check(off.off && off.vx < on.vx - 2, `off the track is slower (${kmh(off.vx)} vs ${kmh(on.vx)})`);
+}
+{
+  // stopped with S held you paddle backwards; turned around you're going the wrong way
+  const b = C.newBike(flat);
+  for (let i = 0; i < 120 * 2; i++) C.step(flat, b, { brake: 1 });
+  check(b.vx < -0.8 && !b.crashed, `holding S when stopped backs you up (${b.vx.toFixed(1)} m/s)`);
+  const c = C.newBike(flat); let wrong = false;
+  for (let i = 0; i < 120 * 8 && !wrong; i++) { C.step(flat, c, { gas: 0.35, steer: 1 }); wrong = c.wrong; }
+  check(wrong, 'turning all the way round shows WRONG WAY');
+}
 {
   let threw = false;
   try { C.build({ id: 'bad', course: ['flat 10', 'start', 'loop 5', 'finish'] }); } catch (e) { threw = /loop/.test(e.message); }
