@@ -24,6 +24,32 @@ def load_tracks():
 
 
 TRACKS = load_tracks()
+WORLD_DIR = TRACKS_FILE.parent / "open-world"
+
+
+def load_challenges():
+    """The open-world challenges, with the start-to-finish distance of the races (for checking times)."""
+    try:
+        data = json.loads((WORLD_DIR / "challenges.json").read_text(encoding="utf-8"))["challenges"]
+    except (OSError, ValueError, KeyError):
+        return {}
+    out = {}
+    for c in data:
+        try:
+            if c["kind"] == "race":
+                world = json.loads((WORLD_DIR / (c["world"] + ".json")).read_text(encoding="utf-8"))
+                pads = {p["id"]: p["position"] for p in world["safePads"]}
+                (ax, az), (bx, bz) = pads[c["from"]], pads[c["to"]]
+                c = {**c, "dist": ((ax - bx) ** 2 + (az - bz) ** 2) ** 0.5}
+            out[c["id"]] = c
+        except (OSError, ValueError, KeyError):
+            continue
+    return out
+
+
+CHALLENGES = load_challenges()
+TOP_SCORE = {"air": 30.0, "flips": 80, "speed": 420.0}   # more than anyone can do with the stock engine
+FASTEST_MS = 105.0     # nobody crosses a challenge course quicker than this many metres a second
 MIN_PLAYERS = 2
 COUNTDOWN = 4.0        # seconds from "go" to the gate dropping (the clients show 3-2-1)
 HURRY_SECONDS = 30     # once someone finishes, the others have this long
@@ -50,7 +76,7 @@ class Moto(Game):
 
     def __init__(self, room):
         super().__init__(room)
-        self.settings = {"track": next(iter(TRACKS), "desert")}
+        self.settings = {"track": next(iter(TRACKS), "desert"), "mode": "race", "challenge": next(iter(CHALLENGES), "")}
         self.ready = {}
         self.styles = {}   # uid -> how their bike and rider look (bike style, kit, helmet, number): looks only
         self.race = None
@@ -68,7 +94,10 @@ class Moto(Game):
         if not self.race:
             return None
         r = self.race
-        return {"id": r["id"], "track": r["track"], "elapsed": time.time() - r["start"], "runners": r["runners"]}
+        out = {"id": r["id"], "track": r["track"], "elapsed": time.time() - r["start"], "runners": r["runners"]}
+        if r.get("challenge"):
+            out.update(challenge=r["challenge"], kind=r["kind"], limit=r["limit"])
+        return out
 
     def state_for(self, m):
         return {"phase": self.phase, "settings": self.settings, "ready": self.ready, "race": self.race_public(),
@@ -84,6 +113,10 @@ class Moto(Game):
             tr = msg.get("track")
             if tr == "random" or tr in TRACKS:
                 self.settings["track"] = tr
+            if msg.get("mode") in ("race", "challenge"):
+                self.settings["mode"] = msg["mode"]
+            if msg.get("challenge") in CHALLENGES:
+                self.settings["challenge"] = msg["challenge"]
             self.push_lobby()
         elif t == "ready" and self.phase in ("lobby", "results") and m.plays:
             self.ready[m.uid] = bool(msg.get("ready"))
@@ -102,6 +135,8 @@ class Moto(Game):
             self.position(m, msg)
         elif t == "finish" and self.phase == "racing":
             self.finish(m, msg)
+        elif t == "score" and self.phase == "racing":
+            self.score(m, msg)
 
     def restart(self, host):
         """The room voted "play again": that counts as everyone readying up, so the next race starts."""
@@ -136,6 +171,9 @@ class Moto(Game):
             self.start()
 
     def start(self):
+        if self.settings.get("mode") == "challenge" and self.settings.get("challenge") in CHALLENGES:
+            self.start_challenge(CHALLENGES[self.settings["challenge"]])
+            return
         track = self.settings["track"]
         if track == "random" or track not in TRACKS:
             track = random.choice(list(TRACKS))
@@ -151,6 +189,39 @@ class Moto(Game):
         self.room.cancel(self.end_timer)
         self.end_timer = self.room.later(COUNTDOWN + TRACKS[track]["robot"] * 4 + 60, self.end)
         self.hurry_at = None
+
+    def start_challenge(self, c):
+        """Everyone rides the same open-world challenge at once: a race to a finish pad, or the best
+        score (longest jump, most flips, top speed) before the time runs out."""
+        self.phase = "racing"
+        self.results = None
+        self.tainted = False
+        self.ready = {}
+        runners = {u.uid: {"done": False, "time": None, "place": None, "x": 0.0, "cp": -1, "crashes": 0, "flips": 0, "score": None}
+                   for u in self.riders()}
+        self.race = {"id": (self.race["id"] + 1) if self.race else 1, "track": None, "challenge": c["id"], "kind": c["kind"],
+                     "limit": c["limit"], "start": time.time() + COUNTDOWN, "runners": runners, "finished": 0}
+        self.broadcast("start", race=self.race_public(), countdown=COUNTDOWN)
+        self.room.cancel(self.end_timer)
+        self.end_timer = self.room.later(COUNTDOWN + c["limit"] + 2, self.end)
+        self.hurry_at = None
+
+    def score(self, m, msg):
+        """A rider's best so far in a timed challenge (kept if it's better and believable)."""
+        r = self.race
+        run = r["runners"].get(m.uid)
+        kind = r.get("kind")
+        if not run or kind not in TOP_SCORE or time.time() < r["start"] or time.time() > r["start"] + r["limit"] + 3:
+            return
+        v = num(msg.get("score"), -1)
+        if v <= 0 or v > TOP_SCORE[kind]:   # (more than the stock engine can do: not believable)
+            return
+        v = int(v) if kind == "flips" else round(v, 2)
+        if run["score"] is None or v > run["score"]:
+            run["score"] = v
+            if kind == "flips":
+                run["flips"] = v
+            self.broadcast("score", id=m.uid, score=v)
 
     def position(self, m, msg):
         run = self.race["runners"].get(m.uid)
@@ -176,13 +247,18 @@ class Moto(Game):
         run = r["runners"].get(m.uid)
         if not run or run["done"]:
             return
-        track = TRACKS[r["track"]]
         ms = int(num(msg.get("time"), 0, 0, 3_600_000))
         raced = time.time() - r["start"]
-        cps = int(num(msg.get("cp"), -1, -1, 50))
-        # a time faster than anyone can ride, or longer than the race has been on, isn't real (a shorter one is
-        # fine: a browser that paused in the background stops the bike and its clock together)
-        if ms < track["robot"] * FASTEST * 1000 or ms / 1000 > raced + 3 or ms / 1000 < raced - 120 or cps < 0:
+        if r.get("challenge"):
+            c = CHALLENGES.get(r["challenge"], {})
+            fake = c.get("kind") != "race" or ms < c.get("dist", 0) / FASTEST_MS * 1000 or ms / 1000 > raced + 3 or ms / 1000 < raced - 120
+        else:
+            track = TRACKS[r["track"]]
+            cps = int(num(msg.get("cp"), -1, -1, 50))
+            # a time faster than anyone can ride, or longer than the race has been on, isn't real (a shorter one is
+            # fine: a browser that paused in the background stops the bike and its clock together)
+            fake = ms < track["robot"] * FASTEST * 1000 or ms / 1000 > raced + 3 or ms / 1000 < raced - 120 or cps < 0
+        if fake:
             self.send(m, "toast", text="That time didn't look right, so it doesn't count 🤔")
             return
         r["finished"] += 1
@@ -228,8 +304,17 @@ class Moto(Game):
             mm = self.room.members.get(uid)
             rows.append({"id": uid, "name": mm.name if mm else "Gone", "avatar": mm.avatar if mm else "👻",
                          "color": mm.color if mm else "#888888", **run})
-        rows.sort(key=lambda r: (not r["done"], r["place"] or 0, -r["x"]))
-        self.results = {"track": self.race["track"], "rows": rows}
+        kind = self.race.get("kind")
+        if kind in TOP_SCORE:   # timed challenges: the best score wins (no score = last)
+            rows.sort(key=lambda r: (r["score"] is None, -(r["score"] or 0)))
+            place = 0
+            for i, r in enumerate(rows):
+                if r["score"] is not None:
+                    place = i + 1 if i == 0 or r["score"] != rows[i - 1]["score"] else place
+                    r.update(done=True, place=place)
+        else:
+            rows.sort(key=lambda r: (not r["done"], r["place"] or 0, -r["x"]))
+        self.results = {"track": self.race["track"], "challenge": self.race.get("challenge"), "kind": kind, "rows": rows}
         self.broadcast("results", results=self.results, wins=self.wins)
         self.push_lobby()
         self.save_results(rows)
@@ -237,6 +322,9 @@ class Moto(Game):
     def save_results(self, rows):
         n = len(rows)
         self.finished([[r["id"]] for r in rows])
+        if self.race.get("challenge"):
+            self.save_challenge(rows)
+            return
         track = TRACKS[self.race["track"]]
         for r in rows:
             won = n >= 2 and r["done"] and r["place"] == 1
@@ -255,6 +343,19 @@ class Moto(Game):
                 detail = f"Didn't finish · {track['name']}"
             outcome = "win" if won else ("loss" if n >= 2 else "play")
             self.record(r["id"], outcome, stats, detail, xp=40 if won else 20 if r["done"] else 12)
+
+    def save_challenge(self, rows):
+        c = CHALLENGES.get(self.race["challenge"], {"name": "Challenge"})
+        n = len(rows)
+        unit = {"race": lambda r: f"{r['time'] / 1000:.2f}s", "air": lambda r: f"{r['score']:.2f}s of air",
+                "flips": lambda r: f"{r['score']} flips", "speed": lambda r: f"{r['score']:.0f} km/h"}.get(c.get("kind"), lambda r: "")
+        for r in rows:
+            won = n >= 2 and r["done"] and r["place"] == 1
+            stats = {"moto.challenges": ("add", 1)}
+            if won:
+                stats["moto.cwins"] = ("add", 1)
+            detail = f"#{r['place']} of {n} · {unit(r)} · {c['name']}" if r["done"] else f"Didn't finish · {c['name']}"
+            self.record(r["id"], "win" if won else ("loss" if n >= 2 else "play"), stats, detail, xp=40 if won else 20 if r["done"] else 12)
 
     def on_admin(self, m, action, msg):
         if action == "end" and self.phase == "racing":

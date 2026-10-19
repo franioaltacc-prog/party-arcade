@@ -350,7 +350,7 @@
   const SLICE_N = 41;
   function slice(T, b) {
     const G = b.G || (b.G = { x0: 0, dx: 0.25, n: SLICE_N, ys: new Float32Array(SLICE_N), gr: new Float32Array(SLICE_N), kd: new Uint8Array(SLICE_N), rr: new Float32Array(SLICE_N), s: new Float32Array(SLICE_N) });
-    G.free = !!T.terrain;
+    G.free = !!T.terrain; G.engine = T.engine || null;
     G.x0 = b.x - (SLICE_N - 1) / 2 * G.dx;
     const c = Math.cos(b.h); const sn = Math.sin(b.h);
     let hint = b.s;
@@ -375,9 +375,10 @@
   }
 
   /** World adapter: deliberately separate from the existing track schema/progression. */
-  function groundTrack(terrain, spawn) {
+  /** engine (free ride only): { power, drag, turbo, regen, gear } multipliers from a bought upgrade; null = stock. */
+  function groundTrack(terrain, spawn, engine = null) {
     if (!terrain || !terrain.heightAt || !terrain.surfaceAt || !terrain.normalAt || !terrain.inBounds || !terrain.nearestSafePad) throw new Error('Incomplete world ground adapter');
-    return { terrain, spawn: spawn || { position: terrain.world.spawn, heading: terrain.world.spawnHeading }, start: 0, finish: Infinity, cps: [] };
+    return { terrain, engine, spawn: spawn || { position: terrain.world.spawn, heading: terrain.world.spawnHeading }, start: 0, finish: Infinity, cps: [] };
   }
 
   /** The ground point nearest to a circle (cx, cy, r) if it touches: { pen, nx, ny } or null. */
@@ -477,7 +478,7 @@
     const ca = Math.cos(b.a); const sa = Math.sin(b.a);
     let fx = 0; let fy = -P.M * P.G; let tq = 0;
     const speed = Math.hypot(b.vx, b.vy);
-    const drag=P.DRAG*(T.free?P.FREE_DRAG:1);
+    const drag=P.DRAG*(T.free?P.FREE_DRAG*(T.engine?T.engine.drag:1):1);
     fx -= drag * speed * b.vx; fy -= drag * speed * b.vy;
     for (let k = 0; k < 2; k++) {
       const s = P.SUS[k]; const w = b.wh[k]; const r = P.R[k];
@@ -609,11 +610,11 @@
     // nitro
     b.boost = !!(inp.nitro && b.nitro > 0 && !out && !inp.hold && b.finished == null);
     if (b.boost) b.nitro = Math.max(0, b.nitro - (T.terrain?P.FREE_TURBO_USE:P.NITRO_USE) * DT);
-    else if(T.terrain&&!inp.nitro&&!out&&!inp.hold)b.nitro=Math.min(1,b.nitro+P.FREE_TURBO_REGEN*DT);
+    else if(T.terrain&&!inp.nitro&&!out&&!inp.hold)b.nitro=Math.min(1,b.nitro+P.FREE_TURBO_REGEN*(T.engine?T.engine.regen:1)*DT);
     // engine: rpm from the rear wheel through the gearbox, with a slipping clutch at low speed
     const rear = b.wh[1];
     const gears=T.terrain?P.FREE_GEARS:P.GEARS;
-    const ratio = gears[b.gear - 1];
+    const ratio = gears[b.gear - 1] / (T.engine ? T.engine.gear : 1);   // (a free-ride engine upgrade gears up for more top speed)
     const wheelRpm = Math.max(0, rear.sp) * ratio * 60 / TAU;
     const limit = b.boost ? P.NITRO_LIMIT : P.LIMIT;
     let target = wheelRpm;
@@ -630,7 +631,8 @@
     }
     let engine = 0;
     if (b.shift <= 0 && clutch > 0 && b.rpm < limit) {
-      engine = P.TQ * (T.terrain?P.FREE_TORQUE:1) * torqueCurve(b.rpm) * b.thr * ratio * clutch * (b.boost ? (T.terrain?P.FREE_TURBO_POWER:P.NITRO_TQ) : 1);
+      const up = T.engine || { power: 1, turbo: 1 };
+      engine = P.TQ * (T.terrain?P.FREE_TORQUE*up.power:1) * torqueCurve(b.rpm) * b.thr * ratio * clutch * (b.boost ? (T.terrain?P.FREE_TURBO_POWER*up.turbo:P.NITRO_TQ) : 1);
     }
     // in the air the wheel can't spin faster than the engine lets it
     if (!rear.ct && rear.sp * ratio * 60 / TAU > limit) engine = Math.min(engine, 0);

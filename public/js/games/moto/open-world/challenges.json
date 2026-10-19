@@ -1,0 +1,17 @@
+{
+  "about": "Motocross challenges in the open worlds, played solo or by a whole room at once (games/moto/game.py reads this too). kind: race = first to the finish pad (from/to are safe-pad ids); air = longest single jump in seconds; flips = most flips landed; speed = highest speed in km/h. at = a safe-pad id or 'park' (the send-it jump park). limit = seconds.",
+  "challenges": [
+    {"id": "frost-downhill", "world": "frostpeak", "kind": "race", "name": "Summit Downhill", "emoji": "⛷️", "from": "frost-summit", "to": "frost-lake", "limit": 240,
+     "about": "From the Frostpeak summit down to the frozen lake. Any line you like: first one down wins."},
+    {"id": "red-mesa-dash", "world": "redrock", "kind": "race", "name": "Mesa Dash", "emoji": "🏜️", "from": "mesa", "to": "camp", "limit": 240,
+     "about": "Off Eagle Mesa and across the desert to Switchback Basecamp. Fastest rider wins."},
+    {"id": "pine-descent", "world": "pinecrest", "kind": "race", "name": "Cloudbreak Descent", "emoji": "🌲", "from": "summit", "to": "ranger", "limit": 240,
+     "about": "Down the mountain from the lookout tower to Ranger Valley, through the forest or round it."},
+    {"id": "red-big-air", "world": "redrock", "kind": "air", "name": "Big Air", "emoji": "🚀", "at": "park", "limit": 90,
+     "about": "90 seconds at the send-it park. Your single longest jump counts (land it!)."},
+    {"id": "pine-flips", "world": "pinecrest", "kind": "flips", "name": "Flip Frenzy", "emoji": "🤸", "at": "park", "limit": 120,
+     "about": "Two minutes to land as many flips as you can. Crashed flips don't count."},
+    {"id": "frost-speed", "world": "frostpeak", "kind": "speed", "name": "Top Speed", "emoji": "⚡", "at": "frost-ranger", "limit": 60,
+     "about": "One minute to hit your highest speed. Find a long slope and send it. Stock engines only!"}
+  ]
+}

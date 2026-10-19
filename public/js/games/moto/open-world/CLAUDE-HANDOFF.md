@@ -19,7 +19,7 @@ The three worlds are now rideable in **Motocross → Free ride**. `/games/moto-w
 ## Remaining work
 
 1. **Quests.** JSON steps remain content definitions. Acceptance, progress, delivery cargo, relay deadlines/distinct players, photo presence and cosmetic rewards are not hooked up. Do not award rewards merely from marker presence.
-2. **Online free ride.** Solo free ride is implemented. Rooms, authoritative world IDs, rider replication, party quest state and concurrent mini races need a separate protocol extension. Preserve existing online race validation.
+2. **Online free ride.** Rooms can ride a *challenge* together (v3.5.0: `challenges.json`, `g:settings` mode `challenge`, `g:score`, riders replicated with the race `g:pos` messages). Open-ended online free ride, party quest state and concurrent mini races are still to do.
 3. **Scenery collision.** Cabins, the lookout tower, lookout decks and arch posts are solid circles (`terrain.obstacles`). Trees, rocks, tents, containers and ruins are not; add coarse circles there too if wanted.
 4. **Water behavior.** Frostpeak's frozen central basin has a real ice-height ground surface. Other lakes/river are rendered water over a lower terrain bed; swimming/drowning/reset rules are not implemented. Authored race routes avoid submerged crossings.
 5. **Balance/performance.** All routes need longer human playtests, jump-speed tuning and low-end phone profiling. The inspector defaults to 512 subdivisions; riding uses quality-dependent coarse terrain plus its local patch. Texture projection assumes consistent world transforms. Raise record-key version if a course changes significantly.

@@ -137,6 +137,46 @@ async def main():
     st2 = await a.wait("g:start")
     check(st2["race"]["track"] == "desert" and set(st2["race"]["runners"]) == {a.uid, b.uid}, "voting “play again” starts the next race")
     a.send({"t": "g:stop"}); await a.wait("g:results")
+
+    # ---------------------------------------------------------------- challenges: the room rides an open-world challenge
+    b.send({"t": "g:settings", "mode": "challenge", "challenge": "pine-flips"})   # (not the host: ignored)
+    a.send({"t": "g:settings", "mode": "challenge", "challenge": "red-big-air"})
+    await asyncio.sleep(0.3)
+    lob = [m for m in a.drain() if m["t"] == "g:lobby"]
+    check(lob and lob[-1]["settings"]["mode"] == "challenge" and lob[-1]["settings"]["challenge"] == "red-big-air", "the host switches the room to a challenge")
+    a.send({"t": "g:ready", "ready": True}); b.send({"t": "g:ready", "ready": True})
+    st3 = await a.wait("g:start")
+    race = st3["race"]
+    check(race.get("challenge") == "red-big-air" and race.get("kind") == "air" and race.get("limit") == 90 and set(race["runners"]) == {a.uid, b.uid},
+          "everyone ready: the Big Air challenge starts for both")
+    await asyncio.sleep(st3["countdown"] + 0.2)
+    b.drain()
+    a.send({"t": "g:score", "score": 2.5}); s1 = await b.wait("g:score")
+    check(s1["id"] == a.uid and s1["score"] == 2.5, "a rider's best jump reaches the others")
+    await asyncio.sleep(0.2); a.drain()
+    a.send({"t": "g:score", "score": 1.0}); b.send({"t": "g:score", "score": 999}); await asyncio.sleep(0.3)
+    check(not [m for m in a.drain() if m["t"] == "g:score"], "a worse score isn't kept and an impossible one is ignored")
+    b.send({"t": "g:score", "score": 3.1}); s2 = await a.wait("g:score")
+    check(s2["id"] == b.uid and s2["score"] == 3.1, "a better jump takes the lead")
+    a.send({"t": "g:finish", "time": 5000}); toast = await a.wait("g:toast")
+    check("didn't look right" in toast["text"], "a timed challenge has no finish line to cross")
+    a.send({"t": "g:stop"})
+    res = await b.wait("g:results")
+    rr = res["results"]
+    check(rr.get("challenge") == "red-big-air" and rr["rows"][0]["id"] == b.uid and rr["rows"][0]["place"] == 1 and rr["rows"][1]["place"] == 2,
+          "challenge results: the longest jump wins")
+    await asyncio.sleep(0.5)
+    sa, sb = await stats(a, na), await stats(b, nb)
+    check(sa.get("moto.challenges") == 1 and sb.get("moto.cwins") == 1, f"challenges and wins are saved ({sa.get('moto.challenges')}, {sb.get('moto.cwins')})")
+    # a race challenge: a time faster than anyone could ride the course is turned away
+    a.send({"t": "g:settings", "challenge": "frost-downhill"}); await asyncio.sleep(0.2)
+    a.send({"t": "g:ready", "ready": True}); b.send({"t": "g:ready", "ready": True})
+    st4 = await a.wait("g:start")
+    check(st4["race"].get("challenge") == "frost-downhill" and st4["race"].get("kind") == "race", "the downhill race challenge starts")
+    a.drain()
+    a.send({"t": "g:finish", "time": 3000}); toast = await a.wait("g:toast")
+    check("didn't look right" in toast["text"], "a downhill time faster than possible doesn't count")
+    a.send({"t": "g:stop"}); await a.wait("g:results")
     a.send({"t": "room:leave"}); b.send({"t": "room:leave"}); await asyncio.sleep(0.2)
     print("FAILED:", check.failed)
 

@@ -9,6 +9,7 @@ import { createAudio } from './sound.js';
 import { createMenus } from './menus.js';
 import {buildRideWorld} from './open-world/ride-world.mjs';
 import {createTrial,stepTrial,trialBestKey} from './open-world/trials.mjs';
+import * as Coins from './coins.js';
 
 const { $, h, fill, Net, Sfx, UI, store, Account, Unlocks } = PA;
 const FX = PA.FX || {};
@@ -16,7 +17,7 @@ const C = window.MotoCore;
 const DT = C.DT;
 
 // ------------------------------------------------------------------ data and preferences
-let DATA = null; let WORLDS = [];
+let DATA = null; let WORLDS = []; let CHALLENGES = [];
 const builtTracks = new Map();
 const trackDef = (id) => DATA.tracks.find((t) => t.id === id) || DATA.tracks[0];
 const physicsTrack = (def) => { if (!builtTracks.has(def.id)) builtTracks.set(def.id, C.build(def)); return builtTracks.get(def.id); };
@@ -163,7 +164,7 @@ function begin(def, mode, goAt) {
   stopRide();
   setRiding(true);
   R.mode = mode; R.def = def; R.T = physicsTrack(def); R.ride = (R.ride || 0) + 1;
-  R.trial=null; $('#mx-trials').hidden=true;$('.mx-nlab').textContent='NITRO';
+  R.trial=null; R.challenge=null; $('#mx-trials').hidden=true;$('.mx-nlab').textContent='NITRO'; $('#hud-coins').hidden=true;
   if (mode === 'solo') { R.spectate = false; for (const o of R.others.values()) dropOther(o); R.others.clear(); }
   fill($('#hud-center'), h('div', { class: 'mx-loading' }, h('div', { class: 'mx-spin' }), 'Building the track…'));
   resize();
@@ -194,6 +195,7 @@ function begin(def, mode, goAt) {
 }
 function stopRide() {
   if(R.trialMarker){R.trialMarker.removeFromParent();R.trialMarker.geometry.dispose();R.trialMarker.material.dispose();R.trialMarker=null;}
+  dropFinishMarker();
   R.running = false;R.paused=false;
   if (R.audio) { R.audio.stop(); R.audio = null; }
   for (const k of Object.keys(touch)) touch[k] = false;
@@ -247,29 +249,36 @@ function physicsStep(now) {
   const holding = now < R.goAt || b.hold > 0 || R.spectate;
   const inp = R.spectate || R.finished ? { gas: 0, brake: R.finished ? 1 : 0, lean: 0, nitro: false } : R.override ? R.override(R.T, b) : controls();
   if (b.hold > 0) { b.hold -= DT; b.t += DT; }
-  const before={x:b.px,y:b.y,z:b.pz};
+  const before={x:b.px,y:b.y,z:b.pz}; const xBefore=b.x;
   const ev = C.step(T, b, { ...inp, hold: holding });
   if(R.trial && !holding && !b.crashed){
     const event=stepTrial(R.trial,before,{x:b.px,y:b.y,z:b.pz},DT);
     if(event==='finish'){
       const key=trialBestKey(R.def.id,R.trial.race.id),ms=Math.round(R.trial.time*1000),best=store.get(key,null);
       if(!best||ms<best.ms)store.set(key,{ms});
+      payCoins(!best||ms<best.ms?50:30);
       showMessage(`FINISHED ${fmt(ms/1000)} · ${!best||ms<best.ms?'NEW BEST!':'Best '+fmt(best.ms/1000)}`,'cp',6000);
       R.audio?.checkpoint(); R.trial=null; updateTrialMarker();
     }else if(event){R.audio?.checkpoint();updateTrialMarker();}
   }
   for (const [k, d] of ev) onEvent(k, d);
+  if (R.mode === 'free' && !holding) {
+    if (!b.crashed && !R.finished) payCoins(Math.abs(b.x - xBefore) / 250, false);   // (a coin for every 250 m ridden)
+    if (R.challenge) challengeStep(b, now);
+  }
   if (b.crashed > C.P.CRASH_TIME) {
     if(R.mode==='free'){R.trial=null;updateTrialMarker();}
-    C.respawn(T, b);
+    // in a challenge you go back to where you last were on your wheels (a safe pad could be a shortcut)
+    if (R.challenge) { const sp = R.challenge.safe; C.place(T, b, { position: [sp.x, sp.z], heading: sp.h }); }
+    else C.respawn(T, b);
     R.prev = snap(b); R.cam.init = false;
-    const where = R.mode==='free' ? 'a safe riding pad' : b.cp >= 0 ? `checkpoint ${b.cp + 1}` : 'the start';
+    const where = R.challenge ? 'where you were' : R.mode==='free' ? 'a safe riding pad' : b.cp >= 0 ? `checkpoint ${b.cp + 1}` : 'the start';
     showMessage(`Back to ${where}`, 'small', 1000);
   }
   // stuck (e.g. sitting in a pit): offer to go back
   const sp = Math.hypot(b.vx, b.vy);
   R.stuck = !b.crashed && b.hold <= 0 && now > R.goAt && !R.finished && sp < 0.6 ? R.stuck + DT : 0;
-  if (R.stuck > 4 && R.stuck - DT <= 4) showMessage(R.mode==='free'?'Press R to return to a safe pad':'Stuck? Press R to go back to the checkpoint', 'small', 2500);
+  if (R.stuck > 4 && R.stuck - DT <= 4 && !R.challenge) showMessage(R.mode==='free'?'Press R to return to a safe pad':'Stuck? Press R to go back to the checkpoint', 'small', 2500);
   R.cur = snap(b);
 }
 
@@ -287,13 +296,22 @@ function onEvent(k, d) {
     R.cam.shake = C.P.CAM_CRASH_SHAKE;
     showMessage('CRASHED!', 'bad', 1300);
     burst(b.x, b.y, 26, 'puff', 1.4);
-    if (R.mode === 'online') sendPos(true);
+    if (R.mode === 'online' || R.challenge?.online) sendPos(true);
   } else if (k === 'land') {
     const strength = Math.min(1.5, d.air * 0.8);
     if (R.audio) R.audio.land(strength);
     R.cam.shake = Math.max(R.cam.shake, Math.min(C.P.CAM_SHAKE_MAX, d.air * C.P.CAM_LAND_SHAKE));
     burst(b.x, b.y - 0.4, Math.round(4 + d.air * 10), 'puff', 0.8 + d.air * 0.3);
     if (d.clean && (d.turns || d.perfect || d.air > 0.9)) trick(d);
+    if (R.mode === 'free' && d.clean) {
+      const pay = (d.turns || 0) * 5 + (d.air > 2 ? 3 : 0);   // coins for flips and big air
+      if (pay) payCoins(pay);
+      const ch = R.challenge;
+      if (ch && !ch.done && performance.now() > R.goAt) {
+        if (ch.def.kind === 'air') ch.score = Math.max(ch.score, d.air);
+        if (ch.def.kind === 'flips' && d.turns) ch.score += d.turns;
+      }
+    }
   } else if (k === 'fence') {
     if (R.audio) R.audio.land(0.6);
     R.cam.shake = Math.max(R.cam.shake, 0.25);
@@ -372,11 +390,13 @@ function render(now, dt, alpha) {
   w.update(R.model.root.position, dt, camera);
   if (R.audio) {
     R.audio.update(b, dt, { scrub: b.scrub, surface: b.G ? C.surfaceAt(b.G, b.x) : 0 });
-    if (R.mode === 'online') R.audio.others(otherSounds(b));
+    if (R.mode === 'online' || R.challenge?.online) R.audio.others(otherSounds(b));
   }
+  // gold coins (free ride and challenges)
+  if (w.collect && !R.spectate && !b.crashed) { const got = w.collect(b.px, b.y, b.pz, performance.now()); if (got) { payCoins(got); Sfx.play('coin'); } }
   renderer.render(w.scene, camera);
   if (now - R.hudAt > 60) { R.hudAt = now; hud(now); }
-  if (R.mode === 'online' && now - R.sentAt > 80) sendPos(false);
+  if ((R.mode === 'online' || R.challenge?.online) && now - R.sentAt > 80) sendPos(false);
 }
 
 /** The ground height under a point in the world (near the track). */
@@ -518,15 +538,26 @@ function hud(now) {
   $('#hud-sub').textContent = R.spectate ? 'WATCHING THE LEADER' : R.mode === 'online' && state.race ? `P${myPlace()} / ${Object.keys(state.race.runners).length}  ·  CP ${b.cp + 1}/${T.cps.length}` : `CHECKPOINT ${b.cp + 1} / ${T.cps.length}`;
   $('#hud-left').textContent = R.mode==='free' ? R.trial ? `${R.trial.race.name} · LAP ${R.trial.lap}/${R.trial.race.laps}` : 'FREE RIDE · SPACE TURBO · R SAFE PAD' : `${Math.max(0, Math.round(T.finish - b.s))} M LEFT`;
   if(R.mode==='free')$('#hud-sub').textContent=R.trial?`GATE ${Math.min(R.trial.next+1,R.trial.gates.length)} / ${R.trial.gates.length}`:'EXPLORE AT YOUR OWN PACE';
+  const ch = R.challenge;
+  if (ch) {
+    const k = ch.def.kind; const el = Math.min(ch.def.limit, ch.elapsed);
+    $('#hud-time').closest('.mx-tr').hidden = false;
+    $('#hud-time').textContent = fmt(k === 'race' ? el : Math.max(0, ch.def.limit - el));   // (races count up, the rest count down)
+    const togo = ch.finish ? Math.hypot(b.px - ch.finish[0], b.pz - ch.finish[1]) : 0;
+    $('#hud-sub').textContent = ch.done ? (k === 'race' && ch.elapsed < ch.def.limit ? 'FINISHED!' : 'TIME’S UP') : k === 'race' ? (togo > 950 ? `${(togo / 1000).toFixed(1)} KM TO THE FINISH` : `${Math.round(togo)} M TO THE FINISH`)
+      : k === 'air' ? `BEST AIR ${ch.score.toFixed(2)} S` : k === 'flips' ? `${ch.score} FLIP${ch.score === 1 ? '' : 'S'}` : `TOP ${Math.round(ch.score)} KM/H`;
+    $('#hud-left').textContent = ch.online && state.race ? `P${myPlace()} / ${Object.keys(state.race.runners).length} · ${k === 'race' ? 'FOLLOW THE GREEN BEAM' : 'TIME LEFT TOP RIGHT'}` : k === 'race' ? 'RIDE TO THE GREEN BEAM · ANY LINE YOU LIKE' : ch.def.about.toUpperCase();
+  }
   // minimap: you and the others on the track seen from above
   const cv = $('#hud-map'); const g = cv.getContext('2d');
   g.clearRect(0, 0, cv.width, cv.height); g.drawImage(mapBase, 0, 0);
   const dot = (x, z, col, r) => { const [px, py] = R.mapPt(x, z); g.fillStyle = col; g.beginPath(); g.arc(px, py, r, 0, 7); g.fill(); g.strokeStyle = 'rgba(0,0,0,.55)'; g.lineWidth = 1.5; g.stroke(); };
   if(R.trial){const gate=R.trial.gates[R.trial.next];if(gate)dot(gate.x,gate.z,'#5affb6',5);}
+  if(R.challenge?.finish)dot(R.challenge.finish[0],R.challenge.finish[1],'#7dffb5',6);
   for (const o of R.others.values()) if (o.snap) dot(o.snap.px, o.snap.pz, o.color, 5);
   dot(b.px, b.pz, '#ffd21a', 7);
   $('#hud-wrong').classList.toggle('on', !!b.wrong && !R.spectate && !R.finished);
-  if (R.mode === 'online') drawBoard();
+  if (R.mode === 'online' || R.challenge?.online) drawBoard();
 }
 
 // ------------------------------------------------------------------ solo: finishing a time trial
@@ -563,11 +594,14 @@ function startSolo(def) {
     const url = new URL(location.href); url.searchParams.delete('free');url.searchParams.delete('world');url.searchParams.set('solo', '1'); url.searchParams.set('track', def.id); history.replaceState(null, '', url);
   }
 }
-async function startFree(entry){
+/** Ride an open world: free ride, or with opts.challenge one of the challenges (opts.online: the whole room
+    rides it at once, state.race says who; opts.goAt: when the countdown ends). */
+async function startFree(entry, opts = {}){
   if(!setupRenderer())return;
-  if(inRoom()){UI.toast('Leave the online race room before starting free ride','bad');return;}
+  const ch=opts.challenge||null;
+  if(!opts.online&&inRoom()){UI.toast('Leave the online race room before riding on your own','bad');return;}
   stopRide();setRiding(true);clearTimeout(stage.timer);
-  const ride=R.ride=(R.ride||0)+1;R.mode='free';R.trial=null;R.spectate=false;
+  const ride=R.ride=(R.ride||0)+1;R.mode='free';R.trial=null;R.spectate=false;R.challenge=null;
   fill($('#hud-center'),h('div',{class:'mx-loading'},'Building '+entry.name+'…'));$('#hud-time').closest('.mx-tr').hidden=true;
   try{
     const response=await fetch('/js/games/moto/open-world/'+entry.file);if(!response.ok)throw new Error('World unavailable');
@@ -578,16 +612,138 @@ async function startFree(entry){
     if(world)world.dispose();world=null;worldKey=null;
     const q=QUALITY[qualityLevel()];world=buildRideWorld(def,q.scenery,renderer,q.shadows);worldKey='free:'+def.id;
     renderer.shadowMap.enabled=q.shadows;renderer.toneMappingExposure=world.theme.exposure;
-    R.def=def;const pad=def.spawnPads[0],park=world.ground.parks[0];   // (start facing the jump park, not the edge of the world)
-    R.T=C.groundTrack(world.ground,{...pad,heading:park?park.heading:Math.atan2(-pad.position[0],-pad.position[1])});R.bike=C.newBike(R.T);
+    R.def=def;
+    let spawn,engine=null,finish=null;
+    if(ch){
+      ({spawn,finish}=challengeStart(ch,world.ground,def,opts.online?laneFor(Net.id):0));
+      R.challenge={def:ch,online:!!opts.online,finish,score:0,sent:0,sentAt:0,done:false,elapsed:0,safe:{x:spawn.position[0],z:spawn.position[1],h:spawn.heading},safeAt:0};
+    }else{
+      const pad=def.spawnPads[0],park=world.ground.parks[0];   // (start facing the jump park, not the edge of the world)
+      spawn={...pad,heading:park?park.heading:Math.atan2(-pad.position[0],-pad.position[1])};
+      engine=Coins.engineOf().stats;   // (bought engine upgrades only work in free ride)
+    }
+    R.T=C.groundTrack(world.ground,spawn,engine);R.bike=C.newBike(R.T);
     R.model=makeBike(myLook());world.scene.add(R.model.root);
-    R.prev=R.cur=snap(R.bike);R.acc=0;R.last=performance.now();R.goAt=0;R.finished=false;R.gateDown=true;R.cam.init=false;R.stuck=0;R.emitAcc=0;R.roll=0;R.best=null;
-    R.trialMarker=null;R.audio=createAudio();$('.mx-nlab').textContent='TURBO · SPACE / SHIFT';$('#mx-trials').hidden=false;$('#hud-track').textContent=def.name;
-    fill($('#hud-center'));resize();drawMapBase();R.running=true;requestAnimationFrame(frame);
-    prefs.world=def.id;savePrefs();const url=new URL(location.href);url.searchParams.delete('solo');url.searchParams.delete('track');url.searchParams.set('free','1');url.searchParams.set('world',def.id);history.replaceState(null,'',url);
-    showMessage('FREE RIDE · Hold Space or Shift for turbo · Release to recharge · R resets','small',4500);
-  }catch(error){console.error(error);UI.toast('Could not start free ride','bad');quit();}
+    if(opts.online&&state.race){fillOthers(state.race);for(const o of R.others.values())addOtherModel(o);}
+    R.prev=R.cur=snap(R.bike);R.acc=0;R.last=performance.now();R.finished=false;R.cam.init=false;R.stuck=0;R.emitAcc=0;R.roll=0;R.best=null;R.beeped=0;
+    R.goAt=ch?Math.max(opts.goAt||0,performance.now()+(opts.online?600:3200)):0;R.gateDown=!ch;
+    R.trialMarker=null;R.finishMarker=finish?finishBeacon(finish):null;R.audio=createAudio();$('.mx-nlab').textContent='TURBO · SPACE / SHIFT';$('#mx-trials').hidden=!!ch;
+    $('#hud-track').textContent=ch?`${ch.emoji} ${ch.name}`:def.name;
+    fill($('#hud-center'));resize();drawMapBase();coinHud(Coins.wallet().coins,0);R.running=true;requestAnimationFrame(frame);
+    const url=new URL(location.href);url.searchParams.delete('solo');url.searchParams.delete('track');
+    if(ch){url.searchParams.delete('free');url.searchParams.delete('world');history.replaceState(null,'',url);showMessage(ch.about,'small',5000);}
+    else{prefs.world=def.id;savePrefs();url.searchParams.set('free','1');url.searchParams.set('world',def.id);history.replaceState(null,'',url);
+      showMessage('FREE RIDE · Collect the gold coins · Space / Shift turbo · R resets','small',4500);}
+  }catch(error){console.error(error);UI.toast('Could not load that world','bad');quit();}
 }
+
+// ------------------------------------------------------------------ coins
+/** Earn coins (fractions add up); pop shows "+n" by the counter. */
+function payCoins(n, pop = true) {
+  const before = R.coins ?? Coins.wallet().coins;
+  const total = Coins.earn(n);
+  if (total !== before) coinHud(total, pop ? total - before : 0);
+}
+function coinHud(total, gained) {
+  R.coins = total;
+  const el = $('#hud-coins'); el.hidden = R.mode !== 'free';
+  el.querySelector('b').textContent = total.toLocaleString('en-US');
+  if (gained > 0) {
+    const pop = h('i', { class: 'pop' }, '+' + gained);
+    el.append(pop); setTimeout(() => pop.remove(), 900);
+  }
+}
+
+// ------------------------------------------------------------------ challenges
+const fmtScore = (kind, v) => (kind === 'race' ? fmt(v) : kind === 'air' ? `${v.toFixed(2)} s` : kind === 'flips' ? `${v} flip${v === 1 ? '' : 's'}` : `${Math.round(v)} km/h`);
+const challengeBest = (id) => store.get('moto_ch_best_' + id, null);
+/** Where a challenge starts (lane: a few metres to the side, so a room doesn't stack up) and where it finishes. */
+function challengeStart(ch, ground, def, lane) {
+  const pads = Object.fromEntries(def.safePads.map((p) => [p.id, p]));
+  let pos; let head; let finish = null;
+  if (ch.kind === 'race') {
+    const a = pads[ch.from]; finish = pads[ch.to].position; pos = a.riderPosition || a.position;
+    head = Math.atan2(finish[0] - pos[0], finish[1] - pos[1]);
+  } else if (ch.at === 'park' && ground.parks[0]) {
+    const p = ground.parks[0]; pos = [p.start[0] - Math.sin(p.heading) * 40, p.start[1] - Math.cos(p.heading) * 40]; head = p.heading;
+  } else {
+    const a = pads[ch.at] || def.safePads[0]; pos = a.riderPosition || a.position;
+    head = ground.roadAt(...pos)?.heading ?? Math.atan2(-pos[0], -pos[1]);
+  }
+  const off = lane * 2.6;
+  return { spawn: { position: [pos[0] + Math.cos(head) * off, pos[1] - Math.sin(head) * off], heading: head }, finish };
+}
+/** A tall glowing column over the finish pad, seen from far away. */
+function finishBeacon([x, z]) {
+  const y = world.ground.heightAt(x, z);
+  const g = new THREE.Group();
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, 260, 24, 1, true), new THREE.MeshBasicMaterial({ color: '#7dffb5', transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+  beam.position.set(x, y + 130, z);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(40, 0.8, 8, 64).rotateX(Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#7dffb5' }));
+  ring.position.set(x, y + 0.6, z);
+  g.add(beam, ring); world.scene.add(g);
+  return g;
+}
+function dropFinishMarker() {
+  if (!R.finishMarker) return;
+  R.finishMarker.traverse((o) => { o.geometry?.dispose(); o.material?.dispose(); });
+  R.finishMarker.removeFromParent(); R.finishMarker = null;
+}
+function challengeStep(b, now) {
+  const ch = R.challenge; if (ch.done) return;
+  ch.elapsed += DT; const el = ch.elapsed;   // (riding time: a paused or background tab doesn't eat into it)
+  const onWheels = b.wh[0].ct || b.wh[1].ct;
+  if (!b.crashed && onWheels && now - ch.safeAt > 500 && R.T.terrain.inBounds(b.px, b.pz, 60)) { ch.safe = { x: b.px, z: b.pz, h: Math.PI / 2 - b.h }; ch.safeAt = now; }
+  const kind = ch.def.kind;
+  if (kind === 'speed' && !b.crashed && onWheels) ch.score = Math.max(ch.score, Math.hypot(b.vx, b.vy) * 3.6);
+  if (kind === 'race' && Math.hypot(b.px - ch.finish[0], b.pz - ch.finish[1]) < 40) { challengeDone(el); return; }
+  if (el >= ch.def.limit) { challengeDone(null); return; }
+  if (ch.online && kind !== 'race' && ch.score > ch.sent && now - ch.sentAt > 300) { ch.sent = ch.score; ch.sentAt = now; Net.send('g:score', { score: ch.score }); }
+}
+/** The challenge is over for you: time = your time in a race (null = out of time); timed ones use the score. */
+function challengeDone(time) {
+  const ch = R.challenge; if (!ch || ch.done) return;
+  ch.done = true; R.finished = true;
+  R.audio?.checkpoint();
+  const def = ch.def; const kind = def.kind;
+  const score = kind === 'race' ? time : ch.score;
+  const ok = kind === 'race' ? time != null : ch.score > 0;
+  if (ch.online) {
+    if (kind === 'race' && time != null) Net.send('g:finish', { time: Math.round(time * 1000), cp: 0, crashes: R.bike.crashes, flips: R.bike.flips });
+    else if (kind !== 'race' && ch.score > 0) Net.send('g:score', { score: ch.score });
+    fill($('#hud-center'), h('div', { class: 'mx-card' }, h('h2', {}, kind === 'race' ? (ok ? '🏁 Finished!' : '⏱️ Out of time') : '⏱️ Time’s up!'),
+      ok ? h('div', { class: 'mx-big' }, fmtScore(kind, score)) : null, h('p', { class: 'muted' }, 'Waiting for the others…')));
+    return;
+  }
+  // on your own: your best on this device, and coins
+  const best = challengeBest(def.id);
+  const better = ok && (best == null || (kind === 'race' ? score < best : score > best));
+  if (better) store.set('moto_ch_best_' + def.id, score);
+  const pay = ok ? 40 + (better ? 30 : 0) : 0;
+  if (pay) payCoins(pay);
+  if (better && best != null) UI.confetti(160);
+  const btn = (label, onClick, key) => h('button', { class: 'mx-go slim', type: 'button', onclick: onClick }, h('b', {}, label), key ? h('span', { class: 'mx-key' }, key) : null);
+  fill($('#hud-center'), h('div', { class: 'mx-card' },
+    h('div', { class: 'mx-medal' }, def.emoji),
+    h('h2', {}, def.name),
+    h('div', { class: 'mx-big' }, ok ? fmtScore(kind, score) : kind === 'race' ? 'Out of time' : 'No score'),
+    h('p', { class: 'muted' }, better ? (best == null ? 'Your first score!' : `🎉 New best! (was ${fmtScore(kind, best)})`) : best != null ? `Your best: ${fmtScore(kind, best)}` : 'Give it another go!'),
+    pay ? h('p', { class: 'small muted' }, `+${pay} 🪙`) : null,
+    h('div', { class: 'btns' }, btn('🔁 Again', () => startChallengeSolo(def), 'ENTER'), btn('Menu', quit, 'ESC'))));
+}
+function startChallengeSolo(ch) {
+  const entry = WORLDS.find((w) => w.id === ch.world);
+  if (entry) startFree(entry, { challenge: ch });
+}
+/** The room's challenge started (or is on when you arrive). */
+function startChallenge(race, countdown) {
+  state.race = race; state.phase = 'racing'; state.results = null;
+  const ch = CHALLENGES.find((c) => c.id === race.challenge);
+  const entry = ch && WORLDS.find((w) => w.id === ch.world);
+  if (!ch || !entry || !race.runners[Net.id] || race.runners[Net.id].done) { if (menus) menus.roomUpdate(); return; }
+  startFree(entry, { challenge: ch, online: true, goAt: performance.now() + countdown * 1000 });
+}
+
 function updateTrialMarker(){
   if(R.trialMarker){R.trialMarker.removeFromParent();R.trialMarker.geometry.dispose();R.trialMarker.material.dispose();R.trialMarker=null;}
   const gate=R.trial?.gates[R.trial.next];if(!gate)return;
@@ -760,9 +916,10 @@ function stageFrame(now, dt) {
 
 // ------------------------------------------------------------------ buttons and keys
 function quit() {
-  if (R.mode === 'online' && window.Room && Room.code) { setRiding(false); menus.show('room'); return; }
+  if ((R.mode === 'online' || R.challenge?.online) && window.Room && Room.code) { setRiding(false); menus.show('room'); return; }
+  const wasChallenge = !!R.challenge; R.challenge = null;
   setRiding(false);
-  menus.show(R.mode==='free'?'worlds':'tracks');
+  menus.show(wasChallenge ? 'challenges' : R.mode==='free'?'worlds':'tracks');
   const url = new URL(location.href); url.searchParams.delete('free'); url.searchParams.delete('world'); url.searchParams.delete('track'); history.replaceState(null, '', url);
 }
 $('#mx-quit').addEventListener('click', quit);
@@ -802,6 +959,7 @@ addEventListener('keydown', (e) => {
   else if (e.code === 'KeyC' && !e.repeat) camBtn.click();
   else if (e.code === 'KeyM' && !e.repeat) muteBtn.click();
   else if (e.code === 'Enter' && R.mode === 'solo' && (R.finished || performance.now() > R.goAt)) startSolo(R.def);
+  else if (e.code === 'Enter' && R.challenge && R.challenge.done && !R.challenge.online) startChallengeSolo(R.challenge.def);
 });
 addEventListener('keyup', (e) => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k of Object.keys(keys)) keys[k] = false; });
@@ -826,6 +984,11 @@ function startRace(race, countdown, watch = false) {
   const def = trackDef(race.track);
   const me = race.runners[Net.id];
   R.spectate = watch || !me || me.done;
+  fillOthers(race);
+  begin(def, 'online', performance.now() + countdown * 1000);
+}
+/** The other riders in this race (or challenge), drawn as see-through bikes with name tags. */
+function fillOthers(race) {
   for (const o of R.others.values()) dropOther(o);
   R.others.clear();
   for (const id of Object.keys(race.runners)) {
@@ -835,7 +998,6 @@ function startRace(race, countdown, watch = false) {
     const paint = p.bike && p.bike !== 'factory' && LIVERIES[p.bike] ? LIVERIES[p.bike].plastic : null;
     R.others.set(id, { id, buf: [], x: race.runners[id].x || null, lane: 0, name: p.name, color: paint || p.color || '#888888', model: null, tag: null, ang: [0, 0], done: race.runners[id].done });
   }
-  begin(def, 'online', performance.now() + countdown * 1000);
 }
 function addOtherModel(o) {
   if (!world) return;
@@ -890,7 +1052,7 @@ function sampleOther(o, now) {
   return out;
 }
 function drawOthers(now, dt) {
-  if (R.mode !== 'online' || !world) return null;
+  if (!(R.mode === 'online' || R.challenge?.online) || !world) return null;
   let leader = null;
   for (const o of R.others.values()) {
     if (!o.model) continue;
@@ -922,6 +1084,17 @@ function sendPos(force) {
 }
 function standings() {
   if (!state.race) return [];
+  const race = state.race;
+  if (race.challenge && R.challenge) {
+    // timed challenges: best score first; races: finished riders in order, then whoever is closest to the finish
+    const f = R.challenge.finish;
+    return Object.entries(race.runners).map(([id, r]) => {
+      const me = id === Net.id; const o = R.others.get(id); const last = o && o.buf[o.buf.length - 1];
+      const at = me && R.bike ? [R.bike.px, R.bike.pz] : last ? [last.px, last.pz] : null;
+      const score = me ? R.challenge.score : r.score ?? 0;
+      return { id, done: r.done, place: r.place, x: f ? (at ? -Math.hypot(at[0] - f[0], at[1] - f[1]) : -1e9) : score, score };
+    }).sort((p, q) => (race.kind === 'race' ? (p.done !== q.done ? (p.done ? -1 : 1) : p.done ? p.place - q.place : q.x - p.x) : q.score - p.score));
+  }
   return Object.entries(state.race.runners).map(([id, r]) => {
     const x = id === Net.id && R.bike ? R.bike.s : (R.others.get(id) || {}).x ?? r.x;
     return { id, done: r.done, place: r.place, x: x || 0 };
@@ -933,7 +1106,9 @@ function drawBoard() {
   fill($('#hud-board'), rows.map((r, i) => {
     const p = playerOf(r.id);
     const o = R.others.get(r.id);
-    return h('div', { class: r.id === Net.id ? 'me' : '' }, h('i', { style: { background: (o && o.color) || p.color || '#888' } }), `${i + 1}. ${p.name}`, r.done ? ' 🏁' : '');
+    const k = state.race && state.race.challenge && state.race.kind;
+    const extra = k && k !== 'race' ? (r.score ? ` · ${fmtScore(k, r.score)}` : '') : r.done ? ' 🏁' : '';   // (timed challenges: everyone's best so far)
+    return h('div', { class: r.id === Net.id ? 'me' : '' }, h('i', { style: { background: (o && o.color) || p.color || '#888' } }), `${i + 1}. ${p.name}`, extra);
   }));
 }
 function otherSounds(b) {
@@ -949,11 +1124,15 @@ function onlineFinish(t) {
 }
 
 const inRoom = () => !!(window.Room && Room.code);
+let pendingChallenge = null;   // a room made from the challenges screen starts on that challenge
 Lobby.on('joined', (m) => {
   Object.assign(state, m.state);
   Net.send('g:style', { style: prefs.style });
   const url = new URL(location.href); url.searchParams.delete('solo'); url.searchParams.delete('track'); history.replaceState(null, '', url);
-  if (state.phase === 'racing' && state.race) startRace(state.race, Math.max(0, -state.race.elapsed));
+  if (Room.isHost && pendingChallenge) Net.send('g:settings', { mode: 'challenge', challenge: pendingChallenge });   // (made from the challenges screen)
+  pendingChallenge = null;
+  if (state.phase === 'racing' && state.race && state.race.challenge) { setRiding(false); menus.show('room'); }   // (wait for the next one)
+  else if (state.phase === 'racing' && state.race) startRace(state.race, Math.max(0, -state.race.elapsed));
   else { setRiding(false); menus.show('room'); }
 });
 Lobby.on('players', () => menus.roomUpdate());
@@ -970,9 +1149,10 @@ Net.on('g:lobby', (m) => {
   state.settings = m.settings; state.ready = m.ready || {}; if (m.styles) state.styles = m.styles; if (m.phase !== 'racing') state.phase = m.phase;
   menus.roomUpdate();
 });
-Net.on('g:start', (m) => { startRace(m.race, m.countdown); });
+Net.on('g:start', (m) => { if (m.race.challenge) startChallenge(m.race, m.countdown); else startRace(m.race, m.countdown); });
+Net.on('g:score', (m) => { if (state.race && state.race.runners[m.id]) state.race.runners[m.id].score = m.score; });
 Net.on('g:pos', (m) => {
-  if (R.mode !== 'online') return;
+  if (R.mode !== 'online' && !R.challenge?.online) return;
   const o = R.others.get(m.id); if (!o) return;
   m.at = performance.now();
   o.buf.push(m); if (o.buf.length > 14) o.buf.shift();
@@ -989,13 +1169,20 @@ Net.on('g:finish', (m) => {
 });
 Net.on('g:hurry', (m) => { if (R.running && !R.finished && !R.spectate) showMessage(`Someone finished! ${m.seconds}s left`, 'bad', 3000); });
 Net.on('g:toast', (m) => UI.toast(m.text, 'bad', 3500));
+/** How a results row's score reads: a time, or a challenge score with its unit. */
+const resultText = (res, r) => (res.challenge && res.kind !== 'race' ? (r.done ? fmtScore(res.kind, r.score) : 'No score') : r.done ? fmt(r.time / 1000) : 'DNF');
 Net.on('g:results', (m) => {
   state.results = m.results; state.wins = m.wins || {}; state.phase = 'results';
-  const racing = riding && R.mode === 'online';
+  const racing = riding && (R.mode === 'online' || R.challenge?.online);
+  const res = m.results;
+  if (res.challenge) {   // coins for taking part, more for a podium
+    const mine = res.rows.find((r) => r.id === Net.id);
+    if (mine) { const pay = mine.done ? [100, 60, 40][mine.place - 1] || 20 : 10; payCoins(pay); UI.toast(`+${pay} 🪙 coins`, 'good', 2500); }
+  }
   if (racing) {
-    const rows = m.results.rows;
-    fill($('#hud-center'), h('div', { class: 'mx-card' }, h('h2', {}, '🏁 Results'),
-      h('div', { class: 'rows' }, rows.slice(0, 6).map((r) => h('div', {}, h('span', {}, r.done ? ['🥇', '🥈', '🥉'][r.place - 1] || `#${r.place}` : '–'), h('span', { class: 'grow' }, r.name), h('b', {}, r.done ? fmt(r.time / 1000) : 'DNF'))))));
+    const rows = res.rows; const ch = res.challenge && CHALLENGES.find((c) => c.id === res.challenge);
+    fill($('#hud-center'), h('div', { class: 'mx-card' }, h('h2', {}, ch ? `${ch.emoji} Results` : '🏁 Results'),
+      h('div', { class: 'rows' }, rows.slice(0, 6).map((r) => h('div', {}, h('span', {}, r.done ? ['🥇', '🥈', '🥉'][r.place - 1] || `#${r.place}` : '–'), h('span', { class: 'grow' }, r.name), h('b', {}, resultText(res, r)))))));
   }
   const ride = R.ride;
   setTimeout(() => {
@@ -1009,6 +1196,7 @@ Net.on('g:results', (m) => {
 async function init() {
   try { DATA = await (await fetch('/js/games/moto/tracks.json')).json(); } catch { UI.toast('Couldn’t load the tracks 😵', 'bad'); return; }
   try{WORLDS=(await(await fetch('/js/games/moto/open-world/manifest.json')).json()).worlds;}catch{UI.toast('Free ride worlds could not load','bad');}
+  try { CHALLENGES = (await (await fetch('/js/games/moto/open-world/challenges.json')).json()).challenges; } catch { /* (the challenges menu just stays empty) */ }
   if (!DATA.tracks.some((t) => t.id === prefs.track)) prefs.track = DATA.tracks[0].id;
   if (setupRenderer()) resize();
   menus = createMenus({
@@ -1016,6 +1204,7 @@ async function init() {
     get unlocked() { return unlocked; }, get bikeList() { return bikeList; }, bikeHints, myLivery, chooseLivery,
     chat: chatEl,
     startSolo,startFree,get worlds(){return WORLDS;},
+    get challenges() { return CHALLENGES; }, challengeBest, fmtScore, startChallengeSolo, challengeFriends: (c) => { pendingChallenge = c.id; }, Coins,
     watchRace: () => { if (state.race) startRace(state.race, 0, true); },
     MODELS, KITS, HELMETS, get style() { return prefs.style; }, setStyle,
     setCam: (k) => { prefs.cam = R.camMode = k; savePrefs(); },

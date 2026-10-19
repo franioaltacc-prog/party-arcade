@@ -47,6 +47,17 @@ export function createMenus(ctx) {
         ctx.medalTimes(t).map((m, i) => h('span', {}, `${ctx.MEDALS[i][0]} ${fmt(m)}`))));
   }
 
+  const KIND = { race: '🏁 Race to the finish', air: '🚀 Longest jump', flips: '🤸 Most flips', speed: '⚡ Top speed' };
+  /** A challenge to pick: what it is, where, the goal and (big) your best on this device. */
+  function challengeChip(c, on, onClick, big) {
+    const best = ctx.challengeBest(c.id); const world = (ctx.worlds.find((w) => w.id === c.world) || {}).name || c.world;
+    return h('button', { class: 'mx-chal' + (on ? ' on' : ''), type: 'button', onclick: onClick, disabled: !onClick, title: c.about },
+      h('span', { class: 'e' }, c.emoji),
+      h('span', { class: 'tx' }, h('b', {}, c.name), h('small', {}, `${world} · ${KIND[c.kind]}${c.kind === 'race' ? '' : ` · ${c.limit}s`}`),
+        big ? h('span', { class: 'ab' }, c.about) : null),
+      big ? h('span', { class: 'best' }, best != null ? `Best ${ctx.fmtScore(c.kind, best)}` : 'Not tried yet') : null);
+  }
+
   // ---------------------------------------------------------------- screens
   const SCREENS = {
     home() {
@@ -60,7 +71,9 @@ export function createMenus(ctx) {
         h('div', { class: 'mx-two' },
           card2('blue', '👤', 'Solo', 'Time trial · 3 tracks · medals', () => pick('solo'), { on: mode === 'solo', sticker: mode === 'solo' ? '✔ PICKED' : null }),
           card2('purple', '📡', 'Online', 'Race 2–6 riders with a code', () => pick('online'), { on: mode === 'online', sticker: mode === 'online' ? '✔ PICKED' : null })),
-        card2('green','🗺️','Free ride','Three huge worlds · explore and race',()=>show('worlds'),{wide:true,sticker:'NEW'}),
+        h('div', { class: 'mx-two' },
+          card2('green', '🗺️', 'Free ride', '3 huge worlds · collect coins · faster engines', () => show('worlds'), { sticker: `🪙 ${ctx.Coins.wallet().coins.toLocaleString('en-US')}`, stickerCls: 'dark' }),
+          card2('orange', '🎯', 'Challenges', 'Downhill, big air, flips · solo or with friends', () => show('challenges'), { sticker: 'NEW' })),
         licence(),
         go(mode === 'solo' ? 'Ride' : 'Race', mode === 'solo' ? 'Pick a track' : 'Make a room or join friends', next),
         card2('green', '🏍️', 'Garage', `${Object.keys(ctx.MODELS).length} bikes · ${Object.keys(ctx.KITS).length - 1} rider kits · ${have} / ${ctx.bikeList.length || 1} paint jobs`, () => show('garage'), { wide: true, sticker: (ctx.MODELS[ctx.style.model] || {}).name || paint(ctx.myLivery()).name, stickerCls: 'dark' }));
@@ -84,9 +97,29 @@ export function createMenus(ctx) {
       back=()=>show('home');
       const list=ctx.worlds;const sel=list.find(w=>w.id===ctx.prefs.world)||list[0];
       primary=()=>sel&&ctx.startFree(sel);
+      const wl=ctx.Coins.wallet(),eng=ctx.Coins.engineOf(wl.engine);
       return h('div',{class:'mx-col'},backBtn('Free ride'),
+        h('div',{class:'mx-ticket'},h('div',{class:'grow'},h('span',{class:'lab'},'Your free-ride bike'),
+          h('div',{class:'nm'},h('small',{},'🪙 '+wl.coins.toLocaleString('en-US')+' COINS'),h('b',{},`${eng.emoji} ${eng.name}`)),
+          h('div',{class:'acts'},h('button',{class:'mx-link',type:'button',onclick:()=>{garageTab='engine';show('garage');}},'⚡ Upgrade the engine ↗'))),h('span',{class:'mx-barcode'})),
         list.map(w=>card2(w.id==='frostpeak'?'blue':w.id==='redrock'?'red':'green',w.id==='frostpeak'?'❄️':w.id==='redrock'?'🏜️':'🌲',w.name,`${w.areaKm2.toFixed(1)} km² · 4 mini races · solo free ride`,()=>ctx.startFree(w),{wide:true})),
-        note('Ride anywhere at over 300 km/h. Hold Space / Shift (gamepad A) for turbo; release to recharge. R returns to the nearest safe pad. Use the flag button to start a mini race; best times stay on this device.'));
+        note('Grab the gold coins on the trails and over the jumps, land flips and finish mini races to earn coins, then buy faster engines in the garage (free ride only). Space / Shift for turbo, R returns to a safe pad, the flag button starts a mini race.'));
+    },
+
+    challenges() {
+      back = () => show('home');
+      const list = ctx.challenges;
+      if (!list.length) return h('div', { class: 'mx-col' }, backBtn('Challenges'), note('The challenges couldn’t load. Try again in a moment.'));
+      const sel = list.find((c) => c.id === ctx.prefs.challenge) || list[0];
+      const pick = (c) => { if (c === sel) { ctx.startChallengeSolo(c); return; } ctx.prefs.challenge = c.id; ctx.savePrefs(); Sfx.play('click'); show('challenges'); };
+      primary = () => ctx.startChallengeSolo(sel);
+      const friends = async () => { ctx.challengeFriends(sel); await create(); };
+      return h('div', { class: 'mx-col' },
+        backBtn('Challenges'),
+        h('div', { class: 'mx-chlist' }, list.map((c) => challengeChip(c, c === sel, () => pick(c), true))),
+        go('Ride it solo', `${sel.emoji} ${sel.name} · beat your best, earn coins`, () => ctx.startChallengeSolo(sel)),
+        card2('purple', '📡', 'Challenge friends', 'Make a room: everyone rides it at the same time', friends, { wide: true }),
+        note('Everyone rides the stock engine in challenges, so it’s fair. Crash and you go back to where you last were on your wheels.'));
     },
 
     online() {
@@ -125,13 +158,32 @@ export function createMenus(ctx) {
       back = () => { preview = null; show('home'); };
       const mine = ctx.myLivery(); const lvMine = ctx.LIVERIES[mine] || ctx.LIVERIES.factory; const st = ctx.style;
       if (!preview) preview = mine;
-      const TABS = [['bike', '🏍️ Bike'], ['paint', '🎨 Paint'], ['kit', '👕 Rider kit'], ['helmet', '⛑️ Helmet'], ['number', '#️⃣ Number']];
+      const TABS = [['bike', '🏍️ Bike'], ['engine', '⚡ Engine'], ['paint', '🎨 Paint'], ['kit', '👕 Rider kit'], ['helmet', '⛑️ Helmet'], ['number', '#️⃣ Number']];
       const grid = (items, cur, onPick) => h('div', { class: 'mx-liveries' }, items.map(([id, label, c1, c2, opts = {}]) => h('button', {
         class: 'mx-livery' + (id === cur ? ' on' : '') + (opts.locked ? ' locked' : ''), type: 'button', style: { '--c1': c1, '--c2': c2 }, title: opts.title || label, onclick: () => onPick(id) },
       id === cur && !opts.locked ? h('span', { class: 'eq' }, opts.on || 'ON') : null, opts.locked ? h('span', { class: 'lk' }, '🔒') : null,
       opts.emoji ? h('b', { class: 'emo' }, opts.emoji) : h('i', {}), h('span', {}, label))));
       let panel; let name; let sub = '';
-      if (garageTab === 'paint') {
+      if (garageTab === 'engine') {
+        const C = ctx.Coins; const wl = C.wallet();
+        const act = (e) => {
+          if (wl.owned.includes(e.id)) { C.equip(e.id); Sfx.play('click'); show('garage'); return; }
+          const r = C.buy(e.id);
+          if (r.ok) { Sfx.play('coin'); UI.toast(`${e.emoji} ${e.name} bought and fitted!`, 'good'); if (UI.confetti) UI.confetti(120); } else { Sfx.play('wrong'); UI.toast(r.error, 'bad'); }
+          show('garage');
+        };
+        panel = glass('Free-ride engines', `🪙 ${wl.coins.toLocaleString('en-US')} coins`,
+          h('div', { class: 'mx-shop' }, C.ENGINES.map((e) => {
+            const own = wl.owned.includes(e.id); const on = wl.engine === e.id;
+            return h('div', { class: 'mx-shoprow' + (on ? ' on' : '') },
+              h('span', { class: 'e' }, e.emoji),
+              h('span', { class: 'tx' }, h('b', {}, e.name), h('small', {}, `${e.about} · ${e.top[0]} km/h (${e.top[1]} with turbo)`)),
+              h('button', { class: 'mx-sb' + (on ? ' on' : ''), type: 'button', disabled: on || (!own && wl.coins < e.price), onclick: () => act(e) },
+                on ? 'RIDING' : own ? 'Use' : `🪙 ${e.price.toLocaleString('en-US')}`));
+          })),
+          note('Engines only work in free ride. Races and challenges use the stock engine so nobody can buy a win. Earn coins by grabbing the gold coins on the trails and over the jumps, riding, landing flips and in challenges. Coins are kept on this device.'));
+        const eq = C.engineOf(wl.engine); name = `${eq.emoji} ${eq.name}`; sub = `${eq.top[0]} KM/H · ${eq.top[1]} WITH TURBO`;
+      } else if (garageTab === 'paint') {
         const list = ctx.bikeList; const have = ctx.unlocked.has(preview);
         panel = glass('Paint jobs', `${list.filter((b) => ctx.unlocked.has(b.id)).length} / ${list.length} unlocked`,
           grid(list.map((b) => { const p = paint(b.id); const ok = ctx.unlocked.has(b.id); return [b.id, p.name, p.c1, p.c2, { locked: !ok, on: 'RIDING', title: ok ? p.name : `🔒 ${p.name}: ${ctx.bikeHints[b.id] || 'Locked'}` }]; }), preview,
@@ -224,14 +276,15 @@ export function createMenus(ctx) {
     const res = st.results;
     const resKey = res && res.rows ? res.rows.map((r) => r.id + r.time).join() : null;
     fill(roomEls.results, res && res.rows && !racing && hideResults !== resKey ? (() => {
-      const tr = ctx.trackDef(res.track);
+      const ch = res.challenge && ctx.challenges.find((c) => c.id === res.challenge);
+      const tr = ch || ctx.trackDef(res.track);
       return h('div', { class: 'mx-glass' },
-        h('div', { class: 'mx-h' }, '🏁 Last race', h('span', { class: 'n' }, `${tr.emoji} ${tr.name}`),
+        h('div', { class: 'mx-h' }, ch ? '🎯 Last challenge' : '🏁 Last race', h('span', { class: 'n' }, `${tr.emoji} ${tr.name}`),
           h('button', { class: 'mx-sb', type: 'button', style: { padding: '2px 8px' }, title: 'Hide', 'aria-label': 'Hide the results', onclick: () => { hideResults = resKey; roomUpdate(); } }, '✕')),
         h('div', { class: 'mx-results' }, res.rows.map((r) => h('div', { class: 'mx-rider' + (r.id === Net.id ? ' me' : '') },
           h('b', { style: { width: '24px', textAlign: 'center' } }, r.done ? ['🥇', '🥈', '🥉'][r.place - 1] || `#${r.place}` : '–'), UI.avatar(r, 'sm'),
           h('span', { class: 'nm' }, r.name, r.flips ? h('small', {}, ` · 🤸 ${r.flips}`) : null),
-          h('span', { class: 't' }, r.done ? fmt(r.time / 1000) : 'DNF')))));
+          h('span', { class: 't' }, ch && ch.kind !== 'race' ? (r.done ? ctx.fmtScore(ch.kind, r.score) : 'No score') : r.done ? fmt(r.time / 1000) : 'DNF')))));
     })() : null);
 
     // the code, to send to friends
@@ -257,15 +310,22 @@ export function createMenus(ctx) {
       })),
       riders.length < st.min ? note(`You need at least ${st.min} riders. Send a friend the code!`) : null);
 
-    // the track (the host picks)
-    const sel = st.settings.track;
-    fill(roomEls.track, h('div', { class: 'mx-h' }, 'Track', h('span', { class: 'n' }, host ? 'you pick' : 'the host picks')),
-      h('div', { class: 'mx-tchips' }, [...tracks(), { id: 'random', name: 'Surprise', emoji: '🎲' }].map((t) => trackCard(t, sel === t.id,
-        host && !racing ? () => { if (sel !== t.id) { Net.send('g:settings', { track: t.id }); Sfx.play('click'); } } : null, true))));
+    // a track race or a challenge (the host picks)
+    const sel = st.settings.track; const isCh = st.settings.mode === 'challenge'; const can = host && !racing;
+    const seg = h('div', { class: 'mx-seg' }, [['race', '🏁 Track race'], ['challenge', '🎯 Challenge']].map(([k, label]) => h('button', {
+      class: 'mx-sb' + ((k === 'challenge') === isCh ? ' on' : ''), type: 'button', disabled: !can,
+      onclick: () => { if ((k === 'challenge') !== isCh) { Net.send('g:settings', { mode: k }); Sfx.play('click'); } } }, label)));
+    fill(roomEls.track, h('div', { class: 'mx-h' }, isCh ? 'Challenge' : 'Track', h('span', { class: 'n' }, host ? 'you pick' : 'the host picks')), seg,
+      isCh
+        ? h('div', { class: 'mx-chlist' }, ctx.challenges.map((c) => challengeChip(c, st.settings.challenge === c.id,
+          can ? () => { if (st.settings.challenge !== c.id) { Net.send('g:settings', { challenge: c.id }); Sfx.play('click'); } } : null)))
+        : h('div', { class: 'mx-tchips' }, [...tracks(), { id: 'random', name: 'Surprise', emoji: '🎲' }].map((t) => trackCard(t, sel === t.id,
+          can ? () => { if (sel !== t.id) { Net.send('g:settings', { track: t.id }); Sfx.play('click'); } } : null, true))));
 
     // ready up (or watch the race that's on)
     let btn;
-    if (racing) btn = go('Watch the race', 'You can ready up for the next one when it’s over', () => ctx.watchRace());
+    if (racing && st.race.challenge) btn = go('Challenge on', 'You can ready up for the next one when it’s over', () => {}, { disabled: true });
+    else if (racing) btn = go('Watch the race', 'You can ready up for the next one when it’s over', () => ctx.watchRace());
     else if (!meIn) btn = go('Join in', 'You’re just watching', () => { Net.send('room:watch', { watch: false }); Sfx.play('pop'); });
     else if (mine) {
       const waiting = riders.length - readyCount;

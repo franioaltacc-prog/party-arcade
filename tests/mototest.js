@@ -131,6 +131,23 @@ const flat = C.build({ id: 'flat', name: 'Flat', course: ['flat 20', 'start', 'f
   b.px=6000;const ev=C.step(T,b,{});check(b.crashed&&ev.some(e=>e[0]==='bounds'),'leaving world bounds triggers a safe reset rather than endless falling');
 }
 
+// Free-ride engine upgrades (bought with coins): each is faster, the shop's top speeds are true, and
+// a track with no engine (races, challenges) is the stock bike.
+{
+ const ENGINES=Function(readFile('public/js/games/moto/coins.js').replace('const { store } = PA;','const store={get(){return null;},set(){}};').replace(/export /g,'')+'; return ENGINES;')();
+ const pad={position:[0,0],heading:Math.PI/2};
+ const flat={heightAt:()=>0,normalAt:()=>({x:0,y:1,z:0}),surfaceAt:()=>({kind:'trail',grip:.96,roll:.01}),inBounds:()=>true,nearestSafePad:()=>pad};
+ let last=0,ok=true,why='';
+ for(const e of ENGINES){
+  const tops=[false,true].map((nitro)=>{const T=C.groundTrack(flat,pad,e.stats),b=C.newBike(T);let top=0;for(let i=0;i<120*60;i++){C.step(T,b,{gas:1,nitro:nitro&&b.nitro>.05});if(nitro)b.nitro=1;top=Math.max(top,Math.hypot(b.vx,b.vy)*3.6);if(b.crashed){ok=false;why=e.id+' crashed';}}return top;});
+  if(!(tops[0]>last+20)){ok=false;why=e.id+' is not faster ('+tops[0].toFixed(0)+')';}
+  if(Math.abs(tops[0]-e.top[0])>6||Math.abs(tops[1]-e.top[1])>6){ok=false;why=e.id+' tops '+tops.map(t=>t.toFixed(0))+' vs listed '+e.top;}
+  last=tops[0];
+ }
+ check(ok,'each free-ride engine upgrade is faster and its listed top speeds are true'+(why?' ('+why+')':''));
+ check(C.groundTrack(flat,pad).engine===null&&ENGINES[0].stats===null,'without an engine (races and challenges) the bike is stock');
+}
+
 // Free-ride speed, turbo and large jumps, independent of race tuning.
 {
  const pad={position:[0,0],heading:Math.PI/2};let lip=Infinity;

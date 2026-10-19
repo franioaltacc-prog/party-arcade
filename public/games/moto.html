@@ -138,6 +138,31 @@
     .mx-tcard .times { grid-column: 1 / 4; display: flex; gap: 10px; flex-wrap: wrap; font: 600 .76rem var(--kanit); font-variant-numeric: tabular-nums; }
     .mx-tcard .times .best { padding: 1px 8px; border-radius: 6px; background: rgba(0,0,0,.25); }
     .mx-tcard:disabled { cursor: default; transform: none; }
+    /* challenges: one row each (big on the challenges screen, compact in the room) */
+    .mx-chlist { display: grid; gap: 8px; }
+    .mx-chal { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 12px; align-items: center; padding: 10px 14px; border-radius: 14px; border: 3px solid transparent; color: #fff; text-align: left; cursor: pointer; font: inherit;
+      background: linear-gradient(120deg, #e8641c, #9a2f0c); box-shadow: 0 3px 0 rgba(0,0,0,.35); transition: transform .12s; }
+    .mx-chal:hover { transform: translateY(-2px); }
+    .mx-chal.on { border-color: #fff; }
+    .mx-chal:disabled { cursor: default; transform: none; }
+    .mx-chal .e { font-size: 1.7rem; }
+    .mx-chal .tx { display: grid; min-width: 0; }
+    .mx-chal b { font: 1.2rem var(--marker); text-transform: uppercase; line-height: 1.05; }
+    .mx-chal small { font: 600 .74rem var(--kanit); opacity: .9; }
+    .mx-chal .ab { font-size: .76rem; opacity: .85; line-height: 1.25; margin-top: 3px; }
+    .mx-chal .best { font: 600 .76rem var(--kanit); padding: 2px 8px; border-radius: 6px; background: rgba(0,0,0,.28); white-space: nowrap; }
+    .mx-glass .mx-chal { padding: 7px 10px; background: rgba(255,255,255,.08); box-shadow: none; }
+    .mx-glass .mx-chal.on { background: linear-gradient(120deg, #e8641c, #9a2f0c); }
+    .mx-glass .mx-seg { margin-bottom: 8px; }
+    /* the free-ride engine shop */
+    .mx-shop { display: grid; gap: 6px; }
+    .mx-shoprow { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 12px; background: rgba(255,255,255,.07); border: 2px solid transparent; }
+    .mx-shoprow.on { border-color: var(--hi); }
+    .mx-shoprow .e { font-size: 1.5rem; }
+    .mx-shoprow .tx { display: grid; min-width: 0; }
+    .mx-shoprow b { font: 1.05rem var(--marker); text-transform: uppercase; }
+    .mx-shoprow small { font-size: .74rem; opacity: .8; line-height: 1.25; }
+    .mx-shoprow .mx-sb { white-space: nowrap; }
     .mx-tchips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
     .mx-tchips .mx-tcard { grid-template-columns: 1fr; justify-items: center; text-align: center; padding: 9px 4px; gap: 2px; }
     .mx-tchips .mx-tcard .e { grid-row: auto; font-size: 1.4rem; }
@@ -263,6 +288,10 @@
     .mx-nitro.full i { background: linear-gradient(90deg, #38bdf8, #ffffff); box-shadow: 0 0 12px #7dd3fc; }
     .mx-nitro.on i { background: linear-gradient(90deg, #f97316, #fde047); }
     .mx-nlab { font-weight: 800; font-size: .7rem; letter-spacing: .2em; opacity: .85; margin-top: 4px; }
+    .mx-coins { position: relative; display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 3px 12px 3px 8px; border-radius: 999px; background: rgba(0,0,0,.38); font-style: normal; font-weight: 800; font-size: 1.05rem; color: #ffd84a; }
+    .mx-coins[hidden] { display: none; }
+    .mx-coins .pop { position: absolute; left: 100%; top: 0; margin-left: 6px; color: #ffe27a; font-style: normal; animation: coin-pop .9s ease-out forwards; }
+    @keyframes coin-pop { from { opacity: 1; transform: translateY(0) scale(1.1); } to { opacity: 0; transform: translateY(-22px) scale(.9); } }
     .mx-bl { position: absolute; left: clamp(14px, 3vw, 34px); bottom: clamp(14px, 4vh, 34px); }
     #hud-map { width: clamp(150px, 22vw, 260px); height: auto; display: block; filter: drop-shadow(0 2px 6px rgba(0,0,0,.4)); }
     .mx-left { font-weight: 800; font-size: clamp(.8rem, 1.7vw, 1rem); letter-spacing: .1em; margin-top: 4px; }
@@ -345,7 +374,7 @@
 
     <!-- the ride -->
     <div class="mx-hud">
-      <div class="mx-tl"><div class="mx-track" id="hud-track"></div><div class="mx-sub" id="hud-sub"></div><div class="mx-board" id="hud-board"></div></div>
+      <div class="mx-tl"><div class="mx-track" id="hud-track"></div><div class="mx-sub" id="hud-sub"></div><div class="mx-coins" id="hud-coins" hidden><span>🪙</span><b>0</b></div><div class="mx-board" id="hud-board"></div></div>
       <div class="mx-tr"><div class="mx-lab">TIME</div><div class="mx-time" id="hud-time">0:00.00</div><div class="mx-split" id="hud-split"></div></div>
       <div class="mx-bl"><canvas id="hud-map" width="520" height="130"></canvas><div class="mx-left" id="hud-left"></div></div>
       <div class="mx-br"><div class="mx-lab">SPEED</div><div class="mx-speed"><span id="hud-speed">0</span><small>KM/H</small></div><div class="mx-gear" id="hud-gear">1</div><div class="mx-nitro"><i id="hud-nitro"></i></div><div class="mx-nlab">NITRO</div></div>

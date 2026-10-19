@@ -4,6 +4,7 @@ import {buildOpenWorld} from './world.mjs';
 import {terrainMaterial} from './materials.mjs';
 import {renderPolicy} from './render-policy.mjs';
 import {gridHeight} from './grounding.mjs';
+import {routeLength,routePoint} from './terrain.mjs';
 import {THEMES,particles,makeProps} from '../world.js';
 
 /** The free-ride scene: sky and sun like the race tracks, distance-cullable ground and scenery, a budgeted
@@ -120,15 +121,36 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false){
   scatterCover();
   if(samples.size>45000)for(const [key,p]of samples)if(Math.abs(p.x-cx)>half+32||Math.abs(p.z-cz)>half+32)samples.delete(key);
  }
+ // ---------------------------------------------------------------- gold coins to collect
+ // Along every trail (2 each) and up in the air over every jump (5 each: you have to fly to get them).
+ // A collected coin comes back after a while.
+ const coins=[],ground=built.terrain;
+ for(const r of map.routes){const len=routeLength(r);for(let d=60,i=0;d<len-20;d+=105,i++){const p=routePoint(r,d),o=((i*7)%5-2)*1.6;const x=p.x+Math.cos(p.heading)*o,z=p.z-Math.sin(p.heading)*o;if(ground.rampAt(x,z).weight>0)continue;coins.push({x,y:ground.heightAt(x,z)+1.3,z,value:2,back:0});}}
+ for(const ramp of ground.ramps){const s=Math.sin(ramp.heading),c=Math.cos(ramp.heading);for(const [t,up] of [[.15,4.5],[.35,6],[.55,4.5]]){const along=(t-.5)*ramp.length*1.6,x=ramp.position[0]+s*along,z=ramp.position[1]+c*along;coins.push({x,y:ground.heightAt(x,z)+up+ramp.height*.25,z,value:5,back:0});}}
+ const coinGeo=new THREE.CylinderGeometry(.8,.8,.16,24);coinGeo.rotateX(Math.PI/2);
+ const coinMat=new THREE.MeshStandardMaterial({color:'#ffcf3a',metalness:.85,roughness:.28,emissive:'#8a5a00',emissiveIntensity:.45});
+ const coinMesh=new THREE.InstancedMesh(coinGeo,coinMat,Math.max(1,coins.length));coinMesh.count=coins.length;coinMesh.frustumCulled=false;coinMesh.castShadow=false;scene.add(coinMesh);
+ const cm4=new THREE.Matrix4(),cq4=new THREE.Quaternion(),cy=new THREE.Vector3(0,1,0),cpos=new THREE.Vector3(),cone=new THREE.Vector3(1,1,1),czero=new THREE.Vector3(0,0,0);
+ function drawCoins(now){
+  const spin=now/1000*2.6;
+  coins.forEach((k,i)=>{cq4.setFromAxisAngle(cy,spin+i*.7);cm4.compose(cpos.set(k.x,k.y+Math.sin(now/400+i)*.18,k.z),cq4,k.back>now?czero:cone);coinMesh.setMatrixAt(i,cm4);});
+  coinMesh.instanceMatrix.needsUpdate=true;
+ }
+ /** Coins the bike at (x, y, z) is touching now: each is taken (and comes back in 2 minutes). Returns the value collected. */
+ function collect(x,y,z,now){
+  let got=0;
+  for(const k of coins){if(k.back>now||Math.abs(k.x-x)>3.2||Math.abs(k.z-z)>3.2||Math.abs(k.y-y)>3.4)continue;if(Math.hypot(k.x-x,k.z-z)>3.2)continue;k.back=now+120000;got+=k.value;}
+  return got;
+ }
  // A soft contact shadow under the bike when there is no shadow map.
  const canvas=document.createElement('canvas');canvas.width=canvas.height=64;const ctx=canvas.getContext('2d'),gradient=ctx.createRadialGradient(32,32,3,32,32,32);gradient.addColorStop(0,'#000b');gradient.addColorStop(1,'#0000');ctx.fillStyle=gradient;ctx.fillRect(0,0,64,64);
  const shadowTex=new THREE.CanvasTexture(canvas),shadowGeo=new THREE.PlaneGeometry(3.5,2.2);shadowGeo.rotateX(-Math.PI/2);
  const shadowMat=new THREE.MeshBasicMaterial({map:shadowTex,transparent:true,depthWrite:false,opacity:.3,polygonOffset:true,polygonOffsetFactor:-2});
  const contact=new THREE.Mesh(shadowGeo,shadowMat);contact.visible=!shadows;scene.add(contact);const up=new THREE.Vector3(0,1,0),normal=new THREE.Vector3();
  return {
-  free:true,scene,theme,fx,gates:[],ground:built.terrain,definition:map,policy,sun,
+  free:true,scene,theme,fx,gates:[],ground:built.terrain,definition:map,policy,sun,coins,collect,
   update(point,dt,camera){
-   updatePatch(point);fx.update(dt,camera);built.update(camera.position);
+   updatePatch(point);fx.update(dt,camera);built.update(camera.position);drawCoins(performance.now());
    sun.position.copy(point).addScaledVector(sunDir,220);sun.target.position.copy(point);
    if(!shadows){
     const y=built.terrain.heightAt(point.x,point.z),nn=built.terrain.normalAt(point.x,point.z);
@@ -138,7 +160,7 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false){
   dispose(){
    samples.clear();built.dispose();geo.dispose();detail.dispose();shadowGeo.dispose();shadowMat.dispose();shadowTex.dispose();
    for(const k of coverKinds){k.im.dispose();k.geo.dispose();}for(const m of [props.propMat,props.leafMat,props.cactusMat,pebbleProps.propMat,pebbleProps.leafMat,pebbleProps.cactusMat])m.dispose();
-   cloudTex.dispose();cloudMat.dispose();sky.geometry.dispose();sky.material.dispose();env?.dispose();
+   cloudTex.dispose();cloudMat.dispose();coinMesh.dispose();coinGeo.dispose();coinMat.dispose();sky.geometry.dispose();sky.material.dispose();env?.dispose();
    const textures=new Set();fxRoot.traverse(o=>{o.geometry?.dispose();if(o.material){for(const u of Object.values(o.material.uniforms||{}))if(u.value?.isTexture)textures.add(u.value);if(o.material.map)textures.add(o.material.map);o.material.dispose();}});textures.forEach(t=>t.dispose());
   }
  };
