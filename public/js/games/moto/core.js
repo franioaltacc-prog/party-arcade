@@ -27,6 +27,12 @@
   const TAU = Math.PI * 2;
 
   const P = {
+    // Free-ride gearing/power is separate: original race speeds and robot times stay identical.
+    FREE_GEARS: [30, 22, 16, 11, 7.5, 5], // longer ratios for high-speed run-ups
+    FREE_TORQUE: 2.6, FREE_DRAG: .28, FREE_BRAKES: 1.4, // multipliers on the standard power/drag/brakes
+    FREE_SHIFT: .045, FREE_TURBO_POWER: 2.1, // shift seconds and boosted torque multiplier
+    FREE_TURBO_REGEN: .13, FREE_TURBO_USE: .16, FREE_START_TURBO: .7, // meter per second; initial charge
+    FREE_LAND_SPEED: 8, FREE_LAND_ANGLE: .65, // extra impact absorption for upright cliff landings
     G: 10.5,                 // gravity (a touch above real, so jumps don't feel floaty)
     M: 104, I: 17,           // the bike's frame: mass (kg) and how hard it is to spin (the wheels and the rider come on top)
     MR: 70,                  // the rider: a body on springy legs and arms, so bumps aren't passed straight into the bike
@@ -344,6 +350,7 @@
   const SLICE_N = 41;
   function slice(T, b) {
     const G = b.G || (b.G = { x0: 0, dx: 0.25, n: SLICE_N, ys: new Float32Array(SLICE_N), gr: new Float32Array(SLICE_N), kd: new Uint8Array(SLICE_N), rr: new Float32Array(SLICE_N), s: new Float32Array(SLICE_N) });
+    G.free = !!T.terrain;
     G.x0 = b.x - (SLICE_N - 1) / 2 * G.dx;
     const c = Math.cos(b.h); const sn = Math.sin(b.h);
     let hint = b.s;
@@ -411,6 +418,7 @@
       scrape: 0, slide: 0, bodyHit: false, lastLand: null,
     };
     place(T, b, T.terrain ? (s || T.spawn) : s == null ? T.start : s, u);
+    if(T.terrain)b.nitro=P.FREE_START_TURBO;
     return b;
   }
 
@@ -455,10 +463,22 @@
 
   /** One substep of physics. */
   function substep(T, b, h, drive) {
+    // Free ride can clear hundreds of metres. Absorb the excess impact at tyre contact,
+    // preserving speed along the landing; airborne motion and bad-angle crashes stay physical.
+    if (T.free && !b.crashed) for (let k = 0; k < 2; k++) {
+      const wheel = b.wh[k], g = touch(T, wheel.x, wheel.y, P.R[k]);
+      if (!g || g.pen <= 0 || Math.abs(b.a - Math.atan2(-g.nx, g.ny)) > P.FREE_LAND_ANGLE) continue;
+      const impact = b.vx * g.nx + b.vy * g.ny;
+      if (impact >= -P.FREE_LAND_SPEED) continue;
+      const absorb = -P.FREE_LAND_SPEED - impact, dx = g.nx * absorb, dy = g.ny * absorb;
+      b.vx += dx; b.vy += dy; b.rvx += dx; b.rvy += dy;
+      for (const w of b.wh) { w.vx += dx; w.vy += dy; }
+    }
     const ca = Math.cos(b.a); const sa = Math.sin(b.a);
     let fx = 0; let fy = -P.M * P.G; let tq = 0;
     const speed = Math.hypot(b.vx, b.vy);
-    fx -= P.DRAG * speed * b.vx; fy -= P.DRAG * speed * b.vy;
+    const drag=P.DRAG*(T.free?P.FREE_DRAG:1);
+    fx -= drag * speed * b.vx; fy -= drag * speed * b.vy;
     for (let k = 0; k < 2; k++) {
       const s = P.SUS[k]; const w = b.wh[k]; const r = P.R[k];
       const ax = b.x + ca * s.p[0] - sa * s.p[1]; const ay = b.y + sa * s.p[0] + ca * s.p[1];
@@ -588,10 +608,12 @@
     b.lean += clamp(lean - b.lean, -DT * leanRate, DT * leanRate);
     // nitro
     b.boost = !!(inp.nitro && b.nitro > 0 && !out && !inp.hold && b.finished == null);
-    if (b.boost) b.nitro = Math.max(0, b.nitro - P.NITRO_USE * DT);
+    if (b.boost) b.nitro = Math.max(0, b.nitro - (T.terrain?P.FREE_TURBO_USE:P.NITRO_USE) * DT);
+    else if(T.terrain&&!inp.nitro&&!out&&!inp.hold)b.nitro=Math.min(1,b.nitro+P.FREE_TURBO_REGEN*DT);
     // engine: rpm from the rear wheel through the gearbox, with a slipping clutch at low speed
     const rear = b.wh[1];
-    const ratio = P.GEARS[b.gear - 1];
+    const gears=T.terrain?P.FREE_GEARS:P.GEARS;
+    const ratio = gears[b.gear - 1];
     const wheelRpm = Math.max(0, rear.sp) * ratio * 60 / TAU;
     const limit = b.boost ? P.NITRO_LIMIT : P.LIMIT;
     let target = wheelRpm;
@@ -603,12 +625,12 @@
     b.limiter = b.rpm >= limit - 40 && b.thr > 0.5;
     if (b.shift > 0) b.shift -= DT;
     else if (!inp.hold && rear.ct) {
-      if (b.rpm > P.UP && b.gear < P.GEARS.length && b.thr > 0.3) { b.gear++; b.shift = P.SHIFT; ev.push(['shift', b.gear]); }
-      else if (b.rpm < P.DOWN && b.gear > 1) { b.gear--; b.shift = P.SHIFT * 0.6; ev.push(['shift', b.gear]); }
+      if (b.rpm > P.UP && b.gear < gears.length && b.thr > 0.3) { b.gear++; b.shift = T.terrain?P.FREE_SHIFT:P.SHIFT; ev.push(['shift', b.gear]); }
+      else if (b.rpm < P.DOWN && b.gear > 1) { b.gear--; b.shift = (T.terrain?P.FREE_SHIFT:P.SHIFT) * 0.6; ev.push(['shift', b.gear]); }
     }
     let engine = 0;
     if (b.shift <= 0 && clutch > 0 && b.rpm < limit) {
-      engine = P.TQ * torqueCurve(b.rpm) * b.thr * ratio * clutch * (b.boost ? P.NITRO_TQ : 1);
+      engine = P.TQ * (T.terrain?P.FREE_TORQUE:1) * torqueCurve(b.rpm) * b.thr * ratio * clutch * (b.boost ? (T.terrain?P.FREE_TURBO_POWER:P.NITRO_TQ) : 1);
     }
     // in the air the wheel can't spin faster than the engine lets it
     if (!rear.ct && rear.sp * ratio * 60 / TAU > limit) engine = Math.min(engine, 0);
@@ -645,7 +667,8 @@
     b.backT = grounded && !out && !inp.hold && b.finished == null && brake > 0.5 && gas < 0.1 && b.vx < 0.6 ? b.backT + DT : 0;
     const backing = b.backT > 0.35;
     const push = backing && b.vx > -P.BACK_MAX ? -P.PADDLE : 0;
-    const drive = { tq: engine, brake: backing ? [0, 0] : [P.BRAKE[0] * b.brk * frontBrake, P.BRAKE[1] * b.brk], lean: leanTq, push };
+    const brakePower=T.terrain?P.FREE_BRAKES:1;
+    const drive = { tq: engine, brake: backing ? [0, 0] : [P.BRAKE[0] * b.brk * frontBrake * brakePower, P.BRAKE[1] * b.brk * brakePower], lean: leanTq, push };
     const h = DT / SUB;
     for (const w of b.wh) { w.ct = false; w.load = 0; w.slip = 0; }
     b.scrape = 0; b.slide = 0; b.bodyHit = false;

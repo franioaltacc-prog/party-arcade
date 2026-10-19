@@ -2,11 +2,21 @@
 import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 import {buildTerrain,routeLength,routePoint} from '../public/js/games/moto/open-world/terrain.mjs';
+import {renderPolicy} from '../public/js/games/moto/open-world/render-policy.mjs';
 await import('../public/js/games/moto/core.js');
 const C=globalThis.MotoCore;
 const base=new URL('../public/js/games/moto/open-world/',import.meta.url);
 const read=f=>JSON.parse(readFileSync(new URL(f,base),'utf8'));
 let checks=0;const check=(name,fn)=>{fn();checks++;console.log('PASS '+name);};
+check('riding terrain stays under 120k triangles with detail around the bike at every quality',()=>{
+ let previous=0;
+ for(const q of [.35,.65,1]){
+  const p=renderPolicy(q),triangles=2*p.resolution**2+2*p.segments**2+56*p.resolution;
+  assert(triangles<120000);assert(triangles>=previous);previous=triangles;
+  assert(p.half*2/p.segments<=2);assert(p.chunkSegments<=32);
+  assert(p.patchBudgetMs<=2);assert(p.patchVerticesPerFrame<(p.segments+1)**2);
+ }
+});
 for(const entry of read('manifest.json').worlds){
  const w=read(entry.file),t=buildTerrain(w),ids=new Set([...w.spots,...w.interactions,...w.races].map(x=>x.id));
  check(w.id+': large map and six safe multiplayer spawns',()=>{assert(w.size[0]*w.size[1]>=1e7);assert.equal(w.spawnPads.length,6);for(const p of w.spawnPads){assert(t.inBounds(...p.position,100));assert(Number.isFinite(t.heightAt(...p.position)));}});

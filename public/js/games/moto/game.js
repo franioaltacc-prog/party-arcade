@@ -86,7 +86,7 @@ function resize() {
   if (!renderer) return;
   const q = QUALITY[qualityLevel()];
   const w = canvas.clientWidth || innerWidth; const hh = canvas.clientHeight || innerHeight;
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, q.pr) * (R.prScale || 1));
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, R.mode==='free' ? (prefs.quality==='high'?1.5:qualityLevel()==='low'?1:1.2) : q.pr) * (R.prScale || 1));
   renderer.setSize(w, hh, false);
   camera.aspect = w / hh; camera.updateProjectionMatrix();
 }
@@ -162,7 +162,7 @@ function begin(def, mode, goAt) {
   stopRide();
   setRiding(true);
   R.mode = mode; R.def = def; R.T = physicsTrack(def); R.ride = (R.ride || 0) + 1;
-  R.trial=null; $('#mx-trials').hidden=true;
+  R.trial=null; $('#mx-trials').hidden=true;$('.mx-nlab').textContent='NITRO';
   if (mode === 'solo') { R.spectate = false; for (const o of R.others.values()) dropOther(o); R.others.clear(); }
   fill($('#hud-center'), h('div', { class: 'mx-loading' }, h('div', { class: 'mx-spin' }), 'Building the track…'));
   resize();
@@ -204,8 +204,19 @@ const laneFor = (id) => {
   return LANES[i % LANES.length];
 };
 
+const perfEnabled=new URLSearchParams(location.search).has('perf');
+const perfLabel=perfEnabled?h('div',{id:'moto-perf',style:{position:'fixed',bottom:'8px',left:'35%',zIndex:20,padding:'5px',background:'#101820df',color:'#fff',font:'12px monospace',pointerEvents:'none'}},'Measuring…'):null;
+if(perfLabel)document.body.append(perfLabel);
+let prof={start:0,frames:0,cpu:0};
+function profileFrame(now,cpuStart){
+ if(!perfLabel)return;
+ if(!prof.start)prof.start=now;
+ prof.frames++;prof.cpu+=performance.now()-cpuStart;
+ if(now-prof.start>1000){perfLabel.textContent=`${Math.round(prof.frames*1000/(now-prof.start))} fps · CPU ${(prof.cpu/prof.frames).toFixed(1)} ms · ${Math.round(renderer.info.render.triangles/1000)}k tris · ${renderer.info.render.calls} draws`;prof={start:now,frames:0,cpu:0};}
+}
 function frame(now) {
   if (!R.running) return;
+  const cpuStart=perfEnabled?performance.now():0;
   const ride=R.ride; requestAnimationFrame(t=>{if(ride===R.ride)frame(t);});
   const dt = Math.min(0.1, (now - R.last) / 1000); R.last = now;
   if(R.paused){render(now,dt,1);return;}
@@ -223,6 +234,7 @@ function frame(now) {
   while (R.acc >= DT && steps < 14) { physicsStep(now); R.acc -= DT; steps++; }
   if (steps >= 14) R.acc = 0;
   render(now, dt, R.acc / DT);
+  profileFrame(now,cpuStart);
   // too slow? draw fewer pixels
   if (dt > 1 / 38) R.slowFrames++; else R.slowFrames = Math.max(0, R.slowFrames - 1);
   if (R.slowFrames > 90 && R.prScale > 0.6) { R.prScale -= 0.15; R.slowFrames = 0; resize(); }
@@ -499,7 +511,7 @@ function hud(now) {
   $('#hud-nitro').parentNode.classList.toggle('on', b.boost);
   $('#hud-nitro').parentNode.classList.toggle('full', b.nitro >= 0.999);
   $('#hud-sub').textContent = R.spectate ? 'WATCHING THE LEADER' : R.mode === 'online' && state.race ? `P${myPlace()} / ${Object.keys(state.race.runners).length}  ·  CP ${b.cp + 1}/${T.cps.length}` : `CHECKPOINT ${b.cp + 1} / ${T.cps.length}`;
-  $('#hud-left').textContent = R.mode==='free' ? R.trial ? `${R.trial.race.name} · LAP ${R.trial.lap}/${R.trial.race.laps}` : 'FREE RIDE · R SAFE PAD · MINI RACES ↗' : `${Math.max(0, Math.round(T.finish - b.s))} M LEFT`;
+  $('#hud-left').textContent = R.mode==='free' ? R.trial ? `${R.trial.race.name} · LAP ${R.trial.lap}/${R.trial.race.laps}` : 'FREE RIDE · SPACE TURBO · R SAFE PAD' : `${Math.max(0, Math.round(T.finish - b.s))} M LEFT`;
   if(R.mode==='free')$('#hud-sub').textContent=R.trial?`GATE ${Math.min(R.trial.next+1,R.trial.gates.length)} / ${R.trial.gates.length}`:'EXPLORE AT YOUR OWN PACE';
   // minimap: you and the others on the track seen from above
   const cv = $('#hud-map'); const g = cv.getContext('2d');
@@ -560,14 +572,14 @@ async function startFree(entry){
     for(const sb of stage.bikes.values()){sb.model.root.removeFromParent();sb.tag?.removeFromParent();}
     if(world)world.dispose();world=null;worldKey=null;
     world=buildRideWorld(def,QUALITY[qualityLevel()].scenery);worldKey='free:'+def.id;
-    renderer.shadowMap.enabled=QUALITY[qualityLevel()].shadows;renderer.toneMappingExposure=world.theme.exposure;
+    renderer.shadowMap.enabled=false;renderer.toneMappingExposure=world.theme.exposure;
     R.def=def;R.T=C.groundTrack(world.ground,def.spawnPads[0]);R.bike=C.newBike(R.T);
     R.model=makeBike(myLook());world.scene.add(R.model.root);
     R.prev=R.cur=snap(R.bike);R.acc=0;R.last=performance.now();R.goAt=0;R.finished=false;R.gateDown=true;R.cam.init=false;R.stuck=0;R.emitAcc=0;R.roll=0;R.best=null;
-    R.trialMarker=null;R.audio=createAudio();$('#mx-trials').hidden=false;$('#hud-track').textContent=def.name;
+    R.trialMarker=null;R.audio=createAudio();$('.mx-nlab').textContent='TURBO · SPACE / SHIFT';$('#mx-trials').hidden=false;$('#hud-track').textContent=def.name;
     fill($('#hud-center'));resize();drawMapBase();R.running=true;requestAnimationFrame(frame);
     prefs.world=def.id;savePrefs();const url=new URL(location.href);url.searchParams.delete('solo');url.searchParams.delete('track');url.searchParams.set('free','1');url.searchParams.set('world',def.id);history.replaceState(null,'',url);
-    showMessage('FREE RIDE · Mini races in the top toolbar · R returns to a safe pad','small',4500);
+    showMessage('FREE RIDE · Hold Space or Shift for turbo · Release to recharge · R resets','small',4500);
   }catch(error){console.error(error);UI.toast('Could not start free ride','bad');quit();}
 }
 function updateTrialMarker(){

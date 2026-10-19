@@ -714,7 +714,7 @@ function RoundedHay() {
 function RoundedBoxGeometryLite(w, h, d) { return new THREE.BoxGeometry(w, h, d); }
 
 // ------------------------------------------------------------------ particles
-export function particles(scene, th, T) {
+export function particles(scene, th, T, quality = 1) {
   const softTex = canvasTex(64, 64, (g, w, h) => { const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32); grd.addColorStop(0, 'rgba(255,255,255,1)'); grd.addColorStop(0.45, 'rgba(255,255,255,.45)'); grd.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = grd; g.fillRect(0, 0, w, h); }, false);
   const vert = `attribute float size; attribute float alpha; attribute vec3 tint; varying float vA; varying vec3 vC;
     #include <fog_pars_vertex>
@@ -761,13 +761,13 @@ export function particles(scene, th, T) {
       },
     };
   }
-  const puffs = system(700, softTex);
-  const chunks = system(500, softTex);
+  const puffs = system(Math.round(700 * quality), softTex);
+  const chunks = system(Math.round(500 * quality), softTex);
   const colors = { puff: new THREE.Color(th.puff), chunk: new THREE.Color(th.chunk), mud: new THREE.Color('#3b2a1a'), white: new THREE.Color('#ffffff'), smoke: new THREE.Color('#9aa0a8'), snow: new THREE.Color('#ffffff') };
   // falling snow around the camera
   let flakes = null;
   if (th.snowing) {
-    const n = 1400; const g = new THREE.BufferGeometry(); const p = new Float32Array(n * 3);
+    const n = Math.round(1400 * quality); const g = new THREE.BufferGeometry(); const p = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) { p[i * 3] = (Math.random() - 0.5) * 80; p[i * 3 + 1] = Math.random() * 40; p[i * 3 + 2] = (Math.random() - 0.5) * 80; }
     g.setAttribute('position', new THREE.BufferAttribute(p, 3));
     flakes = new THREE.Points(g, new THREE.PointsMaterial({ map: softTex, size: 0.14, transparent: true, opacity: 0.9, depthWrite: false, color: '#ffffff' }));

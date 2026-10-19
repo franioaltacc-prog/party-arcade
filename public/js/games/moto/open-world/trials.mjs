@@ -22,4 +22,4 @@ export function stepTrial(trial,from,to,dt) {
  }
  return 'gate';
 }
-export const trialBestKey=(worldId,raceId)=>`moto_world_best_v1_${worldId}_${raceId}`;
+export const trialBestKey=(worldId,raceId)=>`moto_world_best_v2_${worldId}_${raceId}`;

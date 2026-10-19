@@ -131,6 +131,31 @@ const flat = C.build({ id: 'flat', name: 'Flat', course: ['flat 20', 'start', 'f
   b.px=6000;const ev=C.step(T,b,{});check(b.crashed&&ev.some(e=>e[0]==='bounds'),'leaving world bounds triggers a safe reset rather than endless falling');
 }
 
+// Free-ride speed, turbo and large jumps, independent of race tuning.
+{
+ const pad={position:[0,0],heading:Math.PI/2};let lip=Infinity;
+ const height=x=>{const t=(x-lip)/30;return t>0&&t<2?5*(1-Math.cos(Math.PI*t))/2:0;};
+ const ground={heightAt:x=>height(x),normalAt:x=>{const d=height(x+.5)-height(x-.5),n=Math.hypot(d,1);return{x:-d/n,y:1/n,z:0};},surfaceAt:()=>({kind:'trail',grip:1,roll:.01}),inBounds:()=>true,nearestSafePad:()=>pad};
+ const T=C.groundTrack(ground,pad),b=C.newBike(T),turbo=C.newBike(T);
+ for(let i=0;i<120*20;i++){C.step(T,b,{gas:1});C.step(T,turbo,{gas:1});}
+ check(b.vx*3.6>290&&!b.crashed&&b.gear===6,'free ride builds beyond 290 km/h in six gears without crashing');
+ const initial=b.vx;
+ for(let i=0;i<120*5;i++){C.step(T,b,{gas:1});C.step(T,turbo,{gas:1,nitro:true});}
+ check(turbo.vx>b.vx+7&&turbo.vx*3.6>330&&!turbo.crashed,'turbo gives a substantial burst beyond 330 km/h');
+ for(let i=0;i<120*4;i++)C.step(T,turbo,{gas:1,nitro:true});
+ check(turbo.nitro===0&&!turbo.boost,'holding turbo empty does not pulse or recharge');
+ for(let i=0;i<120*3;i++)C.step(T,turbo,{gas:.5});
+ check(turbo.nitro>.35,'releasing turbo recharges it for the next run-up');
+ for(let i=0;i<120*6;i++)C.step(T,turbo,{brake:1});
+ check(turbo.vx<initial*.5&&!turbo.crashed,'braking reliably sheds more than half the high-speed momentum');
+ lip=b.px+50;let maxY=0,maxAir=0,landed=false;
+ for(let i=0;i<120*12;i++){const ev=C.step(T,b,{gas:1});maxY=Math.max(maxY,b.y);maxAir=Math.max(maxAir,b.air);if(ev.some(e=>e[0]==='land'))landed=true;}
+ check(maxY>25&&maxAir>4&&landed&&!b.crashed&&b.vx>60,'a high-speed ramp launches a long ballistic jump and absorbs an upright landing');
+ const head=C.newBike(T);head.a=Math.PI;head.y+=1.6;head.ry+=2.4;head.rx=head.x;
+ for(let i=0;i<120;i++)C.step(T,head,{assist:false});
+ check(head.crashes>0,'free-ride landing absorption does not save an upside-down landing');
+}
+
 // Fixed-step integration gives the same ride across display refresh rates.
 {
  const run=(fps)=>{const T=C.build({id:'frames',course:['flat 20','start','flat 500','finish']}),b=C.newBike(T);let acc=0;for(let f=0;f<fps*4;f++){acc+=1/fps;while(acc>=C.DT-1e-10){C.step(T,b,{gas:.7,steer:.05});acc-=C.DT;}}return b;};

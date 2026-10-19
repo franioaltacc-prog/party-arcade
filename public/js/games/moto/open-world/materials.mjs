@@ -21,11 +21,11 @@ function texture(kind,size=1024){
  }
  context.putImageData(pixels,0,0);const tex=new THREE.CanvasTexture(canvas);tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.anisotropy=8;tex.colorSpace=THREE.NoColorSpace;return tex;
 }
-export function terrainMaterial(map,sharedTextures=null){
+export function terrainMaterial(map,sharedTextures=null,detailed=true){
  const textures=sharedTextures || Object.fromEntries(Object.keys(palettes).map(k=>[k,texture(k)]));
  const hole=new THREE.Vector4();
  const material=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.91,metalness:0});
- material.customProgramCacheKey=()=> 'ow-triplanar-v2-'+map.theme;
+ material.customProgramCacheKey=()=> 'ow-terrain-lod-v3-'+map.theme+'-'+detailed;
  material.onBeforeCompile=shader=>{
   for(const [key,value]of Object.entries(textures))shader.uniforms['ow'+key]={value};
   shader.uniforms.owHole={value:hole};
@@ -52,7 +52,7 @@ varying vec3 owSurfaceNormal;
 varying float owTrail;
 vec4 owSample(sampler2D tex,vec2 p){
  mat2 rot=mat2(.8,-.6,.6,.8);
- return texture2D(tex,p)*.57+texture2D(tex,rot*p*.373+vec2(.31,.71))*.43;
+ ${detailed?'return texture2D(tex,p)*.57+texture2D(tex,rot*p*.373+vec2(.31,.71))*.43;':'return texture2D(tex,p);'}
 }
 vec4 owTri(sampler2D tex,vec3 p,vec3 weights){
  return owSample(tex,p.zy)*weights.x+owSample(tex,p.xz)*weights.y+owSample(tex,p.xy)*weights.z;
@@ -67,19 +67,21 @@ vec3 owBump(vec3 surf_pos,vec3 surf_norm,vec2 grad){
 if(owHole.w>.5 && abs(owPosition.x-owHole.x)<owHole.z && abs(owPosition.z-owHole.y)<owHole.z)discard;
 vec3 owWeights=pow(abs(normalize(owSurfaceNormal)),vec3(5.0));owWeights/=max(.001,dot(owWeights,vec3(1.0)));
 vec3 owP=owPosition*.12;
-vec4 owD=owTri(owdirt,owP,owWeights),owG=owTri(owgrass,owP,owWeights),owR=owTri(owrock,owP*.65,owWeights),owS=owTri(owsnow,owP,owWeights);
 float owCliff=smoothstep(.20,.65,1.0-abs(normalize(owSurfaceNormal).y));
-float owSnow=owBiome>1.5?1.0:(owBiome>.5?smoothstep(250.0,450.0,owPosition.y):0.0);
-vec4 owGround=owBiome<.5?owD:mix(owG,owS,owSnow);
-owGround=mix(owGround,owR,owCliff*(1.0-.3*owSnow));
-vec4 owRoad=owBiome>1.5?mix(owS,owR,.32):owD;
-owGround=mix(owGround,owRoad,owTrail*.78*(1.0-owCliff));
-float owMacro=owTri(owrock,owPosition*.008,owWeights).a;
+float owSnow=${map.theme==='snow'?'1.0':map.theme==='alpine'?'smoothstep(250.0,450.0,owPosition.y)':'0.0'};
+vec4 owGround=owCliff>.25?owTri(${map.theme==='desert'?'owdirt':map.theme==='snow'?'owsnow':'owgrass'},owP,owWeights):owSample(${map.theme==='desert'?'owdirt':map.theme==='snow'?'owsnow':'owgrass'},owP.xz);
+${map.theme==='alpine'?'if(owSnow>.01)owGround=mix(owGround,owSample(owsnow,owP.xz),owSnow);':''}
+if(owCliff>.02)owGround=mix(owGround,owTri(owrock,owP*.65,owWeights),owCliff*(1.0-.3*owSnow));
+if(owTrail>.01){
+ vec4 owRoad=${map.theme==='snow'?'vec4(owGround.rgb*.82,owGround.a)':map.theme==='desert'?'owGround':'owSample(owdirt,owP.xz)'};
+ owGround=mix(owGround,owRoad,owTrail*.78*(1.0-owCliff));
+}
+float owMacro=texture2D(owrock,owPosition.xz*.008).a;
 vec3 owAlbedo=pow(owGround.rgb,vec3(2.2));
 diffuseColor.rgb*=owAlbedo*(.86+owMacro*.34);
 float owRelief=owGround.a*(owBiome>1.5?.09:.16);
 `).replace('#include <normal_fragment_maps>',`#include <normal_fragment_maps>
-normal=owBump(-vViewPosition,normal,vec2(dFdx(owRelief),dFdy(owRelief)));
+${detailed?'normal=owBump(-vViewPosition,normal,vec2(dFdx(owRelief),dFdy(owRelief)));':''}
 `).replace('#include <roughnessmap_fragment>',`#include <roughnessmap_fragment>
 roughnessFactor=clamp(.78+owGround.a*.22-.09*owSnow,.65,1.0);
 `);

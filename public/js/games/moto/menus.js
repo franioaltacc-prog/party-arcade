@@ -86,7 +86,7 @@ export function createMenus(ctx) {
       primary=()=>sel&&ctx.startFree(sel);
       return h('div',{class:'mx-col'},backBtn('Free ride'),
         list.map(w=>card2(w.id==='frostpeak'?'blue':w.id==='redrock'?'red':'green',w.id==='frostpeak'?'❄️':w.id==='redrock'?'🏜️':'🌲',w.name,`${w.areaKm2.toFixed(1)} km² · 4 mini races · solo free ride`,()=>ctx.startFree(w),{wide:true})),
-        note('Ride anywhere. R returns to the nearest safe pad. Use the flag button to start a mini race; best times stay on this device.'));
+        note('Ride anywhere at over 300 km/h. Hold Space / Shift (gamepad A) for turbo; release to recharge. R returns to the nearest safe pad. Use the flag button to start a mini race; best times stay on this device.'));
     },
 
     online() {
@@ -190,8 +190,8 @@ export function createMenus(ctx) {
           backBtn('Controls'),
           glass('Keys', null, h('div', { class: 'mx-keys' },
             key(['W', '↑'], 'Gas'), key(['S', '↓'], 'Brake (hold when stopped to back up)'), key(['A', 'D'], 'Steer left and right'),
-            key(['Q'], 'Lean back (backflip in the air)'), key(['E'], 'Lean forward (frontflip)'), key(['Space'], 'Nitro'),
-            key(['R'], 'Back to the last checkpoint'), key(['C'], 'Change camera'), key(['M'], 'Sound on/off'), key(['Esc'], 'Back to the menu'))),
+            key(['Q'], 'Lean back (backflip in the air)'), key(['E'], 'Lean forward (frontflip)'), key(['Space', 'Shift'], 'Nitro / free-ride turbo'),
+            key(['R'], 'Reset to checkpoint / free-ride safe pad'), key(['C'], 'Change camera'), key(['M'], 'Sound on/off'), key(['Esc'], 'Back to the menu'))),
           note('Gamepads work too: triggers for gas and brake, left stick to steer, right stick to lean, A for nitro.')),
         h('div', { class: 'mx-col' },
           glass('Settings', null,
@@ -201,8 +201,8 @@ export function createMenus(ctx) {
           glass('How to ride', null, h('ul', { class: 'mx-tips' },
             h('li', {}, 'Slow down for corners or you slide wide. The banked berms help you round them.'),
             h('li', {}, 'In the air, lean back or forward to flip. Let go and the rider levels the bike for the landing.'),
-            h('li', {}, 'Land on your head or upside down and you crash: back to the last checkpoint.'),
-            h('li', {}, 'Clean landings and flips fill your nitro. Stay inside the barriers!')))),
+            h('li', {}, 'Land on your head or upside down and you crash: reset to a checkpoint or free-ride safe pad.'),
+            h('li', {}, 'Clean landings and flips fill nitro. Free-ride turbo also recharges when released.')))),
       ];
     },
   };

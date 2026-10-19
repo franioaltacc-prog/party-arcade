@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {buildTerrain,routeLength,routePoint} from './terrain.mjs';
 import {terrainMaterial} from './materials.mjs';
-export function buildOpenWorld(map,{resolution=512,scenery=2400}={}) {
+export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,detailed=true}={}) {
  const terrain=buildTerrain(map), group=new THREE.Group(), disposables=[];
  const mats={}; const mat=(id,color)=>mats[id]||(mats[id]=new THREE.MeshStandardMaterial({color,roughness:.92}));
  const groundGeo=new THREE.PlaneGeometry(...map.size,resolution,resolution); groundGeo.rotateX(-Math.PI/2);
@@ -17,8 +17,19 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400}={}) {
   color.multiplyScalar(.91+Math.sin(x*.037+z*.013)*.035+Math.cos(z*.025)*.025); color.toArray(colors,i*3);
  }
  groundGeo.setAttribute('color',new THREE.BufferAttribute(colors,3));groundGeo.setAttribute('trailWeight',new THREE.BufferAttribute(trailWeights,1));groundGeo.computeVertexNormals();
- const layered=terrainMaterial(map),groundMat=layered.material;
- const ground=new THREE.Mesh(groundGeo,groundMat);ground.receiveShadow=true;group.add(ground);disposables.push(groundGeo,layered);
+ const layered=terrainMaterial(map,null,detailed),groundMat=layered.material;
+ const ground=new THREE.Mesh(groundGeo,groundMat);ground.receiveShadow=true;
+ if(!chunkSegments)group.add(ground);
+ else{
+  // Bounded tiles let the renderer reject ground behind the camera instead of drawing the whole map.
+  for(let row=0;row<resolution;row+=chunkSegments)for(let col=0;col<resolution;col+=chunkSegments){
+   const nx=Math.min(chunkSegments,resolution-col),nz=Math.min(chunkSegments,resolution-row),p=[],c=[],t=[],normals=[],indices=[];
+   for(let z=0;z<=nz;z++)for(let x=0;x<=nx;x++){const i=(row+z)*(resolution+1)+col+x;p.push(pos.getX(i),pos.getY(i),pos.getZ(i));c.push(colors[i*3],colors[i*3+1],colors[i*3+2]);t.push(trailWeights[i]);const normal=groundGeo.attributes.normal;normals.push(normal.getX(i),normal.getY(i),normal.getZ(i));if(z<nz&&x<nx){const a=z*(nx+1)+x;indices.push(a,a+nx+1,a+1,a+nx+1,a+nx+2,a+1);}}
+   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));g.setAttribute('color',new THREE.Float32BufferAttribute(c,3));g.setAttribute('trailWeight',new THREE.Float32BufferAttribute(t,1));g.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));g.setIndex(indices);g.computeBoundingSphere();
+   const tile=new THREE.Mesh(g,groundMat);tile.receiveShadow=true;group.add(tile);disposables.push(g);
+  }
+ }
+disposables.push(groundGeo,layered);
  function mesh(geo,material,x,y,z,ry=0) { const m=new THREE.Mesh(geo,material);m.position.set(x,y,z);m.rotation.y=ry;m.castShadow=true;m.receiveShadow=true;group.add(m);disposables.push(geo);return m; }
  function box(w,h,d,x,z,color,dy=0,ry=0) { return mesh(new THREE.BoxGeometry(w,h,d),mat(color,color),x,terrain.heightAt(x,z)+h/2+dy,z,ry); }
  function label(text,x,z,dy=20) {
@@ -56,7 +67,14 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400}={}) {
   if((!pine||random()<.25||y>(map.theme==='snow'?650:450))&&nr<scenery){dummy.position.set(x,y+size*.3,z);dummy.scale.set(size,size*(.6+random()),size);dummy.rotation.set(random(),random()*6,random());dummy.updateMatrix();rocks.setMatrixAt(nr++,dummy.matrix);}
   else if(nt<scenery){const h=7+random()*12;dummy.rotation.set(0,random()*6,0);dummy.position.set(x,y+h*.6,z);dummy.scale.set(h*.26,h*.43,h*.26);dummy.updateMatrix();trees.setMatrixAt(nt,dummy.matrix);dummy.position.y=y+h*.15;dummy.scale.set(h*.2,h*.25,h*.2);dummy.updateMatrix();trunks.setMatrixAt(nt++,dummy.matrix);}
  }
- rocks.count=nr;trees.count=trunks.count=nt;group.add(rocks,trees,trunks);disposables.push(rockGeo,treeGeo,trunkGeo);
+ rocks.count=nr;trees.count=trunks.count=nt;
+ if(!chunkSegments)group.add(rocks,trees,trunks);
+ else for(const source of [rocks,trees,trunks]){
+  const buckets=new Map(),matrix=new THREE.Matrix4();
+  for(let i=0;i<source.count;i++){source.getMatrixAt(i,matrix);const key=Math.floor(matrix.elements[12]/400)+','+Math.floor(matrix.elements[14]/400);if(!buckets.has(key))buckets.set(key,[]);buckets.get(key).push(matrix.clone());}
+  for(const list of buckets.values()){const cell=new THREE.InstancedMesh(source.geometry,source.material,list.length);list.forEach((m,i)=>cell.setMatrixAt(i,m));cell.computeBoundingSphere();group.add(cell);}
+  source.dispose();
+ }disposables.push(rockGeo,treeGeo,trunkGeo);
  // Six distinct destinations: camps, towers, yards, cabins, jetty and lookout decks.
  for(const p of map.spots) {
   const [x,z]=p.position;
