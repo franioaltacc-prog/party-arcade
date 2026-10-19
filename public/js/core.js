@@ -1052,11 +1052,11 @@
      × hides it for good. Set NEWS = null when there's nothing to say, and give a new message a new id so people
      who hid the last one see it. */
   const NEWS = {
-    id: 'motocross', until: '2026-11-02', emoji: '🏍️',
-    title: 'NEW GAME: Motocross!',
-    text: 'Realistic 3D dirt bikes: ride anywhere with WASD, huge jumps, backflips for nitro and online races for up to 6 riders.',
-    hint: '🏜️ Desert · 🌲 Forest mud · 🏔️ Snow, each with its own leaderboard',
-    links: [['/games/moto', '🏍️ Race friends'], ['/games/moto?solo=1', '🏁 Time trial']],
+    id: 'moto-worlds', until: '2026-11-09', emoji: '🏍️',
+    title: 'Motocross free ride worlds!',
+    text: 'Three rebuilt open worlds to ride anywhere, with jump parks, mini races and real mountains.',
+    hint: '🏜️ Redrock mesas · 🌲 Pinecrest forests · 🏔️ Frostpeak snow',
+    links: [['/games/moto?free=1&world=redrock', '🗺️ Free ride'], ['/games/moto', '🏍️ Race friends']],
   };
   function news(bar) {
     if (!NEWS || store.get('pa_news_hide', null) === NEWS.id) return;

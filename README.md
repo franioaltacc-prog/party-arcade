@@ -77,6 +77,11 @@ messages; its announcements and calendar rows stay without a name (`team_chat`, 
   pick their players from `room.players_now()`, which skips them. “✋ Join in” turns a watcher into a player (games
   that allow joining mid-round add them right away). Full rooms can still be watched (up to 20 extra people).
   The home page lists open rooms and **📺 Live games** (rooms where a game is running).
+- **Home page catalogue** (`public/js/hub.js`): `GAMES` has one entry per game, with its `modes` (online / solo
+  links; the first is where the tile itself goes), `cats` (which category chips it's under) and an optional `spot`
+  (a slide in the spotlight at the top). The search box matches titles, taglines and categories (press `/`).
+  The chosen chip and the last 6 games played ("Jump back in") are kept in localStorage (`pa_cat`, `pa_recent`).
+  A new game needs an entry there and card art in `ART`.
 - **Play-again vote:** when a game ends (`Game.finished(groups)`, called by every online game), players vote
   🔁 again or 🎮 new game for 20 s; “new” starts a second vote on which game, and the whole room moves there with the
   same code (`room:goto`). The host pressing start still works and ends the vote.

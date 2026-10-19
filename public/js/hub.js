@@ -293,65 +293,146 @@
       ${emoji(176, 102, 13, '🏁')}${emoji(30, 104, 12, '💨')}`, '#4c1d95', '#f97316');
   ART['moto-solo'] = ART.moto.replaceAll('g-moto', 'g-moto2').replace('#4c1d95', '#0c4a6e').replace('#f97316', '#38bdf8').replace('#ef4444', '#facc15');
 
-  // ---------------------------------------------------------------- cards
-  const ONLINE = [
-    { key: 'moto', title: 'Motocross', icon: '🏍️', desc: 'Realistic 3D dirt bikes! Ride anywhere with WASD: huge doubles, bermed corners, mud and ice. Backflip for nitro and race up to 5 friends: everyone readies up, 3, 2, 1, GO!', players: '2–6 players (+ solo)', glow: 'rgba(249,115,22,.7)', feature: true, isNew: true },
-    { key: 'songs', title: 'Song Rush', icon: '🎧', desc: 'A song starts playing… name it before everyone else! Type the title and the artist, or pick from four. Hits from the 2020s back to the 60s, Disney, K-pop, party songs and spooky Halloween tunes.', players: '1–16 players', glow: 'rgba(236,72,153,.7)', feature: true, isNew: true },
-    { key: 'volley', title: 'Screen Volley', icon: '🏐', desc: 'Put two laptops side by side and punch a volleyball from your screen onto your friend’s! Your cursor is your hand. Fast reflexes win. No second laptop? Practice against the robot.', players: '2 players (+ robot practice)', glow: 'rgba(34,211,238,.7)', feature: true, isNew: true },
-    { key: 'dash', title: 'Neon Dash', icon: '🟪', desc: 'A mini Geometry Dash! Race your friends through the same level of spikes, jump pads and orbs.', players: '1–12 players', glow: 'rgba(168,85,247,.7)', feature: true },
-    { key: 'life', title: 'Family Life', icon: '🏡', desc: 'A multiplayer BitLife where you and your friends are siblings in one family. Hundreds of things to do: make friends, join clubs, get one of 86 jobs, travel the world, buy a submarine, prank each other. Best life wins!', players: '1–4 siblings', glow: 'rgba(34,197,94,.6)', feature: true },
-    { key: 'doodle', title: 'Doodle Guess', icon: '🎨', desc: 'One person draws, everyone guesses. Fast fingers win!', players: '2–12 players', glow: 'rgba(244,63,94,.6)' },
-    { key: 'impostor', title: 'Impostor', icon: '🕵️', desc: 'Everyone knows the secret word… except the impostor. Give one clue each, argue it out, and vote out the faker!', players: '3–10 players', glow: 'rgba(244,63,94,.6)', isNew: true },
-    { key: 'front', title: 'Front Wars', icon: '🌍', desc: 'Conquer the world! Grab land, build cities, send boats and nukes. Free-for-all or teams, with friends and bots. Inspired by OpenFront.', players: '1–8 players + bots', glow: 'rgba(34,197,94,.6)', isNew: true },
-    { key: 'poly', title: 'Poly Racer', icon: '🏎️', desc: 'Low-poly 3D racing! Ramps, jumps, boost pads and checkpoints. Race your friends on the same track and see them as ghost cars.', players: '1–10 players', glow: 'rgba(14,165,233,.6)', isNew: true },
-    { key: 'prophunt', title: 'Prop Hunt', icon: '🔫', desc: 'Hide and seek with a killer! Turn into a barrel, a bush or a couch, sneak into buildings, and survive the hunt. Everyone gets a turn as the killer.', players: '2–10 players', glow: 'rgba(244,63,94,.6)', isNew: true },
-    { key: 'mines', title: 'Minesweeper', icon: '💣', desc: 'Race your friends on the same board, or battle on one shared board for the most squares!', players: '1–8 players', glow: 'rgba(99,102,241,.6)', isNew: true },
-    { key: 'blitz', title: 'Party Blitz', icon: '⚡', desc: 'Rapid-fire minigames: reaction, mashing, math, memory and more.', players: '1–12 players', glow: 'rgba(250,204,21,.6)' },
-    { key: 'casino', title: 'Casino Night', icon: '🎰', desc: 'Fake-coin casino party: roulette, blackjack, slots, dice, poker and 1v1 duels. Most coins wins!', players: '1–6 players', glow: 'rgba(251,191,36,.6)' },
-    { key: 'billiards', title: 'Billiards', icon: '🎱', desc: '8-ball or 9-ball pool with real physics: spin, banks and kisses. Two players at the table, everyone else watches. Winner stays on!', players: '2 + spectators', glow: 'rgba(16,185,129,.6)', isNew: true },
-    { key: 'flappy', title: 'Flappy Royale', icon: '🐤', desc: 'Neon Flappy online: everyone flies the same glowing pipes at once and sees the others as ghost birds. Last bird flying wins the round!', players: '1–12 players', glow: 'rgba(250,204,21,.6)', isNew: true },
-    { key: 'golf', title: 'Mini Golf', icon: '⛳', desc: '3D mini golf with friends: everyone plays the same hole at once and sees the others as ghost balls. Windmills, ramps, a haunted house — lowest score wins!', players: '1–8 players', glow: 'rgba(74,222,128,.6)', isNew: true },
-    { key: 'connect4', title: 'Connect 4', icon: '🔴', desc: 'The classic. Drop discs, get four in a row, talk trash in chat.', players: '2 + spectators', glow: 'rgba(59,130,246,.6)' },
+  // ---------------------------------------------------------------- the catalogue
+  // One entry per game. modes: where each way of playing it starts (the first one is where the tile goes).
+  // cats: the category chips it shows under. spot: a slide in the spotlight at the top.
+  const GAMES = [
+    { key: 'moto', title: 'Motocross', icon: '🏍️', tag: 'Realistic 3D dirt bikes: online races, time trials and three huge free-ride worlds.', desc: 'Three rebuilt open worlds to ride anywhere: red-rock mesas, pine forests and snowy peaks, with jump parks and mini races. Or race up to 5 friends.', players: '1–6', glow: 'rgba(249,115,22,.7)', isNew: true, cats: ['racing', 'sports'],
+      modes: [['online', '/games/moto', '🌐 Race'], ['solo', '/games/moto?solo=1', '🏁 Trial'], ['solo', '/games/moto?free=1&world=redrock', '🗺️ Free ride']], spot: 'Rebuilt free-ride worlds' },
+    { key: 'songs', title: 'Song Rush', icon: '🎧', tag: 'A song starts… name it before everyone else! 60s to now, Disney and K-pop.', desc: 'Type the title and the artist, or pick from four. Hits from the 2020s back to the 60s, Disney, K-pop, party songs and spooky Halloween tunes.', players: '1–16', glow: 'rgba(236,72,153,.7)', isNew: true, cats: ['party'], modes: [['online', '/games/songs', '🌐 Play']], spot: 'Music quiz' },
+    { key: 'volley', title: 'Screen Volley', icon: '🏐', tag: 'Two laptops side by side: punch the ball from your screen onto your friend’s.', desc: 'Your cursor is your hand and fast reflexes win. No second laptop? Practice against the robot.', players: '2', glow: 'rgba(34,211,238,.7)', isNew: true, cats: ['sports', 'arcade'], modes: [['online', '/games/volley', '🌐 Play']], spot: 'Two-laptop volleyball' },
+    { key: 'dash', title: 'Neon Dash', icon: '🟪', tag: 'A mini Geometry Dash: race friends through spikes, jump pads and orbs.', players: '1–12', glow: 'rgba(168,85,247,.7)', cats: ['racing', 'arcade'], modes: [['online', '/games/dash', '🌐 Race'], ['solo', '/games/dash?solo=1', '🕹️ Practice']] },
+    { key: 'life', title: 'Family Life', icon: '🏡', tag: 'Multiplayer BitLife: be siblings, get one of 86 jobs, travel, prank each other.', desc: 'You and your friends are siblings in one family. Make friends, join clubs, get one of 86 jobs, travel the world, buy a submarine. Best life wins!', players: '1–4', glow: 'rgba(34,197,94,.6)', cats: ['party'], modes: [['online', '/games/life', '🌐 Play']], spot: 'Life sim with friends' },
+    { key: 'front', title: 'Front Wars', icon: '🌍', tag: 'Conquer the world: grab land, build cities, send boats and nukes.', players: '1–8 + bots', glow: 'rgba(34,197,94,.6)', isNew: true, cats: ['brain'], modes: [['online', '/games/front', '🌐 Play'], ['solo', '/games/front?solo=1', '🤖 vs Bots']] },
+    { key: 'poly', title: 'Poly Racer', icon: '🏎️', tag: 'Low-poly 3D racing with ramps, boost pads and ghost cars.', players: '1–10', glow: 'rgba(14,165,233,.6)', isNew: true, cats: ['racing'], modes: [['online', '/games/poly', '🌐 Race'], ['solo', '/games/poly?solo=1', '🏁 Trial']] },
+    { key: 'golf', title: 'Mini Golf', icon: '⛳', tag: '3D mini golf: windmills, ramps and a haunted house. Lowest score wins.', players: '1–8', glow: 'rgba(74,222,128,.6)', isNew: true, cats: ['sports'], modes: [['online', '/games/golf', '🌐 Play'], ['solo', '/games/golf?solo=1', '🕹️ Solo']] },
+    { key: 'billiards', title: 'Billiards', icon: '🎱', tag: '8-ball or 9-ball with real physics: spin, banks and kisses. Winner stays on!', players: '2 + watchers', glow: 'rgba(16,185,129,.6)', isNew: true, cats: ['sports'], modes: [['online', '/games/billiards', '🌐 Play'], ['solo', '/games/billiards?solo=1', '🤖 vs CPU']] },
+    { key: 'prophunt', title: 'Prop Hunt', icon: '🔫', tag: 'Hide and seek with a killer: turn into a barrel or a couch and survive.', players: '2–10', glow: 'rgba(244,63,94,.6)', isNew: true, cats: ['party'], modes: [['online', '/games/prophunt', '🌐 Play']] },
+    { key: 'impostor', title: 'Impostor', icon: '🕵️', tag: 'Everyone knows the secret word… except the impostor. Vote out the faker!', players: '3–10', glow: 'rgba(244,63,94,.6)', isNew: true, cats: ['party'], modes: [['online', '/games/impostor', '🌐 Play']] },
+    { key: 'doodle', title: 'Doodle Guess', icon: '🎨', tag: 'One person draws, everyone guesses. Fast fingers win!', players: '2–12', glow: 'rgba(244,63,94,.6)', cats: ['party'], modes: [['online', '/games/doodle', '🌐 Play']] },
+    { key: 'flappy', title: 'Flappy Royale', icon: '🐤', tag: 'Neon Flappy: everyone flies the same pipes at once. Last bird flying wins.', players: '1–12', glow: 'rgba(250,204,21,.6)', isNew: true, cats: ['arcade'], modes: [['online', '/games/flappy', '🌐 Royale'], ['solo', '/games/flappy?solo=1', '🕹️ Solo']] },
+    { key: 'mines', title: 'Minesweeper', icon: '💣', tag: 'Race friends on the same board, battle on one shared board, or play classic.', players: '1–8', glow: 'rgba(99,102,241,.6)', isNew: true, cats: ['brain'], modes: [['online', '/games/mines', '🌐 Play'], ['solo', '/games/mines?solo=1', '🕹️ Classic']] },
+    { key: 'blitz', title: 'Party Blitz', icon: '⚡', tag: 'Rapid-fire minigames: reaction, mashing, math, memory and more.', players: '1–12', glow: 'rgba(250,204,21,.6)', cats: ['party', 'arcade'], modes: [['online', '/games/blitz', '🌐 Play']] },
+    { key: 'casino', title: 'Casino Night', icon: '🎰', tag: 'Fake-coin roulette, blackjack, slots, dice, poker and 1v1 duels.', players: '1–6', glow: 'rgba(251,191,36,.6)', cats: ['party'], modes: [['online', '/games/casino', '🌐 Play']] },
+    { key: 'connect4', title: 'Connect 4', icon: '🔴', tag: 'The classic. Drop discs, get four in a row, talk trash in chat.', players: '2 + watchers', glow: 'rgba(59,130,246,.6)', cats: ['brain'], modes: [['online', '/games/connect4', '🌐 Play']] },
+    { key: 'slope', title: 'Slope', icon: '🛝', tag: 'Roll down an endless neon slope. Dodge the red blocks, don’t fall off!', players: 'Solo', glow: 'rgba(34,211,238,.6)', isNew: true, cats: ['arcade'], modes: [['solo', '/games/slope', '🕹️ Play']] },
+    { key: 'snake', title: 'Neon Snake', icon: '🐍', tag: 'Eat, grow, don’t bite yourself. Faster with every apple.', players: 'Solo', glow: 'rgba(163,230,53,.6)', cats: ['arcade'], modes: [['solo', '/games/snake', '🕹️ Play']] },
+    { key: '2048', title: '2048', icon: '🔢', tag: 'Slide and merge tiles. Can you reach 2048?', players: 'Solo', glow: 'rgba(250,204,21,.6)', cats: ['brain'], modes: [['solo', '/games/2048', '🕹️ Play']] },
+    { key: 'memory', title: 'Memory Flip', icon: '🃏', tag: 'Flip cards and find all the emoji pairs.', players: 'Solo', glow: 'rgba(168,85,247,.6)', cats: ['brain'], modes: [['solo', '/games/memory', '🕹️ Play']] },
+    { key: 'wheel', title: 'Spin the Wheel', icon: '🎡', tag: 'Can’t decide? Let the wheel choose. Add your own options!', players: 'Toy', cats: ['toys'], modes: [['solo', '/games/wheel', '🎡 Spin']] },
+    { key: 'wyr', title: 'Would You Rather', icon: '🤔', tag: 'Pick a side and see what everyone else chose.', players: 'Global votes', cats: ['toys', 'party'], modes: [['solo', '/games/wyr', '🤔 Vote']] },
+    { key: 'eightball', title: 'Magic 8-Ball', icon: '🎱', tag: 'Ask a yes-or-no question. The ball knows all.', players: 'Toy', cats: ['toys'], modes: [['solo', '/games/eightball', '🔮 Ask']] },
   ];
-  const SOLO = [
-    { key: 'moto-solo', href: '/games/moto?solo=1', title: 'Motocross Time Trial', icon: '🏁', desc: 'Desert Dunes, Forest Mud and Snow Ridge: beat the medal times, land flips and unlock new bike paint jobs. Every track has a leaderboard!', players: 'Solo', isNew: true },
-    { key: 'dash-solo', href: '/games/dash?solo=1', title: 'Neon Dash Practice', icon: '🟦', desc: 'Train on random levels and beat them in as few attempts as you can.', players: 'Solo' },
-    { key: 'poly-solo', href: '/games/poly?solo=1', title: 'Poly Racer Time Trial', icon: '🏁', desc: 'Six tracks, medals to win and your own ghost to beat. Every track has a leaderboard!', players: 'Solo', isNew: true },
-    { key: 'front-solo', href: '/games/front?solo=1', title: 'Front Wars vs Bots', icon: '🤖', desc: 'Take on up to 40 bots and conquer the whole map. Easy, medium or hard!', players: 'Solo', isNew: true },
-    { key: 'slope', title: 'Slope', icon: '🛝', desc: 'Roll a ball down an endless neon slope. Steer, dodge the red blocks, don’t fall off!', players: 'Solo', isNew: true },
-    { key: 'billiards-solo', href: '/games/billiards?solo=1', title: 'Billiards Solo', icon: '🎱', desc: 'Beat the CPU (easy, medium or hard), race the clock in Speed Clear, or just practice your break.', players: 'Solo', isNew: true },
-    { key: 'flappy-solo', href: '/games/flappy?solo=1', title: 'Neon Flappy', icon: '🐤', desc: 'Tap to flap through glowing neon pipes! Win medals, unlock new birds and chase the high score.', players: 'Solo', isNew: true },
-    { key: 'golf-solo', href: '/games/golf?solo=1', title: 'Mini Golf', icon: '⛳', desc: 'Two 9-hole courses: Classic Meadow and Spooky Hollow. Beat par, chase holes-in-one and your best score.', players: 'Solo', isNew: true },
-    { key: 'mines-solo', href: '/games/mines?solo=1', title: 'Minesweeper', icon: '💣', desc: 'The classic! Easy, Medium and Hard boards. Your first click is always safe.', players: 'Solo' },
-    { key: 'snake', title: 'Neon Snake', icon: '🐍', desc: 'Eat, grow, don’t bite yourself. Gets faster every apple.', players: 'Solo' },
-    { key: '2048', title: '2048', icon: '🔢', desc: 'Slide and merge tiles. Can you reach 2048?', players: 'Solo' },
-    { key: 'memory', title: 'Memory Flip', icon: '🃏', desc: 'Flip cards and find all the emoji pairs.', players: 'Solo' },
+  const CATS = [
+    ['all', '🎮', 'All'], ['new', '✨', 'New'], ['online', '🌐', 'With friends'], ['solo', '🕹️', 'Solo'],
+    ['racing', '🏁', 'Racing'], ['party', '🎉', 'Party'], ['sports', '⚽', 'Sports'], ['brain', '🧠', 'Strategy & puzzles'], ['arcade', '👾', 'Arcade'], ['toys', '🎈', 'Toys'],
   ];
-  const FUN = [
-    { key: 'wheel', title: 'Spin the Wheel', icon: '🎡', desc: 'Can’t decide? Let the wheel choose. Add your own options!', players: 'Toy' },
-    { key: 'wyr', title: 'Would You Rather', icon: '🤔', desc: 'Pick a side and see what everyone else on the server chose.', players: 'Global votes' },
-    { key: 'eightball', title: 'Magic 8-Ball', icon: '🎱', desc: 'Ask a yes-or-no question. The ball knows all.', players: 'Toy' },
-  ];
-  const ALL = [...ONLINE, ...SOLO, ...FUN];
+  const inCat = (g, c) => c === 'all' || (c === 'new' ? g.isNew : c === 'online' || c === 'solo' ? g.modes.some((m) => m[0] === c) : g.cats.includes(c));
+  const hrefOf = (g) => g.modes[0][1];
+  // (each copy of a card picture needs its own gradient ids, or a hidden copy breaks the visible one)
+  let artN = 0;
+  const art = (key) => { const n = ++artN; return (ART[key] || '').replace(/id="g-/g, `id="g${n}-`).replace(/url\(#g-/g, `url(#g${n}-`); };
 
-  function card(g, kind) {
-    const href = g.href || `/games/${g.key}`;
-    const badge = kind === 'online' ? h('span', { class: 'badge online' }, '● Online') : kind === 'solo' ? h('span', { class: 'badge solo' }, 'Solo') : h('span', { class: 'badge fun' }, 'Fun');
-    const live = h('span', { class: 'live', 'data-live': g.key }, h('span', { class: 'dot' }), h('span', { class: 'n' }, '0'), ' playing');
-    const thumb = h('div', { class: 'thumb', html: ART[g.key] || '' }, badge, kind === 'online' ? live : null,
-      g.isNew ? h('span', { class: 'badge new new-tag' }, '✨ New') : null);
-    return h('a', { class: 'game-card' + (g.feature ? ' feature' : ''), href, style: g.glow ? { '--glow': g.glow } : null, onclick: () => Sfx.play('pop') },
-      thumb,
-      h('div', { class: 'info' },
-        h('h3', {}, h('span', {}, g.icon), g.title),
-        h('p', {}, g.desc),
-        h('div', { class: 'meta' }, h('span', {}, '👥 ' + g.players))));
+  // recently played (this browser only)
+  const recent = () => { const r = PA.store.get('pa_recent', []); return Array.isArray(r) ? r : []; };
+  const remember = (key) => PA.store.set('pa_recent', [key, ...recent().filter((k) => k !== key)].slice(0, 6));
+
+  function tile(g) {
+    const live = g.modes.some((m) => m[0] === 'online') ? h('span', { class: 't-live', 'data-live': g.key }, '● ', h('span', { class: 'n' }, '0'), ' playing') : null;
+    return h('article', { class: 'tile', 'data-key': g.key, style: g.glow ? { '--glow': g.glow } : null },
+      h('a', { class: 't-main', href: hrefOf(g), title: g.desc || g.tag, onclick: () => { remember(g.key); Sfx.play('pop'); } },
+        h('div', { class: 't-art', html: art(g.key) }, g.isNew ? h('span', { class: 't-new' }, 'NEW') : null, live),
+        h('div', { class: 't-body' },
+          h('div', { class: 't-title' }, h('span', {}, g.icon), g.title),
+          h('div', { class: 't-tag' }, g.tag))),
+      h('div', { class: 't-foot' },
+        h('span', { class: 't-players' }, '👥 ' + g.players),
+        g.modes.length > 1 || g.modes[0][0] === 'online'
+          ? g.modes.map(([kind, href, label]) => h('a', { class: 't-mode ' + kind, href, onclick: () => { remember(g.key); Sfx.play('pop'); } }, label))
+          : null));
   }
-  $('#cards-online').append(...ONLINE.map((g) => card(g, 'online')));
-  $('#cards-solo').append(...SOLO.map((g) => card(g, 'solo')));
-  $('#cards-fun').append(...FUN.map((g) => card(g, 'fun')));
-  $('#stat-games').textContent = ALL.length;
-  if (G) FX.count($('#stat-games'), ALL.length, { from: 0, duration: 1.6 });
+  const tilesEl = $('#tiles');
+  const tiles = GAMES.map(tile);
+  tilesEl.append(...tiles);
+  $('#stat-games').textContent = GAMES.length;
+  if (G) FX.count($('#stat-games'), GAMES.length, { from: 0, duration: 1.6 });
+
+  // category chips and search
+  let cat = PA.store.get('pa_cat', 'all');
+  if (!CATS.some((c) => c[0] === cat)) cat = 'all';
+  const chipsEl = $('#chips');
+  const chips = CATS.map(([id, e, label]) => h('button', { class: 'chip', type: 'button', role: 'tab', 'data-cat': id, onclick: () => { Sfx.play('click'); cat = id; PA.store.set('pa_cat', id); apply(true); } },
+    h('span', {}, e), label, h('span', { class: 'n' }, GAMES.filter((g) => inCat(g, id)).length)));
+  chipsEl.append(...chips);
+  const search = $('#search');
+  const words = (g) => [g.title, g.tag, g.desc || '', ...g.cats, g.players].join(' ').toLowerCase();
+  function apply(animate) {
+    const q = search.value.trim().toLowerCase();
+    const state = animate && FX.flipState ? FX.flipState(tiles.filter((t) => !t.hidden)) : null;
+    let shown = 0;
+    GAMES.forEach((g, i) => {
+      const ok = (q ? q.split(/\s+/).every((w) => words(g).includes(w)) : inCat(g, cat));
+      tiles[i].hidden = !ok; if (ok) shown++;
+    });
+    chips.forEach((c) => { const on = !q && c.dataset.cat === cat; c.classList.toggle('on', on); c.setAttribute('aria-selected', on); });
+    $('#no-games').hidden = shown > 0;
+    $('#cat-count').textContent = q ? `${shown} found` : `${shown} ${shown === 1 ? 'game' : 'games'}`;
+    renderRecent(!q && cat === 'all');
+    if (G && animate) G.set(tiles.filter((t) => !t.hidden && getComputedStyle(t).opacity === '0'), { autoAlpha: 1, y: 0, rotation: 0 });   // (not yet scrolled into view: just show them)
+    if (state) FX.flipFrom(state, tiles.filter((t) => !t.hidden));
+  }
+  search.addEventListener('input', () => apply(false));
+  addEventListener('keydown', (e) => {   // "/" jumps to the search box
+    if (e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) { e.preventDefault(); search.focus(); }
+  });
+  function renderRecent(show) {
+    const box = $('#recent');
+    const list = recent().map((k) => GAMES.find((g) => g.key === k)).filter(Boolean);
+    box.hidden = !show || !list.length;
+    if (box.hidden) return;
+    fill(box, h('span', { class: 'r-label' }, '↩️ Jump back in'),
+      list.map((g) => h('a', { href: hrefOf(g), onclick: () => remember(g.key) }, h('span', {}, g.icon), g.title)));
+  }
+  chipsEl.querySelector('.chip.on, [data-cat="' + cat + '"]')?.scrollIntoView?.({ block: 'nearest', inline: 'center' });
+  apply(false);
+
+  // ---------------------------------------------------------------- the spotlight
+  const spot = $('#spotlight');
+  const slidesData = GAMES.filter((g) => g.spot);
+  const DWELL = 7000;
+  let cur = 0; let timer = null; let paused = false;
+  const slides = slidesData.map((g, i) => h('div', { class: 'slide' + (i ? '' : ' on'), role: 'group', 'aria-roledescription': 'slide', 'aria-label': `${i + 1} of ${slidesData.length}: ${g.title}` },
+    h('div', { class: 's-art', html: art(g.key) }),
+    h('div', { class: 's-body' },
+      h('span', { class: 's-kicker' }, '✨ New · ' + g.spot),
+      h('div', { class: 's-title' }, g.title),
+      h('p', { class: 's-desc' }, g.desc || g.tag),
+      h('div', { class: 's-meta' }, h('span', {}, '👥 ' + g.players + ' players'), g.modes.some((m) => m[0] === 'online') ? h('span', { class: 't-live', 'data-live': g.key, style: { position: 'static' } }, '● ', h('span', { class: 'n' }, '0'), ' playing') : null),
+      h('div', { class: 's-btns' }, g.modes.map(([kind, href, label], k) => h('a', { class: 'btn btn-sm ' + (k ? 'btn-ghost' : 'btn-pink'), href, onclick: () => remember(g.key) }, label))))));
+  const dots = slidesData.map((g, i) => h('button', { class: 's-dot' + (i ? '' : ' on'), type: 'button', 'aria-label': `Show ${g.title}`, onclick: () => go(i) }));
+  spot.style.setProperty('--dwell', DWELL / 1000 + 's');
+  spot.append(...slides,
+    h('button', { class: 's-arrow prev', type: 'button', 'aria-label': 'Previous', onclick: () => go(cur - 1) }, '‹'),
+    h('button', { class: 's-arrow next', type: 'button', 'aria-label': 'Next', onclick: () => go(cur + 1) }, '›'),
+    h('div', { class: 's-dots' }, dots));
+  function go(i) {
+    cur = (i + slides.length) % slides.length;
+    slides.forEach((s, k) => s.classList.toggle('on', k === cur));
+    dots.forEach((d, k) => { d.classList.remove('on'); if (k === cur) { void d.offsetWidth; d.classList.add('on'); } });   // (restart the progress fill)
+    schedule();
+  }
+  function schedule() { clearTimeout(timer); if (!paused && slides.length > 1) timer = setTimeout(() => go(cur + 1), DWELL); }
+  const pause = (on) => { paused = on; spot.classList.toggle('paused', on); if (on) clearTimeout(timer); else schedule(); };
+  spot.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') pause(true); });
+  spot.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') pause(false); });
+  spot.addEventListener('focusin', () => pause(true));
+  spot.addEventListener('focusout', () => pause(false));
+  // swipe between slides on touch screens
+  let sx = null;
+  spot.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse') sx = e.clientX; });
+  spot.addEventListener('pointerup', (e) => { if (sx != null && Math.abs(e.clientX - sx) > 40) go(cur + (e.clientX < sx ? 1 : -1)); sx = null; });
+  document.addEventListener('visibilitychange', () => pause(document.hidden));
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) pause(true); else schedule();
 
   // ---------------------------------------------------------------- top bar
   UI.topbar({ back: false });
@@ -382,10 +463,12 @@
 
   $('#surprise').addEventListener('click', () => {
     Sfx.play('boing');
-    const g = rand(ALL);
+    const g = rand(GAMES);
     UI.toast(`${g.icon} ${g.title}!`, 'good', 900);
-    if (G) G.to('.hero-art', { rotation: '+=720', scale: 1.15, duration: 0.65, ease: 'power2.in' });
-    setTimeout(() => { location.href = g.href || `/games/${g.key}`; }, 650);
+    const t = tiles[GAMES.indexOf(g)];
+    if (G && !t.hidden) { t.scrollIntoView({ block: 'center', behavior: 'smooth' }); G.fromTo(t, { scale: 1 }, { scale: 1.08, duration: 0.3, yoyo: true, repeat: 1 }); }
+    remember(g.key);
+    setTimeout(() => { location.href = hrefOf(g); }, 750);
   });
 
   // ---------------------------------------------------------------- limited-time event
@@ -502,11 +585,8 @@
 
   // ---------------------------------------------------------------- motion
   if (G) {
-    const hero = $('.hero');
-    const art = $('.hero-art');
-    const bubbles = [...document.querySelectorAll('.hero-bubble')];
     // split the plain first line into words (the gradient part animates as one piece)
-    const h1 = $('.hero h1');
+    const h1 = $('.intro h1');
     const first = h1.firstChild;
     let words = [];
     if (first && first.nodeType === 3) {
@@ -514,50 +594,20 @@
       h1.replaceChild(span, first);
       words = FX.split(span, 'words');
     }
-    const grad = $('.hero .gradient-text');
+    const grad = $('.intro .gradient-text');
     grad.style.display = 'inline-block';
     const tl = G.timeline({ defaults: { ease: 'power3.out' } });
-    tl.from('.hero .badge.new', { y: -30, scale: 0.5, autoAlpha: 0, duration: 0.6, ease: 'back.out(2.5)' })
-      .from(words, { y: 60, rotationX: -90, autoAlpha: 0, transformOrigin: '50% 100%', transformPerspective: 600, stagger: 0.08, duration: 0.7, ease: 'back.out(1.8)' }, 0.1)
-      .from(grad, { scale: 0, rotation: -10, autoAlpha: 0, duration: 1.1, ease: 'elastic.out(1, 0.5)' }, '-=0.35')
-      .from('.hero .lead', { y: 20, autoAlpha: 0, duration: 0.5 }, '-=0.8')
+    tl.from('.intro .badge.new', { y: -30, scale: 0.5, autoAlpha: 0, duration: 0.6, ease: 'back.out(2.5)' })
+      .from(words, { y: 50, rotationX: -90, autoAlpha: 0, transformOrigin: '50% 100%', transformPerspective: 600, stagger: 0.07, duration: 0.6, ease: 'back.out(1.8)' }, 0.1)
+      .from(grad, { scale: 0, rotation: -10, autoAlpha: 0, duration: 1, ease: 'elastic.out(1, 0.5)' }, '-=0.35')
+      .from('.intro .lead', { y: 20, autoAlpha: 0, duration: 0.5 }, '-=0.8')
       .from('.hero-actions > *', { y: 24, autoAlpha: 0, stagger: 0.1, duration: 0.5, ease: 'back.out(2)', clearProps: 'transform' }, '-=0.55')
       .from('.hero-stats > div', { y: 24, autoAlpha: 0, stagger: 0.1, duration: 0.5 }, '-=0.35')
-      .from(art, { scale: 0.2, rotation: -120, autoAlpha: 0, duration: 1.3, ease: 'elastic.out(1, 0.6)' }, 0.15)
-      .from(bubbles, {
-        x: (i, el) => art.clientWidth / 2 - (el.offsetLeft + el.offsetWidth / 2),
-        y: (i, el) => art.clientHeight / 2 - (el.offsetTop + el.offsetHeight / 2),
-        scale: 0, autoAlpha: 0, stagger: 0.07, duration: 0.8, ease: 'back.out(1.8)',
-      }, 0.65);
-    // after the intro: bubbles float, react to hover, and the art follows the mouse
-    tl.call(() => {
-      bubbles.forEach((b, i) => {
-        G.to(b, { y: i % 2 ? 12 : -12, rotation: i % 2 ? -6 : 6, duration: 2 + (i % 3) * 0.5, ease: 'sine.inOut', yoyo: true, repeat: -1 });
-        const sc = G.quickTo(b, 'scale', { duration: 0.4, ease: 'back.out(3)' });
-        b.addEventListener('pointerenter', () => sc(1.2));
-        b.addEventListener('pointerleave', () => sc(1));
-      });
-      if (!matchMedia('(hover: hover) and (pointer: fine)').matches) return;
-      G.set(art, { transformPerspective: 900 });
-      const rx = G.quickTo(art, 'rotationX', { duration: 0.8, ease: 'power3' });
-      const ry = G.quickTo(art, 'rotationY', { duration: 0.8, ease: 'power3' });
-      const bx = bubbles.map((b) => G.quickTo(b, 'x', { duration: 1, ease: 'power3' }));
-      hero.addEventListener('pointermove', (e) => {
-        const r = art.getBoundingClientRect();
-        const nx = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / r.width));
-        const ny = Math.max(-1, Math.min(1, (e.clientY - (r.top + r.height / 2)) / r.height));
-        ry(nx * 16); rx(-ny * 12);
-        bx.forEach((q, i) => q(nx * (10 + (i % 3) * 8)));
-      });
-      hero.addEventListener('pointerleave', () => { rx(0); ry(0); bx.forEach((q) => q(0)); });
-    });
-    if (window.ScrollTrigger) {
-      G.to(art, { yPercent: 16, ease: 'none', scrollTrigger: { trigger: hero, start: 'top top', end: 'bottom top', scrub: 0.6 } });
-    }
-    // game cards, section titles, side panels
-    FX.reveal('.section-head', { y: 30 });
-    FX.reveal('.game-card', { rotate: true });
-    FX.tilt('.game-card', 6);
+      .from(spot, { x: 60, scale: 0.94, autoAlpha: 0, duration: 0.9, ease: 'power3.out', clearProps: 'transform,opacity,visibility' }, 0.15);
+    FX.reveal('.cat-head', { y: 24 });
+    G.from(chips, { y: 16, autoAlpha: 0, stagger: 0.03, duration: 0.4, delay: 0.4, clearProps: 'transform,opacity,visibility' });
+    FX.reveal('.tile:not([hidden])', { rotate: true });
+    FX.tilt('.tile', 5);
     G.from('.hub-side > *', { x: 60, autoAlpha: 0, stagger: 0.15, duration: 0.8, ease: 'power3.out', delay: 0.5, clearProps: 'transform,opacity,visibility' });
     FX.reveal('.footer', { y: 20 });
   }

@@ -6,7 +6,9 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
-    { v: '3.4.0', date: '2026-10-19', emoji: '🏜️', title: 'Free ride worlds rebuilt', items: [
+    { v: '3.4.0', date: '2026-10-19', emoji: '🏜️', title: 'Free ride worlds rebuilt, and a game catalogue', items: [
+      'A new home page: a spotlight of the newest games, then a catalogue you can filter by category or search, instead of one long list',
+      'Each game is one tile with buttons for its ways to play (online, solo, free ride…), and “Jump back in” remembers what you played last',
       'New landscapes: red sandstone mesas and dune fields in Redrock, rolling forested hills and rocky crags in Pinecrest, jagged crags and powder moguls in Frostpeak',
       'Real mountain ranges round every world instead of a flat grey wall, with foothills you can ride up',
       'The race tracks’ sky, sun and shadows, clearer daytime air, clouds and falling snow',
