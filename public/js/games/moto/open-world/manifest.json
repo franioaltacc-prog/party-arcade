@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "worlds": [
+    {
+      "id": "redrock",
+      "name": "Redrock Frontier",
+      "file": "redrock.json",
+      "areaKm2": 12.96
+    },
+    {
+      "id": "pinecrest",
+      "name": "Pinecrest Highlands",
+      "file": "pinecrest.json",
+      "areaKm2": 10.24
+    },
+    {
+      "id": "frostpeak",
+      "name": "Frostpeak Expedition",
+      "file": "frostpeak.json",
+      "areaKm2": 16
+    }
+  ]
+}

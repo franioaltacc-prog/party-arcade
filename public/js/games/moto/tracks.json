@@ -9,7 +9,7 @@
       "grip": 0.9,
       "roll": 0.012,
       "about": "Fast sandy straights, big doubles and a tabletop under the midday sun.",
-      "robot": 50.72,
+      "robot": 50.79,
       "course": [
         "flat 26", "start", "flat 44", "turn 40 22", "flat 22",
         "roller 14 1.0", "flat 16", "double 10 2.6 16", "flat 28", "cp",
@@ -30,7 +30,7 @@
       "grip": 0.8,
       "roll": 0.008,
       "about": "Slippery mud, roots and ruts between tall pines. Mind the puddles!",
-      "robot": 53.8,
+      "robot": 53.66,
       "course": [
         "flat 26", "start", "flat 38", "turn -45 20", "flat 20",
         "mud 16", "flat 12", "roller 14 1.2", "flat 18", "double 9 2.4 14", "flat 26", "cp",

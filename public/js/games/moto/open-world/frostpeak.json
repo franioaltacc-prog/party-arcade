@@ -1,0 +1,986 @@
+{
+  "schemaVersion": 1,
+  "id": "frostpeak",
+  "name": "Frostpeak Expedition",
+  "tagline": "Beyond the snowline.",
+  "theme": "snow",
+  "seed": 4817,
+  "size": [
+    4000,
+    4000
+  ],
+  "baseHeight": 120,
+  "spawn": [
+    -1208,
+    1208
+  ],
+  "spawnHeading": -0.4,
+  "palette": {
+    "sky": "#a8bed0",
+    "low": "#b9c8d6",
+    "high": "#ffffff",
+    "trail": "#8d9fae",
+    "water": "#6391aa",
+    "accent": "#8ce5ff"
+  },
+  "terrain": {
+    "noise": 12,
+    "scale": 260,
+    "hills": [
+      [
+        700,
+        -950,
+        650,
+        1150,
+        1150
+      ],
+      [
+        -1100,
+        -700,
+        400,
+        977,
+        1035
+      ],
+      [
+        1200,
+        650,
+        310,
+        805,
+        977
+      ],
+      [
+        0,
+        -1450,
+        210,
+        1035,
+        920
+      ],
+      [
+        -950,
+        900,
+        140,
+        805,
+        805
+      ]
+    ],
+    "lake": {
+      "position": [
+        -250,
+        350
+      ],
+      "radius": [
+        300,
+        240
+      ],
+      "level": 145,
+      "depth": 22,
+      "frozen": true
+    }
+  },
+  "regions": [
+    {
+      "name": "Expedition Valley",
+      "position": [
+        -1208,
+        1208
+      ]
+    },
+    {
+      "name": "Frozen Basin",
+      "position": [
+        -288,
+        402
+      ]
+    },
+    {
+      "name": "Frostpeak Summit",
+      "position": [
+        747,
+        -977
+      ]
+    },
+    {
+      "name": "Snowcat Woods",
+      "position": [
+        -1035,
+        -920
+      ]
+    },
+    {
+      "name": "Icefall Ridge",
+      "position": [
+        1322,
+        575
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "id": "frost-highland-loop",
+      "name": "Glacier Rim Expedition",
+      "points": [
+        [
+          -1207,
+          1207
+        ],
+        [
+          -1550,
+          800
+        ],
+        [
+          -1700,
+          150
+        ],
+        [
+          -1450,
+          -700
+        ],
+        [
+          -1092,
+          -1265
+        ],
+        [
+          -400,
+          -1550
+        ],
+        [
+          250,
+          -1650
+        ],
+        [
+          1100,
+          -1450
+        ],
+        [
+          1650,
+          -800
+        ],
+        [
+          1700,
+          0
+        ],
+        [
+          1550,
+          650
+        ],
+        [
+          1200,
+          1400
+        ],
+        [
+          350,
+          1650
+        ],
+        [
+          -500,
+          1550
+        ],
+        [
+          -1207,
+          1207
+        ]
+      ],
+      "width": 18,
+      "shoulder": 25,
+      "closed": true
+    },
+    {
+      "id": "frost-summit-climb",
+      "name": "Whiteout Switchbacks",
+      "points": [
+        [
+          1200,
+          1400
+        ],
+        [
+          1250,
+          1000
+        ],
+        [
+          900,
+          650
+        ],
+        [
+          1322,
+          575
+        ],
+        [
+          1200,
+          150
+        ],
+        [
+          650,
+          -100
+        ],
+        [
+          1100,
+          -450
+        ],
+        [
+          500,
+          -650
+        ],
+        [
+          950,
+          -950
+        ],
+        [
+          748,
+          -1150
+        ]
+      ],
+      "width": 18,
+      "shoulder": 25
+    },
+    {
+      "id": "frost-lake-loop",
+      "name": "Frozen Basin Circuit",
+      "points": [
+        [
+          -850,
+          850
+        ],
+        [
+          -950,
+          400
+        ],
+        [
+          -700,
+          -100
+        ],
+        [
+          -150,
+          -220
+        ],
+        [
+          400,
+          0
+        ],
+        [
+          520,
+          500
+        ],
+        [
+          115,
+          920
+        ],
+        [
+          -350,
+          1020
+        ],
+        [
+          -850,
+          850
+        ]
+      ],
+      "width": 18,
+      "shoulder": 25,
+      "closed": true
+    },
+    {
+      "id": "frost-timber-run",
+      "name": "Avalanche Alley",
+      "points": [
+        [
+          -1092,
+          -1265
+        ],
+        [
+          -800,
+          -1000
+        ],
+        [
+          -1300,
+          -750
+        ],
+        [
+          -1000,
+          -400
+        ],
+        [
+          -1250,
+          -100
+        ],
+        [
+          -950,
+          400
+        ],
+        [
+          -850,
+          850
+        ],
+        [
+          -1207,
+          1207
+        ]
+      ],
+      "width": 18,
+      "shoulder": 25
+    },
+    {
+      "id": "frost-valley-link",
+      "name": "Expedition Access",
+      "points": [
+        [
+          -1207,
+          1207
+        ],
+        [
+          -850,
+          850
+        ]
+      ],
+      "width": 18,
+      "shoulder": 25
+    },
+    {
+      "id": "frost-ridge-link",
+      "name": "Icefall Traverse",
+      "points": [
+        [
+          520,
+          500
+        ],
+        [
+          900,
+          650
+        ],
+        [
+          1322,
+          575
+        ],
+        [
+          1550,
+          650
+        ]
+      ],
+      "width": 18,
+      "shoulder": 25
+    },
+    {
+      "id": "frost-north-link",
+      "name": "Snowcat Pass",
+      "points": [
+        [
+          -1300,
+          -750
+        ],
+        [
+          -748,
+          -460
+        ],
+        [
+          -150,
+          -500
+        ],
+        [
+          250,
+          -350
+        ],
+        [
+          650,
+          -100
+        ]
+      ],
+      "width": 18,
+      "shoulder": 25
+    },
+    {
+      "id": "frost-summit-drop",
+      "name": "Summit Descent",
+      "points": [
+        [
+          748,
+          -1150
+        ],
+        [
+          250,
+          -1650
+        ],
+        [
+          -400,
+          -1550
+        ],
+        [
+          -1092,
+          -1265
+        ]
+      ],
+      "width": 18,
+      "shoulder": 25
+    }
+  ],
+  "spots": [
+    {
+      "id": "frost-ranger",
+      "name": "Expedition Basecamp",
+      "position": [
+        -1208,
+        1208
+      ],
+      "kind": "camp",
+      "radius": 24,
+      "about": "Shared expedition camp and staging area below the snowfields."
+    },
+    {
+      "id": "frost-summit",
+      "name": "Frostpeak Weather Station",
+      "position": [
+        747,
+        -1150
+      ],
+      "kind": "tower",
+      "radius": 24,
+      "about": "Reach the weather station through long snowy switchbacks."
+    },
+    {
+      "id": "frost-lake",
+      "name": "Frozen Lake Refuge",
+      "position": [
+        115,
+        920
+      ],
+      "kind": "dock",
+      "radius": 24,
+      "about": "A refuge beside the frozen basin, with a co-op relay station."
+    },
+    {
+      "id": "frost-timber",
+      "name": "Abandoned Snowcat Depot",
+      "position": [
+        -1092,
+        -1265
+      ],
+      "kind": "yard",
+      "radius": 24,
+      "about": "Find supplies at the abandoned snowcat maintenance depot."
+    },
+    {
+      "id": "frost-ridge",
+      "name": "Icefall Rescue Cabin",
+      "position": [
+        1322,
+        575
+      ],
+      "kind": "cabin",
+      "radius": 24,
+      "about": "A rescue cabin below the icefall ridge."
+    },
+    {
+      "id": "frost-falls",
+      "name": "Aurora Lookout",
+      "position": [
+        -747,
+        -460
+      ],
+      "kind": "lookout",
+      "radius": 24,
+      "about": "A secluded northern lookout for a group photo session."
+    }
+  ],
+  "races": [
+    {
+      "id": "frost-pine-tour",
+      "name": "Glacier Rim Rally",
+      "route": "frost-highland-loop",
+      "type": "circuit",
+      "difficulty": "medium",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates; tune medal times after riding with the final bike physics."
+    },
+    {
+      "id": "frost-pine-summit",
+      "name": "Frostpeak Ascent",
+      "route": "frost-summit-climb",
+      "type": "hillclimb",
+      "difficulty": "hard",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates; tune medal times after riding with the final bike physics."
+    },
+    {
+      "id": "frost-pine-lake",
+      "name": "Frozen Basin Scramble",
+      "route": "frost-lake-loop",
+      "type": "circuit",
+      "difficulty": "easy",
+      "laps": 2,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates; tune medal times after riding with the final bike physics."
+    },
+    {
+      "id": "frost-pine-timber",
+      "name": "Avalanche Descent",
+      "route": "frost-timber-run",
+      "type": "downhill",
+      "difficulty": "medium",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates; tune medal times after riding with the final bike physics."
+    }
+  ],
+  "interactions": [
+    {
+      "id": "frost-ranger-board",
+      "name": "Expedition race board",
+      "position": [
+        -1173,
+        1208
+      ],
+      "kind": "race-board",
+      "radius": 18,
+      "event": "race.offer",
+      "about": "Choose a race or accept a ranger job.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "frost-weather",
+      "name": "Summit weather transmitter",
+      "position": [
+        747,
+        -1150
+      ],
+      "kind": "relay",
+      "radius": 18,
+      "event": "relay.activate",
+      "about": "Pair with the lake beacon for a two-rider relay.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "frost-lake-relay",
+      "name": "Frozen basin relay",
+      "position": [
+        115,
+        920
+      ],
+      "kind": "switch",
+      "radius": 18,
+      "event": "relay.activate",
+      "about": "A teammate holds the lakeside station.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "frost-timber-pack",
+      "name": "Snowcat rescue supplies",
+      "position": [
+        -1092,
+        -1265
+      ],
+      "kind": "pickup",
+      "radius": 18,
+      "event": "supply.collect",
+      "about": "Deliver a repair kit to the east ridge cabin.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "frost-cabin-drop",
+      "name": "Rescue cabin drop-off",
+      "position": [
+        1322,
+        575
+      ],
+      "kind": "delivery",
+      "radius": 18,
+      "event": "supply.deliver",
+      "about": "Delivery destination on the ridge trail.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "frost-summit-photo",
+      "name": "Frostpeak group photo",
+      "position": [
+        805,
+        -1092
+      ],
+      "kind": "photo",
+      "radius": 18,
+      "event": "photo.capture",
+      "about": "Gather friends at the summit.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "frost-lake-jam",
+      "name": "Snow park trick jam",
+      "position": [
+        -897,
+        690
+      ],
+      "kind": "trick-zone",
+      "radius": 18,
+      "event": "trick.land",
+      "about": "Link clean jumps in the small practice park.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "frost-ranger-beacon",
+      "name": "Aurora discovery beacon",
+      "position": [
+        -747,
+        -460
+      ],
+      "kind": "beacon",
+      "radius": 18,
+      "event": "zone.enter",
+      "about": "Find the overlook by following the forest pass.",
+      "cooldownSeconds": 10
+    }
+  ],
+  "ramps": [
+    {
+      "id": "frost-lake-table",
+      "position": [
+        -931,
+        632
+      ],
+      "heading": 0,
+      "length": 80,
+      "width": 22,
+      "height": 6
+    },
+    {
+      "id": "frost-ridge-step",
+      "position": [
+        1322,
+        575
+      ],
+      "heading": 1.1,
+      "length": 95,
+      "width": 22,
+      "height": 8
+    }
+  ],
+  "surfaceZones": [
+    {
+      "id": "frost-deep-powder",
+      "position": [
+        -850,
+        -450
+      ],
+      "radius": 300,
+      "surface": "powder",
+      "grip": 0.62,
+      "roll": 0.03
+    },
+    {
+      "id": "frost-packed-ice",
+      "position": [
+        -250,
+        350
+      ],
+      "radius": 240,
+      "surface": "ice",
+      "grip": 0.4,
+      "roll": 0.002
+    }
+  ],
+  "quests": [
+    {
+      "id": "frost-pine-welcome",
+      "name": "Snowbound Orientation",
+      "start": "frost-ranger",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "frost-lake",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "frost-falls",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "frost-ranger",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "frost-pine-delivery",
+      "name": "Emergency Supply Run",
+      "start": "frost-timber",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "supply.collect",
+          "target": "frost-timber-pack",
+          "count": 1
+        },
+        {
+          "event": "supply.deliver",
+          "target": "frost-cabin-drop",
+          "count": 1,
+          "failOnReset": true
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "frost-pine-relay",
+      "name": "Weather Window",
+      "start": "frost-lake",
+      "players": [
+        2,
+        6
+      ],
+      "steps": [
+        {
+          "event": "relay.activate",
+          "target": "frost-lake-relay",
+          "count": 1
+        },
+        {
+          "event": "relay.activate",
+          "target": "frost-weather",
+          "count": 1,
+          "withinSeconds": 60,
+          "distinctPlayers": true
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "frost-pine-summit",
+      "name": "The Summit Crew",
+      "start": "frost-ranger",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "frost-summit",
+          "count": 1
+        },
+        {
+          "event": "photo.capture",
+          "target": "frost-summit-photo",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "frost-pine-style",
+      "name": "Powder Session",
+      "start": "frost-lake",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "trick.land",
+          "target": "frost-lake-jam",
+          "count": 3,
+          "minimumAirSeconds": 0.8
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "frost-pine-passport",
+      "name": "Frostpeak Expedition Passport",
+      "start": "frost-ranger",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "race.finish",
+          "target": "frost-pine-lake",
+          "count": 1
+        },
+        {
+          "event": "race.finish",
+          "target": "frost-pine-timber",
+          "count": 1
+        },
+        {
+          "event": "race.finish",
+          "target": "frost-pine-summit",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    }
+  ],
+  "coordinateSystem": {
+    "units": "metres",
+    "horizontal": [
+      "x",
+      "z"
+    ],
+    "up": "y",
+    "heading": "radians: 0 points +z; positive rotates towards +x"
+  },
+  "status": "Map content and preview; gameplay hooks are definitions, not implemented mechanics.",
+  "boundary": {
+    "softMargin": 100,
+    "policy": "warn-and-respawn",
+    "respawn": "last-safe-pad",
+    "cliffWidth": 95,
+    "cliffHeight": 820,
+    "sceneryApron": 1600
+  },
+  "spawnPads": [
+    {
+      "id": "spawn-1",
+      "position": [
+        -1208,
+        1208
+      ],
+      "heading": -0.4
+    },
+    {
+      "id": "spawn-2",
+      "position": [
+        -1202,
+        1208
+      ],
+      "heading": -0.4
+    },
+    {
+      "id": "spawn-3",
+      "position": [
+        -1196,
+        1208
+      ],
+      "heading": -0.4
+    },
+    {
+      "id": "spawn-4",
+      "position": [
+        -1208,
+        1216
+      ],
+      "heading": -0.4
+    },
+    {
+      "id": "spawn-5",
+      "position": [
+        -1202,
+        1216
+      ],
+      "heading": -0.4
+    },
+    {
+      "id": "spawn-6",
+      "position": [
+        -1196,
+        1216
+      ],
+      "heading": -0.4
+    }
+  ],
+  "safePads": [
+    {
+      "id": "frost-ranger",
+      "position": [
+        -1208,
+        1208
+      ],
+      "radius": 32
+    },
+    {
+      "id": "frost-summit",
+      "position": [
+        747,
+        -1150
+      ],
+      "radius": 32
+    },
+    {
+      "id": "frost-lake",
+      "position": [
+        115,
+        920
+      ],
+      "radius": 32
+    },
+    {
+      "id": "frost-timber",
+      "position": [
+        -1092,
+        -1265
+      ],
+      "radius": 32
+    },
+    {
+      "id": "frost-ridge",
+      "position": [
+        1322,
+        575
+      ],
+      "radius": 32
+    },
+    {
+      "id": "frost-falls",
+      "position": [
+        -747,
+        -460
+      ],
+      "radius": 32
+    }
+  ]
+}

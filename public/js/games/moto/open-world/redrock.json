@@ -1,0 +1,977 @@
+{
+  "schemaVersion": 1,
+  "id": "redrock",
+  "name": "Redrock Frontier",
+  "tagline": "Find your own line.",
+  "theme": "desert",
+  "seed": 7183,
+  "size": [
+    3600,
+    3600
+  ],
+  "baseHeight": 35,
+  "spawn": [
+    -1050,
+    1050
+  ],
+  "spawnHeading": -0.6,
+  "palette": {
+    "sky": "#edc6a0",
+    "low": "#a96036",
+    "high": "#e8b97c",
+    "trail": "#dfb782",
+    "water": "#437f85",
+    "accent": "#ffce73"
+  },
+  "terrain": {
+    "noise": 9,
+    "scale": 280,
+    "hills": [
+      [
+        -1050,
+        -1050,
+        270,
+        770,
+        686
+      ],
+      [
+        850,
+        -1000,
+        340,
+        700,
+        910
+      ],
+      [
+        1200,
+        700,
+        190,
+        588,
+        602
+      ],
+      [
+        -1250,
+        300,
+        100,
+        420,
+        630
+      ],
+      [
+        0,
+        -500,
+        130,
+        700,
+        700
+      ]
+    ],
+    "river": {
+      "x": 250,
+      "amplitude": 120,
+      "wavelength": 350,
+      "width": 90,
+      "depth": 34,
+      "level": 18
+    }
+  },
+  "regions": [
+    {
+      "name": "Basecamp Flats",
+      "position": [
+        -1050,
+        1050
+      ]
+    },
+    {
+      "name": "Copper Crown",
+      "position": [
+        -1050,
+        -1050
+      ]
+    },
+    {
+      "name": "Eagle Mesa",
+      "position": [
+        850,
+        -1000
+      ]
+    },
+    {
+      "name": "The Wash",
+      "position": [
+        250,
+        100
+      ]
+    },
+    {
+      "name": "Dustworks Quarry",
+      "position": [
+        1150,
+        700
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "id": "frontier-loop",
+      "name": "Frontier Loop",
+      "points": [
+        [
+          -1050,
+          1050
+        ],
+        [
+          -1300,
+          650
+        ],
+        [
+          -1450,
+          100
+        ],
+        [
+          -1400,
+          -500
+        ],
+        [
+          -1200,
+          -1050
+        ],
+        [
+          -650,
+          -1350
+        ],
+        [
+          0,
+          -1400
+        ],
+        [
+          700,
+          -1350
+        ],
+        [
+          1150,
+          -1000
+        ],
+        [
+          1400,
+          -450
+        ],
+        [
+          1450,
+          200
+        ],
+        [
+          1200,
+          750
+        ],
+        [
+          750,
+          1200
+        ],
+        [
+          0,
+          1400
+        ],
+        [
+          -650,
+          1350
+        ],
+        [
+          -1050,
+          1050
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20,
+      "closed": true
+    },
+    {
+      "id": "copper-climb",
+      "name": "Copper Crown Climb",
+      "points": [
+        [
+          -1050,
+          1050
+        ],
+        [
+          -950,
+          600
+        ],
+        [
+          -1100,
+          100
+        ],
+        [
+          -800,
+          -250
+        ],
+        [
+          -1250,
+          -500
+        ],
+        [
+          -800,
+          -750
+        ],
+        [
+          -1100,
+          -1000
+        ],
+        [
+          -1050,
+          -1150
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "mesa-run",
+      "name": "Eagle Mesa Descent",
+      "points": [
+        [
+          850,
+          -1000
+        ],
+        [
+          1200,
+          -700
+        ],
+        [
+          900,
+          -350
+        ],
+        [
+          1200,
+          0
+        ],
+        [
+          850,
+          350
+        ],
+        [
+          1200,
+          750
+        ],
+        [
+          750,
+          1200
+        ],
+        [
+          150,
+          1100
+        ],
+        [
+          -400,
+          1150
+        ],
+        [
+          -1050,
+          1050
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "quarry-ring",
+      "name": "Dustworks Sprint",
+      "points": [
+        [
+          1200,
+          750
+        ],
+        [
+          1350,
+          600
+        ],
+        [
+          1400,
+          350
+        ],
+        [
+          1150,
+          200
+        ],
+        [
+          900,
+          400
+        ],
+        [
+          850,
+          700
+        ],
+        [
+          1050,
+          950
+        ],
+        [
+          1200,
+          750
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20,
+      "closed": true
+    },
+    {
+      "id": "wash-link",
+      "name": "The Wash Connector",
+      "points": [
+        [
+          -1100,
+          100
+        ],
+        [
+          -650,
+          150
+        ],
+        [
+          -200,
+          0
+        ],
+        [
+          250,
+          0
+        ],
+        [
+          650,
+          150
+        ],
+        [
+          900,
+          400
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "north-pass",
+      "name": "High Desert Pass",
+      "points": [
+        [
+          -800,
+          -750
+        ],
+        [
+          -300,
+          -900
+        ],
+        [
+          150,
+          -750
+        ],
+        [
+          500,
+          -700
+        ],
+        [
+          850,
+          -1000
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "camp-stunts",
+      "name": "Camp Jump Line",
+      "points": [
+        [
+          -1050,
+          1050
+        ],
+        [
+          -700,
+          850
+        ],
+        [
+          -350,
+          750
+        ],
+        [
+          -50,
+          800
+        ],
+        [
+          150,
+          1100
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    }
+  ],
+  "spots": [
+    {
+      "id": "camp",
+      "name": "Switchback Basecamp",
+      "position": [
+        -1050,
+        1050
+      ],
+      "kind": "camp",
+      "radius": 24,
+      "about": "Shared spawn, race board and regroup point."
+    },
+    {
+      "id": "crown",
+      "name": "Copper Crown Lookout",
+      "position": [
+        -1050,
+        -1150
+      ],
+      "kind": "lookout",
+      "radius": 24,
+      "about": "A long switchback climb above the desert."
+    },
+    {
+      "id": "mesa",
+      "name": "Eagle Mesa Radio",
+      "position": [
+        850,
+        -1000
+      ],
+      "kind": "tower",
+      "radius": 24,
+      "about": "High ridge with a relay quest and downhill start."
+    },
+    {
+      "id": "quarry",
+      "name": "Dustworks Yard",
+      "position": [
+        1200,
+        750
+      ],
+      "kind": "yard",
+      "radius": 24,
+      "about": "A social stunt yard surrounded by a mini race."
+    },
+    {
+      "id": "wash",
+      "name": "Drywash Checkpoint",
+      "position": [
+        250,
+        0
+      ],
+      "kind": "checkpoint",
+      "radius": 24,
+      "about": "Meet in the canyon and choose the next trail."
+    },
+    {
+      "id": "ruins",
+      "name": "Lost Survey Camp",
+      "position": [
+        -300,
+        -900
+      ],
+      "kind": "ruin",
+      "radius": 24,
+      "about": "A secluded camp on the high desert pass."
+    }
+  ],
+  "races": [
+    {
+      "id": "red-grand",
+      "name": "Frontier Grand Tour",
+      "route": "frontier-loop",
+      "type": "circuit",
+      "difficulty": "medium",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates; tune medal times after riding with the final bike physics."
+    },
+    {
+      "id": "red-climb",
+      "name": "King of Copper Crown",
+      "route": "copper-climb",
+      "type": "hillclimb",
+      "difficulty": "hard",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates; tune medal times after riding with the final bike physics."
+    },
+    {
+      "id": "red-downhill",
+      "name": "Eagle Dive",
+      "route": "mesa-run",
+      "type": "downhill",
+      "difficulty": "hard",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates; tune medal times after riding with the final bike physics."
+    },
+    {
+      "id": "red-quarry",
+      "name": "Quarry Scramble",
+      "route": "quarry-ring",
+      "type": "circuit",
+      "difficulty": "easy",
+      "laps": 3,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates; tune medal times after riding with the final bike physics."
+    }
+  ],
+  "interactions": [
+    {
+      "id": "board",
+      "name": "Basecamp race board",
+      "position": [
+        -1010,
+        1050
+      ],
+      "kind": "race-board",
+      "radius": 18,
+      "event": "race.offer",
+      "about": "Choose a mini race and invite nearby friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "relay",
+      "name": "Mesa relay mast",
+      "position": [
+        850,
+        -1000
+      ],
+      "kind": "relay",
+      "radius": 18,
+      "event": "relay.activate",
+      "about": "Future co-op: activate with the camp switch within 45 seconds.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "camp-switch",
+      "name": "Camp power switch",
+      "position": [
+        -1080,
+        1020
+      ],
+      "kind": "switch",
+      "radius": 18,
+      "event": "relay.activate",
+      "about": "Partner switch for the mesa relay.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "quarry-jam",
+      "name": "Quarry trick jam",
+      "position": [
+        1150,
+        730
+      ],
+      "kind": "trick-zone",
+      "radius": 18,
+      "event": "trick.land",
+      "about": "Share a two-minute trick score with friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "camera",
+      "name": "Crown photo perch",
+      "position": [
+        -1050,
+        -1150
+      ],
+      "kind": "photo",
+      "radius": 18,
+      "event": "photo.capture",
+      "about": "Get the whole group into a summit picture.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "supply",
+      "name": "Survey supply crate",
+      "position": [
+        -300,
+        -900
+      ],
+      "kind": "pickup",
+      "radius": 18,
+      "event": "supply.collect",
+      "about": "Collect a survey pack for the delivery quest.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "delivery",
+      "name": "Basecamp delivery rack",
+      "position": [
+        -1020,
+        1080
+      ],
+      "kind": "delivery",
+      "radius": 18,
+      "event": "supply.deliver",
+      "about": "Bring the survey pack back without resetting.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "beacon",
+      "name": "Wash discovery beacon",
+      "position": [
+        250,
+        0
+      ],
+      "kind": "beacon",
+      "radius": 18,
+      "event": "zone.enter",
+      "about": "An exploration checkpoint inside the canyon.",
+      "cooldownSeconds": 10
+    }
+  ],
+  "ramps": [
+    {
+      "id": "camp-double",
+      "position": [
+        -530,
+        800
+      ],
+      "heading": 1.9,
+      "length": 90,
+      "width": 18,
+      "height": 7
+    },
+    {
+      "id": "quarry-table",
+      "position": [
+        1120,
+        620
+      ],
+      "heading": 0.2,
+      "length": 100,
+      "width": 24,
+      "height": 9
+    }
+  ],
+  "surfaceZones": [
+    {
+      "id": "deep-sand",
+      "position": [
+        -450,
+        400
+      ],
+      "radius": 200,
+      "surface": "sand",
+      "grip": 0.78,
+      "roll": 0.025
+    },
+    {
+      "id": "wash-mud",
+      "position": [
+        250,
+        0
+      ],
+      "radius": 90,
+      "surface": "mud",
+      "grip": 0.72,
+      "roll": 0.025
+    }
+  ],
+  "quests": [
+    {
+      "id": "red-welcome",
+      "name": "Welcome to the Frontier",
+      "start": "camp",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "wash",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "quarry",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "camp",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "red-supply",
+      "name": "The Lost Survey Pack",
+      "start": "camp",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "supply.collect",
+          "target": "supply",
+          "count": 1
+        },
+        {
+          "event": "supply.deliver",
+          "target": "delivery",
+          "count": 1,
+          "failOnReset": true
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "red-radio",
+      "name": "Two Riders, One Signal",
+      "start": "camp",
+      "players": [
+        2,
+        6
+      ],
+      "steps": [
+        {
+          "event": "relay.activate",
+          "target": "camp-switch",
+          "count": 1
+        },
+        {
+          "event": "relay.activate",
+          "target": "relay",
+          "count": 1,
+          "withinSeconds": 45,
+          "distinctPlayers": true
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "red-summit",
+      "name": "Above the Dust",
+      "start": "camp",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "crown",
+          "count": 1
+        },
+        {
+          "event": "photo.capture",
+          "target": "camera",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "red-jam",
+      "name": "Dustworks Session",
+      "start": "quarry",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "trick.land",
+          "target": "quarry-jam",
+          "count": 3,
+          "minimumAirSeconds": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "red-races",
+      "name": "Frontier Passport",
+      "start": "camp",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "race.finish",
+          "target": "red-quarry",
+          "count": 1
+        },
+        {
+          "event": "race.finish",
+          "target": "red-climb",
+          "count": 1
+        },
+        {
+          "event": "race.finish",
+          "target": "red-grand",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    }
+  ],
+  "coordinateSystem": {
+    "units": "metres",
+    "horizontal": [
+      "x",
+      "z"
+    ],
+    "up": "y",
+    "heading": "radians: 0 points +z; positive rotates towards +x"
+  },
+  "status": "Map content and preview; gameplay hooks are definitions, not implemented mechanics.",
+  "boundary": {
+    "softMargin": 100,
+    "policy": "warn-and-respawn",
+    "respawn": "last-safe-pad",
+    "cliffWidth": 95,
+    "cliffHeight": 680,
+    "sceneryApron": 1600
+  },
+  "spawnPads": [
+    {
+      "id": "spawn-1",
+      "position": [
+        -1050,
+        1050
+      ],
+      "heading": -0.6
+    },
+    {
+      "id": "spawn-2",
+      "position": [
+        -1045,
+        1050
+      ],
+      "heading": -0.6
+    },
+    {
+      "id": "spawn-3",
+      "position": [
+        -1040,
+        1050
+      ],
+      "heading": -0.6
+    },
+    {
+      "id": "spawn-4",
+      "position": [
+        -1050,
+        1057
+      ],
+      "heading": -0.6
+    },
+    {
+      "id": "spawn-5",
+      "position": [
+        -1045,
+        1057
+      ],
+      "heading": -0.6
+    },
+    {
+      "id": "spawn-6",
+      "position": [
+        -1040,
+        1057
+      ],
+      "heading": -0.6
+    }
+  ],
+  "safePads": [
+    {
+      "id": "camp",
+      "position": [
+        -1050,
+        1050
+      ],
+      "radius": 32
+    },
+    {
+      "id": "crown",
+      "position": [
+        -1050,
+        -1150
+      ],
+      "radius": 32
+    },
+    {
+      "id": "mesa",
+      "position": [
+        850,
+        -1000
+      ],
+      "radius": 32
+    },
+    {
+      "id": "quarry",
+      "position": [
+        1200,
+        750
+      ],
+      "radius": 32
+    },
+    {
+      "id": "wash",
+      "position": [
+        250,
+        0
+      ],
+      "radius": 32
+    },
+    {
+      "id": "ruins",
+      "position": [
+        -300,
+        -900
+      ],
+      "radius": 32
+    }
+  ]
+}

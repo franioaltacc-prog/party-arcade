@@ -59,8 +59,8 @@
     LEAN_AIR: 1500, LEAN_GROUND: 300, SPIN_MAX: 8.5,
     DRAG: 0.4, ROLL: 0.012,  // air drag, tyre rolling resistance on hard dirt (tracks add more: sand, mud)
     BERM: 1.5,               // how much a corner's berm helps you round it (the robot's corner speed = √(grip·g·radius·BERM))
-    WHEELBASE: 1.48, STEER: 0.55, STEER_FALL: 0.11,   // steering lock at walking pace, and how it narrows with speed
-    MU_SIDE: 1.0, BERM_GRIP: 0.6,                      // sideways grip (times the ground's), and how much more a berm gives
+    WHEELBASE: 1.48, STEER: 0.55, STEER_FALL: 0.08,   // steering lock at walking pace, and how it narrows with speed
+    MU_SIDE: 1.35, BERM_GRIP: 0.6,                     // sideways grip (times the ground's), and how much more a berm gives
     AIR_TWIST: 0.8,          // how fast you can twist the bike's direction in the air (rad/s)
     ASSIST: 0.5,             // how strongly the rider levels the bike in the air when you don't lean
     PADDLE: 650, BACK_MAX: 2.4,                        // paddling backwards when stopped with the brake held

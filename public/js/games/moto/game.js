@@ -354,7 +354,7 @@ function groundUnder(x, z, hint, T = R.T) { const L = C.locate(T, x, z, hint); r
 function updateCamera(s, dt, speed, place) {
   const cam = R.cam;
   // swing round behind the way the bike points, like a 3D racing game (smoothly, so steering isn't jerky)
-  cam.h = cam.init ? lerpA(cam.h, s.h, 1 - Math.exp(-dt * 3.4)) : s.h;
+  cam.h = cam.init ? lerpA(cam.h, s.h, 1 - Math.exp(-dt * 5.5)) : s.h;
   const heading = cam.h;
   const D = tmpV.set(Math.cos(heading), 0, Math.sin(heading));
   const Rt = tmpV2.set(-Math.sin(heading), 0, Math.cos(heading));
@@ -377,7 +377,7 @@ function updateCamera(s, dt, speed, place) {
   // keep the camera out of the ground
   want.y = Math.max(want.y, groundUnder(want.x, want.z, s.s) + 1.1);
   if (!cam.init) { cam.pos.copy(want); cam.look.copy(look); cam.fov = fov; cam.init = true; }
-  const kPos = 1 - Math.exp(-dt * (R.camMode === 'side' ? 5 : 6));
+  const kPos = 1 - Math.exp(-dt * (R.camMode === 'side' ? 6 : 8.5));
   const kLook = 1 - Math.exp(-dt * 10);
   cam.pos.lerp(want, kPos); cam.look.lerp(look, kLook);
   cam.fov += (fov - cam.fov) * (1 - Math.exp(-dt * 2));

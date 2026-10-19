@@ -1,0 +1,981 @@
+{
+  "schemaVersion": 1,
+  "id": "pinecrest",
+  "name": "Pinecrest Highlands",
+  "tagline": "Take the long way up.",
+  "theme": "alpine",
+  "seed": 2091,
+  "size": [
+    3200,
+    3200
+  ],
+  "baseHeight": 45,
+  "spawn": [
+    -1050,
+    1050
+  ],
+  "spawnHeading": -0.4,
+  "palette": {
+    "sky": "#b7d3dd",
+    "low": "#47684b",
+    "high": "#d9e0da",
+    "trail": "#a99d7b",
+    "water": "#397f9b",
+    "accent": "#a1efc1"
+  },
+  "terrain": {
+    "noise": 7,
+    "scale": 230,
+    "hills": [
+      [
+        650,
+        -850,
+        490,
+        700,
+        728
+      ],
+      [
+        -900,
+        -800,
+        290,
+        630,
+        700
+      ],
+      [
+        1150,
+        500,
+        220,
+        476,
+        630
+      ],
+      [
+        -1100,
+        600,
+        90,
+        490,
+        490
+      ],
+      [
+        0,
+        -1300,
+        160,
+        840,
+        490
+      ]
+    ],
+    "lake": {
+      "position": [
+        -250,
+        350
+      ],
+      "radius": [
+        300,
+        240
+      ],
+      "level": 49,
+      "depth": 24
+    }
+  },
+  "regions": [
+    {
+      "name": "Ranger Valley",
+      "position": [
+        -1050,
+        1050
+      ]
+    },
+    {
+      "name": "Mirror Lake",
+      "position": [
+        -250,
+        350
+      ]
+    },
+    {
+      "name": "Cloudbreak Summit",
+      "position": [
+        650,
+        -850
+      ]
+    },
+    {
+      "name": "Timberline Woods",
+      "position": [
+        -900,
+        -800
+      ]
+    },
+    {
+      "name": "East Ridge",
+      "position": [
+        1150,
+        500
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "id": "highland-loop",
+      "name": "Highland Explorer",
+      "points": [
+        [
+          -1050,
+          1050
+        ],
+        [
+          -1300,
+          650
+        ],
+        [
+          -1350,
+          50
+        ],
+        [
+          -1250,
+          -650
+        ],
+        [
+          -950,
+          -1100
+        ],
+        [
+          -350,
+          -1350
+        ],
+        [
+          250,
+          -1300
+        ],
+        [
+          850,
+          -1200
+        ],
+        [
+          1250,
+          -800
+        ],
+        [
+          1400,
+          -150
+        ],
+        [
+          1300,
+          500
+        ],
+        [
+          1050,
+          1000
+        ],
+        [
+          350,
+          1300
+        ],
+        [
+          -350,
+          1250
+        ],
+        [
+          -1050,
+          1050
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20,
+      "closed": true
+    },
+    {
+      "id": "summit-climb",
+      "name": "Cloudbreak Switchbacks",
+      "points": [
+        [
+          1050,
+          1000
+        ],
+        [
+          1100,
+          600
+        ],
+        [
+          700,
+          350
+        ],
+        [
+          1100,
+          50
+        ],
+        [
+          550,
+          -200
+        ],
+        [
+          1000,
+          -450
+        ],
+        [
+          450,
+          -600
+        ],
+        [
+          800,
+          -850
+        ],
+        [
+          650,
+          -1000
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "lake-loop",
+      "name": "Mirror Lake Circuit",
+      "points": [
+        [
+          -800,
+          700
+        ],
+        [
+          -800,
+          350
+        ],
+        [
+          -650,
+          -50
+        ],
+        [
+          -200,
+          -100
+        ],
+        [
+          250,
+          50
+        ],
+        [
+          250,
+          450
+        ],
+        [
+          100,
+          800
+        ],
+        [
+          -400,
+          900
+        ],
+        [
+          -800,
+          700
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20,
+      "closed": true
+    },
+    {
+      "id": "timber-run",
+      "name": "Timberline Descent",
+      "points": [
+        [
+          -950,
+          -1100
+        ],
+        [
+          -800,
+          -800
+        ],
+        [
+          -1100,
+          -500
+        ],
+        [
+          -850,
+          -200
+        ],
+        [
+          -1100,
+          50
+        ],
+        [
+          -800,
+          350
+        ],
+        [
+          -800,
+          700
+        ],
+        [
+          -1050,
+          1050
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "valley-link",
+      "name": "Ranger Valley Trail",
+      "points": [
+        [
+          -1050,
+          1050
+        ],
+        [
+          -800,
+          700
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "ridge-link",
+      "name": "East Ridge Traverse",
+      "points": [
+        [
+          250,
+          450
+        ],
+        [
+          700,
+          350
+        ],
+        [
+          1150,
+          500
+        ],
+        [
+          1300,
+          500
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "north-link",
+      "name": "Timberline Pass",
+      "points": [
+        [
+          -1100,
+          -500
+        ],
+        [
+          -650,
+          -400
+        ],
+        [
+          -200,
+          -450
+        ],
+        [
+          200,
+          -400
+        ],
+        [
+          550,
+          -200
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "summit-drop",
+      "name": "Cloudbreak Return",
+      "points": [
+        [
+          650,
+          -1000
+        ],
+        [
+          250,
+          -1300
+        ],
+        [
+          -350,
+          -1350
+        ],
+        [
+          -950,
+          -1100
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    }
+  ],
+  "spots": [
+    {
+      "id": "ranger",
+      "name": "Ranger Station",
+      "position": [
+        -1050,
+        1050
+      ],
+      "kind": "camp",
+      "radius": 24,
+      "about": "Shared spawn and activity board above the lake."
+    },
+    {
+      "id": "summit",
+      "name": "Cloudbreak Observatory",
+      "position": [
+        650,
+        -1000
+      ],
+      "kind": "tower",
+      "radius": 24,
+      "about": "A high summit reached through wide switchbacks."
+    },
+    {
+      "id": "lake",
+      "name": "Mirror Lake Jetty",
+      "position": [
+        100,
+        800
+      ],
+      "kind": "dock",
+      "radius": 24,
+      "about": "A lakeside hangout and relay meeting point."
+    },
+    {
+      "id": "timber",
+      "name": "Old Timber Mill",
+      "position": [
+        -950,
+        -1100
+      ],
+      "kind": "yard",
+      "radius": 24,
+      "about": "A forest race start and supply pickup."
+    },
+    {
+      "id": "ridge",
+      "name": "East Ridge Cabin",
+      "position": [
+        1150,
+        500
+      ],
+      "kind": "cabin",
+      "radius": 24,
+      "about": "A secluded destination for a delivery run."
+    },
+    {
+      "id": "falls",
+      "name": "North Creek Overlook",
+      "position": [
+        -650,
+        -400
+      ],
+      "kind": "lookout",
+      "radius": 24,
+      "about": "A scenic waypoint on the mountain traverse."
+    }
+  ],
+  "races": [
+    {
+      "id": "pine-tour",
+      "name": "Highlands Endurance",
+      "route": "highland-loop",
+      "type": "circuit",
+      "difficulty": "medium",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates; tune medal times after riding with the final bike physics."
+    },
+    {
+      "id": "pine-summit",
+      "name": "Race to the Clouds",
+      "route": "summit-climb",
+      "type": "hillclimb",
+      "difficulty": "hard",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates; tune medal times after riding with the final bike physics."
+    },
+    {
+      "id": "pine-lake",
+      "name": "Lakeside Dash",
+      "route": "lake-loop",
+      "type": "circuit",
+      "difficulty": "easy",
+      "laps": 2,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates; tune medal times after riding with the final bike physics."
+    },
+    {
+      "id": "pine-timber",
+      "name": "Timberline Rush",
+      "route": "timber-run",
+      "type": "downhill",
+      "difficulty": "medium",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates; tune medal times after riding with the final bike physics."
+    }
+  ],
+  "interactions": [
+    {
+      "id": "ranger-board",
+      "name": "Ranger activity board",
+      "position": [
+        -1020,
+        1050
+      ],
+      "kind": "race-board",
+      "radius": 18,
+      "event": "race.offer",
+      "about": "Choose a race or accept a ranger job.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "weather",
+      "name": "Observatory weather beacon",
+      "position": [
+        650,
+        -1000
+      ],
+      "kind": "relay",
+      "radius": 18,
+      "event": "relay.activate",
+      "about": "Pair with the lake beacon for a two-rider relay.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "lake-relay",
+      "name": "Lake relay switch",
+      "position": [
+        100,
+        800
+      ],
+      "kind": "switch",
+      "radius": 18,
+      "event": "relay.activate",
+      "about": "A teammate holds the lakeside station.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "timber-pack",
+      "name": "Mill repair kit",
+      "position": [
+        -950,
+        -1100
+      ],
+      "kind": "pickup",
+      "radius": 18,
+      "event": "supply.collect",
+      "about": "Deliver a repair kit to the east ridge cabin.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "cabin-drop",
+      "name": "Cabin repair bench",
+      "position": [
+        1150,
+        500
+      ],
+      "kind": "delivery",
+      "radius": 18,
+      "event": "supply.deliver",
+      "about": "Delivery destination on the ridge trail.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "summit-photo",
+      "name": "Above the Clouds photo spot",
+      "position": [
+        700,
+        -950
+      ],
+      "kind": "photo",
+      "radius": 18,
+      "event": "photo.capture",
+      "about": "Gather friends at the summit.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "lake-jam",
+      "name": "Lakeside jump session",
+      "position": [
+        -780,
+        600
+      ],
+      "kind": "trick-zone",
+      "radius": 18,
+      "event": "trick.land",
+      "about": "Link clean jumps in the small practice park.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "ranger-beacon",
+      "name": "Overlook discovery beacon",
+      "position": [
+        -650,
+        -400
+      ],
+      "kind": "beacon",
+      "radius": 18,
+      "event": "zone.enter",
+      "about": "Find the overlook by following the forest pass.",
+      "cooldownSeconds": 10
+    }
+  ],
+  "ramps": [
+    {
+      "id": "lake-table",
+      "position": [
+        -810,
+        550
+      ],
+      "heading": 0,
+      "length": 80,
+      "width": 18,
+      "height": 6
+    },
+    {
+      "id": "ridge-step",
+      "position": [
+        1150,
+        500
+      ],
+      "heading": 1.1,
+      "length": 95,
+      "width": 18,
+      "height": 8
+    }
+  ],
+  "surfaceZones": [
+    {
+      "id": "timber-mud",
+      "position": [
+        -1000,
+        -600
+      ],
+      "radius": 180,
+      "surface": "mud",
+      "grip": 0.75,
+      "roll": 0.02
+    },
+    {
+      "id": "summit-snow",
+      "position": [
+        650,
+        -1000
+      ],
+      "radius": 240,
+      "surface": "snow",
+      "grip": 0.68,
+      "roll": 0.01
+    }
+  ],
+  "quests": [
+    {
+      "id": "pine-welcome",
+      "name": "Ranger Orientation",
+      "start": "ranger",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "lake",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "falls",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "ranger",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "pine-delivery",
+      "name": "Cabin Repair Run",
+      "start": "timber",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "supply.collect",
+          "target": "timber-pack",
+          "count": 1
+        },
+        {
+          "event": "supply.deliver",
+          "target": "cabin-drop",
+          "count": 1,
+          "failOnReset": true
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "pine-relay",
+      "name": "Valley to Summit",
+      "start": "lake",
+      "players": [
+        2,
+        6
+      ],
+      "steps": [
+        {
+          "event": "relay.activate",
+          "target": "lake-relay",
+          "count": 1
+        },
+        {
+          "event": "relay.activate",
+          "target": "weather",
+          "count": 1,
+          "withinSeconds": 60,
+          "distinctPlayers": true
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "pine-summit",
+      "name": "Above the Clouds",
+      "start": "ranger",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "summit",
+          "count": 1
+        },
+        {
+          "event": "photo.capture",
+          "target": "summit-photo",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "pine-style",
+      "name": "Lake Session",
+      "start": "lake",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "trick.land",
+          "target": "lake-jam",
+          "count": 3,
+          "minimumAirSeconds": 0.8
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "pine-passport",
+      "name": "Highlands Passport",
+      "start": "ranger",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "race.finish",
+          "target": "pine-lake",
+          "count": 1
+        },
+        {
+          "event": "race.finish",
+          "target": "pine-timber",
+          "count": 1
+        },
+        {
+          "event": "race.finish",
+          "target": "pine-summit",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    }
+  ],
+  "coordinateSystem": {
+    "units": "metres",
+    "horizontal": [
+      "x",
+      "z"
+    ],
+    "up": "y",
+    "heading": "radians: 0 points +z; positive rotates towards +x"
+  },
+  "status": "Map content and preview; gameplay hooks are definitions, not implemented mechanics.",
+  "boundary": {
+    "softMargin": 100,
+    "policy": "warn-and-respawn",
+    "respawn": "last-safe-pad",
+    "cliffWidth": 95,
+    "cliffHeight": 820,
+    "sceneryApron": 1600
+  },
+  "spawnPads": [
+    {
+      "id": "spawn-1",
+      "position": [
+        -1050,
+        1050
+      ],
+      "heading": -0.4
+    },
+    {
+      "id": "spawn-2",
+      "position": [
+        -1045,
+        1050
+      ],
+      "heading": -0.4
+    },
+    {
+      "id": "spawn-3",
+      "position": [
+        -1040,
+        1050
+      ],
+      "heading": -0.4
+    },
+    {
+      "id": "spawn-4",
+      "position": [
+        -1050,
+        1057
+      ],
+      "heading": -0.4
+    },
+    {
+      "id": "spawn-5",
+      "position": [
+        -1045,
+        1057
+      ],
+      "heading": -0.4
+    },
+    {
+      "id": "spawn-6",
+      "position": [
+        -1040,
+        1057
+      ],
+      "heading": -0.4
+    }
+  ],
+  "safePads": [
+    {
+      "id": "ranger",
+      "position": [
+        -1050,
+        1050
+      ],
+      "radius": 32
+    },
+    {
+      "id": "summit",
+      "position": [
+        650,
+        -1000
+      ],
+      "radius": 32
+    },
+    {
+      "id": "lake",
+      "position": [
+        100,
+        800
+      ],
+      "radius": 32
+    },
+    {
+      "id": "timber",
+      "position": [
+        -950,
+        -1100
+      ],
+      "radius": 32
+    },
+    {
+      "id": "ridge",
+      "position": [
+        1150,
+        500
+      ],
+      "radius": 32
+    },
+    {
+      "id": "falls",
+      "position": [
+        -650,
+        -400
+      ],
+      "radius": 32
+    }
+  ]
+}
