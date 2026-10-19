@@ -1,9 +1,10 @@
 """Motocross against a real server: solo best times per track (and impossible ones turned away),
-flips and the leaderboards."""
+flips, the leaderboards, and an online race: ready-up, the countdown, positions passed on,
+finish times checked, places and the saved results."""
 import os as _os, sys as _sys
 _HERE = _os.path.dirname(_os.path.abspath(__file__))
 _sys.path[:0] = [_HERE, _os.path.dirname(_HERE)]   # tests/ (the bot helpers) and the repo (the game code)
-import asyncio, json, random
+import asyncio, json, random, time
 from wsbot import WS
 from accbot import req, check
 
@@ -58,7 +59,62 @@ async def main():
     rows = r["board"]["rows"]
     check(rows and rows[0]["name"] == na and rows[0]["value"] == 71234, "the desert board shows the best time")
 
-    a.send({"t": "room:leave"}); await asyncio.sleep(0.1)
+    # ---------------------------------------------------------------- an online race
+    nb = "MotoB" + U
+    b = await player("mbotB" + U + "x", nb)
+    a.send({"t": "room:create", "game": "moto"}); j = await a.wait("room:joined")
+    check(j["state"]["phase"] == "lobby" and j["state"]["min"] == 2, "a new room waits in the lobby")
+    b.send({"t": "room:join", "code": j["code"], "game": "moto"}); await b.wait("room:joined")
+    await asyncio.sleep(0.2)
+    b.send({"t": "g:settings", "track": "snow"}); a.send({"t": "g:settings", "track": "desert"})
+    await asyncio.sleep(0.3)
+    lob = [m for m in a.drain() if m["t"] == "g:lobby"]
+    check(lob and lob[-1]["settings"]["track"] == "desert", "only the host picks the track")
+    a.send({"t": "g:start"}); await asyncio.sleep(0.3)
+    errs = [m for m in a.drain() if m["t"] == "error"]
+    check(errs and "Waiting for" in errs[-1]["msg"], "the host can't start before everyone is ready")
+    a.send({"t": "g:ready", "ready": True}); await asyncio.sleep(0.3)
+    check(not [m for m in b.drain() if m["t"] == "g:start"], "one rider ready isn't enough")
+    b.send({"t": "g:ready", "ready": True})
+    st = await a.wait("g:start")
+    race = st["race"]
+    check(race["track"] == "desert" and set(race["runners"]) == {a.uid, b.uid} and st["countdown"] >= 3, "everyone ready: a 3-2-1 countdown on the desert track")
+    t0 = time.time()
+    b.drain()
+    # positions are passed on to the other rider
+    a.send({"t": "g:pos", "x": 40.5, "y": 0.6, "a": 0.1, "rx": -0.1, "ry": 0.4, "c0": 0.07, "c1": 0.08, "l": 0.2, "s": 55, "r": 9000, "th": 1, "cp": -1})
+    p = await b.wait("g:pos")
+    check(p["id"] == a.uid and p["x"] == 40.5 and p["r"] == 9000 and not p["k"], "a rider's position reaches the others")
+    a.send({"t": "g:pos", "x": 1e9, "y": "up", "a": 0, "rx": 0, "ry": 0, "c0": 0, "c1": 0, "l": 0, "s": 0})
+    p = await b.wait("g:pos")
+    check(p["x"] <= 5000 and p["y"] == 0, "nonsense positions are tamed")
+    # a finish time that's too fast is turned away
+    a.drain()
+    a.send({"t": "g:finish", "time": 20000, "cp": 2, "crashes": 0, "flips": 1})
+    toast = await a.wait("g:toast")
+    check("didn't look right" in toast["text"], "an impossible finish time doesn't count")
+    # a real one (after the race has really been going that long)
+    real = 39.0
+    await asyncio.sleep(max(0, t0 + st["countdown"] + real - time.time()))
+    a.send({"t": "g:finish", "time": int(real * 1000), "cp": 2, "crashes": 1, "flips": 2})
+    f = await b.wait("g:finish")
+    check(f["id"] == a.uid and f["place"] == 1, "A crosses the line first")
+    hurry = await b.wait("g:hurry")
+    check(hurry["seconds"] == 30, "the others get 30 seconds to finish")
+    a.send({"t": "g:stop"})
+    res = await b.wait("g:results")
+    rows = res["results"]["rows"]
+    check(rows[0]["id"] == a.uid and rows[0]["done"] and rows[1]["id"] == b.uid and not rows[1]["done"], "results: A won, B didn't finish")
+    await asyncio.sleep(0.5)
+    sa, sb = await stats(a, na), await stats(b, nb)
+    check(sa.get("moto.wins") == 1 and sa.get("moto.races") == 1 and sa.get("moto.podiums") == 1 and sa.get("motodesert.best") == 39000,
+          f"A's win and best time are saved ({sa.get('moto.wins')}, {sa.get('motodesert.best')})")
+    check(sa.get("moto.flips") == 65, f"flips from the race add up ({sa.get('moto.flips')})")
+    check(sb.get("moto.races") == 1 and not sb.get("moto.wins") and not sb.get("motodesert.best"), "B's race counts, with no time")
+    # after the race: ready again for the next one
+    lob = [m for m in getattr(b, "pushed", []) + b.drain() if m["t"] == "g:lobby"]
+    check(lob and lob[-1]["phase"] == "results" and not any(lob[-1]["ready"].values()), "after the race everyone readies up again")
+    a.send({"t": "room:leave"}); b.send({"t": "room:leave"}); await asyncio.sleep(0.2)
     print("FAILED:", check.failed)
 
 asyncio.run(main())

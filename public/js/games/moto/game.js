@@ -44,6 +44,7 @@ async function loadUnlocks() {
     unlocked = have.bike || new Set(['factory']);
   } catch { /* offline: keep the default */ }
   if (!unlocked.has(prefs.livery)) prefs.livery = 'factory';
+  try { bikeList = (await Unlocks.load()).bikes || []; } catch { bikeList = []; }
 }
 const myLivery = () => (Account.user && Account.user.look && Account.user.look.bike && unlocked.has(Account.user.look.bike) ? Account.user.look.bike : unlocked.has(prefs.livery) ? prefs.livery : 'factory');
 
@@ -137,6 +138,7 @@ function begin(def, mode, goAt) {
   stopRide();
   showScreen('ride');
   R.mode = mode; R.def = def; R.T = physicsTrack(def); R.ride = (R.ride || 0) + 1;
+  if (mode === 'solo') { R.spectate = false; for (const o of R.others.values()) dropOther(o); R.others.clear(); }
   fill($('#hud-center'), h('div', { class: 'mx-loading' }, h('div', { class: 'mx-spin' }), 'Building the track…'));
   resize();
   // let the loading message show before the (slow) world build
@@ -171,7 +173,7 @@ function stopRide() {
 const laneFor = (id) => {
   const ids = state.race ? Object.keys(state.race.runners).sort() : [id];
   const i = Math.max(0, ids.indexOf(id));
-  const lanes = [0, -1.8, 1.8, -3.2, 3.2, -0.9, 0.9, -2.6, 2.6, -3.6];
+  const lanes = [0, -1.15, 1.15, -2.3, 2.3, -3.45, 3.45];   // the start gate's slots
   return lanes[i % lanes.length];
 };
 
@@ -298,13 +300,15 @@ function render(now, dt, alpha) {
   const roll = Math.max(-0.6, Math.min(0.6, k * speed * speed * 0.09));
   s.roll = roll;
   poseBike(R.model, s, place, heading, now / 1000);
+  R.model.root.visible = !R.spectate;
   // gates drop at GO
   if (R.gateDown) for (const gg of w.gates) gg.rotation.z = Math.min(Math.PI / 2 * 0.95, gg.rotation.z + dt * 7);
   // other riders
-  drawOthers(now, place);
+  const leader = drawOthers(now, dt);
   // dust, roost and smoke
-  effects(s, dt, lane, lift);
-  updateCamera(s, dt, heading, speed, lane, lift);
+  if (!R.spectate) effects(s, dt, lane, lift);
+  if (R.spectate && leader) updateCamera(leader.snap, dt, w.headingAt(leader.snap.x), 20, leader.lane, w.bank(leader.snap.x, leader.lane));
+  else updateCamera(s, dt, heading, speed, lane, lift);
   w.update(R.model.root.position, dt, camera);
   if (R.audio) {
     R.audio.update(b, dt, { scrub: b.scrub, surface: C.surfaceAt(R.T, b.x) });
@@ -433,7 +437,7 @@ function hud(now) {
   $('#hud-nitro').style.width = `${Math.round(b.nitro * 100)}%`;
   $('#hud-nitro').parentNode.classList.toggle('on', b.boost);
   $('#hud-nitro').parentNode.classList.toggle('full', b.nitro >= 0.999);
-  $('#hud-sub').textContent = R.mode === 'online' && state.race ? `P${myPlace()} / ${Object.keys(state.race.runners).length}  ·  CP ${b.cp + 1}/${T.cps.length}` : `CHECKPOINT ${b.cp + 1} / ${T.cps.length}`;
+  $('#hud-sub').textContent = R.spectate ? 'WATCHING THE LEADER' : R.mode === 'online' && state.race ? `P${myPlace()} / ${Object.keys(state.race.runners).length}  ·  CP ${b.cp + 1}/${T.cps.length}` : `CHECKPOINT ${b.cp + 1} / ${T.cps.length}`;
   $('#hud-left').textContent = `${Math.max(0, Math.round(T.finish - b.x))} M LEFT`;
   // minimap: you and the others on the track's profile
   const cv = $('#hud-map'); const g = cv.getContext('2d');
@@ -481,8 +485,6 @@ function startSolo(def) {
 async function showMenu() {
   showScreen('menu');
   await loadUnlocks();
-  const bikes = (await Unlocks.load()).bikes || [];
-  const pick = myLivery();
   const camNames = { chase: '🎥 Chase', side: '📺 Side', close: '🎬 Close' };
   fill($('#menu'),
     h('div', { class: 'menu-head' }, h('div', { class: 'game-icon' }, '🏍️'), h('h1', { class: 'display' }, 'Motocross'),
@@ -496,17 +498,7 @@ async function showMenu() {
         h('div', { class: 'tc-best' }, best ? `Best: ${fmt(best.ms / 1000)}` : 'Not ridden yet'),
         h('div', { class: 'tc-medals' }, medalTimes(t).map((m, i) => `${MEDALS[i][0]} ${fmt(m)}`).join('  ')));
     })),
-    h('div', { class: 'panel mx-garage' },
-      h('div', { class: 'panel-title' }, '🏍️ Your bike', h('span', { class: 'count' }, `${bikes.filter((b) => unlocked.has(b.id)).length}/${bikes.length}`)),
-      h('div', { class: 'mx-liveries' }, bikes.map((b) => {
-        const lv = LIVERIES[b.id] || LIVERIES.factory; const have = unlocked.has(b.id);
-        return h('button', {
-          class: 'mx-livery' + (b.id === pick ? ' on' : '') + (have ? '' : ' locked'), title: have ? lv.name : `🔒 ${b.about || 'Locked'}`,
-          style: { '--c1': lv.plastic, '--c2': lv.accent },
-          onclick: () => { if (!have) { UI.toast(`🔒 ${lv.name}: ${b.about}`, '', 3500); return; } chooseLivery(b.id); },
-        }, h('i', {}), h('span', {}, have ? lv.name : '🔒'));
-      })),
-      h('p', { class: 'tiny faint' }, Account.user ? 'Level up and win races to unlock more paint jobs. Everyone online sees yours.' : 'Log in to unlock more paint jobs as you level up.')),
+    h('div', { class: 'panel mx-garage' }, liveryPicker(false)),
     h('div', { class: 'mx-opts' },
       h('label', {}, 'Camera ', h('select', { class: 'input', onchange: (e) => { prefs.cam = R.camMode = e.target.value; savePrefs(); } },
         Object.entries(camNames).map(([k, v]) => h('option', { value: k, selected: prefs.cam === k }, v)))),
@@ -517,6 +509,21 @@ async function showMenu() {
       h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { history.replaceState(null, '', location.pathname); showScreen('entry'); Lobby.showEntry(); } }, '👥 Race friends online')),
     h('p', { class: 'mx-keys' }, 'D / → gas · A / ← brake · W / ↑ lean back · S / ↓ lean forward · Space nitro · R back to checkpoint · C camera · M mute'));
   if (FX.list) FX.list($('#menu .tracks').children, { y: 24, stagger: 0.05, duration: 0.45, ease: 'back.out(1.5)' });
+}
+let bikeList = [];
+function liveryPicker(small) {
+  const pick = myLivery();
+  return h('div', {},
+    h('div', { class: 'panel-title' }, '🏍️ Your bike', h('span', { class: 'count' }, `${bikeList.filter((b) => unlocked.has(b.id)).length}/${bikeList.length}`)),
+    h('div', { class: 'mx-liveries' + (small ? ' small' : '') }, bikeList.map((b) => {
+      const lv = LIVERIES[b.id] || LIVERIES.factory; const have = unlocked.has(b.id);
+      return h('button', {
+        class: 'mx-livery' + (b.id === pick ? ' on' : '') + (have ? '' : ' locked'), title: have ? lv.name : `🔒 ${b.about || 'Locked'}`,
+        style: { '--c1': lv.plastic, '--c2': lv.accent },
+        onclick: () => { if (!have) { UI.toast(`🔒 ${lv.name}: ${b.about}`, '', 3500); return; } chooseLivery(b.id); },
+      }, h('i', {}), h('span', {}, have ? lv.name : '🔒'));
+    })),
+    h('p', { class: 'tiny faint' }, Account.user ? 'Level up, land flips and win races to unlock more paint jobs. Everyone online sees yours.' : 'Log in to unlock more paint jobs as you level up.'));
 }
 async function chooseLivery(id) {
   prefs.livery = id; savePrefs();
@@ -570,19 +577,217 @@ for (const btn of document.querySelectorAll('#mx-touch [data-k]')) {
 document.addEventListener('visibilitychange', () => { if (document.hidden) for (const k of Object.keys(keys)) keys[k] = false; });
 
 // ------------------------------------------------------------------ online races
-const state = { phase: 'lobby', settings: { track: 'desert' }, race: null, results: null, wins: {}, ready: {} };
-function myPlace() { return 1; }
-function drawBoard() {}
-function otherSounds() { return []; }
-function drawOthers() {}
-function addOtherModel() {}
-function sendPos() {}
-function onlineFinish() {}
-function renderRoomMain() {}
+const state = { phase: 'lobby', settings: { track: 'desert' }, race: null, results: null, wins: {}, ready: {}, min: 2 };
+const playerOf = (id) => (window.Room && Room.player(id)) || { name: '?', color: '#888888', avatar: '🏍️' };
+
+/** The room screen: results of the last race, the track (the host picks), ready-up and your bike. */
+function renderRoomMain() {
+  if (!DATA || !window.Room || !Room.code) return;
+  const host = Room.isHost;
+  const res = state.results;
+  const kids = [];
+  if (res && res.rows) {
+    const tr = trackDef(res.track);
+    kids.push(h('div', { class: 'panel-title' }, `🏁 Results · ${tr.emoji} ${tr.name}`),
+      h('div', { class: 'mx-results' }, res.rows.map((r) => h('div', { class: 'player-row' + (r.id === Net.id ? ' me' : '') },
+        h('b', { style: { width: '26px' } }, r.done ? ['🥇', '🥈', '🥉'][r.place - 1] || `#${r.place}` : '–'), UI.avatar(r, 'sm'),
+        h('span', { class: 'grow' }, r.name, r.flips ? h('span', { class: 'pmeta' }, ` · 🤸 ${r.flips}`) : null),
+        h('span', { class: 'pmeta' }, r.done ? fmt(r.time / 1000) : 'DNF')))),
+      h('div', { style: { height: '14px' } }));
+  }
+  const sel = state.settings.track;
+  kids.push(h('div', { class: 'panel-title' }, '🗺️ Track', !host ? h('span', { class: 'count' }, 'host picks') : null),
+    h('div', { class: 'tracks mx-room-tracks' },
+      [...DATA.tracks, { id: 'random', name: 'Surprise me', emoji: '🎲', about: 'A random track' }].map((t) => h('button', {
+        class: 'track-card' + (sel === t.id ? ' on' : ''), disabled: !host,
+        onclick: () => { Net.send('g:settings', { track: t.id }); Sfx.play('click'); },
+      }, h('div', { class: 'tc-top' }, h('span', { class: 'tc-e' }, t.emoji), h('b', {}, t.name)), h('div', { class: 'tc-about' }, t.about)))));
+  // ready-up
+  const riders = (Room.players || []).filter((p) => !p.watch && p.online !== false);
+  const readyCount = riders.filter((p) => state.ready[p.id]).length;
+  const meIn = riders.some((p) => p.id === Net.id);
+  const mine = !!state.ready[Net.id];
+  kids.push(h('div', { style: { height: '14px' } }),
+    h('div', { class: 'panel-title' }, '✋ Ready?', h('span', { class: 'count' }, `${readyCount}/${riders.length}`)),
+    h('div', { class: 'mx-ready' }, riders.map((p) => h('div', { class: 'player-row' + (p.id === Net.id ? ' me' : '') },
+      UI.avatar(p, 'sm'), h('span', { class: 'grow' }, p.name), h('b', {}, state.ready[p.id] ? '✅ Ready' : '⏳')))),
+    meIn ? h('button', { class: 'btn btn-lg btn-block ' + (mine ? 'btn-ghost' : 'btn-pink'), onclick: () => { Net.send('g:ready', { ready: !mine }); Sfx.play(mine ? 'click' : 'coin'); } },
+      mine ? '✋ Not ready' : '🏍️ I’m ready!') : h('p', { class: 'muted center' }, '👀 You’re watching this race.'),
+    h('p', { class: 'tiny faint', style: { marginTop: '10px', textAlign: 'center' } },
+      riders.length < state.min ? `You need at least ${state.min} riders. Invite a friend with the code!` : 'The race starts by itself when everyone is ready: 3, 2, 1… GO!'),
+    h('div', { style: { height: '10px' } }),
+    liveryPicker(true));
+  fill($('#room-main'), kids);
+}
+
+function startRace(race, countdown) {
+  state.race = race; state.phase = 'racing'; state.results = null;
+  const def = trackDef(race.track);
+  const me = race.runners[Net.id];
+  R.spectate = !me || me.done;
+  for (const o of R.others.values()) dropOther(o);
+  R.others.clear();
+  for (const id of Object.keys(race.runners)) {
+    if (id === Net.id) continue;
+    const p = playerOf(id);
+    R.others.set(id, { id, buf: [], x: race.runners[id].x || null, lane: 0, name: p.name, color: p.color || '#888888', livery: p.bike, model: null, tag: null, ang: [0, 0], done: race.runners[id].done });
+  }
+  begin(def, 'online', performance.now() + countdown * 1000);
+}
+function addOtherModel(o) {
+  if (!world) return;
+  dropOther(o);
+  o.lane = laneFor(o.id);
+  o.model = makeBike({ ghost: o.color });
+  world.scene.add(o.model.root);
+  o.tag = nameTag(o.name, o.color);
+  world.scene.add(o.tag);
+}
+function dropOther(o) {
+  if (o.model) { disposeBike(o.model); o.model = null; }
+  if (o.tag) { if (o.tag.parent) o.tag.parent.remove(o.tag); o.tag.material.map.dispose(); o.tag.material.dispose(); o.tag = null; }
+}
+function nameTag(name, color) {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 64;
+  const g = c.getContext('2d');
+  g.font = '700 30px Fredoka, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  const w = Math.min(250, g.measureText(name).width + 34);
+  g.fillStyle = 'rgba(10,12,20,.6)'; g.beginPath(); g.roundRect(128 - w / 2, 8, w, 48, 24); g.fill();
+  g.fillStyle = color; g.beginPath(); g.arc(128 - w / 2 + 20, 32, 7, 0, 7); g.fill();
+  g.fillStyle = '#fff'; g.fillText(name, 128 + 8, 33);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false, depthTest: false }));
+  sp.scale.set(2.4, 0.6, 1); sp.renderOrder = 5;
+  return sp;
+}
+
+/** Another rider's position message -> a snapshot poseBike understands. */
+function otherSnap(m, o) {
+  const P = C.P; const ca = Math.cos(m.a); const sa = Math.sin(m.a);
+  const wheel = (k, c, ang) => { const S = P.SUS[k]; const lx = S.p[0] + S.u[0] * c; const ly = S.p[1] + S.u[1] * c; return [m.x + ca * lx - sa * ly, m.y + sa * lx + ca * ly, ang]; };
+  return {
+    x: m.x, y: m.y, a: m.a, wf: wheel(0, m.c0, o.ang[0]), wr: wheel(1, m.c1, o.ang[1]), rx: m.x + m.rx, ry: m.y + m.ry, lean: m.l,
+    boost: !!m.b, crashed: m.k, ragdoll: m.rg ? { hip: { x: m.rg[0], y: m.rg[1] }, head: { x: m.rg[2], y: m.rg[3] } } : null,
+  };
+}
+const DELAY = 130;   // draw the others a moment in the past, so there are always two messages to blend between
+function sampleOther(o, now) {
+  const buf = o.buf; if (!buf.length) return null;
+  const t = now - DELAY;
+  let i = buf.length - 1;
+  while (i > 0 && buf[i - 1].at > t) i--;
+  const b = buf[i]; const a = buf[Math.max(0, i - 1)];
+  if (a === b || b.at <= a.at) return b;
+  const k = Math.max(0, Math.min(1.2, (t - a.at) / (b.at - a.at)));
+  const L = (p, q) => p + (q - p) * k;
+  const out = { ...b };
+  for (const f of ['x', 'y', 'rx', 'ry', 'c0', 'c1', 'l', 's']) out[f] = L(a[f], b[f]);
+  out.a = lerpA(a.a, b.a, k);
+  return out;
+}
+function drawOthers(now, dt) {
+  if (R.mode !== 'online' || !world) return null;
+  let leader = null;
+  for (const o of R.others.values()) {
+    if (!o.model) continue;
+    const m = sampleOther(o, now);
+    o.model.root.visible = !!m; if (o.tag) o.tag.visible = !!m;
+    if (!m) continue;
+    o.ang[0] += (m.s / 3.6 / 0.35) * dt; o.ang[1] += (m.s / 3.6 / 0.34) * dt;
+    const s = otherSnap(m, o);
+    const lift = world.bank(s.x, o.lane);
+    poseBike(o.model, s, (x, y, out) => world.place(x, y + lift, o.lane, out), world.headingAt(s.x), now / 1000);
+    o.tag.position.copy(o.model.root.position).add(tmpV.set(0, 2.1, 0));
+    o.snap = s;
+    if (!leader || s.x > leader.snap.x) leader = o;
+  }
+  return leader;
+}
+function sendPos(force) {
+  const b = R.bike;
+  if (!b || R.spectate || (R.finished && !force) || !state.race) return;
+  R.sentAt = performance.now();
+  const r2 = (v) => Math.round(v * 1000) / 1000;
+  const msg = { x: r2(b.x), y: r2(b.y), a: r2(b.a), rx: r2(b.rx - b.x), ry: r2(b.ry - b.y), c0: r2(b.wh[0].c), c1: r2(b.wh[1].c), l: r2(b.lean),
+    s: Math.round(Math.hypot(b.vx, b.vy) * 36) / 10, r: Math.round(b.rpm), th: r2(b.thr), k: b.crashed ? 1 : 0, b: b.boost ? 1 : 0, cp: b.cp };
+  if (b.crashed && b.rider) msg.rg = [r2(b.rider.hip.x), r2(b.rider.hip.y), r2(b.rider.head.x), r2(b.rider.head.y)];
+  Net.send('g:pos', msg);
+}
+function standings() {
+  if (!state.race) return [];
+  return Object.entries(state.race.runners).map(([id, r]) => {
+    const x = id === Net.id && R.bike ? R.bike.x : (R.others.get(id) || {}).x ?? r.x;
+    return { id, done: r.done, place: r.place, x: x || 0 };
+  }).sort((p, q) => (p.done !== q.done ? (p.done ? -1 : 1) : p.done ? p.place - q.place : q.x - p.x));
+}
+function myPlace() { return Math.max(1, standings().findIndex((r) => r.id === Net.id) + 1); }
+function drawBoard() {
+  const rows = standings().slice(0, 6);
+  fill($('#hud-board'), rows.map((r, i) => {
+    const p = playerOf(r.id);
+    return h('div', { class: r.id === Net.id ? 'me' : '' }, h('i', { style: { background: p.color || '#888' } }), `${i + 1}. ${p.name}`, r.done ? ' 🏁' : '');
+  }));
+}
+function otherSounds(b) {
+  return [...R.others.values()].filter((o) => o.buf.length && o.model).map((o) => {
+    const m = o.buf[o.buf.length - 1];
+    return { id: o.id, rpm: m.r, thr: m.th, dist: m.x - b.x, lane: o.lane - R.lane };
+  }).sort((p, q) => Math.abs(p.dist) - Math.abs(q.dist));
+}
+function onlineFinish(t) {
+  const b = R.bike;
+  Net.send('g:finish', { time: Math.round(t * 1000), cp: b.cp, crashes: b.crashes, flips: b.flips });
+  fill($('#hud-center'), h('div', { class: 'mx-card' }, h('h2', {}, '🏁 Finished!'), h('div', { class: 'mx-big' }, fmt(t)), h('p', { class: 'muted' }, 'Waiting for the others…')));
+}
+
+Lobby.on('joined', (m) => {
+  Object.assign(state, m.state);
+  if (state.phase === 'racing' && state.race) startRace(state.race, Math.max(0, -state.race.elapsed));
+  else { showScreen('room'); renderRoomMain(); }
+});
+Lobby.on('players', () => { if (!$('#room').classList.contains('hidden')) renderRoomMain(); });
+Lobby.on('left', () => { stopRide(); });
+Lobby.on('entry', () => { for (const s of ['menu', 'room']) $('#' + s).classList.add('hidden'); $('#ride').classList.add('hidden'); stopRide(); });
+Net.on('g:lobby', (m) => {
+  state.settings = m.settings; state.ready = m.ready || {}; if (m.phase !== 'racing') state.phase = m.phase;
+  if (!$('#room').classList.contains('hidden')) renderRoomMain();
+  Lobby.refreshPlayers();
+});
+Net.on('g:start', (m) => { startRace(m.race, m.countdown); });
+Net.on('g:pos', (m) => {
+  if (R.mode !== 'online') return;
+  const o = R.others.get(m.id); if (!o) return;
+  m.at = performance.now();
+  o.buf.push(m); if (o.buf.length > 14) o.buf.shift();
+  o.x = m.x;
+});
+Net.on('g:finish', (m) => {
+  if (state.race && state.race.runners[m.id]) Object.assign(state.race.runners[m.id], { done: true, place: m.place, time: m.time });
+  const o = R.others.get(m.id); if (o) o.done = true;
+  if (m.id === Net.id) {
+    const nth = m.place === 1 ? '🥇 You won!' : `🏁 ${m.place === 2 ? '2nd' : m.place === 3 ? '3rd' : m.place + 'th'} place`;
+    if (m.place === 1) UI.confetti(220);
+    fill($('#hud-center'), h('div', { class: 'mx-card' }, h('h2', {}, nth), h('div', { class: 'mx-big' }, fmt(m.time / 1000)), h('p', { class: 'muted' }, 'Waiting for the others…')));
+  } else UI.toast(`🏁 ${playerOf(m.id).name} finished ${m.place === 1 ? 'first!' : `#${m.place}`}`, m.place === 1 ? 'good' : '', 2200);
+});
+Net.on('g:hurry', (m) => { if (R.running && !R.finished && !R.spectate) showMessage(`Someone finished! ${m.seconds}s left`, 'bad', 3000); });
+Net.on('g:toast', (m) => UI.toast(m.text, 'bad', 3500));
+Net.on('g:results', (m) => {
+  state.results = m.results; state.wins = m.wins || {}; state.phase = 'results';
+  const riding = !$('#ride').classList.contains('hidden') && R.mode === 'online';
+  if (riding) {
+    const rows = m.results.rows;
+    fill($('#hud-center'), h('div', { class: 'mx-card' }, h('h2', {}, '🏁 Results'),
+      h('div', { class: 'rows' }, rows.slice(0, 6).map((r) => h('div', {}, h('span', {}, r.done ? ['🥇', '🥈', '🥉'][r.place - 1] || `#${r.place}` : '–'), h('span', { class: 'grow' }, r.name), h('b', {}, r.done ? fmt(r.time / 1000) : 'DNF'))))));
+  }
+  const ride = R.ride;
+  setTimeout(() => { if (state.phase === 'results' && R.ride === ride) { showScreen('room'); renderRoomMain(); Lobby.refreshPlayers(); } }, riding ? 4500 : 100);
+});
 
 // ------------------------------------------------------------------ start
 async function init() {
   try { DATA = await (await fetch('/js/games/moto/tracks.json')).json(); } catch { UI.toast('Couldn’t load the tracks 😵', 'bad'); return; }
+  loadUnlocks();
   window.Lobby.init({
     game: 'moto', title: 'Motocross', emoji: '🏍️',
     tagline: 'Realistic 3D dirt bikes! Huge jumps, flips for nitro, and races against your friends.',
@@ -590,7 +795,7 @@ async function init() {
     howTo: '<b>How to ride</b><ul><li><b>D / →</b> gas, <b>A / ←</b> brake.</li><li><b>W / ↑</b> lean back, <b>S / ↓</b> lean forward: in the air that spins the bike, so match the slope you land on!</li><li>Land on your head or upside down and you crash: back to the last checkpoint.</li><li>Clean landings and flips fill your <b>nitro</b>. Hold <b>Space</b> to use it.</li></ul>',
   });
   Lobby.renderCode($('#room-code'));
-  Lobby.renderPlayers($('#room-players'));
+  Lobby.renderPlayers($('#room-players'), { extra: (p) => [state.ready[p.id] && state.phase !== 'racing' ? h('span', { title: 'Ready' }, '✅') : null, state.wins[p.id] ? h('span', { title: 'Wins' }, `🏆${state.wins[p.id]}`) : null] });
   Lobby.ChatBox($('#room-chat'));
   const qs = new URLSearchParams(location.search);
   if (qs.get('solo')) {
