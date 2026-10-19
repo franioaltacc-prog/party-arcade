@@ -85,6 +85,16 @@ class Moto(Game):
         elif t == "finish" and self.phase == "racing":
             self.finish(m, msg)
 
+    def restart(self, host):
+        """The room voted "play again": that counts as everyone readying up, so the next race starts."""
+        if self.phase not in ("lobby", "results"):
+            return
+        for u in self.riders():
+            self.ready[u.uid] = True
+        self.push_lobby()
+        if not self.maybe_start():
+            host.send("error", msg=self.not_ready_reason())
+
     def riders(self):
         return [u for u in self.room.players_now() if u.online]
 

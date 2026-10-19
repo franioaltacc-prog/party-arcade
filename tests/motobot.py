@@ -128,6 +128,11 @@ async def main():
     # after the race: ready again for the next one
     lob = [m for m in getattr(b, "pushed", []) + b.drain() if m["t"] == "g:lobby"]
     check(lob and lob[-1]["phase"] == "results" and not any(lob[-1]["ready"].values()), "after the race everyone readies up again")
+    # everyone voting "play again" starts the next race
+    a.send({"t": "room:vote", "choice": "again"}); b.send({"t": "room:vote", "choice": "again"})
+    st2 = await a.wait("g:start")
+    check(st2["race"]["track"] == "desert" and set(st2["race"]["runners"]) == {a.uid, b.uid}, "voting “play again” starts the next race")
+    a.send({"t": "g:stop"}); await a.wait("g:results")
     a.send({"t": "room:leave"}); b.send({"t": "room:leave"}); await asyncio.sleep(0.2)
     print("FAILED:", check.failed)
 
