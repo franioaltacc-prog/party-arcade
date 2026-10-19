@@ -20,8 +20,14 @@
         '🏔️ Snow Ridge: packed snow and icy patches at dusk, with lamp posts and huge jumps',
         'Medal times, your best time per track and a leaderboard for every track',
       ]],
+      ['🎮 Everything inside the game', [
+        'Like Cork7, the menus sit right on top of the 3D track: pick solo or online, see your rider licence, choose a track and go',
+        'The online room is in the game too: your friends’ bikes line up next to yours in the start gate, with the riders, the track, the Ready button and chat around them',
+        'A garage that shows every paint job on your 3D bike (even locked ones, with how to unlock them), plus leaderboards and controls without leaving the game',
+      ]],
       ['👥 Online races', [
         'Rooms for 2–6 riders: the host picks the track, everyone presses Ready, then 3, 2, 1… the gate drops!',
+        'Everyone votes “play again”? The next race starts right away',
         'See the others as see-through bikes in their colours, with live positions as you race',
         'Wins, podiums, flips and best times go on your profile',
       ]],

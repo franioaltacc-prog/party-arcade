@@ -1,10 +1,11 @@
-/* Motocross: the game page — menus, the ride (input, camera, HUD, effects), solo time trials and
-   online races. The physics is in core.js, the 3D bike in bike.js, the world in world.js and the
-   sound in sound.js. */
+/* Motocross: the game page — the 3D scene behind the menus, the ride (input, camera, HUD, effects),
+   solo time trials and online races. The menus are in menus.js, the physics in core.js, the 3D bike
+   in bike.js, the world in world.js and the sound in sound.js. */
 import * as THREE from 'three';
 import { buildWorld } from './world.js';
 import { makeBike, poseBike, disposeBike, LIVERIES } from './bike.js';
 import { createAudio } from './sound.js';
+import { createMenus } from './menus.js';
 
 const { $, h, fill, Net, Sfx, UI, store, Account, Unlocks } = PA;
 const FX = PA.FX || {};
@@ -16,7 +17,7 @@ let DATA = null;
 const builtTracks = new Map();
 const trackDef = (id) => DATA.tracks.find((t) => t.id === id) || DATA.tracks[0];
 const physicsTrack = (def) => { if (!builtTracks.has(def.id)) builtTracks.set(def.id, C.build(def)); return builtTracks.get(def.id); };
-const prefs = Object.assign({ cam: 'chase', quality: 'auto', livery: 'factory' }, store.get('moto_prefs', {}));
+const prefs = Object.assign({ cam: 'chase', quality: 'auto', livery: 'factory', mode: 'solo', track: 'desert' }, store.get('moto_prefs', {}));
 const savePrefs = () => store.set('moto_prefs', prefs);
 const bestOf = (id) => store.get('moto_best_' + id, null);
 // medals: how close you get to the robot's time
@@ -34,6 +35,7 @@ const QUALITY = { high: { pr: 2, scenery: 1, shadows: true }, medium: { pr: 1.4,
 
 // what the player has unlocked (bike paint jobs)
 let unlocked = new Set(['factory']);
+let bikeList = []; const bikeHints = {};
 async function loadUnlocks() {
   try {
     const d = await Unlocks.load();
@@ -81,7 +83,10 @@ addEventListener('resize', resize);
 function loadWorld(def) {
   const key = def.id + ':' + qualityLevel();
   if (worldKey === key && world) return world;
-  if (world) { world.dispose(); world = null; }
+  if (world) {
+    for (const sb of stage.bikes.values()) { sb.model.root.removeFromParent(); if (sb.tag) sb.tag.removeFromParent(); }   // (they move to the new world)
+    world.dispose(); world = null;
+  }
   const q = QUALITY[qualityLevel()];
   world = buildWorld(renderer, physicsTrack(def), { quality: q.scenery });
   renderer.shadowMap.enabled = q.shadows;
@@ -143,13 +148,14 @@ function controls() {
 function begin(def, mode, goAt) {
   if (!setupRenderer()) return false;
   stopRide();
-  showScreen('ride');
+  setRiding(true);
   R.mode = mode; R.def = def; R.T = physicsTrack(def); R.ride = (R.ride || 0) + 1;
   if (mode === 'solo') { R.spectate = false; for (const o of R.others.values()) dropOther(o); R.others.clear(); }
   fill($('#hud-center'), h('div', { class: 'mx-loading' }, h('div', { class: 'mx-spin' }), 'Building the track…'));
   resize();
   // let the loading message show before the (slow) world build
   setTimeout(() => {
+    if (!riding) return;   // (back to the menu already)
     loadWorld(def);
     R.lane = mode === 'online' ? laneFor(Net.id) : 0;   // (your slot in the start gate)
     R.bike = C.newBike(R.T, R.T.start, R.lane);
@@ -177,11 +183,11 @@ function stopRide() {
   if (R.audio) { R.audio.stop(); R.audio = null; }
   for (const k of Object.keys(touch)) touch[k] = false;
 }
+const LANES = [0, -1.15, 1.15, -2.3, 2.3, -3.45, 3.45];   // the start gate's slots
 const laneFor = (id) => {
   const ids = state.race ? Object.keys(state.race.runners).sort() : [id];
   const i = Math.max(0, ids.indexOf(id));
-  const lanes = [0, -1.15, 1.15, -2.3, 2.3, -3.45, 3.45];   // the start gate's slots
-  return lanes[i % lanes.length];
+  return LANES[i % LANES.length];
 };
 
 function frame(now) {
@@ -334,7 +340,7 @@ function render(now, dt, alpha) {
 }
 
 /** The ground height under a point in the world (near the track). */
-function groundUnder(x, z, hint) { const L = C.locate(R.T, x, z, hint); return C.heightAt(R.T, L.s, L.u); }
+function groundUnder(x, z, hint, T = R.T) { const L = C.locate(T, x, z, hint); return C.heightAt(T, L.s, L.u); }
 
 function updateCamera(s, dt, speed, place) {
   const cam = R.cam;
@@ -469,7 +475,7 @@ function hud(now) {
   if (R.mode === 'online') drawBoard();
 }
 
-// ------------------------------------------------------------------ solo: finishing and the menu
+// ------------------------------------------------------------------ solo: finishing a time trial
 function soloFinish(t) {
   const def = R.def; const b = R.bike;
   const ms = Math.round(t * 1000);
@@ -481,8 +487,9 @@ function soloFinish(t) {
   Account.submit(`moto-${def.id}`, ms, { flips: b.flips });
   const i = DATA.tracks.indexOf(def); const next = DATA.tracks[i + 1];
   const ride = R.ride;
+  const btn = (label, onClick, key) => h('button', { class: 'mx-go slim', type: 'button', onclick: onClick }, h('b', {}, label), key ? h('span', { class: 'mx-key' }, key) : null);
   setTimeout(() => {
-    if (R.ride !== ride || $('#ride').classList.contains('hidden')) return;
+    if (R.ride !== ride || !riding) return;
     fill($('#hud-center'), h('div', { class: 'mx-card' },
       h('div', { class: 'mx-medal' }, medal >= 0 ? MEDALS[medal][0] : '🏁'),
       h('h2', {}, medal >= 0 ? `${MEDALS[medal][1]} medal!` : 'Finished!'),
@@ -492,106 +499,207 @@ function soloFinish(t) {
         h('span', {}, `🤸 ${b.flips} flip${b.flips === 1 ? '' : 's'}`), h('span', {}, `💥 ${b.crashes} crash${b.crashes === 1 ? '' : 'es'}`), h('span', {}, `💨 ${Math.round(b.maxSpeed * 3.6)} km/h top`)),
       medal !== 0 ? h('p', { class: 'small muted' }, `Next: ${MEDALS[Math.max(0, (medal < 0 ? 3 : medal) - 1)][0]} ${fmt(medalTimes(def)[Math.max(0, (medal < 0 ? 3 : medal) - 1)])}`) : null,
       h('div', { class: 'btns' },
-        h('button', { class: 'btn btn-pink', onclick: () => startSolo(def) }, '🔁 Again (Enter)'),
-        next ? h('button', { class: 'btn btn-cyan', onclick: () => startSolo(next) }, `${next.emoji} Next track`) : null,
-        h('button', { class: 'btn btn-ghost', onclick: () => { stopRide(); showMenu(); } }, '🗺️ Tracks'))));
+        btn('🔁 Again', () => startSolo(def), 'ENTER'),
+        h('div', { class: 'row' }, next ? btn(`${next.emoji} Next track`, () => startSolo(next)) : null, btn('Menu', quit, 'ESC')))));
   }, 900);
 }
 function startSolo(def) {
   if (begin(def, 'solo', performance.now() + 3200)) {
+    prefs.track = def.id; savePrefs();
     const url = new URL(location.href); url.searchParams.set('solo', '1'); url.searchParams.set('track', def.id); history.replaceState(null, '', url);
   }
-}
-
-async function showMenu() {
-  showScreen('menu');
-  await loadUnlocks();
-  const camNames = { chase: '🎥 Chase', side: '📺 Side', close: '🎬 Close' };
-  fill($('#menu'),
-    h('div', { class: 'menu-head' }, h('div', { class: 'game-icon' }, '🏍️'), h('h1', { class: 'display' }, 'Motocross'),
-      h('p', { class: 'muted' }, 'Pick a track and ride! WASD to ride and steer, Q/E to lean in the air, flips for nitro, and beat the medal times. Your best times go on the leaderboards.')),
-    h('div', { class: 'tracks' }, DATA.tracks.map((t) => {
-      const best = bestOf(t.id);
-      const medal = best ? medalFor(t, best.ms / 1000) : -1;
-      return h('button', { class: 'track-card mx-tc mx-' + t.theme, onclick: () => startSolo(t) },
-        h('div', { class: 'tc-top' }, h('span', { class: 'tc-e' }, t.emoji), h('b', {}, t.name), h('span', { style: { marginLeft: 'auto', fontSize: '1.4rem' } }, medal >= 0 ? MEDALS[medal][0] : '')),
-        h('div', { class: 'tc-about' }, t.about),
-        h('div', { class: 'tc-best' }, best ? `Best: ${fmt(best.ms / 1000)}` : 'Not ridden yet'),
-        h('div', { class: 'tc-medals' }, medalTimes(t).map((m, i) => `${MEDALS[i][0]} ${fmt(m)}`).join('  ')));
-    })),
-    h('div', { class: 'panel mx-garage' }, liveryPicker(false)),
-    h('div', { class: 'mx-opts' },
-      h('label', {}, 'Camera ', h('select', { class: 'input', onchange: (e) => { prefs.cam = R.camMode = e.target.value; savePrefs(); } },
-        Object.entries(camNames).map(([k, v]) => h('option', { value: k, selected: prefs.cam === k }, v)))),
-      h('label', {}, 'Graphics ', h('select', { class: 'input', onchange: (e) => { prefs.quality = e.target.value; savePrefs(); worldKey = null; } },
-        [['auto', 'Auto'], ['high', 'High'], ['medium', 'Medium'], ['low', 'Low (faster)']].map(([k, v]) => h('option', { value: k, selected: prefs.quality === k }, v))))),
-    h('div', { class: 'center', style: { marginTop: '16px', gap: '8px', flexWrap: 'wrap' } },
-      h('a', { class: 'btn btn-ghost btn-sm', href: '/leaderboards' }, '🏆 Leaderboards'),
-      h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { history.replaceState(null, '', location.pathname); showScreen('entry'); Lobby.showEntry(); } }, '👥 Race friends online')),
-    h('p', { class: 'mx-keys' }, 'W / ↑ gas · S / ↓ brake (hold to back up) · A D / ← → steer · Q lean back · E lean forward · Space nitro · R back to checkpoint · C camera · M mute'));
-  if (FX.list) FX.list($('#menu .tracks').children, { y: 24, stagger: 0.05, duration: 0.45, ease: 'back.out(1.5)' });
-}
-let bikeList = []; const bikeHints = {};
-function liveryPicker(small) {
-  const pick = myLivery();
-  return h('div', {},
-    h('div', { class: 'panel-title' }, '🏍️ Your bike', h('span', { class: 'count' }, `${bikeList.filter((b) => unlocked.has(b.id)).length}/${bikeList.length}`)),
-    h('div', { class: 'mx-liveries' + (small ? ' small' : '') }, bikeList.map((b) => {
-      const lv = LIVERIES[b.id] || LIVERIES.factory; const have = unlocked.has(b.id); const hint = bikeHints[b.id] || 'Locked';
-      return h('button', {
-        class: 'mx-livery' + (b.id === pick ? ' on' : '') + (have ? '' : ' locked'), title: have ? lv.name : `🔒 ${lv.name}: ${hint}`,
-        style: { '--c1': b.colors ? b.colors[0] : lv.plastic, '--c2': b.colors ? b.colors[1] : lv.accent },
-        onclick: () => { if (!have) { UI.toast(`🔒 ${lv.name}: ${hint}`, '', 3500); return; } chooseLivery(b.id); },
-      }, h('i', {}), h('span', {}, have ? lv.name : '🔒'));
-    })),
-    h('p', { class: 'tiny faint' }, Account.user ? 'Level up, land flips and win races to unlock more paint jobs. Everyone online sees yours.' : 'Log in to unlock more paint jobs as you level up.'));
 }
 async function chooseLivery(id) {
   prefs.livery = id; savePrefs();
   if (Account.user) { try { await Account.wear({ bike: id }); } catch (e) { UI.toast(e.message || 'Couldn’t save that', 'bad'); } }
   Sfx.play('coin');
-  if (R.mode !== 'online') showMenu(); else renderRoomMain();
+  menus.refresh();
 }
 
-// ------------------------------------------------------------------ screens and buttons
-function showScreen(name) {
-  for (const s of ['entry', 'room', 'menu']) $('#' + s).classList.toggle('hidden', s !== name);
-  $('#ride').classList.toggle('hidden', name !== 'ride');
-  document.body.classList.toggle('mx-riding', name === 'ride');
-  if (name !== 'ride') { stopRide(); fill($('#hud-center')); }
-  if (name !== 'ride') scrollTo({ top: 0 });
+// ------------------------------------------------------------------ the 3D scene behind the menus
+/* While the menus are up, the track you picked is drawn behind them: your bike (or everyone's in a room)
+   parked in the start gate and a slow camera drifting round it, like a game's title screen. */
+const app = $('#mx');
+const chatEl = h('div', { class: 'mx-glass mx-chat' });   // (made once, so the chat keeps its messages)
+let riding = false;
+let menus = null;
+const stage = { shot: 'home', list: [], bikes: new Map(), trackId: null, cam: { pos: new THREE.Vector3(), look: new THREE.Vector3(), init: false }, off: 0, last: 0, raf: 0, timer: null };
+// where the camera sits for each menu: distance, height, angle from the bike's heading (0 = in front, π/2 = beside),
+// how far it drifts and how fast, and how far the bikes are pushed right (to make room for the menus)
+const SHOTS = {
+  home: { r: 6.6, y: 1.9, ang: 0.95, swing: 0.45, speed: 0.07, look: 0.75, off: 0.2, fov: 46 },
+  tracks: { r: 9, y: 3, ang: 1.15, swing: 0.5, speed: 0.06, look: 0.9, off: 0.2, fov: 50 },
+  garage: { r: 4.3, y: 1.1, ang: 1.5, swing: 0.32, speed: 0.12, look: 0.72, off: 0.19, fov: 42 },
+  room: { r: 10.5, y: 3.2, ang: 0.62, swing: 0.3, speed: 0.05, look: 0.8, off: 0.03, fov: 50 },
+};
+
+/** Switch between the menus and the ride. */
+function setRiding(on) {
+  riding = on;
+  app.classList.toggle('riding', on);
+  if (on) {
+    if (camera) camera.clearViewOffset();
+    for (const sb of stage.bikes.values()) { sb.model.root.visible = false; if (sb.tag) sb.tag.visible = false; }
+    return;
+  }
+  stopRide();
+  fill($('#hud-center'));
+  stage.cam.init = false;
+  placeStage();
+  stageStart();
 }
+
+/** Show this track behind the menus (building it takes a moment, so there's a little "building" note). */
+function stageTrack(id) {
+  if (!renderer || !DATA) return;
+  const def = trackDef(id);
+  stage.trackId = def.id;
+  if (world && worldKey === def.id + ':' + qualityLevel()) { placeStage(); stageStart(); return; }
+  $('#mx-load').classList.add('on');
+  clearTimeout(stage.timer);
+  stage.timer = setTimeout(() => {
+    $('#mx-load').classList.remove('on');
+    if (riding) return;
+    loadWorld(trackDef(stage.trackId));
+    stage.cam.init = false;
+    placeStage();
+    stageStart();
+  }, 60);
+}
+/** Menus with just you: your bike (or the paint job you're looking at in the garage). */
+function stageSolo(livery, screen) {
+  stage.shot = SHOTS[screen] ? screen : 'home';
+  stage.list = [{ id: 'me', livery: livery || myLivery() }];
+  stageTrack(prefs.track);
+}
+/** In a room: everyone's bike in the start gate, with name tags (✔ = ready). */
+function stageRoom() {
+  stage.shot = 'room';
+  const riders = (Room.players || []).filter((p) => !p.watch && p.online !== false).sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  stage.list = riders.map((p) => ({ id: p.id, livery: p.id === Net.id ? myLivery() : LIVERIES[p.bike] ? p.bike : 'factory', name: p.name, color: p.color,
+    ready: !!state.ready[p.id] && state.phase !== 'racing' }));
+  const t = state.settings.track;
+  stageTrack(t === 'random' || !DATA.tracks.some((x) => x.id === t) ? (worldKey ? worldKey.split(':')[0] : prefs.track) : t);
+}
+function dropTag(sb) { if (sb.tag) { sb.tag.removeFromParent(); sb.tag.material.map.dispose(); sb.tag.material.dispose(); sb.tag = null; } }
+/** Park the bikes in the start gate. */
+function placeStage() {
+  if (!world || riding) return;
+  const T = world.T;
+  // (what's left over from the last ride goes)
+  if (R.model) R.model.root.visible = false;
+  for (const o of R.others.values()) { if (o.model) o.model.root.visible = false; if (o.tag) o.tag.visible = false; }
+  for (const gg of world.gates) gg.rotation.z = 0;
+  const keep = new Set();
+  stage.list.slice(0, LANES.length).forEach((e, i) => {
+    keep.add(e.id);
+    let sb = stage.bikes.get(e.id);
+    if (!sb) { sb = { id: e.id, model: null, tag: null, tagKey: '' }; stage.bikes.set(e.id, sb); }
+    if (sb.model && sb.livery !== e.livery) { disposeBike(sb.model); sb.model = null; }
+    if (!sb.model) { sb.model = makeBike({ livery: e.livery }); sb.livery = e.livery; }
+    if (sb.model.root.parent !== world.scene) world.scene.add(sb.model.root);
+    sb.model.root.visible = true;
+    const b = C.newBike(T, T.start, stage.list.length > 1 ? LANES[i] : 0);
+    const sn = snap(b);
+    poseBike(sb.model, sn, placer(sn), sn.h, 0);
+    const tagKey = e.name ? `${e.ready ? '✔ ' : ''}${e.name}|${e.color}` : '';
+    if (sb.tagKey !== tagKey) {
+      dropTag(sb); sb.tagKey = tagKey;
+      if (tagKey) { sb.tag = nameTag((e.ready ? '✔ ' : '') + e.name, e.color || '#888888'); sb.tag.scale.multiplyScalar(0.75); }
+    }
+    if (sb.tag) {
+      if (sb.tag.parent !== world.scene) world.scene.add(sb.tag);
+      sb.tag.visible = true;
+      sb.tag.position.copy(sb.model.root.position).add(tmpV.set(0, i % 2 ? 2.55 : 2.1, 0));   // (every other one higher, so neighbours' tags don't overlap)
+    }
+  });
+  for (const [id, sb] of stage.bikes) if (!keep.has(id)) { disposeBike(sb.model); dropTag(sb); stage.bikes.delete(id); }
+}
+function stageStart() {
+  if (stage.raf || riding || !renderer) return;
+  stage.last = performance.now();
+  stage.raf = requestAnimationFrame(stageLoop);
+}
+function stageLoop(now) {
+  stage.raf = 0;
+  if (riding) return;
+  stage.raf = requestAnimationFrame(stageLoop);
+  const dt = Math.min(0.1, (now - stage.last) / 1000); stage.last = now;
+  if (world && !document.hidden) stageFrame(now, dt);
+}
+const focusV = new THREE.Vector3(); const wantV = new THREE.Vector3(); const lookV = new THREE.Vector3();
+function stageFrame(now, dt) {
+  const T = world.T; const sh = SHOTS[stage.shot] || SHOTS.home;
+  // look at the middle of the parked bikes
+  focusV.set(0, 0, 0); let n = 0;
+  for (const sb of stage.bikes.values()) if (sb.model.root.visible) { focusV.add(sb.model.root.position); n++; }
+  if (n) focusV.divideScalar(n); else { const p = C.pathAt(T, T.start); focusV.set(p.x, C.heightAt(T, T.start, 0), p.z); }
+  focusV.y += sh.look;
+  const heading = C.pathAt(T, T.start).h;
+  const ang = heading + sh.ang + Math.sin(now / 1000 * sh.speed) * sh.swing;
+  wantV.set(focusV.x + Math.cos(ang) * sh.r, focusV.y + sh.y, focusV.z + Math.sin(ang) * sh.r);
+  wantV.y = Math.max(wantV.y, groundUnder(wantV.x, wantV.z, T.start, T) + 0.9);
+  const cam = stage.cam;
+  if (!cam.init) { cam.pos.copy(wantV); cam.look.copy(focusV); cam.init = true; camera.fov = sh.fov; }
+  cam.pos.lerp(wantV, 1 - Math.exp(-dt * 1.8)); cam.look.lerp(focusV, 1 - Math.exp(-dt * 2.6));
+  camera.position.copy(cam.pos); camera.lookAt(cam.look);
+  camera.fov += (sh.fov - camera.fov) * (1 - Math.exp(-dt * 2.5));
+  // push the bikes right on a wide screen, so the menus on the left don't hide them
+  const W = canvas.clientWidth || innerWidth; const H = canvas.clientHeight || innerHeight;
+  const want = W > 760 ? W * sh.off : 0;
+  stage.off += (want - stage.off) * (1 - Math.exp(-dt * 3));
+  if (Math.abs(stage.off) > 0.5) camera.setViewOffset(W, H, -stage.off, 0, W, H); else { camera.clearViewOffset(); camera.updateProjectionMatrix(); }
+  world.update(focusV, dt, camera);
+  renderer.render(world.scene, camera);
+}
+
+// ------------------------------------------------------------------ buttons and keys
 function quit() {
-  if (R.mode === 'online') { stopRide(); showScreen('room'); renderRoomMain(); } else { stopRide(); showMenu(); }
+  if (R.mode === 'online' && window.Room && Room.code) { setRiding(false); menus.show('room'); return; }
+  setRiding(false);
+  menus.show('tracks');
+  const url = new URL(location.href); url.searchParams.delete('track'); history.replaceState(null, '', url);
 }
 $('#mx-quit').addEventListener('click', quit);
-$('#mx-full').addEventListener('click', () => {
+// (the whole page goes full screen, not just the game, so pop-ups like signing in still show)
+const fullScreen = () => {
+  const root = document.documentElement;
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-  else if ($('#ride').requestFullscreen) $('#ride').requestFullscreen().catch(() => {});
-});
+  else if (root.requestFullscreen) root.requestFullscreen().catch(() => {});
+};
+$('#mx-full').addEventListener('click', fullScreen);
+$('#mx-fs').addEventListener('click', fullScreen);
 const muteBtn = $('#mx-mute');
-const showMute = () => { muteBtn.textContent = Sfx.muted ? '🔇' : '🔊'; };
-muteBtn.addEventListener('click', () => { Sfx.setMuted(!Sfx.muted); showMute(); });
+const showMute = () => { muteBtn.textContent = $('#mx-snd').textContent = Sfx.muted ? '🔇' : '🔊'; };
+muteBtn.addEventListener('click', () => Sfx.setMuted(!Sfx.muted));
+$('#mx-snd').addEventListener('click', () => Sfx.setMuted(!Sfx.muted));
+PA.on('muted', () => { showMute(); if (menus && menus.screen === 'controls') menus.refresh(); });
 showMute();
 const camBtn = $('#mx-cam');
 const CAMS = ['chase', 'side', 'close'];
 camBtn.addEventListener('click', () => { R.camMode = CAMS[(CAMS.indexOf(R.camMode) + 1) % CAMS.length]; prefs.cam = R.camMode; savePrefs(); R.cam.init = false; showMessage(`${R.camMode.toUpperCase()} CAMERA`, 'small', 900); });
 
 addEventListener('keydown', (e) => {
+  const typing = e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName);
+  if (!riding) {
+    if (e.code === 'KeyM' && !e.repeat && !typing) Sfx.setMuted(!Sfx.muted);
+    else if (menus) menus.onKey(e);
+    return;
+  }
+  if (e.code === 'Escape' && !typing) { quit(); return; }
   if (!R.running) return;
   if (R.audio && R.audio.ctx.state === 'suspended') R.audio.ctx.resume();   // (browsers only allow sound after a key press or tap)
-  if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+  if (typing) return;
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
   keys[e.code] = true;
   if (e.code === 'KeyR') respawnNow();
   else if (e.code === 'KeyC' && !e.repeat) camBtn.click();
   else if (e.code === 'KeyM' && !e.repeat) muteBtn.click();
   else if (e.code === 'Enter' && R.mode === 'solo' && (R.finished || performance.now() > R.goAt)) startSolo(R.def);
-  else if (e.code === 'Escape') quit();
 });
 addEventListener('keyup', (e) => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k of Object.keys(keys)) keys[k] = false; });
-for (const btn of document.querySelectorAll('#ride .mx-touch [data-k]')) {
+for (const btn of document.querySelectorAll('#mx .mx-touch [data-k]')) {
   const k = btn.dataset.k;
   const set = (v) => (e) => {
     e.preventDefault();
@@ -606,53 +714,6 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) for (
 // ------------------------------------------------------------------ online races
 const state = { phase: 'lobby', settings: { track: 'desert' }, race: null, results: null, wins: {}, ready: {}, min: 2 };
 const playerOf = (id) => (window.Room && Room.player(id)) || { name: '?', color: '#888888', avatar: '🏍️' };
-
-/** The room screen: results of the last race, the track (the host picks), ready-up and your bike. */
-function renderRoomMain() {
-  if (!DATA || !window.Room || !Room.code) return;
-  const host = Room.isHost;
-  const res = state.results;
-  const kids = [];
-  if (res && res.rows) {
-    const tr = trackDef(res.track);
-    kids.push(h('div', { class: 'panel-title' }, `🏁 Results · ${tr.emoji} ${tr.name}`),
-      h('div', { class: 'mx-results' }, res.rows.map((r) => h('div', { class: 'player-row' + (r.id === Net.id ? ' me' : '') },
-        h('b', { style: { width: '26px' } }, r.done ? ['🥇', '🥈', '🥉'][r.place - 1] || `#${r.place}` : '–'), UI.avatar(r, 'sm'),
-        h('span', { class: 'grow' }, r.name, r.flips ? h('span', { class: 'pmeta' }, ` · 🤸 ${r.flips}`) : null),
-        h('span', { class: 'pmeta' }, r.done ? fmt(r.time / 1000) : 'DNF')))),
-      h('div', { style: { height: '14px' } }));
-  }
-  const sel = state.settings.track;
-  kids.push(h('div', { class: 'panel-title' }, '🗺️ Track', !host ? h('span', { class: 'count' }, 'host picks') : null),
-    h('div', { class: 'tracks mx-room-tracks' },
-      [...DATA.tracks, { id: 'random', name: 'Surprise me', emoji: '🎲', about: 'A random track' }].map((t) => h('button', {
-        class: 'track-card' + (sel === t.id ? ' on' : ''), disabled: !host,
-        onclick: () => { Net.send('g:settings', { track: t.id }); Sfx.play('click'); },
-      }, h('div', { class: 'tc-top' }, h('span', { class: 'tc-e' }, t.emoji), h('b', {}, t.name)), h('div', { class: 'tc-about' }, t.about)))));
-  if (state.phase === 'racing' && state.race) {
-    kids.push(h('div', { style: { height: '14px' } }), h('div', { class: 'panel-title' }, '🏍️ A race is on'),
-      h('button', { class: 'btn btn-cyan btn-lg btn-block', onclick: () => startRace(state.race, 0, true) }, '👀 Watch the race'),
-      h('p', { class: 'tiny faint', style: { marginTop: '10px', textAlign: 'center' } }, 'You can ready up for the next one when it’s over.'));
-    fill($('#room-main'), kids);
-    return;
-  }
-  // ready-up
-  const riders = (Room.players || []).filter((p) => !p.watch && p.online !== false);
-  const readyCount = riders.filter((p) => state.ready[p.id]).length;
-  const meIn = riders.some((p) => p.id === Net.id);
-  const mine = !!state.ready[Net.id];
-  kids.push(h('div', { style: { height: '14px' } }),
-    h('div', { class: 'panel-title' }, '✋ Ready?', h('span', { class: 'count' }, `${readyCount}/${riders.length}`)),
-    h('div', { class: 'mx-ready' }, riders.map((p) => h('div', { class: 'player-row' + (p.id === Net.id ? ' me' : '') },
-      UI.avatar(p, 'sm'), h('span', { class: 'grow' }, p.name), h('b', {}, state.ready[p.id] ? '✅ Ready' : '⏳')))),
-    meIn ? h('button', { class: 'btn btn-lg btn-block ' + (mine ? 'btn-ghost' : 'btn-pink'), onclick: () => { Net.send('g:ready', { ready: !mine }); Sfx.play(mine ? 'click' : 'coin'); } },
-      mine ? '✋ Not ready' : '🏍️ I’m ready!') : h('p', { class: 'muted center' }, '👀 You’re watching this race.'),
-    h('p', { class: 'tiny faint', style: { marginTop: '10px', textAlign: 'center' } },
-      riders.length < state.min ? `You need at least ${state.min} riders. Invite a friend with the code!` : 'The race starts by itself when everyone is ready: 3, 2, 1… GO!'),
-    h('div', { style: { height: '10px' } }),
-    liveryPicker(true));
-  fill($('#room-main'), kids);
-}
 
 function startRace(race, countdown, watch = false) {
   state.race = race; state.phase = 'racing'; state.results = null;
@@ -781,18 +842,26 @@ function onlineFinish(t) {
   fill($('#hud-center'), h('div', { class: 'mx-card' }, h('h2', {}, '🏁 Finished!'), h('div', { class: 'mx-big' }, fmt(t)), h('p', { class: 'muted' }, 'Waiting for the others…')));
 }
 
+const inRoom = () => !!(window.Room && Room.code);
 Lobby.on('joined', (m) => {
   Object.assign(state, m.state);
+  const url = new URL(location.href); url.searchParams.delete('solo'); url.searchParams.delete('track'); history.replaceState(null, '', url);
   if (state.phase === 'racing' && state.race) startRace(state.race, Math.max(0, -state.race.elapsed));
-  else { showScreen('room'); renderRoomMain(); }
+  else { setRiding(false); menus.show('room'); }
 });
-Lobby.on('players', () => { if (!$('#room').classList.contains('hidden')) renderRoomMain(); });
+Lobby.on('players', () => menus.roomUpdate());
 Lobby.on('left', () => { stopRide(); });
-Lobby.on('entry', () => { for (const s of ['menu', 'room']) $('#' + s).classList.add('hidden'); $('#ride').classList.add('hidden'); stopRide(); });
+// back out of a room (or a room that wasn't there): to the "race online" menu
+Lobby.on('entry', () => {
+  if (!menus) return;
+  const was = menus.screen;
+  setRiding(false);
+  menus.show(was === 'room' || was === 'joining' ? 'online' : 'home');
+});
+Net.on('error', () => { if (menus && menus.screen === 'joining' && !inRoom()) menus.show('online'); });
 Net.on('g:lobby', (m) => {
   state.settings = m.settings; state.ready = m.ready || {}; if (m.phase !== 'racing') state.phase = m.phase;
-  if (!$('#room').classList.contains('hidden')) renderRoomMain();
-  Lobby.refreshPlayers();
+  menus.roomUpdate();
 });
 Net.on('g:start', (m) => { startRace(m.race, m.countdown); });
 Net.on('g:pos', (m) => {
@@ -815,39 +884,59 @@ Net.on('g:hurry', (m) => { if (R.running && !R.finished && !R.spectate) showMess
 Net.on('g:toast', (m) => UI.toast(m.text, 'bad', 3500));
 Net.on('g:results', (m) => {
   state.results = m.results; state.wins = m.wins || {}; state.phase = 'results';
-  const riding = !$('#ride').classList.contains('hidden') && R.mode === 'online';
-  if (riding) {
+  const racing = riding && R.mode === 'online';
+  if (racing) {
     const rows = m.results.rows;
     fill($('#hud-center'), h('div', { class: 'mx-card' }, h('h2', {}, '🏁 Results'),
       h('div', { class: 'rows' }, rows.slice(0, 6).map((r) => h('div', {}, h('span', {}, r.done ? ['🥇', '🥈', '🥉'][r.place - 1] || `#${r.place}` : '–'), h('span', { class: 'grow' }, r.name), h('b', {}, r.done ? fmt(r.time / 1000) : 'DNF'))))));
   }
   const ride = R.ride;
-  setTimeout(() => { if (state.phase === 'results' && R.ride === ride) { showScreen('room'); renderRoomMain(); Lobby.refreshPlayers(); } }, riding ? 4500 : 100);
+  setTimeout(() => {
+    if (state.phase !== 'results' || R.ride !== ride || !inRoom()) return;
+    if (riding) setRiding(false);
+    menus.show('room');
+  }, racing ? 4500 : 100);
 });
 
 // ------------------------------------------------------------------ start
 async function init() {
   try { DATA = await (await fetch('/js/games/moto/tracks.json')).json(); } catch { UI.toast('Couldn’t load the tracks 😵', 'bad'); return; }
-  loadUnlocks();
-  window.Lobby.init({
-    game: 'moto', title: 'Motocross', emoji: '🏍️',
-    tagline: 'Realistic 3D dirt bikes! Ride anywhere, huge jumps, flips for nitro, and races against your friends.',
-    solo: { label: '🏁 Ride solo (time trial)', onClick: () => showMenu() },
-    howTo: '<b>How to ride</b><ul><li><b>W</b> gas, <b>S</b> brake (hold it when stopped to back up), <b>A / D</b> steer. Arrow keys work too.</li><li>Slow down for corners or you slide wide; the berms help you round them. Stay inside the barriers!</li><li><b>Q</b> lean back, <b>E</b> lean forward: in the air that flips the bike (let go and the rider levels it for the landing).</li><li>Land on your head or upside down and you crash: back to the last checkpoint.</li><li>Clean landings and flips fill your <b>nitro</b>. Hold <b>Space</b> to use it.</li></ul>',
+  if (!DATA.tracks.some((t) => t.id === prefs.track)) prefs.track = DATA.tracks[0].id;
+  if (setupRenderer()) resize();
+  menus = createMenus({
+    get DATA() { return DATA; }, trackDef, prefs, savePrefs, bestOf, MEDALS, medalTimes, medalFor, fmt, LIVERIES, state,
+    get unlocked() { return unlocked; }, get bikeList() { return bikeList; }, bikeHints, myLivery, chooseLivery,
+    chat: chatEl,
+    startSolo,
+    watchRace: () => { if (state.race) startRace(state.race, 0, true); },
+    setCam: (k) => { prefs.cam = R.camMode = k; savePrefs(); },
+    setQuality: (k) => { prefs.quality = k; savePrefs(); worldKey = null; resize(); if (stage.trackId) stageTrack(stage.trackId); },
+    stage: { solo: stageSolo, room: stageRoom },
   });
-  Lobby.renderCode($('#room-code'));
-  Lobby.renderPlayers($('#room-players'), { extra: (p) => [state.ready[p.id] && state.phase !== 'racing' ? h('span', { title: 'Ready' }, '✅') : null, state.wins[p.id] ? h('span', { title: 'Wins' }, `🏆${state.wins[p.id]}`) : null] });
-  Lobby.ChatBox($('#room-chat'));
   const qs = new URLSearchParams(location.search);
-  if (qs.get('solo')) {
-    $('#entry').classList.add('hidden');
+  window.Lobby.init({ game: 'moto', title: 'Motocross', emoji: '🏍️' });
+  // your account and friends: the buttons from the site's top bar move into the game's
+  const icons = $('#mx-icons');
+  const friendsBtn = $('.topbar .friends-btn'); const chip = $('.topbar .profile-chip');
+  if (friendsBtn) icons.insertBefore(friendsBtn, $('#mx-snd'));
+  if (chip) icons.append(chip);
+  Lobby.ChatBox(chatEl, { title: '' });
+  chatEl.prepend(h('div', { class: 'mx-h' }, 'Chat'));
+  if (qs.get('room')) menus.show('joining');   // (the lobby is joining it)
+  else if (qs.get('solo')) {
     const t = qs.get('track') && DATA.tracks.find((x) => x.id === qs.get('track'));
-    if (t) { await loadUnlocks(); startSolo(t); } else showMenu();
+    menus.show('tracks');
+    if (t) { await loadUnlocks(); startSolo(t); }
   }
+  loadUnlocks().then(() => menus.refresh());
+  PA.on('account', () => loadUnlocks().then(() => menus.refresh()));
+  PA.on('profile', () => { if (menus.screen === 'home') menus.refresh(); });
   if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {   // testing on your own computer only
     // (the browser pane used for testing barely runs animation frames, so tests drive the game by hand)
     let fake = 0;
-    window.__moto = { R, C, keys, touch, startSolo, trackDef, showMenu, get world() { return world; }, get renderer() { return renderer; }, get camera() { return camera; },
+    window.__moto = { R, C, keys, touch, startSolo, trackDef, stage, get menus() { return menus; }, get world() { return world; }, get renderer() { return renderer; }, get camera() { return camera; },
+      /** Draw one frame of the menu scene (the test pane hardly runs animation frames). */
+      drawMenu(dt = 1 / 60) { if (world && !riding) stageFrame(performance.now(), dt); },
       /** Run the game for `seconds` of game time with these controls held, then draw one frame. */
       advance(seconds, held = {}) {
         if (!R.bike) return null;

@@ -142,8 +142,13 @@ with an import map), everything else is drawn and synthesised in code (no model,
   spinning wheels, the rider's arms and legs reaching the bars and pegs). **`world.js`** builds the world around a track:
   a Sky shader per theme (desert midday, forest overcast, snow dusk), sun shadows, fog, terrain with sculpted jumps and
   banked berms, ruts, puddles, scenery, the start gate and arches, and particles. **`sound.js`** synthesises the engine
-  from the revs. **`game.js`** is the page: menus, controls (keyboard, touch buttons, gamepads), the chase/side/close
-  cameras, the HUD, solo time trials and online races.
+  from the revs. **`game.js`** is the page: the 3D scene behind the menus (your bike, or everyone's in a room, parked in
+  the start gate under a slowly drifting camera), controls (keyboard, touch buttons, gamepads), the chase/side/close
+  cameras, the HUD, solo time trials and online races. **`menus.js`** draws the menus inside the game window, like
+  Cork7: the main menu (solo or online, your rider licence, the garage), the tracks, racing online (create a room, quick
+  play, join with a code), the room (riders, ready-up, the track, chat and the room tools), the garage (paint jobs shown
+  on the 3D bike, locked ones too), leaderboards and controls. The site's top bar is hidden on this page; its account
+  and friends buttons move into the game's.
 - **Tracks are data**: `public/js/games/moto/tracks.json`. Each one has an `id`, `name`, `emoji`, `theme` (`desert`,
   `forest` or `snow`), `grip` (1 = hard dirt), `roll` (extra rolling resistance, like sand), `about`, `robot` (see below)
   and a `course`: a list of pieces laid end to end, all sizes in metres:
@@ -173,8 +178,8 @@ with an import map), everything else is drawn and synthesised in code (no model,
   nitro, steering, sliding wide, the barrier, slow ground off the track, backing up, wrong way, wheels on the drawn
   ground) and has the robot (which steers along its line) ride every track; `tests/motobot.py` tests solo scores, paint
   jobs and an online race.
-  On localhost, `window.__moto.advance(seconds, controls)` drives the game by hand (the browser pane used for testing
-  barely runs animation frames).
+  On localhost, `window.__moto.advance(seconds, controls)` drives the game by hand and `window.__moto.drawMenu()` draws
+  one frame of the menu scene (the browser pane used for testing barely runs animation frames).
 
 ## Billiards
 Top-down pool with real physics (spin, banks, kisses, rattling jaws). `public/js/games/pool-core.js` is the table, the

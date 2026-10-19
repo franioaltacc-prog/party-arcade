@@ -564,6 +564,6 @@
     Net.connect();
   }
 
-  window.Lobby = { init, on, Room, ChatBox, renderCode, renderPlayers, refreshPlayers, leave, showEntry, hideEntry, GAME_INFO };
+  window.Lobby = { init, on, Room, ChatBox, renderCode, renderPlayers, refreshPlayers, roomTools, leave, showEntry, hideEntry, GAME_INFO };
   window.Room = Room;
 })();
