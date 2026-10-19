@@ -6,6 +6,17 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.4.0', date: '2026-10-19', emoji: '🏜️', title: 'Free ride worlds rebuilt', items: [
+      'New landscapes: red sandstone mesas and dune fields in Redrock, rolling forested hills and rocky crags in Pinecrest, jagged crags and powder moguls in Frostpeak',
+      'Real mountain ranges round every world instead of a flat grey wall, with foothills you can ride up',
+      'The race tracks’ sky, sun and shadows, clearer daytime air, clouds and falling snow',
+      'Pine forests, boulders, cacti and shrubs from the race tracks, with grass and pebbles round your wheels',
+      'Proper buildings: log cabins, a fire-lookout tower, a basecamp with tents and a camper, quarry and timber yards, ruins, a jetty and lookout decks. Buildings are solid now',
+      'Send-it jump parks with five tabletops of growing size near the camps, plus tabletops along the trails',
+      'Name signs at every place, start arches for the mini races, trail marker stakes, and places and jump parks on the minimap',
+      'Fixed: invisible desert trails, floating labels, pillars and rings, starting out facing a cliff, and gates that didn’t count when you jumped over them',
+      'Turning in free ride keeps your speed (no sliding penalty)',
+    ] },
     { v: '3.3.1', date: '2026-10-19', emoji: '⚡', title: 'Faster free ride, smoother big worlds', items: [
       'Six-speed open-world bikes build past 300 km/h, with much stronger acceleration and less drag',
       'Hold Space or Shift (gamepad A) for turbo bursts, then release to recharge for the next cliff run-up',

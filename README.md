@@ -116,16 +116,16 @@ runs online races (each browser drives its own car; the server relays positions 
   finish times must match how long the race has actually been going.
 
 ## Motocross
-**v3.3.1: Fast free ride.** Choose **Free ride** in `/games/moto`, then Redrock Frontier (12.96 km²),
+**v3.4.0: Free ride worlds.** Choose **Free ride** in `/games/moto`, then Redrock Frontier (12.96 km²),
 Pinecrest Highlands (10.24 km²) or Frostpeak Expedition (16 km²). All three use the actual bike,
 chase camera, keyboard/touch/gamepad controls and speed/turbo HUD. Six open-world gears build to about
 314 km/h on flat trail terrain; turbo reaches about 344 km/h with enough run-up. Hold **Space / Shift**
-(or gamepad A) for turbo, then release to recharge. Stronger free-ride brakes and upright landing impact
-absorption support the higher speeds without changing gravity or original race handling. There is no
-timer until you start a mini race. Press **R** for the nearest safe pad; the **flag button** offers four races per world.
-Ride through ordered green gates in the forward direction and finish every lap. Best times are saved
-in localStorage under world/race/version keys, separately from online race leaderboards. Crashing or
-respawning cancels the attempt. Mini-race selection pauses riding while the chooser is open.
+(or gamepad A) for turbo, then release to recharge. There is no timer until you start a mini race.
+Free-ride steering keeps momentum through turns. Press **R** for the nearest safe pad; the **flag button**
+offers four races per world. Ride through the ordered gate arches (jumping over one counts) and finish
+every lap. Best times are saved in localStorage per world/race, separately from the online leaderboards.
+Each world has a send-it jump park (five tabletops) beside the camp and another pad, and tabletops along
+the straight trails. Cabins, the lookout tower, decks and arch posts are solid (you crash into them).
 
 `MotoCore.groundTrack(terrain, spawn)` is the free-ride adapter: `slice()` samples world-space ground
 along the bike's heading; it bypasses track berms, fences, wrong-way checks and track-based finish
@@ -133,15 +133,22 @@ logic. Track racing keeps its existing progression and room protocol. The high c
 part of the heightfield; going out of bounds resets to a safe pad. Spawn pads face the outbound trail
 and sit clear of buildings. World headings convert with `Math.PI / 2 - mapHeading`; positions stay x/z.
 
-`open-world/ride-world.mjs` supplies lighting, particles and a moving 1 m terrain patch. The coarse
-terrain is tiled for frustum culling (96/128/192 subdivisions by quality), as is instanced scenery.
-A 12 m transition strip joins the local patch to the coarse triangles. Cached patch samples update in
-small frame budgets and swap together with the cutout. Distant shaders skip bump relief, pixel density
-is capped, and a soft contact shadow replaces a full world shadow pass. Texture atlases are shared.
+`open-world/terrain.mjs` builds the height in layers: the authored hills, lake and river (the trails
+follow these), then trails, pads and jumps, then theme landforms (mesas and dunes, forested hills, crags)
+only where a 10 m "wild" mask says it's well away from trails, pads, buildings, jumps and water, then
+foothills up to the world's edge with the big peaks beyond it. Building and start-arch positions are
+worked out there too, because the solid ones are obstacles in `core.js`.
+`open-world/world.mjs` draws it: the ground in tiles, water, scenery from the race tracks' models
+(`makeProps` in `world.js`, at a lighter detail level) instanced in 250 m chunks with cheap far copies
+in 1 km blocks, buildings from `open-world/buildings.mjs`, signs, arches, stakes and hay. Call
+`update(cameraPosition)` every frame to swap near and far copies.
+`open-world/ride-world.mjs` adds the race tracks' sky, sun shadows (medium/high quality) and fog, clouds,
+particles, a moving 1 m terrain patch round the bike (built a little each frame) and grass and pebbles
+scattered on it. Scenery on the patch is re-seated on it when it moves.
 Append `&perf=1` to a free-ride URL for the visible FPS/CPU/triangle/draw-call meter.
 `open-world/trials.mjs` handles fixed-step gate sweeps, laps and timing.
-The original `/games/moto-worlds` inspection preview remains available. Quest definitions and co-op
-activities still need mechanics; online free ride and scenery collision proxies are future work.
+The `/games/moto-worlds` inspection preview still works. Quest definitions and co-op activities still
+need mechanics; online free ride is future work. Trees and rocks are not solid.
 
 Handling settings live in `MotoCore.P`: firmer clutch engagement and faster throttle response,
 shorter shifts, lower rolling/aero drag, less restrictive suspension damping and more balanced
