@@ -30,7 +30,7 @@
       "grip": 0.8,
       "roll": 0.008,
       "about": "Slippery mud, roots and ruts between tall pines. Mind the puddles!",
-      "robot": 53.72,
+      "robot": 53.8,
       "course": [
         "flat 26", "start", "flat 38", "turn -45 20", "flat 20",
         "mud 16", "flat 12", "roller 14 1.2", "flat 18", "double 9 2.4 14", "flat 26", "cp",
@@ -51,7 +51,7 @@
       "grip": 0.72,
       "roll": 0,
       "about": "Packed snow and icy patches at dusk, with huge jumps down the mountain.",
-      "robot": 52.06,
+      "robot": 51.74,
       "course": [
         "flat 26", "start", "flat 36", "down 28 4", "flat 12", "kicker 8 1.6", "flat 28",
         "turn 40 24", "flat 16", "ice 16", "flat 16", "double 10 2.6 16", "flat 28", "cp",

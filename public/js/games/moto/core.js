@@ -681,7 +681,7 @@
       if (lat > most && Math.abs(v) > 1) {
         yaw = Math.sign(yaw) * most / Math.abs(v);
         b.scrub = (lat - most) / P.G;
-        const f = 1 - dt * Math.min(2.5, 0.4 + b.scrub * 1.4);
+        const f = 1 - dt * Math.min(0.5, 0.06 + b.scrub * 0.25);   // (a little speed lost while sliding, not a lot)
         b.vx *= f; for (const w of b.wh) { w.vx *= f; w.sp *= f; }
       }
     } else yaw = b.steer * P.AIR_TWIST;
