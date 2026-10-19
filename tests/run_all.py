@@ -23,7 +23,7 @@ BATCHES = [
     ["accbot", "polybot", "socialbot", "phbot", "tourbot"],
     ["gamesbot", "cheatbot", "minesbot", "frontbot", "frontbot2", "lookbot"],
     ["dasheditbot", "poolbot", "flappybot", "golfbot", "themebot"],
-    ["rolebot", "songbot", "volleybot"],
+    ["rolebot", "songbot", "volleybot", "motobot"],
 ]
 UNIT = ["phunit", "phunit2", "tourunit", "poolunit", "lifeunit", "lifecontent", "songunit"]
 JS = ["polytest.js", "polyends.js", "dashedit.js", "poolai.js", "flappytest.js", "golftest.js", "volleytest.js", "volleyaitest.js", "mototest.js"]

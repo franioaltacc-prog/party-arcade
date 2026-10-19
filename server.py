@@ -26,7 +26,7 @@ import traceback
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-from accounts import Accounts, AuthError, StoreError, level_info, parse_look, role_of
+from accounts import MOTO_TRACKS, Accounts, AuthError, StoreError, level_info, parse_look, role_of
 from games import GAMES
 import tournaments
 from dashlevels import DashLevels, level_id
@@ -148,7 +148,7 @@ class Client:
 
 def shown_look(look):
     """The rewards other players can see on someone's avatar."""
-    return {k: look[k] for k in ("aura", "anim") if look.get(k)}
+    return {k: look[k] for k in ("aura", "anim", "bike") if look.get(k)}
 
 
 class Member:
@@ -1086,7 +1086,7 @@ class Hub:
             value = msg.get("value")
             if not isinstance(value, (int, float)) or value != value:
                 raise AuthError("Bad score.")
-            result = await acc.solo(uid, game, value)
+            result = await acc.solo(uid, game, value, msg.get("extra") if isinstance(msg.get("extra"), dict) else None)
             self.tell_xp(uid, result["gained"], result["before"], result["after"], GAME_TITLES.get(game, game))
             return result
         if t == "friends:list":
@@ -1366,7 +1366,10 @@ GAME_TITLES = {"dash": "Neon Dash", "life": "Family Life", "doodle": "Doodle Gue
                "flappy": "Neon Flappy",
                "golf": "Mini Golf", "golf-classic": "Mini Golf · Classic Meadow", "golfclassic": "Mini Golf · Classic Meadow",
                "golf-spooky": "Mini Golf · Spooky Hollow", "golfspooky": "Mini Golf · Spooky Hollow",
-               "eightball": "Magic 8-Ball", "wyr": "Would You Rather", "wheel": "Spin the Wheel", "tour": "Tournament"}
+               "eightball": "Magic 8-Ball", "wyr": "Would You Rather", "wheel": "Spin the Wheel", "tour": "Tournament",
+               "moto": "Motocross"}
+for _t in MOTO_TRACKS:
+    GAME_TITLES[f"moto-{_t['id']}"] = GAME_TITLES[f"moto{_t['id']}"] = f"Motocross · {_t['name']}"
 
 hub = Hub()
 

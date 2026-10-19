@@ -341,14 +341,14 @@
       Account.save(r.user);
       return r.user;
     },
-    /** Save a solo high score (snake, 2048, memory, dash-solo) if logged in. */
-    async submit(game, value) {
+    /** Save a solo high score (snake, 2048, memory, dash-solo) if logged in. extra: game-specific numbers (Motocross: { flips }). */
+    async submit(game, value, extra) {
       if (!Account.user) {
         if (!Account.hinted) { Account.hinted = true; setTimeout(() => UI.toast('💡 Log in to save your scores on the leaderboards!', '', 3500), 1200); }
         return null;
       }
       try {
-        const r = await Net.request('stats:solo', { game, value: Math.round(value) });
+        const r = await Net.request('stats:solo', { game, value: Math.round(value), ...(extra ? { extra } : {}) });
         if (r.best) UI.toast('🏆 New personal best — saved to the leaderboard!', 'good', 3500);
         return r;
       } catch (e) {
@@ -1324,7 +1324,7 @@
   const Unlocks = {
     data: null,
     async load() {
-      if (!Unlocks.data) Unlocks.data = fetch('/data/unlocks.json').then((r) => r.json()).catch(() => ({ achievements: [], auras: [], anims: [], balls: [], themes: [] }));
+      if (!Unlocks.data) Unlocks.data = fetch('/data/unlocks.json').then((r) => r.json()).catch(() => ({ achievements: [], auras: [], anims: [], balls: [], themes: [], bikes: [] }));
       return Unlocks.data;
     },
     ok(rule, level, stats, achs) {
@@ -1354,7 +1354,7 @@
       const d = await Unlocks.load();
       const achs = Unlocks.earned(d, level, stats);
       const has = (list) => new Set((list || []).filter((c) => Unlocks.ok(c.rule, level, stats, achs)).map((c) => c.id));
-      return { achievements: achs, aura: has(d.auras), anim: has(d.anims), ball: has(d.balls), theme: has(d.themes) };
+      return { achievements: achs, aura: has(d.auras), anim: has(d.anims), ball: has(d.balls), theme: has(d.themes), bike: has(d.bikes) };
     },
     /** How far along an achievement (or reward rule) is: { have, need, done }. */
     progress(item, stats, achs = new Set()) {

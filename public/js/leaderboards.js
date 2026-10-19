@@ -7,6 +7,7 @@
     ['General', ['xp', 'wins', 'games']],
     ['Online games', ['dash', 'life', 'life_age', 'doodle', 'songs', 'songs_correct', 'volley', 'volley_rally', 'blitz', 'casino', 'casino_big', 'c4', 'pool', 'impostor', 'impostor_rounds', 'mines', 'front', 'golf']],
     ['Solo', ['snake', '2048', 'memory', 'dash_solo', 'mines_medium', 'mines_hard', 'slope', 'front_solo', 'pool_speed', 'pool_cpu', 'flappy', 'golf_classic', 'golf_spooky']],
+    ['Motocross', (all) => all.filter((k) => k === 'moto' || k.startsWith('moto_'))],   // (every track has its own board)
   ];
   let boards = [];
   let current = new URLSearchParams(location.search).get('b') || store.get('lb_board', 'xp');
@@ -28,7 +29,7 @@
     const byKey = Object.fromEntries(boards.map((b) => [b.key, b]));
     fill($('#tabs'), GROUPS.map(([label, keys]) => h('div', { class: 'lb-group' },
       h('span', { class: 'lb-glabel' }, label),
-      keys.filter((k) => byKey[k]).map((k) => h('button', { class: 'lb-tab' + (k === current ? ' on' : ''), onclick: () => select(k) }, byKey[k].title)))));
+      (typeof keys === 'function' ? keys(boards.map((b) => b.key)) : keys).filter((k) => byKey[k]).map((k) => h('button', { class: 'lb-tab' + (k === current ? ' on' : ''), onclick: () => select(k) }, byKey[k].title)))));
   }
 
   async function select(key) {
