@@ -28,8 +28,8 @@ def day(s):
 def unlocks_sanity():
     d = accounts.UNLOCKS
     themes = {t["id"]: t for t in d.get("themes", [])}
-    check(set(themes) == {"neon", "midnight", "sunset", "ocean", "forest", "candy", "retro", "halloween"}, f"all 8 themes listed: {sorted(themes)}")
-    check(all(themes[t]["rule"] is None for t in themes if t != "halloween"), "the 7 normal themes are free")
+    check(set(themes) == {"blue", "neon", "midnight", "sunset", "ocean", "forest", "candy", "retro", "halloween"}, f"all 9 themes listed: {sorted(themes)}")
+    check(all(themes[t]["rule"] is None for t in themes if t != "halloween"), "the 8 normal themes are free")
     hw = themes.get("halloween", {})
     check(hw.get("event") == "halloween26" and hw.get("rule", {}).get("achs") == QUEST_IDS, "Halloween theme needs all 8 quests and is limited to the event")
     evq = [a["id"] for a in d["achievements"] if a.get("event") == "halloween26"]

@@ -109,7 +109,8 @@
     {"id": "candy", "name": "Candy swirl", "rule": {"ach": "sweet-tooth"}, "event": "halloween26"}
   ],
   "themes": [
-    {"id": "neon", "name": "Neon", "emoji": "🌈", "about": "The classic Party Arcade glow", "rule": null},
+    {"id": "blue", "name": "Arcade Blue", "emoji": "💙", "about": "Electric blue and sky cyan (the default)", "rule": null},
+    {"id": "neon", "name": "Neon", "emoji": "🌈", "about": "The original pink and purple glow", "rule": null},
     {"id": "midnight", "name": "Midnight", "emoji": "🌙", "about": "Deep navy and ice cyan", "rule": null},
     {"id": "sunset", "name": "Sunset", "emoji": "🌇", "about": "Magenta to orange glow", "rule": null},
     {"id": "ocean", "name": "Ocean", "emoji": "🌊", "about": "Teal and aqua", "rule": null},

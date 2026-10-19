@@ -6,6 +6,11 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.4.1', date: '2026-10-19', emoji: '💙', title: 'A blue Party Arcade', items: [
+      'The whole site now looks Arcade Blue by default: electric blue and sky cyan instead of pink and purple',
+      'Miss the pink? Pick Neon in Settings → Theme (if you already chose a theme, you keep it)',
+      'Removed the Surprise me button from the home page',
+    ] },
     { v: '3.4.0', date: '2026-10-19', emoji: '🏜️', title: 'Free ride worlds rebuilt, and a game catalogue', items: [
       'A new home page: a spotlight of the newest games, then a catalogue you can filter by category or search, instead of one long list',
       'Each game is one tile with buttons for its ways to play (online, solo, free ride…), and “Jump back in” remembers what you played last',

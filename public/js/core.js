@@ -5,7 +5,7 @@
 
   // The site's version. Bump it with every update, together with a new entry at the
   // top of public/js/changelog.js (the /changelog page).
-  const VERSION = '3.4.0';
+  const VERSION = '3.4.1';
 
   // ---------------------------------------------------------------- helpers
   const $ = (s, r = document) => r.querySelector(s);
@@ -181,7 +181,7 @@
   // server checks it's unlocked); guests can use the free ones (kept in Settings). It's applied
   // while this file first runs, before the page is painted, so the default look never flashes.
   const THEMES = {
-    neon: { bg: '#0b0920' }, midnight: { bg: '#050b1a' }, sunset: { bg: '#170612' }, ocean: { bg: '#021519' },
+    blue: { bg: '#050b1c' }, neon: { bg: '#0b0920' }, midnight: { bg: '#050b1a' }, sunset: { bg: '#170612' }, ocean: { bg: '#021519' },
     forest: { bg: '#06120a' }, candy: { bg: '#1a0a1d' }, retro: { bg: '#020602', fonts: 'Silkscreen&family=VT323' },
     halloween: { bg: '#0b0510', fonts: 'Creepster' },
   };
@@ -194,7 +194,7 @@
       const u = store.get('pa_user', null);   // read straight from storage: Account isn't set up yet on the first call
       const worn = u && u.look && u.look.theme;
       const local = Settings.get().theme;
-      return (THEMES[worn] && worn) || (THEMES[local] && local !== 'halloween' && local) || 'neon';
+      return (THEMES[worn] && worn) || (THEMES[local] && local !== 'halloween' && local) || 'blue';
     }
     /** Load a theme's extra Google font (Retro's pixel fonts, Halloween's Creepster) once. */
     function font(id) {
@@ -203,7 +203,7 @@
       document.head.append(h('link', { rel: 'stylesheet', 'data-theme-font': id, href: `https://fonts.googleapis.com/css2?family=${f}&display=swap` }));
     }
     function apply(id = wanted()) {
-      if (!THEMES[id]) id = 'neon';
+      if (!THEMES[id]) id = 'blue';
       const root = document.documentElement;
       root.dataset.theme = id;
       if (id === current) { ambience(); return id; }

@@ -359,8 +359,8 @@ It disappears by itself after that day, and × hides it for good (remembered per
 id). Set `NEWS = null` when there's nothing to announce.
 
 ## Themes and Halloween quests
-Settings → 🎨 Theme changes the look of the whole site: Neon (default), Midnight, Sunset, Ocean, Forest, Candy and
-Retro are free for everyone (guests keep their pick in the browser). Themes are a reward category (`themes` in
+Settings → 🎨 Theme changes the look of the whole site: Arcade Blue (the default since v3.4.1), Neon (the original
+pink and purple), Midnight, Sunset, Ocean, Forest, Candy and Retro are free for everyone (guests keep their pick in the browser). Themes are a reward category (`themes` in
 `unlocks.json`, look slot `theme`), so a logged-in player's theme follows their account and the server checks it
 like auras. The 🎃 **Halloween theme** (fog, bats, a moon, a spooky font) belongs to the `halloween26` event and is only
 unlocked by finishing **all 8 Halloween quests** at `/quests` (quests are event achievements; a rule like

@@ -1034,6 +1034,18 @@ html[data-theme="halloween"] .evb-t b { font-family: var(--font-display); font-s
    Site themes (Settings → Theme). core.js puts data-theme="…" on <html>; preview
    tiles carry their own data-theme so they show that theme's colours.
    ========================================================================== */
+[data-theme="blue"] {
+  --bg: #050b1c; --bg-2: #0a1531; --panel: rgba(140, 190, 255, 0.06); --panel-2: rgba(140, 190, 255, 0.105); --panel-solid: #0e1a38;
+  --border: rgba(150, 200, 255, 0.14); --border-strong: rgba(150, 200, 255, 0.28);
+  --text: #eef5ff; --muted: #a0b4d8; --faint: #62779e;
+  --pink: #3b8cff; --pink-deep: #1c56c9; --on-pink: #fff;
+  --purple: #2563eb; --purple-deep: #1a3f9e; --on-purple: #fff;
+  --cyan: #38e1ff;
+  --surface: #0d1936; --surface-2: #122247; --modal-top: #13244d; --modal-bottom: #0a1531;
+  --accent-glow: rgba(59, 140, 255, 0.45);
+  --blob-1: rgba(59, 140, 255, 0.22); --blob-2: rgba(56, 225, 255, 0.15); --blob-3: rgba(37, 99, 235, 0.25); --blob-4: rgba(163, 230, 53, 0.08);
+  --dots: rgba(200, 225, 255, 0.07);
+}
 [data-theme="midnight"] {
   --bg: #050b1a; --bg-2: #0a1630; --panel: rgba(150, 200, 255, 0.055); --panel-2: rgba(150, 200, 255, 0.1); --panel-solid: #0f1d3a;
   --border: rgba(150, 210, 255, 0.14); --border-strong: rgba(150, 210, 255, 0.27);

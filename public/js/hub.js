@@ -1,7 +1,7 @@
 /* Home page: game cards, live counts, open rooms, lobby chat. */
 (() => {
   'use strict';
-  const { $, h, fill, Net, UI, Profile, Sfx, rand } = PA;
+  const { $, h, fill, Net, UI, Profile, Sfx } = PA;
   const FX = PA.FX || {};
   const G = FX.on ? FX.gsap : null;
 
@@ -459,16 +459,6 @@
   Net.on('room:found', (m) => {
     if (m.game) { Sfx.play('coin'); location.href = `/games/${m.game}?room=${m.code}`; }
     else { Sfx.play('wrong'); UI.toast(`No room called ${m.code} 🤔 Check the code!`, 'bad'); }
-  });
-
-  $('#surprise').addEventListener('click', () => {
-    Sfx.play('boing');
-    const g = rand(GAMES);
-    UI.toast(`${g.icon} ${g.title}!`, 'good', 900);
-    const t = tiles[GAMES.indexOf(g)];
-    if (G && !t.hidden) { t.scrollIntoView({ block: 'center', behavior: 'smooth' }); G.fromTo(t, { scale: 1 }, { scale: 1.08, duration: 0.3, yoyo: true, repeat: 1 }); }
-    remember(g.key);
-    setTimeout(() => { location.href = hrefOf(g); }, 750);
   });
 
   // ---------------------------------------------------------------- limited-time event

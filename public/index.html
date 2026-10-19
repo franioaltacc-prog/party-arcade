@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Party Arcade</title>
   <meta name="description" content="Free browser games to play with your friends: Song Rush, Screen Volley, Neon Dash races, Family Life, Doodle Guess, Party Blitz, Connect 4 and more.">
-  <meta name="theme-color" content="#0b0920">
+  <meta name="theme-color" content="#050b1c">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
-  <script>try { document.documentElement.dataset.theme = JSON.parse(localStorage.getItem('pa_theme')) || 'neon'; } catch (e) { /* storage blocked */ }</script>
+  <script>try { document.documentElement.dataset.theme = JSON.parse(localStorage.getItem('pa_theme')) || 'blue'; } catch (e) { /* storage blocked */ }</script>
   <style>
     /* ---- top: a short intro beside the spotlight of new games */
     .top { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.3fr); gap: 22px; align-items: stretch; padding: 12px 0 22px; }
@@ -138,7 +138,6 @@
         <h1 class="display">Games with your friends.<br><span class="gradient-text">Right now.</span></h1>
         <p class="lead">No downloads. Make a room, send your friends the code, play in seconds. Guests welcome; a free account saves your stats.</p>
         <div class="hero-actions">
-          <button id="surprise" class="btn btn-pink">🎲 Surprise me</button>
           <form id="join-form" class="join-code" autocomplete="off">
             <input id="join-code" class="input code" maxlength="4" placeholder="CODE" aria-label="Room code">
             <button class="btn btn-yellow" type="submit">Join</button>
