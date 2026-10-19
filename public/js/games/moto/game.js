@@ -2,6 +2,7 @@
    solo time trials and online races. The menus are in menus.js, the physics in core.js, the 3D bike
    in bike.js, the world in world.js and the sound in sound.js. */
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildWorld } from './world.js';
 import { makeBike, poseBike, disposeBike, LIVERIES, MODELS, KITS, HELMETS } from './bike.js';
 import { createAudio } from './sound.js';
@@ -482,6 +483,10 @@ function drawMapBase() {
     R.mapPt=(x,z)=>[W/2+x*scale,H/2+z*scale];
     g.strokeStyle='#dfc28d';g.lineWidth=2;
     for(const route of def.routes){g.beginPath();route.points.forEach((p,i)=>{const xy=R.mapPt(...p);i?g.lineTo(...xy):g.moveTo(...xy);});g.stroke();}
+    // places (white) and jump parks (orange)
+    const mark=(x,z,c,r)=>{const [px,py]=R.mapPt(x,z);g.fillStyle=c;g.strokeStyle='rgba(0,0,0,.6)';g.lineWidth=1.5;g.beginPath();g.arc(px,py,r,0,7);g.fill();g.stroke();};
+    for(const s of def.spots)mark(...s.position,'#ffffff',3.5);
+    for(const p of world.ground.parks)mark(p.ramps[2].position[0],p.ramps[2].position[1],'#ff8a1f',4);
     return;
   }
   const a = C.pathAt(T, T.start); const z = C.pathAt(T, T.finish);
@@ -563,7 +568,7 @@ async function startFree(entry){
   if(inRoom()){UI.toast('Leave the online race room before starting free ride','bad');return;}
   stopRide();setRiding(true);clearTimeout(stage.timer);
   const ride=R.ride=(R.ride||0)+1;R.mode='free';R.trial=null;R.spectate=false;
-  fill($('#hud-center'),h('div',{class:'mx-loading'},'Building '+entry.name+'…'));
+  fill($('#hud-center'),h('div',{class:'mx-loading'},'Building '+entry.name+'…'));$('#hud-time').closest('.mx-tr').hidden=true;
   try{
     const response=await fetch('/js/games/moto/open-world/'+entry.file);if(!response.ok)throw new Error('World unavailable');
     const def=await response.json();if(!riding||R.ride!==ride)return;
@@ -571,9 +576,10 @@ async function startFree(entry){
     if(R.model){disposeBike(R.model);R.model=null;}
     for(const sb of stage.bikes.values()){sb.model.root.removeFromParent();sb.tag?.removeFromParent();}
     if(world)world.dispose();world=null;worldKey=null;
-    world=buildRideWorld(def,QUALITY[qualityLevel()].scenery);worldKey='free:'+def.id;
-    renderer.shadowMap.enabled=false;renderer.toneMappingExposure=world.theme.exposure;
-    R.def=def;R.T=C.groundTrack(world.ground,def.spawnPads[0]);R.bike=C.newBike(R.T);
+    const q=QUALITY[qualityLevel()];world=buildRideWorld(def,q.scenery,renderer,q.shadows);worldKey='free:'+def.id;
+    renderer.shadowMap.enabled=q.shadows;renderer.toneMappingExposure=world.theme.exposure;
+    R.def=def;const pad=def.spawnPads[0],park=world.ground.parks[0];   // (start facing the jump park, not the edge of the world)
+    R.T=C.groundTrack(world.ground,{...pad,heading:park?park.heading:Math.atan2(-pad.position[0],-pad.position[1])});R.bike=C.newBike(R.T);
     R.model=makeBike(myLook());world.scene.add(R.model.root);
     R.prev=R.cur=snap(R.bike);R.acc=0;R.last=performance.now();R.goAt=0;R.finished=false;R.gateDown=true;R.cam.init=false;R.stuck=0;R.emitAcc=0;R.roll=0;R.best=null;
     R.trialMarker=null;R.audio=createAudio();$('.mx-nlab').textContent='TURBO · SPACE / SHIFT';$('#mx-trials').hidden=false;$('#hud-track').textContent=def.name;
@@ -585,8 +591,11 @@ async function startFree(entry){
 function updateTrialMarker(){
   if(R.trialMarker){R.trialMarker.removeFromParent();R.trialMarker.geometry.dispose();R.trialMarker.material.dispose();R.trialMarker=null;}
   const gate=R.trial?.gates[R.trial.next];if(!gate)return;
-  const mesh=new THREE.Mesh(new THREE.TorusGeometry(gate.radius,1,6,48),new THREE.MeshBasicMaterial({color:'#62ffd0'}));
-  mesh.position.set(gate.x,gate.y+gate.radius*.6,gate.z);mesh.rotation.y=gate.heading;world.scene.add(mesh);R.trialMarker=mesh;
+  // two glowing posts and a beam across the trail (white for the finish)
+  const last=R.trial.next===R.trial.gates.length-1&&R.trial.lap===R.trial.race.laps,w=Math.min(gate.radius*1.4,26);
+  const geo=mergeGeometries([new THREE.CylinderGeometry(.45,.55,11,10).translate(-w/2,5.5,0),new THREE.CylinderGeometry(.45,.55,11,10).translate(w/2,5.5,0),new THREE.BoxGeometry(w+1,1.3,.5).translate(0,11,0)]);
+  const mesh=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:last?'#ffffff':'#62ffd0',fog:false}));
+  mesh.position.set(gate.x,gate.y-1,gate.z);mesh.rotation.y=gate.heading;world.scene.add(mesh);R.trialMarker=mesh;
 }
 function beginTrial(race){
   R.trial=createTrial(world.ground,race);const gate=R.trial.gates[0];

@@ -685,6 +685,9 @@
     if (T.terrain) {
       b.s=b.x; b.u=0; b.off=false; b.wrong=false;
       if(!out && !inp.hold && !T.terrain.inBounds(b.px,b.pz)) { crash(T,b,ev); ev.push(['bounds']); }
+      // buildings and arch posts are solid: bounce off and come off the bike
+      const o = !out && !inp.hold && T.terrain.obstacleAt ? T.terrain.obstacleAt(b.px, b.pz) : null;
+      if (o && b.y < o.top) { const dx = b.px - o.x; const dz = b.pz - o.z; const l = Math.hypot(dx, dz) || 1; b.px = o.x + dx / l * (o.r + 0.4); b.pz = o.z + dz / l * (o.r + 0.4); b.vx *= -0.25; crash(T, b, ev); }
     } else {
     const L = locate(T, b.px, b.pz, b.s);
     b.s = L.s; b.u = L.u;
@@ -734,8 +737,10 @@
       if (lat > most && Math.abs(v) > 1) {
         yaw = Math.sign(yaw) * most / Math.abs(v);
         b.scrub = (lat - most) / P.G;
-        const f = 1 - dt * Math.min(0.5, 0.06 + b.scrub * 0.25);   // (a little speed lost while sliding, not a lot)
-        b.vx *= f; for (const w of b.wh) { w.vx *= f; w.sp *= f; }
+        if (!T.terrain) {
+          const f = 1 - dt * Math.min(0.5, 0.06 + b.scrub * 0.25);
+          b.vx *= f; for (const w of b.wh) { w.vx *= f; w.sp *= f; }
+        }
       }
     } else yaw = b.steer * P.AIR_TWIST;
     b.yaw = yaw;

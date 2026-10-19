@@ -8,7 +8,7 @@ export function crossGate(gate,from,to) {
  const a=(from.x-gate.x)*nx+(from.z-gate.z)*nz,b=(to.x-gate.x)*nx+(to.z-gate.z)*nz;
  if(a>=0||b<0)return false;
  const t=-a/(b-a),x=from.x+(to.x-from.x)*t,z=from.z+(to.z-from.z)*t,y=from.y+(to.y-from.y)*t;
- return Math.hypot(x-gate.x,z-gate.z)<=gate.radius && Math.abs(y-gate.y)<gate.radius;
+ return Math.hypot(x-gate.x,z-gate.z)<=gate.radius && y>gate.y-6 && y<gate.y+Math.max(gate.radius,45);   // (flying over a gate off a jump still counts)
 }
 export function stepTrial(trial,from,to,dt) {
  if(trial.done)return null;

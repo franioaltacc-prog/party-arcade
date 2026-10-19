@@ -148,6 +148,14 @@ const flat = C.build({ id: 'flat', name: 'Flat', course: ['flat 20', 'start', 'f
  check(turbo.nitro>.35,'releasing turbo recharges it for the next run-up');
  for(let i=0;i<120*6;i++)C.step(T,turbo,{brake:1});
  check(turbo.vx<initial*.5&&!turbo.crashed,'braking reliably sheds more than half the high-speed momentum');
+ const straight=C.newBike(T),turning=C.newBike(T);
+ for(let i=0;i<120*15;i++){C.step(T,straight,{gas:1});C.step(T,turning,{gas:1});}
+ const heading=turning.h;
+ for(let i=0;i<120*3;i++){C.step(T,straight,{gas:1});C.step(T,turning,{gas:1,steer:1});}
+ check(Math.abs(straight.vx-turning.vx)<1e-7&&turning.h>heading+.25&&!turning.crashed,'free-ride steering changes heading without scrubbing speed under throttle');
+ const turnBack=turning.h;
+ for(let i=0;i<120*3;i++){C.step(T,straight,{});C.step(T,turning,{steer:-1});}
+ check(Math.abs(straight.vx-turning.vx)<1e-7&&turning.h<turnBack-.25&&!turning.crashed,'free-ride coasting loses only normal drag, equally in a straight line or a turn');
  lip=b.px+50;let maxY=0,maxAir=0,landed=false;
  for(let i=0;i<120*12;i++){const ev=C.step(T,b,{gas:1});maxY=Math.max(maxY,b.y);maxAir=Math.max(maxAir,b.air);if(ev.some(e=>e[0]==='land'))landed=true;}
  check(maxY>25&&maxAir>4&&landed&&!b.crashed&&b.vx>60,'a high-speed ramp launches a long ballistic jump and absorbs an upright landing');

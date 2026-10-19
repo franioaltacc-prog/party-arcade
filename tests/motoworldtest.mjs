@@ -3,11 +3,18 @@ import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 import {buildTerrain,routeLength,routePoint} from '../public/js/games/moto/open-world/terrain.mjs';
 import {renderPolicy} from '../public/js/games/moto/open-world/render-policy.mjs';
+import {gridHeight} from '../public/js/games/moto/open-world/grounding.mjs';
 await import('../public/js/games/moto/core.js');
 const C=globalThis.MotoCore;
 const base=new URL('../public/js/games/moto/open-world/',import.meta.url);
 const read=f=>JSON.parse(readFileSync(new URL(f,base),'utf8'));
 let checks=0;const check=(name,fn)=>{fn();checks++;console.log('PASS '+name);};
+check('scenery grounding follows the drawn triangles, including both halves of a non-flat cell',()=>{
+ const p=new Float32Array([0,0,0, 1,10,0, 0,20,1, 1,50,1]);
+ assert.equal(gridHeight(p,1,1,1,-.25,-.25),7.5);
+ assert.equal(gridHeight(p,1,1,1,.25,.25),32.5);
+ assert.equal(gridHeight(p,1,1,1,0,0),15); // diagonal edge, not a bilinear saddle at 20
+});
 check('riding terrain stays under 120k triangles with detail around the bike at every quality',()=>{
  let previous=0;
  for(const q of [.35,.65,1]){
@@ -27,11 +34,11 @@ for(const entry of read('manifest.json').worlds){
  check(w.id+': gates match the terrain and ordered race routes',()=>{for(const race of w.races){const gates=t.gatesFor(race.id);assert(gates.length>3);const route=w.routes.find(r=>r.id===race.route);assert.deepEqual([gates[0].x,gates[0].z],route.points[0]);gates.forEach((g,i)=>{assert.equal(g.index,i);assert.equal(g.y,t.heightAt(g.x,g.z));assert(g.radius>=15);});}});
  check(w.id+': destinations and activities are reached by trails',()=>{for(const p of [...w.spots,...w.interactions,...w.spawnPads]){assert(t.inBounds(...p.position,40));assert((t.roadAt(...p.position)?.distance??Infinity)<100,p.id+' too far from a trail');}});
  check(w.id+': route network connects every destination to camp',()=>{const routes=w.routes,seen=new Set([0]);let changed=true;while(changed){changed=false;for(let i=0;i<routes.length;i++)if(!seen.has(i)){for(const j of seen){if(routes[i].points.some(p=>routes[j].points.some(q=>Math.hypot(p[0]-q[0],p[1]-q[1])<100))){seen.add(i);changed=true;break;}}}}assert.equal(seen.size,routes.length);});
- check(w.id+': continuous tall cliff perimeter and mountain apron',()=>{
+ check(w.id+': foothills up to the edge and tall mountains beyond it',()=>{
   for(let side=0;side<4;side++)for(let i=0;i<=160;i++){
    const u=(i/160-.5),x=side===0?-w.size[0]/2:side===1?w.size[0]/2:u*w.size[0],z=side===2?-w.size[1]/2:side===3?w.size[1]/2:u*w.size[1];
-   assert(t.cliffRise(x,z)>w.boundary.cliffHeight*.8);
-   const x2=x*(1+500/(w.size[0]/2)),z2=z*(1+500/(w.size[1]/2));assert(Number.isFinite(t.heightAt(x2,z2)));assert(t.cliffRise(x2,z2)>500);
+   assert(t.cliffRise(x,z)>w.boundary.cliffHeight*.15);
+   const x2=x*(1+500/(w.size[0]/2)),z2=z*(1+500/(w.size[1]/2));assert(Number.isFinite(t.heightAt(x2,z2)));assert(t.cliffRise(x2,z2)>400);
   }
   if(w.terrain.lake?.frozen)assert(Math.abs(t.heightAt(...w.terrain.lake.position)-w.terrain.lake.level)<.01);
  });
@@ -40,6 +47,14 @@ for(const entry of read('manifest.json').worlds){
   for(let i=0;i<360;i++)C.step(track,bike,{gas:.6,lean:.1});
   assert(!bike.crashed);assert(Math.hypot(bike.px-start[0],bike.pz-start[1])>10);assert.equal(bike.finished,null);
   C.respawn(track,bike);const pad=t.nearestSafePad(bike.px,bike.pz);assert(Math.hypot(bike.px-pad.position[0],bike.pz-pad.position[1])<.01);
+ });
+ check(w.id+': a jump park of five tabletops beside camp, clear of the trails',()=>{assert(t.parks.length>=1);for(const park of t.parks){assert.equal(park.ramps.length,5);for(const r of park.ramps){assert(t.inBounds(...r.position,300));assert((t.roadAt(...r.position)?.distance??Infinity)>30);assert(t.heightAt(...r.position)-t.rawHeight(...r.position)>r.height*.5);assert.equal(t.surfaceAt(...r.position).kind,'trail');}}});
+ check(w.id+': mesas, dunes and crags stay off the trails and pads',()=>{for(const r of w.routes)for(let d=0;d<routeLength(r);d+=25){const p=routePoint(r,d);assert.equal(t.wild(p.x,p.z),0,r.id);}for(const p of w.safePads)assert.equal(t.wild(...p.position),0);assert(t.mesas.length>=5);});
+ check(w.id+': solid buildings and arch posts stop the bike instead of letting it ride through',()=>{
+  assert(t.obstacles.length>=2);
+  const o=t.obstacles.find(o=>o.r>3)||t.obstacles[0],track=C.groundTrack(t,{position:[o.x,o.z-30],heading:0}),bike=C.newBike(track);
+  for(let i=0;i<900&&!bike.crashed;i++){C.step(track,bike,{gas:1,lean:0});assert(bike.crashed||Math.hypot(bike.px-o.x,bike.pz-o.z)>=o.r-.01,'rode into '+JSON.stringify(o));}
+  assert(bike.crashed>0);
  });
  check(w.id+': safe-pad lookup and outer boundary policy',()=>{assert(!t.inBounds(w.size[0],0));const pad=t.nearestSafePad(...w.spawn);assert.equal(pad.id,w.safePads[0].id);for(const pad of w.safePads){const h=t.heightAt(...pad.position);assert(Math.abs(t.heightAt(pad.position[0]+5,pad.position[1])-h)<.01);}});
 }

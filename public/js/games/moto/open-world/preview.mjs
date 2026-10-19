@@ -76,6 +76,6 @@ function frame(){
   const x=clamp(camera.position.x,-current.size[0]/2,current.size[0]/2),z=clamp(camera.position.z,-current.size[1]/2,current.size[1]/2);if(camera.position.y<world.terrain.heightAt(x,z)+6)camera.position.y=world.terrain.heightAt(x,z)+6;
   miniMap();
  }
- controls.update();renderer.render(scene,camera);
+ controls.update();world?.update(camera.position);renderer.render(scene,camera);
 }
 camera.position.set(2500,2400,2800);controls.target.set(0,130,0);frame();await load('redrock');

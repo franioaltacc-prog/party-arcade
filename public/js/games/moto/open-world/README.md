@@ -2,15 +2,15 @@
 
 Built for Party Arcade, 19 October 2026. Start with `CLAUDE-HANDOFF.md` when connecting the mechanics.
 
-Three actual procedural 3D landscapes, with authored trail networks, sculpted hills, flatter trail beds, safe meeting pads, tabletop jumps, scenery and destination buildings. **v3.3.1: these worlds are rideable, with six gears and rechargeable turbo** from the Free ride menu in `/games/moto`. `/games/moto-worlds` remains an inspection preview. Free ride uses the existing bike and camera; the flag button starts mini races, and R returns to a safe pad. Online free ride and quests are not implemented yet.
+Three procedural 3D landscapes, with authored trail networks, sculpted hills, flatter trail beds, safe meeting pads, landforms, jump parks, scenery and destination buildings. **v3.4.0: these worlds are rideable** from the Free ride menu in `/games/moto`. `/games/moto-worlds` remains an inspection preview. Free ride uses the existing bike and camera; the flag button starts mini races, and R returns to a safe pad. Online free ride and quests are not implemented yet.
 
 | World | Size | Elevation range (approx.) | Character |
 | --- | --- | --- | --- |
-| Redrock Frontier | 3.6 × 3.6 km / 12.96 km² | 880 m including cliffs | Desert hills, canyon river, quarry, high mesa, survey camp |
-| Pinecrest Highlands | 3.2 × 3.2 km / 10.24 km² | 1,030 m including cliffs | Mountain switchbacks, lake circuit, timber mill, summit observatory, ridge cabin |
-| Frostpeak Expedition | 4 × 4 km / 16 km² | 1,100 m including cliffs | Snowy mountain expedition, frozen basin, rescue cabin and snowcat depot |
+| Redrock Frontier | 3.6 × 3.6 km / 12.96 km² | ~380 m inside the edge | Red sandstone mesas, dune fields, canyon river, quarry, survey camp |
+| Pinecrest Highlands | 3.2 × 3.2 km / 10.24 km² | ~520 m inside the edge | Pine forests, rocky crags, lake circuit, timber yard, lookout tower, ridge cabin |
+| Frostpeak Expedition | 4 × 4 km / 16 km² | ~760 m inside the edge | Snowy forests, alpine crags, powder moguls, frozen basin, cabin and timber depot |
 
-Each world has **4 race definitions, 6 quest definitions, 8 interaction locations, 6 destinations, 6 rider spawn pads and 2 terrain-built jump features**. There are 7 connected trails in Redrock and 8 each in Pinecrest and Frostpeak. Mini-race timing, ordered gates and local best times are implemented. Quest/event state, rewards and multiplayer free ride remain future work.
+Each world has **4 race definitions, 6 quest definitions, 8 interaction locations, 6 destinations, 6 rider spawn pads and 2 authored jumps**, plus generated jump parks and trail tabletops. There are 7 connected trails in Redrock and 8 each in Pinecrest and Frostpeak. Mini-race timing, ordered gates and local best times are implemented. Quest/event state, rewards and multiplayer free ride remain future work.
 
 ## See the maps
 
@@ -34,12 +34,14 @@ Then open `http://localhost:18019/games/moto-worlds.html`. A local HTTP server i
 
 - `manifest.json`: map catalogue.
 - `redrock.json`, `pinecrest.json`, `frostpeak.json`: editable map, race, quest and activity content.
-- `terrain.mjs`: deterministic, DOM-free ground sampler, surfaces, route helpers and gates. Used by the bike ground adapter and both renderers.
-- `ride-world.mjs`: riding scene, particles, soft contact shadow and the cached, budgeted moving ground patch.
+- `terrain.mjs`: deterministic, DOM-free ground sampler, surfaces, route helpers and gates; generated jumps, landforms, edge mountains, building/arch placement and solid obstacles. Used by the bike ground adapter and both renderers.
+- `buildings.mjs`: the buildings (cabin, lookout tower, basecamp, quarry/timber yard, ruins, jetty, lookout deck, checkpoint booth), signs, arches, stakes, hay and flags, each merged into one coloured geometry.
+- `ride-world.mjs`: riding scene: sky, sun shadows, fog, clouds, particles, the cached, budgeted moving ground patch and the grass and pebbles on it.
+- `grounding.mjs`: exact rendered triangle heights for scenery anchors; the collision heightfield remains separate.
 - `render-policy.mjs`: quality-dependent far terrain, scenery and near-detail update budgets.
 - `trials.mjs`: fixed-step gate crossings, laps and mini-race timing.
 - `materials.mjs`: four seamless 1024² procedural texture atlases, multi-scale triplanar projection, derivative bump relief and slope/altitude material blending.
-- `world.mjs`: three.js terrain, instanced scenery and landmark builder. Uses the same height sampler as above.
+- `world.mjs`: three.js terrain, water, instanced scenery (near and far detail; call `update(cameraPosition)` each frame) and landmark builder. Uses the same height sampler as above.
 - `preview.mjs`: inspection UI and camera tour, used by `public/games/moto-worlds.html`.
 - `CLAUDE-HANDOFF.md`: exact integration boundaries, APIs, coordinate conversion and suggested next work.
 - `tests/motoworldtest.mjs` at the project root: map consistency and terrain checks.
@@ -62,16 +64,18 @@ Quests refer to existing IDs in `spots`, `interactions` or `races`. A quest's st
 node tests/motoworldtest.mjs
 ```
 
-The 34 checks cover all three worlds' scale, deterministic finite heights, normals, high terrain, bounds, connected trails, destination access, dry authored water crossings, safe pads, trail grades, quest references race gates, and the continuous cliff perimeter. They include a short bike ride and safe reset on each actual map. They do not exhaustively prove every jump, multiplayer behavior or performance on low-end phones. The default inspection mesh has ~524,000 triangles plus the mountain apron. Riding uses 96/128/192 far subdivisions, frustum-cullable terrain/scenery chunks and a detailed patch within 48–64 m of the bike. Patch updates are budgeted and cached; far shading and contact shadows reduce GPU load. Add `&perf=1` to the ride URL for visible performance diagnostics.
+The 44 checks cover all three worlds' scale, deterministic finite heights, normals, high terrain, bounds, connected trails, destination access, dry authored water crossings, safe pads, trail grades, quest references, race gates, the edge mountains, the jump parks, landforms staying off trails and solid buildings. They include a short bike ride and safe reset on each actual map. They do not exhaustively prove every jump, multiplayer behavior or performance on low-end phones. The default inspection mesh has ~524,000 triangles plus the mountain apron. Riding uses 96/128/192 far subdivisions, frustum-cullable terrain/scenery chunks and a detailed patch within 48–64 m of the bike. Patch updates are budgeted and cached; far shading and contact shadows reduce GPU load. Add `&perf=1` to the ride URL for visible performance diagnostics.
 
-Free-ride tuning lives in `MotoCore.P.FREE_*`: six gears, ~314 km/h on a long flat trail, ~344 km/h with turbo, stronger braking and upright landing impact absorption. Space/Shift/gamepad A uses turbo; release to recharge. Actual speed varies with terrain and run-up. Mini-race best keys are now `moto_world_best_v2_<world>_<race>`; older records remain stored separately. Normal race tuning is unchanged.
+Free-ride tuning lives in `MotoCore.P.FREE_*`: six gears, ~314 km/h on a long flat trail, ~344 km/h with turbo, stronger braking and upright landing impact absorption. Space/Shift/gamepad A uses turbo; release to recharge. Actual speed varies with terrain and run-up. Mini-race best keys are now `moto_world_best_v2_<world>_<race>`; older records remain stored separately. Turning no longer applies a sliding speed penalty in free ride. Normal race tuning is unchanged.
 
-## Cliff borders and materials (visual upgrade)
+## How the worlds are built (v3.4.0)
 
-All maps now rise into a continuous ring of high cliffs over the outermost 95 metres. The cliff rise is included in `heightAt()`, not just scenery, so the bike adapter samples the same barrier it sees. Its top varies naturally; the minimum cliff rise at the edge exceeds 80% of the configured 680 m / 820 m height. A matching mountain apron continues 1.6 km outside the playable boundary to hide the terrain cut-off from normal ground-level views. The apron is scenery outside the playable area; it does not expand the world bounds. Flying the inspection camera beyond the apron can still reveal its far edge.
+`heightAt()` adds, in order: the authored hills, lake and river; trails, safe pads and jumps; theme landforms (Redrock: mesas and dune fields; Pinecrest: rolling hills and rocky crags; Frostpeak: ridges, crags and powder moguls) scaled by a 10 m "wild" mask that is 0 near trails, pads, buildings, jumps and water; then the edge mountains. Inside the edge, `boundary.cliffWidth` metres of foothills rise to roughly 20–40% of `cliffHeight`; the real peaks rise beyond the edge, where the 1.6 km apron shows them. Trails that run near the edge go up valleys between the peaks. Everything is part of `heightAt()`, so the bike rides exactly what is drawn.
 
-`boundary.cliffWidth`, `cliffHeight` and `sceneryApron` control this. Trails remain inside the cliff toe. Elevation-range labels include the border cliffs. Apron inner-edge resolution matches the ground mesh to prevent cracks.
+Jumps: the authored `ramps`, a tabletop every ~320 m on the straight, flat parts of every trail (2.6–4 m high), and a five-jump "send-it park" (3–10 m tabletops) beside the first spawn pad and one more pad, placed clear of trails, water and buildings. `terrain.parks` and `terrain.ramps` list them; ramps count as trail surface.
 
-The ground now uses generated albedo/height textures for dirt, grass, fractured rock and snow, blended by trail coverage, slope and altitude. Two rotated tile scales reduce repetition, larger-scale variation breaks up uniform colours, anisotropic mip filtering improves grazing angles and derivative bump relief adds close-up lighting detail. Triplanar sampling projects textures onto cliff sides without stretching. They are procedural textures, not downloaded photographic scans. Ground geometry has increased from 320 to 512 subdivisions per side. Scenery uses layered pine crowns and branched cacti instead of single-cone placeholders.
+Scenery uses the race tracks' models (`makeProps` in `../world.js`, detail 1 near and 0 far), scattered with clustering so forests form groves. Near copies are in 250 m chunks; far copies in 1 km blocks, with each chunk's far copies shrunk to nothing while its near copies show. Copies inside the moving ground patch are re-seated on it when it moves. Grass and pebbles are scattered on the patch itself. Buildings and arches are placed by `terrain.mjs` (clear of trails, ramps and reset spots); cabins, the tower, decks and arch posts are solid (`terrain.obstacleAt`). Trees and rocks are not.
 
-Frostpeak is snow-covered throughout, with an ice basin. The frozen lake's central collision height is the ice level rather than the underwater lake bed. Mini races are rideable; quests and multiplayer free ride remain definitions awaiting integration.
+## Materials
+
+The ground uses generated albedo/height textures for dirt, grass, fractured rock and snow, blended by trail coverage, slope and altitude, with triplanar projection on steep faces (no downloaded scans). Redrock's rock and dirt are red sandstone with layered bands on the cliffs; Pinecrest's peaks get snow above ~250–450 m; Frostpeak is snow with blue-grey granite and an ice basin (the frozen lake's collision height is the ice). Trails and jumps are drawn in packed, darker dirt (or packed snow). Mountain faces get broad light and dark patches so they don't read as flat walls.

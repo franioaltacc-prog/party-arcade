@@ -874,8 +874,8 @@
     "softMargin": 100,
     "policy": "warn-and-respawn",
     "respawn": "last-safe-pad",
-    "cliffWidth": 95,
-    "cliffHeight": 820,
+    "cliffWidth": 260,
+    "cliffHeight": 560,
     "sceneryApron": 1600
   },
   "spawnPads": [
