@@ -6,6 +6,15 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.3.0', date: '2026-10-19', emoji: '🏍️', title: 'Motocross: free ride and smoother handling', items: [
+      'Ride the huge Redrock Frontier, Pinecrest Highlands and Frostpeak Expedition worlds from the new Free ride menu',
+      'Explore without track fences, wrong-way warnings or a ticking race clock; R returns you to the nearest safe riding pad',
+      'Twelve embedded mini races: choose a course with the flag button, follow the green gates, complete every lap and save your best time on this device',
+      'Stronger launch engagement, shorter gear changes, less rolling drag and more compliant suspension keep the bike moving smoothly',
+      'Balanced brakes, progressive gamepad steering, a tighter chase camera, subtle speed FOV and acceleration-responsive engine sound',
+      'Detailed terrain around the bike matches the ground physics, with contact shadows and continuous cliff borders',
+      'Original solo time trials and online races remain available; open-world free riding is solo for now',
+    ] },
     { v: '3.2.0', date: '2026-10-19', emoji: '🏍️', massive: true, title: 'New game: Motocross', intro: 'A brand-new realistic 3D dirt bike game, inspired by the look of Cork7. Ride anywhere, solo or against up to 5 friends online.', sections: [
       ['🏍️ Ride', [
         'W gas, S brake (hold it when stopped to back up), A / D steer, Q / E lean back and forward, Space nitro. Arrow keys work too, phones get touch buttons and gamepads work',

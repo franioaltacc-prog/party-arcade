@@ -116,6 +116,34 @@ runs online races (each browser drives its own car; the server relays positions 
   finish times must match how long the race has actually been going.
 
 ## Motocross
+**v3.3.0: Free ride.** Choose **Free ride** in `/games/moto`, then Redrock Frontier (12.96 km²),
+Pinecrest Highlands (10.24 km²) or Frostpeak Expedition (16 km²). All three use the actual bike,
+chase camera, keyboard/touch/gamepad controls and speed/nitro HUD. There is no timer until you start a
+mini race. Press **R** for the nearest safe pad; the **flag button** offers four races per world.
+Ride through ordered green gates in the forward direction and finish every lap. Best times are saved
+in localStorage under world/race/version keys, separately from online race leaderboards. Crashing or
+respawning cancels the attempt. Mini-race selection pauses riding while the chooser is open.
+
+`MotoCore.groundTrack(terrain, spawn)` is the free-ride adapter: `slice()` samples world-space ground
+along the bike's heading; it bypasses track berms, fences, wrong-way checks and track-based finish
+logic. Track racing keeps its existing progression and room protocol. The high cliff perimeter is
+part of the heightfield; going out of bounds resets to a safe pad. Spawn pads face the outbound trail
+and sit clear of buildings. World headings convert with `Math.PI / 2 - mapHeading`; positions stay x/z.
+
+`open-world/ride-world.mjs` supplies lighting, particles and a moving 1 m terrain patch. The coarse
+terrain has a matching cutout; an 8 m transition strip joins the actual coarse triangles at the patch
+edge. Texture atlases are shared. `open-world/trials.mjs` handles fixed-step gate sweeps, laps and timing.
+The original `/games/moto-worlds` inspection preview remains available. Quest definitions and co-op
+activities still need mechanics; online free ride and scenery collision proxies are future work.
+
+Handling settings live in `MotoCore.P`: firmer clutch engagement and faster throttle response,
+shorter shifts, lower rolling/aero drag, less restrictive suspension damping and more balanced
+front/rear braking. Camera FOV/follow rates, subtle shake, sound load response and gamepad dead zones
+are tunable there too. The engine sound follows real rpm with an additional acceleration/load response.
+`tests/mototest.js` checks the adapter, safe resets, ordered race gates and frame-rate consistency;
+`node tests/motoworldtest.mjs` also rides the actual three world heightfields. Robot reference times
+in `tracks.json` are regenerated from the tuned physics (50.16 / 53.05 / 51.20 seconds).
+
 A realistic 3D dirt bike game in the style of Cork7 (`/games/moto`), in its own folders: `games/moto/` (the server)
 and `public/js/games/moto/` (everything in the browser). No extra packages: three.js comes from jsDelivr (ES modules
 with an import map), everything else is drawn and synthesised in code (no model, image or sound files).
