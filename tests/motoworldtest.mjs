@@ -2,6 +2,8 @@
 import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 import {buildTerrain,routeLength,routePoint} from '../public/js/games/moto/open-world/terrain.mjs';
+await import('../public/js/games/moto/core.js');
+const C=globalThis.MotoCore;
 const base=new URL('../public/js/games/moto/open-world/',import.meta.url);
 const read=f=>JSON.parse(readFileSync(new URL(f,base),'utf8'));
 let checks=0;const check=(name,fn)=>{fn();checks++;console.log('PASS '+name);};
@@ -22,6 +24,12 @@ for(const entry of read('manifest.json').worlds){
    const x2=x*(1+500/(w.size[0]/2)),z2=z*(1+500/(w.size[1]/2));assert(Number.isFinite(t.heightAt(x2,z2)));assert(t.cliffRise(x2,z2)>500);
   }
   if(w.terrain.lake?.frozen)assert(Math.abs(t.heightAt(...w.terrain.lake.position)-w.terrain.lake.level)<.01);
+ });
+ check(w.id+': actual bike rides the world ground and respawns off the buildings',()=>{
+  const track=C.groundTrack(t,w.spawnPads[0]),bike=C.newBike(track),start=[bike.px,bike.pz];
+  for(let i=0;i<360;i++)C.step(track,bike,{gas:.6,lean:.1});
+  assert(!bike.crashed);assert(Math.hypot(bike.px-start[0],bike.pz-start[1])>10);assert.equal(bike.finished,null);
+  C.respawn(track,bike);const pad=t.nearestSafePad(bike.px,bike.pz);assert(Math.hypot(bike.px-pad.position[0],bike.pz-pad.position[1])<.01);
  });
  check(w.id+': safe-pad lookup and outer boundary policy',()=>{assert(!t.inBounds(w.size[0],0));const pad=t.nearestSafePad(...w.spawn);assert.equal(pad.id,w.safePads[0].id);for(const pad of w.safePads){const h=t.heightAt(...pad.position);assert(Math.abs(t.heightAt(pad.position[0]+5,pad.position[1])-h)<.01);}});
 }

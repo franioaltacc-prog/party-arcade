@@ -39,8 +39,8 @@
     // suspension: the axle at full extension (frame coordinates, metres from the centre of mass),
     // the direction it compresses (up the fork / shock), travel, spring, preload, damping in/out
     SUS: [
-      { p: [0.84, -0.32], u: [-0.454, 0.891], travel: 0.30, k: 7200, pre: 0.035, cb: 650, rb: 1300 },
-      { p: [-0.69, -0.35], u: [0.12, 0.993], travel: 0.31, k: 8800, pre: 0.035, cb: 750, rb: 1500 },
+      { p: [0.84, -0.32], u: [-0.454, 0.891], travel: 0.30, k: 7200, pre: 0.035, cb: 600, rb: 1150 },
+      { p: [-0.69, -0.35], u: [0.12, 0.993], travel: 0.31, k: 8800, pre: 0.035, cb: 700, rb: 1300 },
     ],
     KP: 140000, CP: 1100,    // how stiffly the wheel is held sideways on its axis
     KT: 90000, CT: 700,      // tyre stiffness and damping
@@ -52,12 +52,20 @@
     KB: 70000, CB: 1500, MUB: 0.55,
     GEARS: [33, 26, 21.5, 18.8, 17],       // engine turns per rear-wheel turn in each gear
     IDLE: 1700, LAUNCH: 7800, UP: 11500, DOWN: 6000, LIMIT: 12300,
-    TQ: 28,                  // peak engine torque (N·m)
-    SHIFT: 0.09,             // seconds without drive while changing gear
+    TQ: 29.5,                  // peak engine torque (N·m)
+    CLUTCH_MIN: 0.46,        // launch engagement: pull cleanly instead of bogging at walking pace
+    THROTTLE_UP: 9, THROTTLE_DOWN: 9, BRAKE_RATE: 12,
+    CAM_CRASH_SHAKE: .3, CAM_LAND_SHAKE: .06, CAM_SHAKE_MAX: .15,
+    GAMEPAD_STEER_DEAD: .12, GAMEPAD_LEAN_DEAD: .16,
+    CAM_FOV: 57, CAM_SPEED_FOV: 0.32, CAM_FOV_RANGE: 9,
+    CAM_HEADING: 6.5, CAM_FOLLOW: 9, CAM_LOOK: 11, CAM_FOV_RATE: 3,
+    SOUND_BASE_LOAD: .85, SOUND_ACCEL_SCALE: 6,
+    SOUND_ACCEL: 0.18, SOUND_RESPONSE: 10, // throttle/load transient, without falsifying engine rpm
+    SHIFT: 0.065,             // seconds without drive while changing gear
     NITRO_TQ: 1.6, NITRO_LIMIT: 13600, NITRO_USE: 0.34,
-    BRAKE: [900, 430],       // front, rear brake torque (N·m)
+    BRAKE: [860, 500],       // front, rear brake torque (N·m)
     LEAN_AIR: 1500, LEAN_GROUND: 300, SPIN_MAX: 8.5,
-    DRAG: 0.4, ROLL: 0.012,  // air drag, tyre rolling resistance on hard dirt (tracks add more: sand, mud)
+    DRAG: 0.34, ROLL: 0.009,  // air drag, tyre rolling resistance on hard dirt (tracks add more: sand, mud)
     BERM: 1.5,               // how much a corner's berm helps you round it (the robot's corner speed = √(grip·g·radius·BERM))
     WHEELBASE: 1.48, STEER: 0.55, STEER_FALL: 0.08,   // steering lock at walking pace, and how it narrows with speed
     MU_SIDE: 1.35, BERM_GRIP: 0.6,                     // sideways grip (times the ground's), and how much more a berm gives
@@ -341,6 +349,13 @@
     let hint = b.s;
     for (let i = 0; i < SLICE_N; i++) {
       const d = G.x0 + i * G.dx - b.x;
+      if (T.terrain) {
+        const wx=b.px+c*d, wz=b.pz+sn*d, surface=T.terrain.surfaceAt(wx,wz);
+        G.ys[i]=T.terrain.heightAt(wx,wz); G.s[i]=b.x+d;
+        G.gr[i]=surface.grip; G.rr[i]=surface.roll;
+        G.kd[i]=surface.kind==='mud'?SURFACE.mud:surface.kind==='ice'?SURFACE.ice:SURFACE.dirt;
+        continue;
+      }
       const L = locate(T, b.px + c * d, b.pz + sn * d, hint);
       hint = L.s;
       G.ys[i] = heightAt(T, L.s, L.u); G.s[i] = L.s;
@@ -350,6 +365,12 @@
       } else { G.gr[i] = T.baseGrip * 0.8; G.kd[i] = SURFACE.rough; G.rr[i] = T.baseRoll + 0.16; }
     }
     return G;
+  }
+
+  /** World adapter: deliberately separate from the existing track schema/progression. */
+  function groundTrack(terrain, spawn) {
+    if (!terrain || !terrain.heightAt || !terrain.surfaceAt || !terrain.normalAt || !terrain.inBounds || !terrain.nearestSafePad) throw new Error('Incomplete world ground adapter');
+    return { terrain, spawn: spawn || { position: terrain.world.spawn, heading: terrain.world.spawnHeading }, start: 0, finish: Infinity, cps: [] };
   }
 
   /** The ground point nearest to a circle (cx, cy, r) if it touches: { pen, nx, ny } or null. */
@@ -389,13 +410,15 @@
       crashed: 0, rider: null, hold: 0, cp: -1, t: 0, finished: null, crashes: 0, flips: 0, maxSpeed: 0,
       scrape: 0, slide: 0, bodyHit: false, lastLand: null,
     };
-    place(T, b, s == null ? T.start : s, u);
+    place(T, b, T.terrain ? (s || T.spawn) : s == null ? T.start : s, u);
     return b;
   }
 
   /** Put the bike upright on the track at (s, u), pointing along it, standing still, and let the suspension settle. */
   function place(T, b, s, u = 0) {
-    const p = pathAt(T, s);
+    const pad=T.terrain ? (s || T.spawn) : null;
+    const p = pad ? { x:pad.position[0], z:pad.position[1], h:Math.PI/2-(pad.heading ?? T.spawn.heading ?? 0) } : pathAt(T, s);
+    if(pad) { s=0; u=0; }
     b.h = p.h; b.px = p.x - Math.sin(p.h) * u; b.pz = p.z + Math.cos(p.h) * u; b.s = s; b.u = u;
     const x = s;   // (the odometer starts at s: any number would do)
     b.x = x;
@@ -558,8 +581,8 @@
     const gas = out || b.finished != null ? 0 : clamp(+inp.gas || 0, 0, 1);
     const brake = out ? 0.3 : b.finished != null ? 1 : clamp(+inp.brake || 0, 0, 1);
     const lean = out || b.finished != null ? 0 : clamp(+inp.lean || 0, -1, 1);
-    b.thr += clamp(gas - b.thr, -DT * 9, DT * 7);
-    b.brk += clamp(brake - b.brk, -DT * 10, DT * 10);
+    b.thr += clamp(gas - b.thr, -DT * P.THROTTLE_DOWN, DT * P.THROTTLE_UP);
+    b.brk += clamp(brake - b.brk, -DT * P.BRAKE_RATE, DT * P.BRAKE_RATE);
     const onGround = b.wh[0].ct || b.wh[1].ct;
     const leanRate = onGround ? 6 : 12;
     b.lean += clamp(lean - b.lean, -DT * leanRate, DT * leanRate);
@@ -574,7 +597,7 @@
     let target = wheelRpm;
     let clutch = 1;
     if (inp.hold) { target = P.IDLE + b.thr * (limit - P.IDLE) * 0.85; clutch = 0; }
-    else if (b.gear === 1 && wheelRpm < P.LAUNCH) { target = Math.max(wheelRpm, P.IDLE + b.thr * (P.LAUNCH - P.IDLE)); clutch = 0.35 + 0.65 * wheelRpm / P.LAUNCH; }
+    else if (b.gear === 1 && wheelRpm < P.LAUNCH) { target = Math.max(wheelRpm, P.IDLE + b.thr * (P.LAUNCH - P.IDLE)); clutch = P.CLUTCH_MIN + (1-P.CLUTCH_MIN) * wheelRpm / P.LAUNCH; }
     else if (!rear.ct && b.thr > 0.1) target = Math.max(wheelRpm, b.rpm);   // in the air the wheel spins up with the engine
     b.rpm += (Math.max(P.IDLE, target) - b.rpm) * Math.min(1, DT * 14);
     b.limiter = b.rpm >= limit - 40 && b.thr > 0.5;
@@ -634,14 +657,19 @@
     const moved = b.x - x0;
     b.px += Math.cos(b.h) * moved; b.pz += Math.sin(b.h) * moved;
     steering(T, G, b, out || inp.hold || b.finished != null ? 0 : clamp(+inp.steer || 0, -1, 1), DT);
+    const speed = Math.hypot(b.vx, b.vy);
     // where that is on the track, the barrier, and which way you're going
+    if (T.terrain) {
+      b.s=b.x; b.u=0; b.off=false; b.wrong=false;
+      if(!out && !inp.hold && !T.terrain.inBounds(b.px,b.pz)) { crash(T,b,ev); ev.push(['bounds']); }
+    } else {
     const L = locate(T, b.px, b.pz, b.s);
     b.s = L.s; b.u = L.u;
     b.off = Math.abs(b.u) > P.TW + 0.8;
     if (b.fenceT > 0) b.fenceT -= DT;
     if (Math.abs(b.u) > P.FENCE) fence(T, b, L, ev);
-    const speed = Math.hypot(b.vx, b.vy);
     b.wrong = !out && speed > 1.5 && Math.cos(b.h - L.h) * Math.sign(b.vx) < -0.2;
+    }
     if (b.finished == null && !out) b.maxSpeed = Math.max(b.maxSpeed, speed);
     tricks(G, b, ev);
     // crashing: your body hits the ground, or the bike lies upside down
@@ -656,8 +684,10 @@
     // checkpoints (in order, however you get there) and the finish
     if (!b.crashed && b.finished == null && !inp.hold) {
       b.t += DT;
+      if (!T.terrain) {
       while (b.cp + 1 < T.cps.length && b.s >= T.cps[b.cp + 1]) { b.cp++; ev.push(['cp', b.cp]); }
       if (b.s >= T.finish && b.cp === T.cps.length - 1) { b.finished = b.t; ev.push(['finish', b.t]); }
+      }
     } else if (b.crashed && b.finished == null) b.t += DT;
     return ev;
   }
@@ -674,7 +704,7 @@
     if (b.wh[0].ct || b.wh[1].ct) {
       const lock = P.STEER / (1 + Math.abs(v) * P.STEER_FALL);
       yaw = v * Math.tan(b.steer * lock) / P.WHEELBASE;
-      const k = bermAt(T, b.s);
+      const k = T.terrain ? 0 : bermAt(T, b.s);
       const berm = k && Math.sign(k) === Math.sign(yaw) && Math.abs(b.u) < P.TW + 1.5 ? 1 + P.BERM_GRIP * Math.min(1, Math.abs(k) * 22) : 1;
       const most = P.MU_SIDE * gripAt(G, b.x) * berm * P.G;   // the sideways acceleration the tyres can take
       const lat = Math.abs(v * yaw);
@@ -778,7 +808,7 @@
 
   /** Back to the last checkpoint (or the start), in the middle of the track (or a lane). */
   function respawn(T, b, u = 0) {
-    const x = b.cp >= 0 ? T.cps[b.cp] : T.start;
+    const x = T.terrain ? T.terrain.nearestSafePad(b.px,b.pz) : b.cp >= 0 ? T.cps[b.cp] : T.start;
     const keep = { nitro: b.nitro, cp: b.cp, t: b.t, crashes: b.crashes, flips: b.flips, maxSpeed: b.maxSpeed };
     place(T, b, x, u);
     Object.assign(b, keep);
@@ -789,6 +819,13 @@
   /** Where the bike will come down if nothing changes (going by the track's profile): { x (along the track), t, slope }
       (the slope as the bike will meet it, so riding across a slope makes it gentler). */
   function predictLanding(T, b) {
+    if(T.terrain) {
+      let d=0,y=b.y-.45,vy=b.vy,t=0;
+      const c=Math.cos(b.h),sn=Math.sin(b.h);
+      for(let i=0;i<160;i++){t+=1/40;vy-=P.G/40;d+=b.vx/40;y+=vy/40;if(y<=T.terrain.heightAt(b.px+c*d,b.pz+sn*d)+.1&&vy<0)break;}
+      const n=T.terrain.normalAt(b.px+c*d,b.pz+sn*d);
+      return {x:b.x+d,t,slope:Math.atan2(-n.x*c-n.z*sn,n.y)};
+    }
     const c = Math.cos(b.h - pathAt(T, b.s, tmpPath).h);
     let x = b.s; let y = b.y - 0.45; const vx = b.vx * c; let vy = b.vy; let t = 0;
     for (let i = 0; i < 160; i++) {
@@ -880,7 +917,7 @@
   }
 
   root.MotoCore = {
-    DT, SUB, P, SURFACE, build, groundY, slope, gripAt, surfaceAt, plan, touch,
+    DT, SUB, P, SURFACE, build, groundTrack, groundY, slope, gripAt, surfaceAt, plan, touch,
     newBike, place, step, respawn, robot, robotSpeed, predictLanding, simulate, torqueCurve, launchSpeed, rollAt, cornerAt,
     pathAt, heightAt, natural, bank, bermAt, trackY, locate, slice, vnoise, fbm,
   };

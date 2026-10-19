@@ -49,6 +49,7 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400}={}) {
  for(let i=0;i<scenery*3;i++) {
   const x=(random()-.5)*(map.size[0]-100),z=(random()-.5)*(map.size[1]-100),y=terrain.heightAt(x,z),road=terrain.roadAt(x,z);
   if(road&&road.distance<36 || map.safePads.some(p=>Math.hypot(x-p.position[0],z-p.position[1])<65) || map.interactions.some(p=>Math.hypot(x-p.position[0],z-p.position[1])<35))continue;
+  if(terrain.cliffRise(x,z)>2)continue;
   const lake=map.terrain.lake;if(lake&&Math.hypot((x-lake.position[0])/lake.radius[0],(z-lake.position[1])/lake.radius[1])<1.12)continue;
   const river=map.terrain.river;if(river&&Math.abs(x-river.x-Math.sin(z/river.wavelength)*river.amplitude)<75)continue;
   const size=2+random()*5;
@@ -89,5 +90,5 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400}={}) {
   if(ring<rings.length-1){const j=ring*perimeter+i,k=ring*perimeter+(i+1)%perimeter;ringIndices.push(j,k,j+perimeter,k,k+perimeter,j+perimeter);}
  }
  const apron=new THREE.BufferGeometry();apron.setAttribute('position',new THREE.Float32BufferAttribute(ringPositions,3));apron.setAttribute('color',new THREE.Float32BufferAttribute(ringColors,3));apron.setAttribute('trailWeight',new THREE.Float32BufferAttribute(ringTrails,1));apron.setIndex(ringIndices);apron.computeVertexNormals();const mountainRim=new THREE.Mesh(apron,groundMat);mountainRim.receiveShadow=true;group.add(mountainRim);disposables.push(apron);
- return {group,terrain,routes,minHeight,maxHeight,dispose(){group.traverse(o=>{if(o.isInstancedMesh)o.dispose();});for(const d of [...disposables,...Object.values(mats)])d.dispose();}};
+ return {group,terrain,routes,minHeight,maxHeight,ground,layered,dispose(){group.traverse(o=>{if(o.isInstancedMesh)o.dispose();});for(const d of [...disposables,...Object.values(mats)])d.dispose();}};
 }

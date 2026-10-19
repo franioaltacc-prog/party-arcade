@@ -98,6 +98,7 @@ export function createAudio() {
   const scrub = makeLoop(ctx, master, 'bandpass', 2400, 0.8);
   const nitro = makeLoop(ctx, master, 'highpass', 1800, 0.7);
   const others = new Map();
+  let lastSpeed=0,load=0;
   const shot = (fn) => { if (!Sfx.muted) { try { fn(); } catch { /* audio unavailable */ } } };
   function thud(strength) {
     const t = ctx.currentTime;
@@ -114,7 +115,10 @@ export function createAudio() {
     update(b, dt, extra = {}) {
       master.gain.setTargetAtTime(Sfx.muted ? 0 : 1, ctx.currentTime, 0.05);
       const speed = Math.hypot(b.vx, b.vy);
-      engine.set(b.crashed ? 1700 : b.rpm, b.crashed ? 0 : b.thr, b.limiter && !b.crashed, 1, 0, dt);
+      const acceleration=Math.max(0,(speed-lastSpeed)/Math.max(.001,dt));lastSpeed=speed;
+      const tune=window.MotoCore.P;
+      load+=(Math.min(1,acceleration/tune.SOUND_ACCEL_SCALE)*b.thr-load)*(1-Math.exp(-dt*tune.SOUND_RESPONSE));
+      engine.set(b.crashed ? 1700 : b.rpm, b.crashed ? 0 : Math.min(1,b.thr*tune.SOUND_BASE_LOAD+load*tune.SOUND_ACCEL), b.limiter && !b.crashed, 1, 0, dt);
       wind.set(Math.min(0.35, speed * speed * 0.00035), 500 + speed * 25);
       const slip = b.crashed ? 0 : Math.max(b.wh[1].ct ? b.wh[1].slip : 0, b.wh[0].ct ? b.wh[0].slip * 0.6 : 0, (extra.scrub || 0) * 0.6, b.slide || 0);
       scrub.set(Math.min(0.22, Math.max(0, slip - 0.6) * 0.05), extra.surface === 2 ? 3800 : extra.surface === 1 ? 900 : 2200);

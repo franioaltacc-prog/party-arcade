@@ -21,12 +21,14 @@ function texture(kind,size=1024){
  }
  context.putImageData(pixels,0,0);const tex=new THREE.CanvasTexture(canvas);tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.anisotropy=8;tex.colorSpace=THREE.NoColorSpace;return tex;
 }
-export function terrainMaterial(map){
- const textures=Object.fromEntries(Object.keys(palettes).map(k=>[k,texture(k)]));
+export function terrainMaterial(map,sharedTextures=null){
+ const textures=sharedTextures || Object.fromEntries(Object.keys(palettes).map(k=>[k,texture(k)]));
+ const hole=new THREE.Vector4();
  const material=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.91,metalness:0});
  material.customProgramCacheKey=()=> 'ow-triplanar-v2-'+map.theme;
  material.onBeforeCompile=shader=>{
   for(const [key,value]of Object.entries(textures))shader.uniforms['ow'+key]={value};
+  shader.uniforms.owHole={value:hole};
   shader.uniforms.owBiome={value:map.theme==='desert'?0:map.theme==='snow'?2:1};
   shader.vertexShader=shader.vertexShader.replace('#include <common>',`#include <common>
 attribute float trailWeight;
@@ -44,6 +46,7 @@ uniform sampler2D owgrass;
 uniform sampler2D owrock;
 uniform sampler2D owsnow;
 uniform float owBiome;
+uniform vec4 owHole;
 varying vec3 owPosition;
 varying vec3 owSurfaceNormal;
 varying float owTrail;
@@ -61,6 +64,7 @@ vec3 owBump(vec3 surf_pos,vec3 surf_norm,vec2 grad){
  return normalize(abs(determinant)*surf_norm-sign(determinant)*(grad.x*r1+grad.y*r2));
 }
 `).replace('#include <color_fragment>',`#include <color_fragment>
+if(owHole.w>.5 && abs(owPosition.x-owHole.x)<owHole.z && abs(owPosition.z-owHole.y)<owHole.z)discard;
 vec3 owWeights=pow(abs(normalize(owSurfaceNormal)),vec3(5.0));owWeights/=max(.001,dot(owWeights,vec3(1.0)));
 vec3 owP=owPosition*.12;
 vec4 owD=owTri(owdirt,owP,owWeights),owG=owTri(owgrass,owP,owWeights),owR=owTri(owrock,owP*.65,owWeights),owS=owTri(owsnow,owP,owWeights);
@@ -80,5 +84,5 @@ normal=owBump(-vViewPosition,normal,vec2(dFdx(owRelief),dFdy(owRelief)));
 roughnessFactor=clamp(.78+owGround.a*.22-.09*owSnow,.65,1.0);
 `);
  };
- return {material,dispose(){material.dispose();Object.values(textures).forEach(t=>t.dispose());}};
+ return {material,textures,hole,dispose(){material.dispose();if(!sharedTextures)Object.values(textures).forEach(t=>t.dispose());}};
 }

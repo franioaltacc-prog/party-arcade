@@ -714,7 +714,7 @@ function RoundedHay() {
 function RoundedBoxGeometryLite(w, h, d) { return new THREE.BoxGeometry(w, h, d); }
 
 // ------------------------------------------------------------------ particles
-function particles(scene, th, T) {
+export function particles(scene, th, T) {
   const softTex = canvasTex(64, 64, (g, w, h) => { const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32); grd.addColorStop(0, 'rgba(255,255,255,1)'); grd.addColorStop(0.45, 'rgba(255,255,255,.45)'); grd.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = grd; g.fillRect(0, 0, w, h); }, false);
   const vert = `attribute float size; attribute float alpha; attribute vec3 tint; varying float vA; varying vec3 vC;
     #include <fog_pars_vertex>

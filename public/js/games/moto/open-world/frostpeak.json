@@ -14,7 +14,7 @@
     -1208,
     1208
   ],
-  "spawnHeading": -0.4,
+  "spawnHeading": -2.441322,
   "palette": {
     "sky": "#a8bed0",
     "low": "#b9c8d6",
@@ -887,50 +887,50 @@
     {
       "id": "spawn-1",
       "position": [
-        -1208,
-        1208
+        -1232,
+        1190
       ],
-      "heading": -0.4
+      "heading": -2.441322
     },
     {
       "id": "spawn-2",
       "position": [
-        -1202,
-        1208
+        -1227,
+        1190
       ],
-      "heading": -0.4
+      "heading": -2.441322
     },
     {
       "id": "spawn-3",
       "position": [
-        -1196,
-        1208
+        -1222,
+        1190
       ],
-      "heading": -0.4
+      "heading": -2.441322
     },
     {
       "id": "spawn-4",
       "position": [
-        -1208,
-        1216
+        -1232,
+        1184
       ],
-      "heading": -0.4
+      "heading": -2.441322
     },
     {
       "id": "spawn-5",
       "position": [
-        -1202,
-        1216
+        -1227,
+        1184
       ],
-      "heading": -0.4
+      "heading": -2.441322
     },
     {
       "id": "spawn-6",
       "position": [
-        -1196,
-        1216
+        -1222,
+        1184
       ],
-      "heading": -0.4
+      "heading": -2.441322
     }
   ],
   "safePads": [
@@ -940,7 +940,11 @@
         -1208,
         1208
       ],
-      "radius": 32
+      "radius": 32,
+      "riderPosition": [
+        -1232,
+        1190
+      ]
     },
     {
       "id": "frost-summit",
@@ -948,7 +952,11 @@
         747,
         -1150
       ],
-      "radius": 32
+      "radius": 32,
+      "riderPosition": [
+        723,
+        -1168
+      ]
     },
     {
       "id": "frost-lake",
@@ -956,7 +964,11 @@
         115,
         920
       ],
-      "radius": 32
+      "radius": 32,
+      "riderPosition": [
+        91,
+        902
+      ]
     },
     {
       "id": "frost-timber",
@@ -964,7 +976,11 @@
         -1092,
         -1265
       ],
-      "radius": 32
+      "radius": 32,
+      "riderPosition": [
+        -1116,
+        -1283
+      ]
     },
     {
       "id": "frost-ridge",
@@ -972,7 +988,11 @@
         1322,
         575
       ],
-      "radius": 32
+      "radius": 32,
+      "riderPosition": [
+        1298,
+        557
+      ]
     },
     {
       "id": "frost-falls",
@@ -980,7 +1000,11 @@
         -747,
         -460
       ],
-      "radius": 32
+      "radius": 32,
+      "riderPosition": [
+        -771,
+        -478
+      ]
     }
   ]
 }

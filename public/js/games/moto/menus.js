@@ -60,6 +60,7 @@ export function createMenus(ctx) {
         h('div', { class: 'mx-two' },
           card2('blue', '👤', 'Solo', 'Time trial · 3 tracks · medals', () => pick('solo'), { on: mode === 'solo', sticker: mode === 'solo' ? '✔ PICKED' : null }),
           card2('purple', '📡', 'Online', 'Race 2–6 riders with a code', () => pick('online'), { on: mode === 'online', sticker: mode === 'online' ? '✔ PICKED' : null })),
+        card2('green','🗺️','Free ride','Three huge worlds · explore and race',()=>show('worlds'),{wide:true,sticker:'NEW'}),
         licence(),
         go(mode === 'solo' ? 'Ride' : 'Race', mode === 'solo' ? 'Pick a track' : 'Make a room or join friends', next),
         card2('green', '🏍️', 'Garage', `${Object.keys(ctx.MODELS).length} bikes · ${Object.keys(ctx.KITS).length - 1} rider kits · ${have} / ${ctx.bikeList.length || 1} paint jobs`, () => show('garage'), { wide: true, sticker: (ctx.MODELS[ctx.style.model] || {}).name || paint(ctx.myLivery()).name, stickerCls: 'dark' }));
@@ -77,6 +78,15 @@ export function createMenus(ctx) {
         h('div', { class: 'mx-tracks' }, list.map((t) => trackCard(t, t === sel, () => pick(t)))),
         go('Ride', `${sel.emoji} ${sel.name} · 3, 2, 1… GO!`, () => ctx.startSolo(sel)),
         note(Account.user ? 'Your best time on each track goes on its leaderboard. ↑ ↓ to pick a track.' : 'Log in to put your best times on the leaderboards. ↑ ↓ to pick a track.'));
+    },
+
+    worlds(){
+      back=()=>show('home');
+      const list=ctx.worlds;const sel=list.find(w=>w.id===ctx.prefs.world)||list[0];
+      primary=()=>sel&&ctx.startFree(sel);
+      return h('div',{class:'mx-col'},backBtn('Free ride'),
+        list.map(w=>card2(w.id==='frostpeak'?'blue':w.id==='redrock'?'red':'green',w.id==='frostpeak'?'❄️':w.id==='redrock'?'🏜️':'🌲',w.name,`${w.areaKm2.toFixed(1)} km² · 4 mini races · solo free ride`,()=>ctx.startFree(w),{wide:true})),
+        note('Ride anywhere. R returns to the nearest safe pad. Use the flag button to start a mini race; best times stay on this device.'));
     },
 
     online() {

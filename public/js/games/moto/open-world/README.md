@@ -2,7 +2,7 @@
 
 Built for Party Arcade, 19 October 2026. Start with `CLAUDE-HANDOFF.md` when connecting the mechanics.
 
-Three actual procedural 3D landscapes, with authored trail networks, sculpted hills, flatter trail beds, safe meeting pads, tabletop jumps, scenery and destination buildings. These are **map assets and an interactive inspection preview**, not a finished open-world game mode. Existing Motocross race files are untouched.
+Three actual procedural 3D landscapes, with authored trail networks, sculpted hills, flatter trail beds, safe meeting pads, tabletop jumps, scenery and destination buildings. **v3.3.0: these worlds are rideable** from the Free ride menu in `/games/moto`. `/games/moto-worlds` remains an inspection preview. Free ride uses the existing bike and camera; the flag button starts mini races, and R returns to a safe pad. Online free ride and quests are not implemented yet.
 
 | World | Size | Elevation range (approx.) | Character |
 | --- | --- | --- | --- |
@@ -10,7 +10,7 @@ Three actual procedural 3D landscapes, with authored trail networks, sculpted hi
 | Pinecrest Highlands | 3.2 × 3.2 km / 10.24 km² | 1,030 m including cliffs | Mountain switchbacks, lake circuit, timber mill, summit observatory, ridge cabin |
 | Frostpeak Expedition | 4 × 4 km / 16 km² | 1,100 m including cliffs | Snowy mountain expedition, frozen basin, rescue cabin and snowcat depot |
 
-Each world has **4 race definitions, 6 quest definitions, 8 interaction locations, 6 destinations, 6 rider spawn pads and 2 terrain-built jump features**. There are 7 connected trails in Redrock and 8 each in Pinecrest and Frostpeak. Quest/event state, timing, rewards and multiplayer logic are deliberately left for the mechanics work.
+Each world has **4 race definitions, 6 quest definitions, 8 interaction locations, 6 destinations, 6 rider spawn pads and 2 terrain-built jump features**. There are 7 connected trails in Redrock and 8 each in Pinecrest and Frostpeak. Mini-race timing, ordered gates and local best times are implemented. Quest/event state, rewards and multiplayer free ride remain future work.
 
 ## See the maps
 
@@ -34,7 +34,9 @@ Then open `http://localhost:18019/games/moto-worlds.html`. A local HTTP server i
 
 - `manifest.json`: map catalogue.
 - `redrock.json`, `pinecrest.json`, `frostpeak.json`: editable map, race, quest and activity content.
-- `terrain.mjs`: deterministic, DOM-free ground sampler, surface sampler, route helpers and gate generation. This is the future collision/physics source.
+- `terrain.mjs`: deterministic, DOM-free ground sampler, surfaces, route helpers and gates. Used by the bike ground adapter and both renderers.
+- `ride-world.mjs`: riding scene, particles, shadows and the high-resolution moving ground patch.
+- `trials.mjs`: fixed-step gate crossings, laps and mini-race timing.
 - `materials.mjs`: four seamless 1024² procedural texture atlases, multi-scale triplanar projection, derivative bump relief and slope/altitude material blending.
 - `world.mjs`: three.js terrain, instanced scenery and landmark builder. Uses the same height sampler as above.
 - `preview.mjs`: inspection UI and camera tour, used by `public/games/moto-worlds.html`.
@@ -59,14 +61,14 @@ Quests refer to existing IDs in `spots`, `interactions` or `races`. A quest's st
 node tests/motoworldtest.mjs
 ```
 
-The 30 checks cover all three worlds' scale, deterministic finite heights, normals, high terrain, bounds, connected trails, destination access, dry authored water crossings, safe pads, trail grades, quest references race gates, and the continuous cliff perimeter. They do **not** prove bike rideability, ideal jump speeds, multiplayer behavior or performance on low-end phones. Those need real rides after the mechanics adapter exists. The default overview mesh has ~524,000 triangles plus the mountain apron; tune the resolution or use terrain chunks/LOD during gameplay.
+The 33 checks cover all three worlds' scale, deterministic finite heights, normals, high terrain, bounds, connected trails, destination access, dry authored water crossings, safe pads, trail grades, quest references race gates, and the continuous cliff perimeter. They include a short bike ride and safe reset on each actual map. They do not exhaustively prove every jump, multiplayer behavior or performance on low-end phones. The default overview mesh has ~524,000 triangles plus the mountain apron; tune the resolution or use terrain chunks/LOD during gameplay.
 
 ## Cliff borders and materials (visual upgrade)
 
-All maps now rise into a continuous ring of high cliffs over the outermost 95 metres. The cliff rise is included in `heightAt()`, not just scenery, so the future bike adapter will sample the same barrier it sees. Its top varies naturally; the minimum cliff rise at the edge exceeds 80% of the configured 680 m / 820 m height. A matching mountain apron continues 1.6 km outside the playable boundary to hide the terrain cut-off from normal ground-level views. The apron is scenery outside the playable area; it does not expand the world bounds. Flying the inspection camera beyond the apron can still reveal its far edge.
+All maps now rise into a continuous ring of high cliffs over the outermost 95 metres. The cliff rise is included in `heightAt()`, not just scenery, so the bike adapter samples the same barrier it sees. Its top varies naturally; the minimum cliff rise at the edge exceeds 80% of the configured 680 m / 820 m height. A matching mountain apron continues 1.6 km outside the playable boundary to hide the terrain cut-off from normal ground-level views. The apron is scenery outside the playable area; it does not expand the world bounds. Flying the inspection camera beyond the apron can still reveal its far edge.
 
 `boundary.cliffWidth`, `cliffHeight` and `sceneryApron` control this. Trails remain inside the cliff toe. Elevation-range labels include the border cliffs. Apron inner-edge resolution matches the ground mesh to prevent cracks.
 
 The ground now uses generated albedo/height textures for dirt, grass, fractured rock and snow, blended by trail coverage, slope and altitude. Two rotated tile scales reduce repetition, larger-scale variation breaks up uniform colours, anisotropic mip filtering improves grazing angles and derivative bump relief adds close-up lighting detail. Triplanar sampling projects textures onto cliff sides without stretching. They are procedural textures, not downloaded photographic scans. Ground geometry has increased from 320 to 512 subdivisions per side. Scenery uses layered pine crowns and branched cacti instead of single-cone placeholders.
 
-Frostpeak is snow-covered throughout, with an ice basin. The frozen lake's central collision height is the ice level rather than the underwater lake bed. Quest, race and multiplayer mechanics remain definitions awaiting integration.
+Frostpeak is snow-covered throughout, with an ice basin. The frozen lake's central collision height is the ice level rather than the underwater lake bed. Mini races are rideable; quests and multiplayer free ride remain definitions awaiting integration.

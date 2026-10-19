@@ -57,7 +57,7 @@ export function buildTerrain(world) {
    const d=Math.hypot(x-seg.a[0]-seg.dx*t,z-seg.a[1]-seg.dz*t);
    const weight=1-smooth((d-seg.width)/seg.shoulder), influence=weight/(d*d+36);
    sum+=dryHeight(seg.a[0]+seg.dx*t,seg.a[1]+seg.dz*t)*influence; total+=influence; blend=Math.max(blend,weight);
-   if(d<min) { min=d; nearest={distance:d,trail:d<seg.width}; }
+   if(d<min) { min=d; nearest={distance:d,trail:d<seg.width,heading:Math.atan2(seg.dx,seg.dz)}; }
   } return nearest ? {...nearest,height:total?sum/total:0,weight:blend} : null;
  }
  const pads=world.safePads.map(p=>({...p,height:dryHeight(...p.position)}));
@@ -78,7 +78,7 @@ export function buildTerrain(world) {
  }
  function normalAt(x,z,epsilon=.5) { const nx=heightAt(x-epsilon,z)-heightAt(x+epsilon,z),nz=heightAt(x,z-epsilon)-heightAt(x,z+epsilon),ny=2*epsilon,l=Math.hypot(nx,ny,nz); return {x:nx/l,y:ny/l,z:nz/l}; }
  function inBounds(x,z,margin=0) { return Math.abs(x)<=world.size[0]/2-margin&&Math.abs(z)<=world.size[1]/2-margin; }
- function nearestSafePad(x,z) { return pads.reduce((a,b)=>Math.hypot(x-a.position[0],z-a.position[1])<Math.hypot(x-b.position[0],z-b.position[1])?a:b); }
+ function nearestSafePad(x,z) { const pad=pads.reduce((a,b)=>Math.hypot(x-a.position[0],z-a.position[1])<Math.hypot(x-b.position[0],z-b.position[1])?a:b); return {...pad,position:pad.riderPosition||pad.position,heading:roadAt(...(pad.riderPosition||pad.position))?.heading ?? world.spawnHeading}; }
  function gatesFor(raceId,spacing=110) {
   const race=world.races.find(r=>r.id===raceId); if(!race) throw new Error('Unknown race: '+raceId);
   const route=world.routes.find(r=>r.id===race.route),len=routeLength(route),count=Math.ceil(len/spacing),gates=[];

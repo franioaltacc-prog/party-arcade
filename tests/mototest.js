@@ -116,6 +116,41 @@ const flat = C.build({ id: 'flat', name: 'Flat', course: ['flat 20', 'start', 'f
   check(threw, 'an unknown track piece is an error that names it');
 }
 
+// ---------------------------------------------------------------- free-ride heightfield adapter
+{
+  const pad={id:'camp',position:[100,200],heading:Math.PI/2};
+  const ground={heightAt:(x,z)=>70+(x-100)*.12, normalAt:()=>({x:-.12/Math.hypot(1,.12),y:1/Math.hypot(1,.12),z:0}),
+    surfaceAt:()=>({kind:'trail',grip:1,roll:.01}),inBounds:(x,z)=>Math.abs(x)<5000&&Math.abs(z)<5000,nearestSafePad:()=>pad};
+  const T=C.groundTrack(ground,pad),b=C.newBike(T),y=b.y;let events=[];
+  check(Math.abs(b.px-100)<.01&&Math.abs(b.pz-200)<.01&&Math.abs(b.h)<.01,'free ride converts only the spawn heading and keeps world coordinates');
+  for(let i=0;i<120*5;i++)events=events.concat(C.step(T,b,{gas:1,lean:.1}));
+  check(!b.crashed&&b.px>140&&b.y>y+4,'free ride climbs a real world-space hill without the corridor fence');
+  check(Math.abs(b.wh[1].y-C.P.R[1]-ground.heightAt(b.px+(b.wh[1].x-b.x)*Math.cos(b.h),b.pz))<.12,'free-ride wheels stay on the sampled heightfield');
+  check(!b.wrong&&b.finished===null&&b.cp===-1&&!events.some(e=>['finish','cp','fence'].includes(e[0])),'free ride skips track checkpoints, finish, wrong-way and berm/fence rules');
+  C.respawn(T,b);check(Math.abs(b.px-pad.position[0])<.01&&Math.abs(b.pz-pad.position[1])<.01&&!b.crashed&&b.hold===C.P.HOLD_TIME,'free ride respawns upright on nearestSafePad');
+  b.px=6000;const ev=C.step(T,b,{});check(b.crashed&&ev.some(e=>e[0]==='bounds'),'leaving world bounds triggers a safe reset rather than endless falling');
+}
+
+// Fixed-step integration gives the same ride across display refresh rates.
+{
+ const run=(fps)=>{const T=C.build({id:'frames',course:['flat 20','start','flat 500','finish']}),b=C.newBike(T);let acc=0;for(let f=0;f<fps*4;f++){acc+=1/fps;while(acc>=C.DT-1e-10){C.step(T,b,{gas:.7,steer:.05});acc-=C.DT;}}return b;};
+ const a=run(30),b=run(144);check(Math.abs(a.px-b.px)<1e-8&&Math.abs(a.pz-b.pz)<1e-8&&a.gear===b.gear,'the same fixed-step inputs ride identically at 30 and 144 fps');
+}
+
+// ---------------------------------------------------------------- embedded races (the actual DOM-free runtime)
+{
+  const api=Function(readFile('public/js/games/moto/open-world/trials.mjs').replace(/export /g,'')+'; return {createTrial,stepTrial,crossGate,trialBestKey};')();
+  const gate={x:0,y:0,z:0,heading:Math.PI/2,radius:10};
+  check(api.crossGate(gate,{x:-30,y:1,z:0},{x:30,y:1,z:0}),'mini-race gates use swept crossings, including fast passes');
+  check(!api.crossGate(gate,{x:3,y:1,z:0},{x:-3,y:1,z:0})&&!api.crossGate(gate,{x:-3,y:50,z:0},{x:3,y:50,z:0})&&!api.crossGate(gate,{x:-3,y:1,z:30},{x:3,y:1,z:30}),'wrong-way, high and outside-radius passes do not count');
+  const t=api.createTrial({gatesFor:()=>[gate,{...gate,x:100},gate]},{id:'loop',laps:2});
+  const cross=(x)=>api.stepTrial(t,{x:x-1,y:1,z:0},{x:x+1,y:1,z:0},1);
+  cross(100);check(t.next===0&&!t.started,'mini races cannot skip the start or advance gates out of order');
+  cross(0);cross(100);cross(0);check(t.lap===2&&t.next===1&&!t.done,'closed mini races require every gate on every lap');
+  cross(100);const ev=cross(0);check(ev==='finish'&&t.done&&t.time===4,'a mini race finishes once, using fixed-step elapsed time after the start');
+  check(api.trialBestKey('redrock','loop')!==api.trialBestKey('pinecrest','loop'),'mini-race best-time keys are scoped to their world');
+}
+
 // ---------------------------------------------------------------- every track
 for (const def of DATA.tracks) {
   const T = C.build(def);

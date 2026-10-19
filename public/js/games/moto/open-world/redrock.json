@@ -14,7 +14,7 @@
     -1050,
     1050
   ],
-  "spawnHeading": -0.6,
+  "spawnHeading": -2.582993,
   "palette": {
     "sky": "#edc6a0",
     "low": "#a96036",
@@ -878,50 +878,50 @@
     {
       "id": "spawn-1",
       "position": [
-        -1050,
-        1050
+        -1074,
+        1032
       ],
-      "heading": -0.6
+      "heading": -2.582993
     },
     {
       "id": "spawn-2",
       "position": [
-        -1045,
-        1050
+        -1069,
+        1032
       ],
-      "heading": -0.6
+      "heading": -2.582993
     },
     {
       "id": "spawn-3",
       "position": [
-        -1040,
-        1050
+        -1064,
+        1032
       ],
-      "heading": -0.6
+      "heading": -2.582993
     },
     {
       "id": "spawn-4",
       "position": [
-        -1050,
-        1057
+        -1074,
+        1026
       ],
-      "heading": -0.6
+      "heading": -2.582993
     },
     {
       "id": "spawn-5",
       "position": [
-        -1045,
-        1057
+        -1069,
+        1026
       ],
-      "heading": -0.6
+      "heading": -2.582993
     },
     {
       "id": "spawn-6",
       "position": [
-        -1040,
-        1057
+        -1064,
+        1026
       ],
-      "heading": -0.6
+      "heading": -2.582993
     }
   ],
   "safePads": [
@@ -931,7 +931,11 @@
         -1050,
         1050
       ],
-      "radius": 32
+      "radius": 32,
+      "riderPosition": [
+        -1074,
+        1032
+      ]
     },
     {
       "id": "crown",
@@ -939,7 +943,11 @@
         -1050,
         -1150
       ],
-      "radius": 32
+      "radius": 32,
+      "riderPosition": [
+        -1074,
+        -1168
+      ]
     },
     {
       "id": "mesa",
@@ -947,7 +955,11 @@
         850,
         -1000
       ],
-      "radius": 32
+      "radius": 32,
+      "riderPosition": [
+        826,
+        -1018
+      ]
     },
     {
       "id": "quarry",
@@ -955,7 +967,11 @@
         1200,
         750
       ],
-      "radius": 32
+      "radius": 32,
+      "riderPosition": [
+        1176,
+        732
+      ]
     },
     {
       "id": "wash",
@@ -963,7 +979,11 @@
         250,
         0
       ],
-      "radius": 32
+      "radius": 32,
+      "riderPosition": [
+        226,
+        -18
+      ]
     },
     {
       "id": "ruins",
@@ -971,7 +991,11 @@
         -300,
         -900
       ],
-      "radius": 32
+      "radius": 32,
+      "riderPosition": [
+        -324,
+        -918
+      ]
     }
   ]
 }

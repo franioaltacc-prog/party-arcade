@@ -14,7 +14,7 @@
     -1050,
     1050
   ],
-  "spawnHeading": -0.4,
+  "spawnHeading": -2.582993,
   "palette": {
     "sky": "#b7d3dd",
     "low": "#47684b",
@@ -882,50 +882,50 @@
     {
       "id": "spawn-1",
       "position": [
-        -1050,
-        1050
+        -1074,
+        1032
       ],
-      "heading": -0.4
+      "heading": -2.582993
     },
     {
       "id": "spawn-2",
       "position": [
-        -1045,
-        1050
+        -1069,
+        1032
       ],
-      "heading": -0.4
+      "heading": -2.582993
     },
     {
       "id": "spawn-3",
       "position": [
-        -1040,
-        1050
+        -1064,
+        1032
       ],
-      "heading": -0.4
+      "heading": -2.582993
     },
     {
       "id": "spawn-4",
       "position": [
-        -1050,
-        1057
+        -1074,
+        1026
       ],
-      "heading": -0.4
+      "heading": -2.582993
     },
     {
       "id": "spawn-5",
       "position": [
-        -1045,
-        1057
+        -1069,
+        1026
       ],
-      "heading": -0.4
+      "heading": -2.582993
     },
     {
       "id": "spawn-6",
       "position": [
-        -1040,
-        1057
+        -1064,
+        1026
       ],
-      "heading": -0.4
+      "heading": -2.582993
     }
   ],
   "safePads": [
@@ -935,7 +935,11 @@
         -1050,
         1050
       ],
-      "radius": 32
+      "radius": 32,
+      "riderPosition": [
+        -1074,
+        1032
+      ]
     },
     {
       "id": "summit",
@@ -943,7 +947,11 @@
         650,
         -1000
       ],
-      "radius": 32
+      "radius": 32,
+      "riderPosition": [
+        626,
+        -1018
+      ]
     },
     {
       "id": "lake",
@@ -951,7 +959,11 @@
         100,
         800
       ],
-      "radius": 32
+      "radius": 32,
+      "riderPosition": [
+        76,
+        782
+      ]
     },
     {
       "id": "timber",
@@ -959,7 +971,11 @@
         -950,
         -1100
       ],
-      "radius": 32
+      "radius": 32,
+      "riderPosition": [
+        -974,
+        -1118
+      ]
     },
     {
       "id": "ridge",
@@ -967,7 +983,11 @@
         1150,
         500
       ],
-      "radius": 32
+      "radius": 32,
+      "riderPosition": [
+        1126,
+        482
+      ]
     },
     {
       "id": "falls",
@@ -975,7 +995,11 @@
         -650,
         -400
       ],
-      "radius": 32
+      "radius": 32,
+      "riderPosition": [
+        -674,
+        -418
+      ]
     }
   ]
 }
