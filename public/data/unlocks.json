@@ -51,7 +51,11 @@
     {"id": "memory", "emoji": "🧠", "name": "Elephant memory", "desc": "Beat Memory Flip (Normal) in under 30s", "rule": {"stat": "memory.best", "gt": 0, "lte": 30000}},
     {"id": "moto-finish", "emoji": "🏍️", "name": "First lap", "desc": "Finish a Motocross track", "rule": {"stat": "moto.finishes", "gte": 1}},
     {"id": "moto-flips", "emoji": "🤸", "name": "Flipping out", "desc": "Land 10 flips in Motocross", "rule": {"stat": "moto.flips", "gte": 10}},
+    {"id": "moto-desert", "emoji": "🏜️", "name": "Sand blaster", "desc": "Finish Desert Dunes in Motocross", "rule": {"stat": "motodesert.best", "gt": 0}},
+    {"id": "moto-forest", "emoji": "🌲", "name": "Mud plugger", "desc": "Finish Forest Mud in Motocross", "rule": {"stat": "motoforest.best", "gt": 0}},
+    {"id": "moto-snow", "emoji": "🏔️", "name": "Snow rider", "desc": "Finish Snow Ridge in Motocross", "rule": {"stat": "motosnow.best", "gt": 0}},
     {"id": "moto-win", "emoji": "🏁", "name": "Holeshot", "desc": "Win an online Motocross race", "rule": {"stat": "moto.wins", "gte": 1}},
+    {"id": "moto-five", "emoji": "🥇", "name": "Podium regular", "desc": "Win 5 online Motocross races", "rule": {"stat": "moto.wins", "gte": 5}},
     {"id": "moto-legend", "emoji": "👑", "name": "Motocross legend", "desc": "Win 10 online Motocross races", "rule": {"stat": "moto.wins", "gte": 10}}
   ],
   "auras": [
@@ -121,12 +125,12 @@
     {"id": "blue", "name": "Racing Blue", "colors": ["#1747c9", "#ffffff"], "rule": {"level": 4}},
     {"id": "orange", "name": "Sunset Orange", "colors": ["#ff6a10", "#16181c"], "rule": {"ach": "moto-finish"}},
     {"id": "yellow", "name": "Sun Yellow", "colors": ["#ffd21a", "#1747c9"], "rule": {"level": 6}},
-    {"id": "camo", "name": "Desert Camo", "colors": ["#b8925a", "#5b4630"], "rule": {"stat": "motodesert.best", "gt": 0}},
-    {"id": "mud", "name": "Mud Runner", "colors": ["#6a4a2c", "#b6d330"], "rule": {"stat": "motoforest.best", "gt": 0}},
-    {"id": "white", "name": "Glacier White", "colors": ["#f3f5f8", "#2a7fff"], "rule": {"stat": "motosnow.best", "gt": 0}},
+    {"id": "camo", "name": "Desert Camo", "colors": ["#b8925a", "#5b4630"], "rule": {"ach": "moto-desert"}},
+    {"id": "mud", "name": "Mud Runner", "colors": ["#6a4a2c", "#b6d330"], "rule": {"ach": "moto-forest"}},
+    {"id": "white", "name": "Glacier White", "colors": ["#f3f5f8", "#2a7fff"], "rule": {"ach": "moto-snow"}},
     {"id": "black", "name": "Midnight", "colors": ["#17191e", "#ffd21a"], "rule": {"level": 10}},
     {"id": "neon", "name": "Neon Arcade", "colors": ["#8b3dff", "#39ff88"], "rule": {"ach": "moto-flips"}},
-    {"id": "gold", "name": "Gold Rush", "colors": ["#e3b021", "#16181c"], "rule": {"stat": "moto.wins", "gte": 5}},
+    {"id": "gold", "name": "Gold Rush", "colors": ["#e3b021", "#16181c"], "rule": {"ach": "moto-five"}},
     {"id": "chrome", "name": "Chrome", "colors": ["#d9dde3", "#ff3b7f"], "rule": {"ach": "moto-legend"}}
   ]
 }

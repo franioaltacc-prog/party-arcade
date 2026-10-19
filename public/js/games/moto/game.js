@@ -331,7 +331,7 @@ function updateCamera(s, dt, heading, speed, lane, lift) {
   const P = w.place(focusX, focusY, lane, tmpV3);
   const ground = w.trackY(focusX);
   const air = Math.max(0, focusY - ground - 0.7);
-  let want; let look; let fov = 56 + Math.min(10, speed * 0.32);
+  let want; let look; let fov = 56 + Math.min(10, speed * 0.32) + (camera.aspect < 1 ? 18 : 0);   // (a tall phone screen needs a wider view)
   if (R.camMode === 'side') {
     want = P.clone().addScaledVector(Rt, 10.5 + air * 0.5).addScaledVector(D, 2).add(UPV.clone().multiplyScalar(1.8 + air * 0.25));
     look = P.clone().addScaledVector(D, 3).add(UPV.clone().multiplyScalar(0.6));
@@ -561,6 +561,7 @@ camBtn.addEventListener('click', () => { R.camMode = CAMS[(CAMS.indexOf(R.camMod
 
 addEventListener('keydown', (e) => {
   if (!R.running) return;
+  if (R.audio && R.audio.ctx.state === 'suspended') R.audio.ctx.resume();   // (browsers only allow sound after a key press or tap)
   if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
   keys[e.code] = true;
@@ -574,7 +575,12 @@ addEventListener('keyup', (e) => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k of Object.keys(keys)) keys[k] = false; });
 for (const btn of document.querySelectorAll('#mx-touch [data-k]')) {
   const k = btn.dataset.k;
-  const set = (v) => (e) => { e.preventDefault(); if (k === 'respawn') { if (v) respawnNow(); return; } touch[k] = v; btn.classList.toggle('on', v); };
+  const set = (v) => (e) => {
+    e.preventDefault();
+    if (R.audio && R.audio.ctx.state === 'suspended') R.audio.ctx.resume();
+    if (k === 'respawn') { if (v) respawnNow(); return; }
+    touch[k] = v; btn.classList.toggle('on', v);
+  };
   btn.addEventListener('pointerdown', set(true)); btn.addEventListener('pointerup', set(false)); btn.addEventListener('pointercancel', set(false)); btn.addEventListener('pointerleave', set(false));
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden) for (const k of Object.keys(keys)) keys[k] = false; });
@@ -605,6 +611,13 @@ function renderRoomMain() {
         class: 'track-card' + (sel === t.id ? ' on' : ''), disabled: !host,
         onclick: () => { Net.send('g:settings', { track: t.id }); Sfx.play('click'); },
       }, h('div', { class: 'tc-top' }, h('span', { class: 'tc-e' }, t.emoji), h('b', {}, t.name)), h('div', { class: 'tc-about' }, t.about)))));
+  if (state.phase === 'racing' && state.race) {
+    kids.push(h('div', { style: { height: '14px' } }), h('div', { class: 'panel-title' }, '🏍️ A race is on'),
+      h('button', { class: 'btn btn-cyan btn-lg btn-block', onclick: () => startRace(state.race, 0, true) }, '👀 Watch the race'),
+      h('p', { class: 'tiny faint', style: { marginTop: '10px', textAlign: 'center' } }, 'You can ready up for the next one when it’s over.'));
+    fill($('#room-main'), kids);
+    return;
+  }
   // ready-up
   const riders = (Room.players || []).filter((p) => !p.watch && p.online !== false);
   const readyCount = riders.filter((p) => state.ready[p.id]).length;
@@ -623,11 +636,11 @@ function renderRoomMain() {
   fill($('#room-main'), kids);
 }
 
-function startRace(race, countdown) {
+function startRace(race, countdown, watch = false) {
   state.race = race; state.phase = 'racing'; state.results = null;
   const def = trackDef(race.track);
   const me = race.runners[Net.id];
-  R.spectate = !me || me.done;
+  R.spectate = watch || !me || me.done;
   for (const o of R.others.values()) dropOther(o);
   R.others.clear();
   for (const id of Object.keys(race.runners)) {

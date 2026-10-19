@@ -115,7 +115,14 @@
     .mx-touch button.sm { width: 48px; height: 48px; font-size: 1.1rem; }
     .mx-touch button.nitro { border-color: #7dd3fc; color: #a5f3fc; }
     @media (pointer: coarse) { .mx-touch { display: flex; } .mx-br { bottom: 96px; } .mx-bl { bottom: 96px; } }
-    @media (max-width: 600px) { .mx-tr { top: 52px; } }
+    @media (max-width: 600px) { .mx-tl { top: 58px; } .mx-tr { top: 58px; } }
+    @media (max-width: 480px) {
+      .mx-touch { padding: 0 8px; }
+      .mx-touch .grp { gap: 6px; }
+      .mx-touch button { width: 58px; height: 58px; font-size: 1.3rem; border-radius: 18px; }
+      .mx-touch button.sm { width: 42px; height: 42px; font-size: 1rem; border-radius: 14px; }
+      .mx-btns button { width: 34px; height: 34px; }
+    }
   </style>
 </head>
 <body>
