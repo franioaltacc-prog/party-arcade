@@ -132,6 +132,22 @@ every lap. Best times are saved in localStorage per world/race, separately from 
 Each world has a send-it jump park (five tabletops) beside the camp and another pad, and tabletops along
 the straight trails. Cabins, the lookout tower, decks and arch posts are solid (you crash into them).
 
+**v3.5.0: Coins, engines and challenges.** Free ride has gold coins along every trail (2 each) and in the air
+over every jump (5 each); they come back after 2 minutes. Riding (1 coin per 250 m), flips (5 each), big air,
+mini races (30, 50 for a new best) and challenges earn more. Coins buy faster **free-ride engines** in the
+garage (⚡ Engine tab): `public/js/games/moto/coins.js` lists them with their power / drag / turbo / gearing
+multipliers, which `MotoCore.groundTrack(terrain, spawn, engine)` passes to the physics. Races and challenges
+always get `engine = null` (stock). Coins and engines are kept in this browser (`moto_coins_v1`), like the
+free-ride records; `tests/mototest.js` checks each engine is faster and that its listed top speeds are true.
+
+**Challenges** (`open-world/challenges.json`, read by the client and `games/moto/game.py`): `race` (first to
+a finish pad, any line), `air` (longest single jump), `flips` (most flips landed) and `speed` (top speed
+on your wheels) in one of the worlds. Solo, your best is kept on this device (`moto_ch_best_<id>`). In a room
+the host switches 🏁 Track race / 🎯 Challenge (`g:settings` `{mode, challenge}`); everyone starts in their own
+lane, sees the others, and sends `g:finish` (races) or `g:score` (timed ones, best so far; the server keeps
+the best, ignores impossible ones and broadcasts it). Results go to `moto.challenges` / `moto.cwins` stats.
+In a challenge a crash puts you back where you last were on your wheels (not at a safe pad).
+
 `MotoCore.groundTrack(terrain, spawn)` is the free-ride adapter: `slice()` samples world-space ground
 along the bike's heading; it bypasses track berms, fences, wrong-way checks and track-based finish
 logic. Track racing keeps its existing progression and room protocol. The high cliff perimeter is

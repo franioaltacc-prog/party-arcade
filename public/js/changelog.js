@@ -6,6 +6,14 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.5.0', date: '2026-10-19', emoji: '🪙', title: 'Motocross: coins, faster engines and challenges', items: [
+      'Gold coins in all three free-ride worlds: along the trails and up in the air over every jump (those are worth more)',
+      'Earn more coins riding around, landing flips and big air, finishing mini races and in challenges',
+      'Spend them in the garage on faster engines for free ride: Sport tune, Race engine, Twin turbo and the Rocket bike (up to 540 km/h)',
+      'New Challenges menu: Summit Downhill, Mesa Dash and Cloudbreak Descent (first to the finish, any line you like), Big Air, Flip Frenzy and Top Speed',
+      'Ride a challenge on your own to beat your best, or make a room and challenge your friends: everyone rides it at the same time and sees each other',
+      'Challenges and races always use the stock engine, so nobody can buy a win',
+    ] },
     { v: '3.4.1', date: '2026-10-19', emoji: '💙', title: 'A blue Party Arcade', items: [
       'The whole site now looks Arcade Blue by default: electric blue and sky cyan instead of pink and purple',
       'Miss the pink? Pick Neon in Settings → Theme (if you already chose a theme, you keep it)',
