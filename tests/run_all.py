@@ -26,7 +26,7 @@ BATCHES = [
     ["rolebot", "songbot", "volleybot"],
 ]
 UNIT = ["phunit", "phunit2", "tourunit", "poolunit", "lifeunit", "lifecontent", "songunit"]
-JS = ["polytest.js", "polyends.js", "dashedit.js", "poolai.js", "flappytest.js", "golftest.js", "volleytest.js", "volleyaitest.js"]
+JS = ["polytest.js", "polyends.js", "dashedit.js", "poolai.js", "flappytest.js", "golftest.js", "volleytest.js", "volleyaitest.js", "mototest.js"]
 FLAKY = ["doodle word"]            # known to fail now and then; reported as a warning
 
 
@@ -77,6 +77,7 @@ def js_runner():
         return lambda f: ["jsc", f]
     if shutil.which("node"):
         shim = ("global.print = console.log; const p = require('path'); "
+                "global.readFile = (f) => require('fs').readFileSync(f, 'utf8'); "
                 "global.load = (f) => require(p.resolve(f)); require(p.resolve(process.argv[1]));")
         return lambda f: ["node", "-e", shim, f]
     return None

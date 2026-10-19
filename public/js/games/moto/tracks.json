@@ -1,0 +1,67 @@
+{
+  "_about": "Motocross tracks. Each track's course is a list of pieces laid end to end; all sizes are in metres. Every piece is explained in the README (Motocross). 'grip' is how much the ground grips (1 = hard dirt), 'roll' how much it slows you (sand, mud). 'robot' is the robot rider's time in seconds (tests/mototest.js prints it): a finish time faster than 70% of it doesn't count, so a new track needs one.",
+  "tracks": [
+    {
+      "id": "desert",
+      "name": "Desert Dunes",
+      "emoji": "🏜️",
+      "theme": "desert",
+      "grip": 0.9,
+      "roll": 0.012,
+      "about": "Fast sandy straights, big doubles and a tabletop under the midday sun.",
+      "robot": 51.08,
+      "course": [
+        "flat 26", "start", "flat 44", "turn 40 22", "flat 22",
+        "roller 14 1.0", "flat 16", "double 10 2.6 16", "flat 28", "cp",
+        "bumps 30 0.06", "turn -50 20", "flat 26", "table 10 2.8 12", "flat 26",
+        "whoops 40 0.5 6", "flat 20", "turn 45 24", "flat 10", "cp",
+        "flat 34", "kicker 8 1.6", "flat 30", "up 30 4", "flat 12", "drop 3.5", "flat 30",
+        "double 11 2.8 18", "flat 26", "cp",
+        "turn -40 22", "flat 30", "rollers 40 1.0 3", "flat 20",
+        "table 10 2.6 14", "flat 24", "turn 35 26", "flat 34",
+        "double 10 2.6 16", "flat 34", "finish", "flat 70"
+      ]
+    },
+    {
+      "id": "forest",
+      "name": "Forest Mud",
+      "emoji": "🌲",
+      "theme": "forest",
+      "grip": 0.8,
+      "roll": 0.008,
+      "about": "Slippery mud, roots and ruts between tall pines. Mind the puddles!",
+      "robot": 53.99,
+      "course": [
+        "flat 26", "start", "flat 38", "turn -45 20", "flat 20",
+        "mud 16", "flat 12", "roller 14 1.2", "flat 18", "double 9 2.4 14", "flat 26", "cp",
+        "up 24 4", "bumps 22 0.08", "turn 50 18", "flat 16", "down 24 4", "flat 16",
+        "kicker 7 1.5", "flat 24", "mud 20", "flat 16", "table 9 2.4 11", "flat 24", "cp",
+        "turn -55 18", "flat 22", "whoops 40 0.5 6", "flat 20", "stepup 9 2.4", "flat 24",
+        "drop 2.4", "flat 22", "mud 14", "flat 12", "turn 45 22", "flat 10", "cp",
+        "flat 34", "double 10 2.6 15", "flat 24", "dip 22 2.4", "flat 16",
+        "rollers 32 1.1 3", "flat 18", "turn -35 24", "flat 26", "kicker 7 1.6", "flat 36",
+        "finish", "flat 70"
+      ]
+    },
+    {
+      "id": "snow",
+      "name": "Snow Ridge",
+      "emoji": "🏔️",
+      "theme": "snow",
+      "grip": 0.72,
+      "roll": 0,
+      "about": "Packed snow and icy patches at dusk, with huge jumps down the mountain.",
+      "robot": 52.17,
+      "course": [
+        "flat 26", "start", "flat 36", "down 28 4", "flat 12", "kicker 8 1.6", "flat 28",
+        "turn 40 24", "flat 16", "ice 16", "flat 16", "double 10 2.6 16", "flat 28", "cp",
+        "rollers 40 1.1 3", "flat 16", "turn -50 22", "flat 20", "table 11 2.8 13", "flat 26",
+        "ice 18", "flat 18", "cp",
+        "flat 20", "up 26 5", "flat 14", "drop 4", "flat 32", "whoops 40 0.45 6", "flat 22",
+        "double 11 2.8 18", "flat 26", "turn 45 24", "flat 10", "cp",
+        "flat 30", "dip 24 2.4", "flat 16", "ice 14", "flat 16", "kicker 8 1.9", "flat 30",
+        "table 10 2.6 13", "flat 30", "turn -30 28", "flat 30", "finish", "flat 70"
+      ]
+    }
+  ]
+}
