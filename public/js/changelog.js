@@ -6,6 +6,14 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.3.1', date: '2026-10-19', emoji: '⚡', title: 'Faster free ride, smoother big worlds', items: [
+      'Six-speed open-world bikes build past 300 km/h, with much stronger acceleration and less drag',
+      'Hold Space or Shift (gamepad A) for turbo bursts, then release to recharge for the next cliff run-up',
+      'Upright big-jump landings absorb more impact; stronger free-ride brakes help you set up the next turn',
+      'Big worlds draw terrain and scenery in visible chunks, with lighter distant shading and detailed ground around the bike',
+      'Ground detail updates are spread across frames, with soft contact shadows replacing expensive world shadow rendering',
+      'Original track races keep their existing handling and times; faster free-ride mini races start a fresh local record version',
+    ] },
     { v: '3.3.0', date: '2026-10-19', emoji: '🏍️', title: 'Motocross: free ride and smoother handling', items: [
       'Ride the huge Redrock Frontier, Pinecrest Highlands and Frostpeak Expedition worlds from the new Free ride menu',
       'Explore without track fences, wrong-way warnings or a ticking race clock; R returns you to the nearest safe riding pad',

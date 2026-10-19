@@ -2,7 +2,7 @@
 
 Built for Party Arcade, 19 October 2026. Start with `CLAUDE-HANDOFF.md` when connecting the mechanics.
 
-Three actual procedural 3D landscapes, with authored trail networks, sculpted hills, flatter trail beds, safe meeting pads, tabletop jumps, scenery and destination buildings. **v3.3.0: these worlds are rideable** from the Free ride menu in `/games/moto`. `/games/moto-worlds` remains an inspection preview. Free ride uses the existing bike and camera; the flag button starts mini races, and R returns to a safe pad. Online free ride and quests are not implemented yet.
+Three actual procedural 3D landscapes, with authored trail networks, sculpted hills, flatter trail beds, safe meeting pads, tabletop jumps, scenery and destination buildings. **v3.3.1: these worlds are rideable, with six gears and rechargeable turbo** from the Free ride menu in `/games/moto`. `/games/moto-worlds` remains an inspection preview. Free ride uses the existing bike and camera; the flag button starts mini races, and R returns to a safe pad. Online free ride and quests are not implemented yet.
 
 | World | Size | Elevation range (approx.) | Character |
 | --- | --- | --- | --- |
@@ -35,7 +35,8 @@ Then open `http://localhost:18019/games/moto-worlds.html`. A local HTTP server i
 - `manifest.json`: map catalogue.
 - `redrock.json`, `pinecrest.json`, `frostpeak.json`: editable map, race, quest and activity content.
 - `terrain.mjs`: deterministic, DOM-free ground sampler, surfaces, route helpers and gates. Used by the bike ground adapter and both renderers.
-- `ride-world.mjs`: riding scene, particles, shadows and the high-resolution moving ground patch.
+- `ride-world.mjs`: riding scene, particles, soft contact shadow and the cached, budgeted moving ground patch.
+- `render-policy.mjs`: quality-dependent far terrain, scenery and near-detail update budgets.
 - `trials.mjs`: fixed-step gate crossings, laps and mini-race timing.
 - `materials.mjs`: four seamless 1024² procedural texture atlases, multi-scale triplanar projection, derivative bump relief and slope/altitude material blending.
 - `world.mjs`: three.js terrain, instanced scenery and landmark builder. Uses the same height sampler as above.
@@ -61,7 +62,9 @@ Quests refer to existing IDs in `spots`, `interactions` or `races`. A quest's st
 node tests/motoworldtest.mjs
 ```
 
-The 33 checks cover all three worlds' scale, deterministic finite heights, normals, high terrain, bounds, connected trails, destination access, dry authored water crossings, safe pads, trail grades, quest references race gates, and the continuous cliff perimeter. They include a short bike ride and safe reset on each actual map. They do not exhaustively prove every jump, multiplayer behavior or performance on low-end phones. The default overview mesh has ~524,000 triangles plus the mountain apron; tune the resolution or use terrain chunks/LOD during gameplay.
+The 34 checks cover all three worlds' scale, deterministic finite heights, normals, high terrain, bounds, connected trails, destination access, dry authored water crossings, safe pads, trail grades, quest references race gates, and the continuous cliff perimeter. They include a short bike ride and safe reset on each actual map. They do not exhaustively prove every jump, multiplayer behavior or performance on low-end phones. The default inspection mesh has ~524,000 triangles plus the mountain apron. Riding uses 96/128/192 far subdivisions, frustum-cullable terrain/scenery chunks and a detailed patch within 48–64 m of the bike. Patch updates are budgeted and cached; far shading and contact shadows reduce GPU load. Add `&perf=1` to the ride URL for visible performance diagnostics.
+
+Free-ride tuning lives in `MotoCore.P.FREE_*`: six gears, ~314 km/h on a long flat trail, ~344 km/h with turbo, stronger braking and upright landing impact absorption. Space/Shift/gamepad A uses turbo; release to recharge. Actual speed varies with terrain and run-up. Mini-race best keys are now `moto_world_best_v2_<world>_<race>`; older records remain stored separately. Normal race tuning is unchanged.
 
 ## Cliff borders and materials (visual upgrade)
 
