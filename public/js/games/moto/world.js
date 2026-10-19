@@ -108,6 +108,197 @@ function detailMaps(seed) {
   return { map, normal };
 }
 
+/* ------------------------------------------------------------------ scenery models
+   Every model is made here from simple shapes that get bent, lumped, cut and coloured vertex by vertex,
+   then copied around with instancing (each copy a little bigger, smaller, darker or lighter). */
+const vc = (geo, color, jitter = 0.08, fn) => {
+  const n = geo.attributes.position.count; const col = new Float32Array(n * 3); const c0 = new THREE.Color(color); const c = new THREE.Color();
+  const nrm = geo.attributes.normal;
+  for (let i = 0; i < n; i++) {
+    c.copy(c0).multiplyScalar(1 - jitter + Math.random() * jitter * 2);
+    if (fn) fn(c, geo.attributes.position.getX(i), geo.attributes.position.getY(i), geo.attributes.position.getZ(i), nrm ? nrm.getY(i) : 1, i);
+    col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  return geo;
+};
+const wobble = (geo, amt, f = 2.2, seed = 0) => {
+  const p = geo.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i); const y = p.getY(i); const z = p.getZ(i);
+    const n = (vnoise(x * f + seed, y * f + z * f * 0.7) - 0.5) * 2;
+    const l = Math.hypot(x, z) || 1;
+    p.setXYZ(i, x + x / l * n * amt, y + n * amt * 0.4, z + z / l * n * amt);
+  }
+  geo.computeVertexNormals();
+  return geo;
+};
+const snowy = (c, x, y, z, ny) => { if (ny > 0.35) c.lerp(new THREE.Color('#f4f8ff'), Math.min(1, (ny - 0.35) * 2.2)); };
+/** Share the vertices of a closed shape so it shades smoothly (no facets). */
+const smoothGeo = (g) => { g.deleteAttribute('normal'); g.deleteAttribute('uv'); const m = mergeVertices(g); m.computeVertexNormals(); return m; };
+const n3 = (x, y, z) => (vnoise(x, y) + vnoise(y + 31.7, z) + vnoise(z + 57.3, x)) / 3;   // (a cheap 3D noise)
+const f3 = (x, y, z, oct) => { let s = 0; let a = 0.5; let f = 1; for (let i = 0; i < oct; i++) { s += a * n3(x * f, y * f, z * f); f *= 2.1; a *= 0.5; } return s / (1 - Math.pow(0.5, oct)); };
+/** Push each vertex in or out from the middle by noise (bumpy stone, leafy clumps). Keeps how far, for colouring. */
+const lump = (g, amt, freq, seed, oct = 4) => {
+  const p = g.attributes.position; const bump = new Float32Array(p.count);
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i); const y = p.getY(i); const z = p.getZ(i);
+    const n = (f3(x * freq + seed, y * freq + seed * 0.3, z * freq, oct) - 0.5) * 2; bump[i] = n;
+    p.setXYZ(i, x * (1 + n * amt), y * (1 + n * amt), z * (1 + n * amt));
+  }
+  g.computeVertexNormals(); g.userData.bump = bump;
+  return g;
+};
+/** Ribs round the vertical axis (cacti). */
+const ribbed = (g, ribs, depth) => {
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) { const x = p.getX(i); const z = p.getZ(i); const k = 1 + Math.cos(Math.atan2(z, x) * ribs) * depth; p.setX(i, x * k); p.setZ(i, z * k); }
+  g.computeVertexNormals(); return g;
+};
+const groove = (ribs) => (c, x, y, z) => c.multiplyScalar(0.7 + 0.36 * (0.5 + 0.5 * Math.cos(Math.atan2(z, x) * ribs)));
+const bark = (c, x, y, z) => c.multiplyScalar(0.72 + 0.32 * vnoise(Math.atan2(z, x) * 3, y * 6));
+/** The scenery models for a theme. detail: 2 = the race tracks (few copies, lots of shape), 1 = open-world near, 0 = far away. */
+export function makeProps(theme, rand, detail = 2) {
+  const T = { theme };
+  const D = (far, near, race) => [far, near, race][detail];
+  /** A fir: a tapering trunk and layers of drooping branches with ragged tips, darker inside. */
+  const conifer = (snow) => {
+    const parts = [vc(new THREE.CylinderGeometry(0.09, 0.26, 3.4, D(5, 7, 9), D(1, 2, 4)).translate(0, 1.7, 0), '#4e3423', 0.08, bark)];
+    const layers = D(4, 6, 9); const seed = rand() * 10; const tall = layers === 9 ? 1 : 9 / layers * 0.78;   // (fewer, taller layers far away)
+    for (let i = 0; i < layers; i++) {
+      const t = i / (layers - 1);
+      const r = 2.35 * (1 - t * 0.8) + 0.12; const hgt = (1.55 - t * 0.55) * tall; const y0 = 1.2 + t * 6.4;
+      const g = new THREE.ConeGeometry(r, hgt, D(7, 12, 20), D(1, 2, 3), true);
+      const p = g.attributes.position;
+      for (let k = 0; k < p.count; k++) {
+        const x = p.getX(k); const y = p.getY(k); const z = p.getZ(k);
+        const a = Math.atan2(z, x); const rim = (hgt / 2 - y) / hgt;   // 0 at the tip, 1 at the rim
+        const jag = 1 + (0.2 * Math.sin(a * 7 + i * 1.9 + seed) + 0.25 * (vnoise(a * 2.5 + i * 3, seed) - 0.5)) * rim;
+        p.setXYZ(k, x * jag, y - rim * rim * 0.42 * (r / 2.35), z * jag);   // ragged branch tips that droop
+      }
+      g.computeVertexNormals(); g.translate(0, y0 + hgt / 2, 0);
+      parts.push(vc(g, snow ? '#24452f' : i % 2 ? '#2d5a31' : '#2a532c', 0.08, (c, x, y, z, ny) => {
+        c.multiplyScalar(0.5 + 0.62 * Math.min(1, Math.hypot(x, z) / r) + t * 0.12);
+        if (snow) snowy(c, x, y, z, ny + 0.15);
+      }));
+    }
+    return mergeAll(parts);
+  };
+  const PROPS = {
+    pine: () => conifer(false),
+    snowpine: () => conifer(true),
+    broadleaf: () => {
+      const parts = [vc(new THREE.CylinderGeometry(0.15, 0.3, 3.4, D(5, 7, 10), D(1, 2, 4)).translate(0, 1.7, 0), '#5a4330', 0.06, bark)];
+      for (const [ax, az, up] of [[0.9, 0.3, 1.1], [-0.8, -0.4, 1.2], [0.1, -1.0, 0.9], [-0.3, 0.9, 1.0]]) {
+        parts.push(vc(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(0, 2.6, 0), new THREE.Vector3(ax * 0.45, 3.1, az * 0.45), new THREE.Vector3(ax, 3.2 + up, az)]), D(2, 4, 8), 0.08, D(3, 4, 6)), '#5a4330', 0.08));
+      }
+      for (const [x, y, z, r] of [[0, 4.9, 0, 1.8], [1.15, 4.2, 0.4, 1.35], [-1.05, 4.3, -0.5, 1.4], [0.25, 4.1, -1.15, 1.25], [-0.35, 5.7, 0.3, 1.25], [0.65, 3.8, 1.05, 1.1], [-0.85, 3.7, 0.85, 1.05], [0.9, 5.4, -0.4, 1.0]]) {
+        const g = lump(smoothGeo(new THREE.IcosahedronGeometry(r * D(1.12, 1, 1), D(0, 1, 3))), 0.24, 1.3, rand() * 40, 3);
+        g.translate(x, y, z);
+        parts.push(vc(g, '#4b7a2c', 0.1, (c, px, py, pz, ny, i) => c.multiplyScalar(0.52 + 0.42 * Math.max(0, ny) + 0.18 * g.userData.bump[i] + (py - 4) * 0.05)));
+      }
+      return mergeAll(parts);
+    },
+    cactus: () => {
+      // a saguaro: a deep-ribbed trunk, two arms and a few flowers on top
+      const parts = [vc(ribbed(new THREE.CapsuleGeometry(0.32, 4.2, D(1, 2, 8), D(8, 12, 40)), 12, 0.09), '#4a7838', 0.04, groove(12)).translate(0, 2.4, 0)];
+      for (const side of [-1, 1]) {
+        const h = 1.3 + rand() * 1.0; const up = 1.0 + rand() * 0.7;
+        const across = vc(ribbed(new THREE.CapsuleGeometry(0.2, 0.42, D(1, 2, 6), D(6, 9, 28)), 10, 0.08), '#477536', 0.04, groove(10));
+        across.rotateZ(Math.PI / 2); across.translate(side * 0.5, h, 0); parts.push(across);
+        parts.push(vc(ribbed(new THREE.CapsuleGeometry(0.21, up, D(1, 2, 6), D(6, 9, 28)), 10, 0.08), '#477536', 0.04, groove(10)).translate(side * 0.8, h + up / 2 + 0.05, 0));
+      }
+      for (let i = 0; i < D(0, 3, 4); i++) { const a = i * 1.6 + rand(); parts.push(vc(new THREE.SphereGeometry(0.07, 6, 4).translate(Math.cos(a) * 0.17, 4.82, Math.sin(a) * 0.17), i % 2 ? '#f7f0c8' : '#fbe08a', 0.05)); }
+      return mergeAll(parts);
+    },
+    barrel: () => {
+      // a little barrel cactus with a ring of pink and yellow flowers
+      const g = ribbed(new THREE.SphereGeometry(0.5, D(10, 20, 40), D(6, 10, 20)), 16, 0.1); g.scale(1, 1.2, 1); g.translate(0, 0.42, 0);
+      const parts = [vc(g, '#5a7e3a', 0.04, (c, x, y, z) => { groove(16)(c, x, y, z); if (y > 0.85) c.lerp(new THREE.Color('#c9b46a'), Math.min(1, (y - 0.85) * 4)); })];
+      for (let i = 0; i < D(0, 5, 7); i++) { const a = i / 7 * Math.PI * 2; parts.push(vc(new THREE.SphereGeometry(0.075, D(4, 5, 8), D(3, 4, 6)).scale(1, 0.7, 1).translate(Math.cos(a) * 0.2, 1.0, Math.sin(a) * 0.2), i % 2 ? '#ff5d8f' : '#ffd23f', 0.05)); }
+      return mergeAll(parts);
+    },
+    rock: () => {
+      // a boulder: lumpy, with a few flat split faces and a flat bottom sunk into the ground
+      const g = lump(smoothGeo(new THREE.IcosahedronGeometry(1, D(1, 2, 4))), 0.36, 1.7, rand() * 50, D(3, 4, 5));
+      const p = g.attributes.position; const v = new THREE.Vector3(); const cuts = [];
+      for (let k = 0; k < 7; k++) { const a = rand() * 6.28; const b = (rand() - 0.25) * 1.1; cuts.push([new THREE.Vector3(Math.cos(a) * Math.cos(b), Math.sin(b), Math.sin(a) * Math.cos(b)), 0.55 + rand() * 0.25]); }
+      for (let i = 0; i < p.count; i++) {
+        v.fromBufferAttribute(p, i);
+        for (const [nrm, d] of cuts) { const k = v.dot(nrm); if (k > d) v.addScaledVector(nrm, d - k); }
+        if (v.y < -0.3) v.y = -0.3 + (v.y + 0.3) * 0.15;
+        p.setXYZ(i, v.x, v.y, v.z);
+      }
+      g.scale(1.25, 0.78, 1); g.translate(0, 0.22, 0); g.computeVertexNormals();
+      const bump = g.userData.bump;
+      const base = T.theme === 'desert' ? '#a87450' : T.theme === 'snow' ? '#696d79' : '#7c7d76';
+      const moss = new THREE.Color('#4f6d2a'); const band = new THREE.Color(T.theme === 'desert' ? '#c99766' : '#9a9b94');
+      return vc(g, base, 0.04, (c, x, y, z, ny, i) => {
+        c.multiplyScalar(0.5 + 0.7 * (0.5 + 0.5 * bump[i]) + 0.12 * Math.max(0, ny));   // darker in the cracks, lighter on top
+        if (T.theme === 'desert') c.lerp(band, 0.35 * (0.5 + 0.5 * Math.sin(y * 16 + vnoise(x * 3, z * 3) * 4)));   // sandstone layers
+        if (T.theme === 'forest' && ny > 0.45) c.lerp(moss, Math.min(0.75, (ny - 0.45) * 2 * vnoise(x * 4 + 3, z * 4)  + 0.2));
+        if (T.theme === 'snow') snowy(c, x, y, z, ny);
+      });
+    },
+    shrub: () => {
+      const desert = T.theme === 'desert'; const parts = [];
+      for (let i = 0; i < D(4, 6, 8); i++) {
+        const r = (0.26 + rand() * 0.26) * D(1.3, 1.12, 1); const a = rand() * 6.28; const d = rand() * 0.55;
+        const g = lump(smoothGeo(new THREE.IcosahedronGeometry(r, D(0, 1, 2))), 0.32, 2.6, rand() * 40, 3);
+        g.translate(Math.cos(a) * d, r * 0.75 + rand() * 0.2, Math.sin(a) * d);
+        parts.push(vc(g, desert ? (i % 3 ? '#8e9561' : '#a3a06a') : (i % 3 ? '#3d6a28' : '#4b7a2e'), 0.1, (c, x, y, z, ny, k) => c.multiplyScalar(0.55 + 0.4 * Math.max(0, ny) + 0.15 * g.userData.bump[k] + y * 0.15)));
+      }
+      if (desert && detail) for (let i = 0; i < 6; i++) { const b = new THREE.CylinderGeometry(0.01, 0.025, 0.7, 4).translate(0, 0.35, 0); b.rotateZ((rand() - 0.5) * 1.4); b.rotateY(rand() * 6.28); parts.push(vc(b, '#7a6248', 0.1)); }
+      return mergeAll(parts);
+    },
+    grass: () => {
+      // a tuft of grass blades, dark at the root and light at the tips (dry and straw-coloured in the desert)
+      const dry = T.theme === 'desert'; const parts = [];
+      for (let i = 0; i < D(6, 10, 16); i++) {
+        const hgt = 0.3 + rand() * 0.45;
+        const g = new THREE.PlaneGeometry(0.055 * D(1.8, 1.3, 1), hgt, 1, D(1, 2, 4)).translate(0, hgt / 2, 0);
+        const p = g.attributes.position;
+        for (let k = 0; k < p.count; k++) { const t = p.getY(k) / hgt; p.setX(k, p.getX(k) * (1 - t * 0.92)); p.setZ(k, t * t * (0.12 + rand() * 0.1)); }
+        g.rotateY(rand() * 6.28); g.translate((rand() - 0.5) * 0.35, 0, (rand() - 0.5) * 0.35); g.computeVertexNormals();
+        parts.push(vc(g, dry ? (i % 2 ? '#b9a26a' : '#a8925a') : (i % 2 ? '#5c8a33' : '#6b9a3a'), 0.1, (c, x, y) => c.multiplyScalar(0.45 + y * 1.3)));
+      }
+      return mergeAll(parts);
+    },
+    deadtree: () => {
+      // gnarled branches that split and split again
+      const parts = [];
+      const branch = (from, dir, len, r, depth) => {
+        const to = from.clone().addScaledVector(dir, len);
+        const mid = from.clone().lerp(to, 0.5).add(new THREE.Vector3((rand() - 0.5) * len * 0.3, 0, (rand() - 0.5) * len * 0.3));
+        parts.push(vc(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([from, mid, to]), D(2, 4, 6), r, D(3, 5, 6)), '#7d6a55', 0.1, bark));
+        if (depth > 0) for (let k = 0; k < 2 + (rand() < 0.4 ? 1 : 0); k++) branch(to, dir.clone().add(new THREE.Vector3((rand() - 0.5) * 1.5, rand() * 0.5, (rand() - 0.5) * 1.5)).normalize(), len * (0.55 + rand() * 0.2), r * 0.6, depth - 1);
+      };
+      branch(new THREE.Vector3(0, -0.2, 0), new THREE.Vector3(0, 1, 0), 2.3, 0.15, D(2, 3, 3));
+      return mergeAll(parts);
+    },
+    log: () => {
+      const g = new THREE.CylinderGeometry(0.3, 0.33, 4, D(7, 10, 16), D(1, 2, 6));
+      vc(g, '#5a432e', 0.08, (c, x, y, z, ny) => {
+        if (Math.abs(ny) > 0.9) c.set('#b48a5c').multiplyScalar(0.82 + 0.18 * Math.sin(Math.hypot(x, z) * 70));   // the cut ends: tree rings
+        else bark(c, x, y, z);
+      });
+      g.rotateZ(Math.PI / 2); g.translate(0, 0.28, 0);
+      return g;
+    },
+    snowbank: () => {
+      const g = lump(smoothGeo(new THREE.SphereGeometry(1.4, D(10, 18, 28), D(4, 7, 12), 0, Math.PI * 2, 0, Math.PI / 2)), 0.16, 1.1, rand() * 9, 3);
+      g.scale(1.6, 0.6, 1); g.computeVertexNormals();
+      return vc(g, '#f2f6fd', 0.02, (c, x, y, z, ny) => c.multiplyScalar(0.84 + 0.16 * Math.max(0, ny)));
+    },
+  };
+  const propMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.88 });
+  const cactusMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62 });
+  const leafMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, side: THREE.DoubleSide });   // (open branch layers and grass blades are seen from both sides)
+  const MATS = { pine: leafMat, snowpine: leafMat, grass: leafMat, cactus: cactusMat, barrel: cactusMat };
+  const NEAR = new Set(['snowbank', 'shrub', 'rock', 'grass', 'barrel']);
+  return { PROPS, MATS, NEAR, propMat, leafMat, cactusMat };
+}
+
 // ------------------------------------------------------------------ the world
 /** Build everything for a track. Returns { scene, sun, place(), heightAt(), fx, update(), ... }. */
 export function buildWorld(renderer, T, opts = {}) {
@@ -290,189 +481,7 @@ export function buildWorld(renderer, T, opts = {}) {
   }
 
   // ---------------------------------------------------------------- scenery
-  /* Every model is made here from simple shapes that get bent, lumped, cut and coloured vertex by vertex,
-     then copied around with instancing (each copy a little bigger, smaller, darker or lighter). */
-  const vc = (geo, color, jitter = 0.08, fn) => {
-    const n = geo.attributes.position.count; const col = new Float32Array(n * 3); const c0 = new THREE.Color(color); const c = new THREE.Color();
-    const nrm = geo.attributes.normal;
-    for (let i = 0; i < n; i++) {
-      c.copy(c0).multiplyScalar(1 - jitter + Math.random() * jitter * 2);
-      if (fn) fn(c, geo.attributes.position.getX(i), geo.attributes.position.getY(i), geo.attributes.position.getZ(i), nrm ? nrm.getY(i) : 1, i);
-      col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
-    }
-    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    return geo;
-  };
-  const wobble = (geo, amt, f = 2.2, seed = 0) => {
-    const p = geo.attributes.position;
-    for (let i = 0; i < p.count; i++) {
-      const x = p.getX(i); const y = p.getY(i); const z = p.getZ(i);
-      const n = (vnoise(x * f + seed, y * f + z * f * 0.7) - 0.5) * 2;
-      const l = Math.hypot(x, z) || 1;
-      p.setXYZ(i, x + x / l * n * amt, y + n * amt * 0.4, z + z / l * n * amt);
-    }
-    geo.computeVertexNormals();
-    return geo;
-  };
-  const snowy = (c, x, y, z, ny) => { if (ny > 0.35) c.lerp(new THREE.Color('#f4f8ff'), Math.min(1, (ny - 0.35) * 2.2)); };
-  /** Share the vertices of a closed shape so it shades smoothly (no facets). */
-  const smoothGeo = (g) => { g.deleteAttribute('normal'); g.deleteAttribute('uv'); const m = mergeVertices(g); m.computeVertexNormals(); return m; };
-  const n3 = (x, y, z) => (vnoise(x, y) + vnoise(y + 31.7, z) + vnoise(z + 57.3, x)) / 3;   // (a cheap 3D noise)
-  const f3 = (x, y, z, oct) => { let s = 0; let a = 0.5; let f = 1; for (let i = 0; i < oct; i++) { s += a * n3(x * f, y * f, z * f); f *= 2.1; a *= 0.5; } return s / (1 - Math.pow(0.5, oct)); };
-  /** Push each vertex in or out from the middle by noise (bumpy stone, leafy clumps). Keeps how far, for colouring. */
-  const lump = (g, amt, freq, seed, oct = 4) => {
-    const p = g.attributes.position; const bump = new Float32Array(p.count);
-    for (let i = 0; i < p.count; i++) {
-      const x = p.getX(i); const y = p.getY(i); const z = p.getZ(i);
-      const n = (f3(x * freq + seed, y * freq + seed * 0.3, z * freq, oct) - 0.5) * 2; bump[i] = n;
-      p.setXYZ(i, x * (1 + n * amt), y * (1 + n * amt), z * (1 + n * amt));
-    }
-    g.computeVertexNormals(); g.userData.bump = bump;
-    return g;
-  };
-  /** Ribs round the vertical axis (cacti). */
-  const ribbed = (g, ribs, depth) => {
-    const p = g.attributes.position;
-    for (let i = 0; i < p.count; i++) { const x = p.getX(i); const z = p.getZ(i); const k = 1 + Math.cos(Math.atan2(z, x) * ribs) * depth; p.setX(i, x * k); p.setZ(i, z * k); }
-    g.computeVertexNormals(); return g;
-  };
-  const groove = (ribs) => (c, x, y, z) => c.multiplyScalar(0.7 + 0.36 * (0.5 + 0.5 * Math.cos(Math.atan2(z, x) * ribs)));
-  const bark = (c, x, y, z) => c.multiplyScalar(0.72 + 0.32 * vnoise(Math.atan2(z, x) * 3, y * 6));
-  /** A fir: a tapering trunk and layers of drooping branches with ragged tips, darker inside. */
-  const conifer = (snow) => {
-    const parts = [vc(new THREE.CylinderGeometry(0.09, 0.26, 3.4, 9, 4).translate(0, 1.7, 0), '#4e3423', 0.08, bark)];
-    const layers = 9; const seed = rand() * 10;
-    for (let i = 0; i < layers; i++) {
-      const t = i / (layers - 1);
-      const r = 2.35 * (1 - t * 0.8) + 0.12; const hgt = 1.55 - t * 0.55; const y0 = 1.2 + t * 6.4;
-      const g = new THREE.ConeGeometry(r, hgt, 20, 3, true);
-      const p = g.attributes.position;
-      for (let k = 0; k < p.count; k++) {
-        const x = p.getX(k); const y = p.getY(k); const z = p.getZ(k);
-        const a = Math.atan2(z, x); const rim = (hgt / 2 - y) / hgt;   // 0 at the tip, 1 at the rim
-        const jag = 1 + (0.2 * Math.sin(a * 7 + i * 1.9 + seed) + 0.25 * (vnoise(a * 2.5 + i * 3, seed) - 0.5)) * rim;
-        p.setXYZ(k, x * jag, y - rim * rim * 0.42 * (r / 2.35), z * jag);   // ragged branch tips that droop
-      }
-      g.computeVertexNormals(); g.translate(0, y0 + hgt / 2, 0);
-      parts.push(vc(g, snow ? '#24452f' : i % 2 ? '#2d5a31' : '#2a532c', 0.08, (c, x, y, z, ny) => {
-        c.multiplyScalar(0.5 + 0.62 * Math.min(1, Math.hypot(x, z) / r) + t * 0.12);
-        if (snow) snowy(c, x, y, z, ny + 0.15);
-      }));
-    }
-    return mergeAll(parts);
-  };
-  const PROPS = {
-    pine: () => conifer(false),
-    snowpine: () => conifer(true),
-    broadleaf: () => {
-      const parts = [vc(new THREE.CylinderGeometry(0.15, 0.3, 3.4, 10, 4).translate(0, 1.7, 0), '#5a4330', 0.06, bark)];
-      for (const [ax, az, up] of [[0.9, 0.3, 1.1], [-0.8, -0.4, 1.2], [0.1, -1.0, 0.9], [-0.3, 0.9, 1.0]]) {
-        parts.push(vc(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(0, 2.6, 0), new THREE.Vector3(ax * 0.45, 3.1, az * 0.45), new THREE.Vector3(ax, 3.2 + up, az)]), 8, 0.08, 6), '#5a4330', 0.08));
-      }
-      for (const [x, y, z, r] of [[0, 4.9, 0, 1.8], [1.15, 4.2, 0.4, 1.35], [-1.05, 4.3, -0.5, 1.4], [0.25, 4.1, -1.15, 1.25], [-0.35, 5.7, 0.3, 1.25], [0.65, 3.8, 1.05, 1.1], [-0.85, 3.7, 0.85, 1.05], [0.9, 5.4, -0.4, 1.0]]) {
-        const g = lump(smoothGeo(new THREE.IcosahedronGeometry(r, 3)), 0.24, 1.3, rand() * 40, 3);
-        g.translate(x, y, z);
-        parts.push(vc(g, '#4b7a2c', 0.1, (c, px, py, pz, ny, i) => c.multiplyScalar(0.52 + 0.42 * Math.max(0, ny) + 0.18 * g.userData.bump[i] + (py - 4) * 0.05)));
-      }
-      return mergeAll(parts);
-    },
-    cactus: () => {
-      // a saguaro: a deep-ribbed trunk, two arms and a few flowers on top
-      const parts = [vc(ribbed(new THREE.CapsuleGeometry(0.32, 4.2, 8, 40), 12, 0.09), '#4a7838', 0.04, groove(12)).translate(0, 2.4, 0)];
-      for (const side of [-1, 1]) {
-        const h = 1.3 + rand() * 1.0; const up = 1.0 + rand() * 0.7;
-        const across = vc(ribbed(new THREE.CapsuleGeometry(0.2, 0.42, 6, 28), 10, 0.08), '#477536', 0.04, groove(10));
-        across.rotateZ(Math.PI / 2); across.translate(side * 0.5, h, 0); parts.push(across);
-        parts.push(vc(ribbed(new THREE.CapsuleGeometry(0.21, up, 6, 28), 10, 0.08), '#477536', 0.04, groove(10)).translate(side * 0.8, h + up / 2 + 0.05, 0));
-      }
-      for (let i = 0; i < 4; i++) { const a = i * 1.6 + rand(); parts.push(vc(new THREE.SphereGeometry(0.07, 8, 6).translate(Math.cos(a) * 0.17, 4.82, Math.sin(a) * 0.17), i % 2 ? '#f7f0c8' : '#fbe08a', 0.05)); }
-      return mergeAll(parts);
-    },
-    barrel: () => {
-      // a little barrel cactus with a ring of pink and yellow flowers
-      const g = ribbed(new THREE.SphereGeometry(0.5, 40, 20), 16, 0.1); g.scale(1, 1.2, 1); g.translate(0, 0.42, 0);
-      const parts = [vc(g, '#5a7e3a', 0.04, (c, x, y, z) => { groove(16)(c, x, y, z); if (y > 0.85) c.lerp(new THREE.Color('#c9b46a'), Math.min(1, (y - 0.85) * 4)); })];
-      for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2; parts.push(vc(new THREE.SphereGeometry(0.075, 8, 6).scale(1, 0.7, 1).translate(Math.cos(a) * 0.2, 1.0, Math.sin(a) * 0.2), i % 2 ? '#ff5d8f' : '#ffd23f', 0.05)); }
-      return mergeAll(parts);
-    },
-    rock: () => {
-      // a boulder: lumpy, with a few flat split faces and a flat bottom sunk into the ground
-      const g = lump(smoothGeo(new THREE.IcosahedronGeometry(1, 4)), 0.36, 1.7, rand() * 50, 5);
-      const p = g.attributes.position; const v = new THREE.Vector3(); const cuts = [];
-      for (let k = 0; k < 7; k++) { const a = rand() * 6.28; const b = (rand() - 0.25) * 1.1; cuts.push([new THREE.Vector3(Math.cos(a) * Math.cos(b), Math.sin(b), Math.sin(a) * Math.cos(b)), 0.55 + rand() * 0.25]); }
-      for (let i = 0; i < p.count; i++) {
-        v.fromBufferAttribute(p, i);
-        for (const [nrm, d] of cuts) { const k = v.dot(nrm); if (k > d) v.addScaledVector(nrm, d - k); }
-        if (v.y < -0.3) v.y = -0.3 + (v.y + 0.3) * 0.15;
-        p.setXYZ(i, v.x, v.y, v.z);
-      }
-      g.scale(1.25, 0.78, 1); g.translate(0, 0.22, 0); g.computeVertexNormals();
-      const bump = g.userData.bump;
-      const base = T.theme === 'desert' ? '#a87450' : T.theme === 'snow' ? '#696d79' : '#7c7d76';
-      const moss = new THREE.Color('#4f6d2a'); const band = new THREE.Color(T.theme === 'desert' ? '#c99766' : '#9a9b94');
-      return vc(g, base, 0.04, (c, x, y, z, ny, i) => {
-        c.multiplyScalar(0.5 + 0.7 * (0.5 + 0.5 * bump[i]) + 0.12 * Math.max(0, ny));   // darker in the cracks, lighter on top
-        if (T.theme === 'desert') c.lerp(band, 0.35 * (0.5 + 0.5 * Math.sin(y * 16 + vnoise(x * 3, z * 3) * 4)));   // sandstone layers
-        if (T.theme === 'forest' && ny > 0.45) c.lerp(moss, Math.min(0.75, (ny - 0.45) * 2 * vnoise(x * 4 + 3, z * 4)  + 0.2));
-        if (T.theme === 'snow') snowy(c, x, y, z, ny);
-      });
-    },
-    shrub: () => {
-      const desert = T.theme === 'desert'; const parts = [];
-      for (let i = 0; i < 8; i++) {
-        const r = 0.26 + rand() * 0.26; const a = rand() * 6.28; const d = rand() * 0.55;
-        const g = lump(smoothGeo(new THREE.IcosahedronGeometry(r, 2)), 0.32, 2.6, rand() * 40, 3);
-        g.translate(Math.cos(a) * d, r * 0.75 + rand() * 0.2, Math.sin(a) * d);
-        parts.push(vc(g, desert ? (i % 3 ? '#8e9561' : '#a3a06a') : (i % 3 ? '#3d6a28' : '#4b7a2e'), 0.1, (c, x, y, z, ny, k) => c.multiplyScalar(0.55 + 0.4 * Math.max(0, ny) + 0.15 * g.userData.bump[k] + y * 0.15)));
-      }
-      if (desert) for (let i = 0; i < 6; i++) { const b = new THREE.CylinderGeometry(0.01, 0.025, 0.7, 4).translate(0, 0.35, 0); b.rotateZ((rand() - 0.5) * 1.4); b.rotateY(rand() * 6.28); parts.push(vc(b, '#7a6248', 0.1)); }
-      return mergeAll(parts);
-    },
-    grass: () => {
-      // a tuft of grass blades, dark at the root and light at the tips (dry and straw-coloured in the desert)
-      const dry = T.theme === 'desert'; const parts = [];
-      for (let i = 0; i < 16; i++) {
-        const hgt = 0.3 + rand() * 0.45;
-        const g = new THREE.PlaneGeometry(0.055, hgt, 1, 4).translate(0, hgt / 2, 0);
-        const p = g.attributes.position;
-        for (let k = 0; k < p.count; k++) { const t = p.getY(k) / hgt; p.setX(k, p.getX(k) * (1 - t * 0.92)); p.setZ(k, t * t * (0.12 + rand() * 0.1)); }
-        g.rotateY(rand() * 6.28); g.translate((rand() - 0.5) * 0.35, 0, (rand() - 0.5) * 0.35); g.computeVertexNormals();
-        parts.push(vc(g, dry ? (i % 2 ? '#b9a26a' : '#a8925a') : (i % 2 ? '#5c8a33' : '#6b9a3a'), 0.1, (c, x, y) => c.multiplyScalar(0.45 + y * 1.3)));
-      }
-      return mergeAll(parts);
-    },
-    deadtree: () => {
-      // gnarled branches that split and split again
-      const parts = [];
-      const branch = (from, dir, len, r, depth) => {
-        const to = from.clone().addScaledVector(dir, len);
-        const mid = from.clone().lerp(to, 0.5).add(new THREE.Vector3((rand() - 0.5) * len * 0.3, 0, (rand() - 0.5) * len * 0.3));
-        parts.push(vc(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([from, mid, to]), 6, r, 6), '#7d6a55', 0.1, bark));
-        if (depth > 0) for (let k = 0; k < 2 + (rand() < 0.4 ? 1 : 0); k++) branch(to, dir.clone().add(new THREE.Vector3((rand() - 0.5) * 1.5, rand() * 0.5, (rand() - 0.5) * 1.5)).normalize(), len * (0.55 + rand() * 0.2), r * 0.6, depth - 1);
-      };
-      branch(new THREE.Vector3(0, -0.2, 0), new THREE.Vector3(0, 1, 0), 2.3, 0.15, 3);
-      return mergeAll(parts);
-    },
-    log: () => {
-      const g = new THREE.CylinderGeometry(0.3, 0.33, 4, 16, 6);
-      vc(g, '#5a432e', 0.08, (c, x, y, z, ny) => {
-        if (Math.abs(ny) > 0.9) c.set('#b48a5c').multiplyScalar(0.82 + 0.18 * Math.sin(Math.hypot(x, z) * 70));   // the cut ends: tree rings
-        else bark(c, x, y, z);
-      });
-      g.rotateZ(Math.PI / 2); g.translate(0, 0.28, 0);
-      return g;
-    },
-    snowbank: () => {
-      const g = lump(smoothGeo(new THREE.SphereGeometry(1.4, 28, 12, 0, Math.PI * 2, 0, Math.PI / 2)), 0.16, 1.1, rand() * 9, 3);
-      g.scale(1.6, 0.6, 1); g.computeVertexNormals();
-      return vc(g, '#f2f6fd', 0.02, (c, x, y, z, ny) => c.multiplyScalar(0.84 + 0.16 * Math.max(0, ny)));
-    },
-  };
-  const propMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.88 });
-  const cactusMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62 });
-  const leafMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, side: THREE.DoubleSide });   // (open branch layers and grass blades are seen from both sides)
-  const MATS = { pine: leafMat, snowpine: leafMat, grass: leafMat, cactus: cactusMat, barrel: cactusMat };
-  const NEAR = new Set(['snowbank', 'shrub', 'rock', 'grass', 'barrel']);
+  const { PROPS, MATS, NEAR, propMat } = makeProps(T.theme, rand);
   const instances = {};
   const length = S1 - S0;
   const tint = new THREE.Color();
