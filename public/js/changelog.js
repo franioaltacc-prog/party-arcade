@@ -36,6 +36,8 @@
         'A detailed bike and rider: the suspension, swingarm and wheels move, and the rider shifts their weight',
         'An engine sound that follows the revs and the gears (with a mute button), and chase, side and close cameras',
         '12 bike paint jobs to unlock by levelling up, finishing tracks, landing flips and winning races, plus 8 new achievements',
+        'Make it yours in the garage: 5 bike styles (Factory 450, 250 Two-Stroke, Enduro, Retro 70s and the glowing E-Moto), 11 rider kits, 9 helmets and your own race number. All free, only looks: every bike rides the same, and everyone in your race sees yours',
+        'Detailed scenery: craggy boulders, layered pines, leafy trees, ribbed cacti with flowers, barrel cacti, grass, gnarled dead trees, tyre stacks, banners on posts and a proper start gate with a pen and a billboard',
       ]],
     ] },
     { v: '3.1.0', date: '2026-10-18', emoji: '🏡', massive: true, title: 'Family Life: the mega update', intro: 'Family Life got HUGE: almost 300 new things to do, 70 new life events, 66 new jobs and 70 new things to buy.', sections: [

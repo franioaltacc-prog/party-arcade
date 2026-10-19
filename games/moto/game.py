@@ -30,6 +30,20 @@ HURRY_SECONDS = 30     # once someone finishes, the others have this long
 FASTEST = 0.7          # nobody beats the robot rider's time by more than 30%
 
 
+def clean_style(st):
+    """Someone's bike style, rider kit, helmet and race number, tidied up (the browser draws whatever ids it knows)."""
+    st = st if isinstance(st, dict) else {}
+    out = {}
+    for k in ("model", "kit", "helmet"):
+        v = str(st.get(k) or "")[:12]
+        if v.isalnum() and v.isascii():
+            out[k] = v.lower()
+    n = st.get("number")
+    if isinstance(n, int) and not isinstance(n, bool) and 0 <= n <= 99:
+        out["number"] = n
+    return out
+
+
 class Moto(Game):
     key = "moto"
     max_players = 6
@@ -38,6 +52,7 @@ class Moto(Game):
         super().__init__(room)
         self.settings = {"track": next(iter(TRACKS), "desert")}
         self.ready = {}
+        self.styles = {}   # uid -> how their bike and rider look (bike style, kit, helmet, number): looks only
         self.race = None
         self.results = None
         self.wins = {}
@@ -57,10 +72,10 @@ class Moto(Game):
 
     def state_for(self, m):
         return {"phase": self.phase, "settings": self.settings, "ready": self.ready, "race": self.race_public(),
-                "results": self.results, "wins": self.wins, "min": MIN_PLAYERS}
+                "results": self.results, "wins": self.wins, "styles": self.styles, "min": MIN_PLAYERS}
 
     def push_lobby(self):
-        self.broadcast("lobby", settings=self.settings, ready=self.ready, phase=self.phase)
+        self.broadcast("lobby", settings=self.settings, ready=self.ready, phase=self.phase, styles=self.styles)
 
     # -- messages --------------------------------------------------------------
     def on_message(self, m, t, msg):
@@ -78,6 +93,9 @@ class Moto(Game):
             # the host can start once everyone has readied up (the race also starts by itself then)
             if not self.maybe_start():
                 m.send("error", msg=self.not_ready_reason())
+        elif t == "style":
+            self.styles[m.uid] = clean_style(msg.get("style"))
+            self.push_lobby()
         elif t == "stop" and host and self.phase == "racing":
             self.end()
         elif t == "pos" and self.phase == "racing":

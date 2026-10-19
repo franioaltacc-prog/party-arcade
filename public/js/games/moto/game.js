@@ -3,7 +3,7 @@
    in bike.js, the world in world.js and the sound in sound.js. */
 import * as THREE from 'three';
 import { buildWorld } from './world.js';
-import { makeBike, poseBike, disposeBike, LIVERIES } from './bike.js';
+import { makeBike, poseBike, disposeBike, LIVERIES, MODELS, KITS, HELMETS } from './bike.js';
 import { createAudio } from './sound.js';
 import { createMenus } from './menus.js';
 
@@ -52,6 +52,15 @@ async function loadUnlocks() {
   for (const b of bikeList) if (b.rule && !bikeHints[b.id]) { try { bikeHints[b.id] = await Unlocks.hint(b.rule); } catch { /* no hint */ } }
 }
 const myLivery = () => (Account.user && Account.user.look && Account.user.look.bike && unlocked.has(Account.user.look.bike) ? Account.user.look.bike : unlocked.has(prefs.livery) ? prefs.livery : 'factory');
+// your bike style, rider kit, helmet and race number (free to pick; only looks)
+prefs.style = Object.assign({ model: 'mx4', kit: 'match', helmet: 'match', number: null }, prefs.style);
+const myLook = () => ({ ...prefs.style, livery: myLivery() });
+function setStyle(patch) {
+  prefs.style = { ...prefs.style, ...patch }; savePrefs();
+  if (window.Room && Room.code) Net.send('g:style', { style: prefs.style });   // (so the others see it)
+  Sfx.play('click');
+  menus.refresh();
+}
 
 // ------------------------------------------------------------------ renderer and world
 const canvas = $('#mx-canvas');
@@ -161,7 +170,7 @@ function begin(def, mode, goAt) {
     R.bike = C.newBike(R.T, R.T.start, R.lane);
     R.prev = R.cur = snap(R.bike);
     if (R.model) disposeBike(R.model);
-    R.model = makeBike({ livery: myLivery() });
+    R.model = makeBike(myLook());
     R.model.root.visible = !R.spectate;
     world.scene.add(R.model.root);
     R.goAt = Math.max(goAt, performance.now() + 600);
@@ -569,14 +578,14 @@ function stageTrack(id) {
 /** Menus with just you: your bike (or the paint job you're looking at in the garage). */
 function stageSolo(livery, screen) {
   stage.shot = SHOTS[screen] ? screen : 'home';
-  stage.list = [{ id: 'me', livery: livery || myLivery() }];
+  stage.list = [{ id: 'me', look: { ...myLook(), ...(livery ? { livery } : {}) } }];
   stageTrack(prefs.track);
 }
 /** In a room: everyone's bike in the start gate, with name tags (✔ = ready). */
 function stageRoom() {
   stage.shot = 'room';
   const riders = (Room.players || []).filter((p) => !p.watch && p.online !== false).sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  stage.list = riders.map((p) => ({ id: p.id, livery: p.id === Net.id ? myLivery() : LIVERIES[p.bike] ? p.bike : 'factory', name: p.name, color: p.color,
+  stage.list = riders.map((p) => ({ id: p.id, look: p.id === Net.id ? myLook() : { ...(state.styles[p.id] || {}), livery: LIVERIES[p.bike] ? p.bike : 'factory' }, name: p.name, color: p.color,
     ready: !!state.ready[p.id] && state.phase !== 'racing' }));
   const t = state.settings.track;
   stageTrack(t === 'random' || !DATA.tracks.some((x) => x.id === t) ? (worldKey ? worldKey.split(':')[0] : prefs.track) : t);
@@ -595,8 +604,9 @@ function placeStage() {
     keep.add(e.id);
     let sb = stage.bikes.get(e.id);
     if (!sb) { sb = { id: e.id, model: null, tag: null, tagKey: '' }; stage.bikes.set(e.id, sb); }
-    if (sb.model && sb.livery !== e.livery) { disposeBike(sb.model); sb.model = null; }
-    if (!sb.model) { sb.model = makeBike({ livery: e.livery }); sb.livery = e.livery; }
+    const lookKey = JSON.stringify(e.look);
+    if (sb.model && sb.lookKey !== lookKey) { disposeBike(sb.model); sb.model = null; }
+    if (!sb.model) { sb.model = makeBike(e.look); sb.lookKey = lookKey; }
     if (sb.model.root.parent !== world.scene) world.scene.add(sb.model.root);
     sb.model.root.visible = true;
     const b = C.newBike(T, T.start, stage.list.length > 1 ? LANES[i] : 0);
@@ -712,7 +722,7 @@ for (const btn of document.querySelectorAll('#mx .mx-touch [data-k]')) {
 document.addEventListener('visibilitychange', () => { if (document.hidden) for (const k of Object.keys(keys)) keys[k] = false; });
 
 // ------------------------------------------------------------------ online races
-const state = { phase: 'lobby', settings: { track: 'desert' }, race: null, results: null, wins: {}, ready: {}, min: 2 };
+const state = { phase: 'lobby', settings: { track: 'desert' }, race: null, results: null, wins: {}, ready: {}, styles: {}, min: 2 };
 const playerOf = (id) => (window.Room && Room.player(id)) || { name: '?', color: '#888888', avatar: '🏍️' };
 
 function startRace(race, countdown, watch = false) {
@@ -735,7 +745,7 @@ function addOtherModel(o) {
   if (!world) return;
   dropOther(o);
   o.lane = laneFor(o.id);
-  o.model = makeBike({ ghost: o.color });
+  o.model = makeBike({ ...(state.styles[o.id] || {}), ghost: o.color });
   world.scene.add(o.model.root);
   o.tag = nameTag(o.name, o.color);
   world.scene.add(o.tag);
@@ -845,6 +855,7 @@ function onlineFinish(t) {
 const inRoom = () => !!(window.Room && Room.code);
 Lobby.on('joined', (m) => {
   Object.assign(state, m.state);
+  Net.send('g:style', { style: prefs.style });
   const url = new URL(location.href); url.searchParams.delete('solo'); url.searchParams.delete('track'); history.replaceState(null, '', url);
   if (state.phase === 'racing' && state.race) startRace(state.race, Math.max(0, -state.race.elapsed));
   else { setRiding(false); menus.show('room'); }
@@ -860,7 +871,7 @@ Lobby.on('entry', () => {
 });
 Net.on('error', () => { if (menus && menus.screen === 'joining' && !inRoom()) menus.show('online'); });
 Net.on('g:lobby', (m) => {
-  state.settings = m.settings; state.ready = m.ready || {}; if (m.phase !== 'racing') state.phase = m.phase;
+  state.settings = m.settings; state.ready = m.ready || {}; if (m.styles) state.styles = m.styles; if (m.phase !== 'racing') state.phase = m.phase;
   menus.roomUpdate();
 });
 Net.on('g:start', (m) => { startRace(m.race, m.countdown); });
@@ -909,6 +920,7 @@ async function init() {
     chat: chatEl,
     startSolo,
     watchRace: () => { if (state.race) startRace(state.race, 0, true); },
+    MODELS, KITS, HELMETS, get style() { return prefs.style; }, setStyle,
     setCam: (k) => { prefs.cam = R.camMode = k; savePrefs(); },
     setQuality: (k) => { prefs.quality = k; savePrefs(); worldKey = null; resize(); if (stage.trackId) stageTrack(stage.trackId); },
     stage: { solo: stageSolo, room: stageRoom },

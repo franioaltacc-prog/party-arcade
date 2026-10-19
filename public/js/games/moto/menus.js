@@ -14,6 +14,7 @@ export function createMenus(ctx) {
   let roomEls = null;   // the room screen's parts (it's updated in place, so typing in the chat isn't interrupted)
   let preview = null;   // the paint job shown on the bike in the garage
   let boardKey = 'moto_desert';
+  let garageTab = 'bike';
   let hideResults = null;
 
   const fmt = ctx.fmt;
@@ -61,7 +62,7 @@ export function createMenus(ctx) {
           card2('purple', '📡', 'Online', 'Race 2–6 riders with a code', () => pick('online'), { on: mode === 'online', sticker: mode === 'online' ? '✔ PICKED' : null })),
         licence(),
         go(mode === 'solo' ? 'Ride' : 'Race', mode === 'solo' ? 'Pick a track' : 'Make a room or join friends', next),
-        card2('green', '🏍️', 'Garage', `${have} / ${ctx.bikeList.length || 1} paint jobs unlocked`, () => show('garage'), { wide: true, sticker: paint(ctx.myLivery()).name, stickerCls: 'dark' }));
+        card2('green', '🏍️', 'Garage', `${Object.keys(ctx.MODELS).length} bikes · ${Object.keys(ctx.KITS).length - 1} rider kits · ${have} / ${ctx.bikeList.length || 1} paint jobs`, () => show('garage'), { wide: true, sticker: (ctx.MODELS[ctx.style.model] || {}).name || paint(ctx.myLivery()).name, stickerCls: 'dark' }));
     },
 
     tracks() {
@@ -112,25 +113,49 @@ export function createMenus(ctx) {
 
     garage() {
       back = () => { preview = null; show('home'); };
-      if (!preview) preview = ctx.myLivery();
-      const mine = ctx.myLivery();
-      const lv = paint(preview);
-      const have = ctx.unlocked.has(preview);
-      const list = ctx.bikeList;
+      const mine = ctx.myLivery(); const lvMine = ctx.LIVERIES[mine] || ctx.LIVERIES.factory; const st = ctx.style;
+      if (!preview) preview = mine;
+      const TABS = [['bike', '🏍️ Bike'], ['paint', '🎨 Paint'], ['kit', '👕 Rider kit'], ['helmet', '⛑️ Helmet'], ['number', '#️⃣ Number']];
+      const grid = (items, cur, onPick) => h('div', { class: 'mx-liveries' }, items.map(([id, label, c1, c2, opts = {}]) => h('button', {
+        class: 'mx-livery' + (id === cur ? ' on' : '') + (opts.locked ? ' locked' : ''), type: 'button', style: { '--c1': c1, '--c2': c2 }, title: opts.title || label, onclick: () => onPick(id) },
+      id === cur && !opts.locked ? h('span', { class: 'eq' }, opts.on || 'ON') : null, opts.locked ? h('span', { class: 'lk' }, '🔒') : null,
+      opts.emoji ? h('b', { class: 'emo' }, opts.emoji) : h('i', {}), h('span', {}, label))));
+      let panel; let name; let sub = '';
+      if (garageTab === 'paint') {
+        const list = ctx.bikeList; const have = ctx.unlocked.has(preview);
+        panel = glass('Paint jobs', `${list.filter((b) => ctx.unlocked.has(b.id)).length} / ${list.length} unlocked`,
+          grid(list.map((b) => { const p = paint(b.id); const ok = ctx.unlocked.has(b.id); return [b.id, p.name, p.c1, p.c2, { locked: !ok, on: 'RIDING', title: ok ? p.name : `🔒 ${p.name}: ${ctx.bikeHints[b.id] || 'Locked'}` }]; }), preview,
+          (id) => { preview = id; Sfx.play('click'); if (ctx.unlocked.has(id) && id !== mine) ctx.chooseLivery(id); else show('garage'); }),
+          note(Account.user ? 'Level up, land flips and win races to unlock more. Everyone in your races sees your bike.' : 'Log in to unlock more paint jobs as you level up and win races.'));
+        name = paint(preview).name; sub = have ? (preview === mine ? '✔ YOU’RE RIDING THIS ONE' : '') : `🔒 ${ctx.bikeHints[preview] || 'Locked'}`;
+      } else if (garageTab === 'bike') {
+        panel = glass('Bikes', 'only looks: they all ride the same', grid(Object.entries(ctx.MODELS).map(([id, m]) => [id, m.name, '#000', '#000', { emoji: m.emoji, title: m.about }]), st.model, (id) => ctx.setStyle({ model: id })));
+        name = ctx.MODELS[st.model] ? ctx.MODELS[st.model].name : ''; sub = ctx.MODELS[st.model] ? ctx.MODELS[st.model].about.toUpperCase() : '';
+      } else if (garageTab === 'kit') {
+        panel = glass('Rider kit', null, grid(Object.entries(ctx.KITS).map(([id, k]) => [id, k.name, k.jersey || lvMine.jersey, k.pants || lvMine.pants]), st.kit, (id) => ctx.setStyle({ kit: id })),
+          note('Your jersey, pants and boots. “Match my bike” goes with your paint job.'));
+        name = (ctx.KITS[st.kit] || ctx.KITS.match).name;
+      } else if (garageTab === 'helmet') {
+        panel = glass('Helmet', null, grid(Object.entries(ctx.HELMETS).map(([id, k]) => [id, k.name, k.helmet || lvMine.helmet, k.helmet2 || lvMine.helmet2]), st.helmet, (id) => ctx.setStyle({ helmet: id })),
+          note('Each helmet comes with its own goggle lens colour.'));
+        name = (ctx.HELMETS[st.helmet] || ctx.HELMETS.match).name;
+      } else {
+        const n = st.number ?? lvMine.number;
+        const set = (v) => ctx.setStyle({ number: v });
+        const input = h('input', { class: 'input', type: 'number', min: 0, max: 99, value: n, 'aria-label': 'Race number',
+          onchange: (e) => { const v = Math.round(Number(e.target.value)); if (v >= 0 && v <= 99) set(v); else show('garage'); } });
+        panel = glass('Race number', null, h('div', { class: 'mx-num' },
+          h('button', { class: 'mx-sb', type: 'button', 'aria-label': 'Lower', onclick: () => set((n + 99) % 100) }, '−'), input,
+          h('button', { class: 'mx-sb', type: 'button', 'aria-label': 'Higher', onclick: () => set((n + 1) % 100) }, '+')),
+        h('button', { class: 'mx-sb', type: 'button', style: { marginTop: '10px' }, onclick: () => set(null) }, `Use my paint job’s number (${lvMine.number})`),
+        note('0 to 99, on your number plates and your bike’s sides.'));
+        name = `#${n}`;
+      }
       return [
-        h('div', { class: 'mx-col' },
-          backBtn('Garage'),
-          glass('Paint jobs', `${list.filter((b) => ctx.unlocked.has(b.id)).length} / ${list.length} unlocked`,
-            h('div', { class: 'mx-liveries' }, list.map((b) => {
-              const p = paint(b.id); const ok = ctx.unlocked.has(b.id);
-              return h('button', { class: 'mx-livery' + (b.id === preview ? ' on' : '') + (ok ? '' : ' locked'), type: 'button', style: { '--c1': p.c1, '--c2': p.c2 },
-                title: ok ? p.name : `🔒 ${p.name}: ${ctx.bikeHints[b.id] || 'Locked'}`,
-                onclick: () => { preview = b.id; Sfx.play('click'); if (ok && b.id !== mine) ctx.chooseLivery(b.id); else show('garage'); } },
-              b.id === mine ? h('span', { class: 'eq' }, 'RIDING') : null, ok ? null : h('span', { class: 'lk' }, '🔒'), h('i', {}), h('span', {}, p.name));
-            })),
-            note(Account.user ? 'Level up, land flips and win races to unlock more. Everyone in your races sees your bike.' : 'Log in to unlock more paint jobs as you level up and win races.'))),
-        h('div', { class: 'mx-showcase' }, h('b', {}, lv.name),
-          h('small', {}, have ? (preview === mine ? '✔ YOU’RE RIDING THIS ONE' : '') : `🔒 ${ctx.bikeHints[preview] || 'Locked'}`)),
+        h('div', { class: 'mx-col' }, backBtn('Garage'),
+          h('div', { class: 'mx-seg' }, TABS.map(([k, label]) => h('button', { class: 'mx-sb' + (k === garageTab ? ' on' : ''), type: 'button', onclick: () => { garageTab = k; preview = null; Sfx.play('click'); show('garage'); } }, label))),
+          panel),
+        h('div', { class: 'mx-showcase' }, h('b', {}, name), sub ? h('small', {}, sub) : null),
       ];
     },
 

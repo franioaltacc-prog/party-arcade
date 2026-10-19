@@ -139,9 +139,15 @@ with an import map), everything else is drawn and synthesised in code (no model,
   above into (s, u). Past the tape (u beyond 5.2 m) the ground is rough and slow; a barrier at 11.5 m stops shortcuts.
   Checkpoints (in order) and the finish go by s, and a WRONG WAY sign shows when you turn round.
 - **`bike.js`** builds the bike and rider from code and poses them from the physics every frame (fork, swingarm, shock,
-  spinning wheels, the rider's arms and legs reaching the bars and pegs). **`world.js`** builds the world around a track:
+  spinning wheels, the rider's arms and legs reaching the bars and pegs). `makeBike({ livery, model, kit, helmet, number })`:
+  the paint job (`LIVERIES`, unlocked as rewards), the bike style (`MODELS`: Factory 450, 250 Two-Stroke, Enduro, Retro 70s,
+  E-Moto), the rider kit (`KITS`), the helmet (`HELMETS`) and the race number. Styles, kits, helmets and numbers are free
+  and only looks (the physics never sees them); they're kept in `moto_prefs` and sent to the room with `g:style`, so the
+  others see them in the start gate and on their ghosts. **`world.js`** builds the world around a track:
   a Sky shader per theme (desert midday, forest overcast, snow dusk), sun shadows, fog, terrain with sculpted jumps and
-  banked berms, ruts, puddles, scenery, the start gate and arches, and particles. **`sound.js`** synthesises the engine
+  banked berms, ruts, puddles, scenery (boulders, pines, leafy trees, saguaro and barrel cacti, bushes, grass, dead trees,
+  logs and snowbanks, each made from shapes that are lumped, cut and coloured per vertex, then instanced with a random
+  tint), tyre stacks, banners, the start gate with its pen and billboard, the arches, and particles. **`sound.js`** synthesises the engine
   from the revs. **`game.js`** is the page: the 3D scene behind the menus (your bike, or everyone's in a room, parked in
   the start gate under a slowly drifting camera), controls (keyboard, touch buttons, gamepads), the chase/side/close
   cameras, the HUD, solo time trials and online races. **`menus.js`** draws the menus inside the game window, like
