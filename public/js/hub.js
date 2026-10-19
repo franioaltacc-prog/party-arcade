@@ -273,8 +273,29 @@
       <circle cx="58" cy="66" r="6" fill="none" stroke="#ff4fd8" stroke-width="2.5"/>
       ${emoji(112, 22, 22, '🏐')}${emoji(166, 98, 14, '💥')}${emoji(20, 100, 13, '⚡')}`, '#1e1b4b', '#0e7490');
 
+  // Motocross: a rider mid-backflip over a dirt double at dusk, dust behind the takeoff
+  const dirtBike = (wheel, plastic) => `<g fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="-17" cy="8" r="8.5" stroke="${wheel}" stroke-width="3.2" stroke-dasharray="2 1.4"/><circle cx="17" cy="8" r="8.5" stroke="${wheel}" stroke-width="3.2" stroke-dasharray="2 1.4"/>
+      <path d="M-17 8 L-4 2 L8 2 M17 8 L10 -8 M8 2 L10 -8 M-4 2 L-2 -4" stroke="#e5e7eb" stroke-width="2"/>
+      <path d="M-22 -4 Q-12 -9 0 -6 L10 -9 L16 -5 L6 -2 L-6 -1 Z" fill="${plastic}" stroke="${plastic}" stroke-width="1.5"/>
+      <path d="M-6 -6 L-1 -16 L6 -20 M6 -20 L10 -10 M-1 -16 L4 -6" stroke="#f8fafc" stroke-width="3"/>
+      <circle cx="7" cy="-24" r="4.6" fill="#fff" stroke="#fff"/><path d="M8 -24 h5" stroke="${plastic}" stroke-width="2.4"/></g>`;
+  ART.moto = svg('moto', `
+      <circle cx="152" cy="34" r="16" fill="#fde68a" opacity=".85"/><circle cx="152" cy="34" r="26" fill="#fde68a" opacity=".18"/>
+      <path d="M0 78 L28 62 L48 70 L78 52 L104 66 L132 58 L160 68 L200 54 V120 H0Z" fill="#7c3a2d" opacity=".55"/>
+      <path d="M0 96 Q 40 86 70 92 L84 72 Q 92 68 96 74 L100 92 Q 140 96 200 90 V120 H0Z" fill="#c2733f"/>
+      <path d="M118 92 Q 132 74 150 80 Q 170 90 200 94 V120 H118Z" fill="#a85d33"/>
+      <path d="M0 104 Q 60 98 120 104 T 200 102 V120 H0Z" fill="#8b4a28"/>
+      <path d="M96 72 Q 114 30 146 58" stroke="#fde047" stroke-width="2" stroke-dasharray="2 5" fill="none" stroke-linecap="round"/>
+      <g transform="translate(122 56) rotate(-30) scale(1.05)">${dirtBike('#111827', '#ef4444')}</g>
+      ${[[88, 86, 7], [78, 90, 9], [66, 94, 6], [96, 90, 5]].map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#f5d0a9" opacity=".55"/>`).join('')}
+      <path d="M16 70 v-22 l14 5 l-14 5" fill="#fff" stroke="#fff" stroke-width="1.2" stroke-linejoin="round"/><path d="M16 48 l7 2.5 v5 l-7 -2.5z" fill="#111"/>
+      ${emoji(176, 102, 13, '🏁')}${emoji(30, 104, 12, '💨')}`, '#4c1d95', '#f97316');
+  ART['moto-solo'] = ART.moto.replaceAll('g-moto', 'g-moto2').replace('#4c1d95', '#0c4a6e').replace('#f97316', '#38bdf8').replace('#ef4444', '#facc15');
+
   // ---------------------------------------------------------------- cards
   const ONLINE = [
+    { key: 'moto', title: 'Motocross', icon: '🏍️', desc: 'Realistic 3D dirt bikes! Ride anywhere with WASD: huge doubles, bermed corners, mud and ice. Backflip for nitro and race up to 5 friends: everyone readies up, 3, 2, 1, GO!', players: '2–6 players (+ solo)', glow: 'rgba(249,115,22,.7)', feature: true, isNew: true },
     { key: 'songs', title: 'Song Rush', icon: '🎧', desc: 'A song starts playing… name it before everyone else! Type the title and the artist, or pick from four. Hits from the 2020s back to the 60s, Disney, K-pop, party songs and spooky Halloween tunes.', players: '1–16 players', glow: 'rgba(236,72,153,.7)', feature: true, isNew: true },
     { key: 'volley', title: 'Screen Volley', icon: '🏐', desc: 'Put two laptops side by side and punch a volleyball from your screen onto your friend’s! Your cursor is your hand. Fast reflexes win. No second laptop? Practice against the robot.', players: '2 players (+ robot practice)', glow: 'rgba(34,211,238,.7)', feature: true, isNew: true },
     { key: 'dash', title: 'Neon Dash', icon: '🟪', desc: 'A mini Geometry Dash! Race your friends through the same level of spikes, jump pads and orbs.', players: '1–12 players', glow: 'rgba(168,85,247,.7)', feature: true },
@@ -293,6 +314,7 @@
     { key: 'connect4', title: 'Connect 4', icon: '🔴', desc: 'The classic. Drop discs, get four in a row, talk trash in chat.', players: '2 + spectators', glow: 'rgba(59,130,246,.6)' },
   ];
   const SOLO = [
+    { key: 'moto-solo', href: '/games/moto?solo=1', title: 'Motocross Time Trial', icon: '🏁', desc: 'Desert Dunes, Forest Mud and Snow Ridge: beat the medal times, land flips and unlock new bike paint jobs. Every track has a leaderboard!', players: 'Solo', isNew: true },
     { key: 'dash-solo', href: '/games/dash?solo=1', title: 'Neon Dash Practice', icon: '🟦', desc: 'Train on random levels and beat them in as few attempts as you can.', players: 'Solo' },
     { key: 'poly-solo', href: '/games/poly?solo=1', title: 'Poly Racer Time Trial', icon: '🏁', desc: 'Six tracks, medals to win and your own ghost to beat. Every track has a leaderboard!', players: 'Solo', isNew: true },
     { key: 'front-solo', href: '/games/front?solo=1', title: 'Front Wars vs Bots', icon: '🤖', desc: 'Take on up to 40 bots and conquer the whole map. Easy, medium or hard!', players: 'Solo', isNew: true },

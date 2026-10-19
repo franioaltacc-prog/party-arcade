@@ -6,6 +6,32 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.2.0', date: '2026-10-19', emoji: '🏍️', massive: true, title: 'New game: Motocross', intro: 'A brand-new realistic 3D dirt bike game, inspired by the look of Cork7. Ride anywhere, solo or against up to 5 friends online.', sections: [
+      ['🏍️ Ride', [
+        'W gas, S brake (hold it when stopped to back up), A / D steer, Q / E lean back and forward, Space nitro. Arrow keys work too, phones get touch buttons and gamepads work',
+        'Ride anywhere in 3D: take your own line, slow down for corners or slide wide, use the berms, and stay inside the barriers (going the wrong way? the screen tells you)',
+        'Real bike physics: a fork and a shock that soak up landings, a 5-speed gearbox, tyres that slip on sand, mud and ice, the bike leaning into turns, wheelies and stoppies',
+        'Lean in the air to flip, or let go and the rider levels the bike for the landing. Land on your head or upside down and you crash: back to the last checkpoint (it costs you a couple of seconds)',
+        'Clean landings and front/backflips fill your nitro',
+      ]],
+      ['🗺️ Three tracks', [
+        '🏜️ Desert Dunes: fast sandy straights, big doubles and a tabletop under the midday sun',
+        '🌲 Forest Mud: slippery mud puddles, roots and ruts between tall pines',
+        '🏔️ Snow Ridge: packed snow and icy patches at dusk, with lamp posts and huge jumps',
+        'Medal times, your best time per track and a leaderboard for every track',
+      ]],
+      ['👥 Online races', [
+        'Rooms for 2–6 riders: the host picks the track, everyone presses Ready, then 3, 2, 1… the gate drops!',
+        'See the others as see-through bikes in their colours, with live positions as you race',
+        'Wins, podiums, flips and best times go on your profile',
+      ]],
+      ['🎨 Looks and sound', [
+        'A sky for each track’s time of day, sun shadows, fog, mountains, cacti, pines and snow, dust, mud and snow spray',
+        'A detailed bike and rider: the suspension, swingarm and wheels move, and the rider shifts their weight',
+        'An engine sound that follows the revs and the gears (with a mute button), and chase, side and close cameras',
+        '12 bike paint jobs to unlock by levelling up, finishing tracks, landing flips and winning races, plus 8 new achievements',
+      ]],
+    ] },
     { v: '3.1.0', date: '2026-10-18', emoji: '🏡', massive: true, title: 'Family Life: the mega update', intro: 'Family Life got HUGE: almost 300 new things to do, 70 new life events, 66 new jobs and 70 new things to buy.', sections: [
       ['🎯 New tabs full of things to do', [
         '👫 Friends: make friends, hang out, sleepovers, road trips, surprise parties, game nights. Friends you never see slowly drift apart',

@@ -58,8 +58,8 @@ You can delete your own messages and announcements; admins can delete anyone's. 
 messages; its announcements and calendar rows stay without a name (`team_chat`, `team_news` tables).
 
 ## Games
-- **Online:** Song Rush (name the song from a 30-second preview), Screen Volley (two laptops side by side, one ball), Neon Dash (mini Geometry Dash race), Family Life (multiplayer BitLife with siblings), Doodle Guess, Impostor, Minesweeper (Race / Battle), Front Wars (OpenFront-style territory war: free-for-all with alliances or teams, bots, ports, warships, nukes and replays), Prop Hunt (top-down hide and seek with a killer), Poly Racer (low-poly 3D racing), Billiards (8-ball / 9-ball pool, winner stays on), Flappy Royale (Neon Flappy with everyone flying the same pipes), Mini Golf (3D, everyone on the same hole with ghost balls), Party Blitz, Connect 4
-- **Solo:** Mini Golf (Classic Meadow and Spooky Hollow, 9 holes each), Neon Flappy (medals, unlockable birds), Billiards (vs CPU, Speed Clear, practice), Poly Racer time trial, Neon Dash practice, Neon Dash level editor + community levels (beat your level to verify it, then post it: an admin approves it first, 3 posts a day; hosts can race community levels online), Minesweeper (Easy / Medium / Hard), Front Wars vs bots, Slope (3D, three.js), Snake, 2048, Memory Flip
+- **Online:** Motocross (realistic 3D dirt bikes, 2–6 riders, ready-up and a start gate), Song Rush (name the song from a 30-second preview), Screen Volley (two laptops side by side, one ball), Neon Dash (mini Geometry Dash race), Family Life (multiplayer BitLife with siblings), Doodle Guess, Impostor, Minesweeper (Race / Battle), Front Wars (OpenFront-style territory war: free-for-all with alliances or teams, bots, ports, warships, nukes and replays), Prop Hunt (top-down hide and seek with a killer), Poly Racer (low-poly 3D racing), Billiards (8-ball / 9-ball pool, winner stays on), Flappy Royale (Neon Flappy with everyone flying the same pipes), Mini Golf (3D, everyone on the same hole with ghost balls), Party Blitz, Connect 4
+- **Solo:** Motocross time trial (three tracks, medals, unlockable paint jobs), Mini Golf (Classic Meadow and Spooky Hollow, 9 holes each), Neon Flappy (medals, unlockable birds), Billiards (vs CPU, Speed Clear, practice), Poly Racer time trial, Neon Dash practice, Neon Dash level editor + community levels (beat your level to verify it, then post it: an admin approves it first, 3 posts a day; hosts can race community levels online), Minesweeper (Easy / Medium / Hard), Front Wars vs bots, Slope (3D, three.js), Snake, 2048, Memory Flip
 - **Fun:** Spin the Wheel, Would You Rather (global votes), Magic 8-Ball
 - **Casino Night (fake coins only):** every match everyone starts with the same coins; most coins at the end wins.
   - VS HOUSE: Roulette, Lucky Dice, Blackjack, Slots. VS PLAYERS: Texas Hold'em, Coinflip, High Card and Dice duels.
@@ -114,6 +114,67 @@ runs online races (each browser drives its own car; the server relays positions 
   to `TRACKS` in `games/poly.py`, `SOLO` and `BOARDS` in `accounts.py`.
 - Solo times are saved per track (`poly1.best`…); times more than 25% faster than the author time are refused, and online
   finish times must match how long the race has actually been going.
+
+## Motocross
+A realistic 3D dirt bike game in the style of Cork7 (`/games/moto`), in its own folders: `games/moto/` (the server)
+and `public/js/games/moto/` (everything in the browser). No extra packages: three.js comes from jsDelivr (ES modules
+with an import map), everything else is drawn and synthesised in code (no model, image or sound files).
+- **Controls:** W / ↑ gas, S / ↓ brake (held when stopped: back up), A D / ← → steer, Q lean back, E lean forward,
+  Space nitro, R back to the checkpoint, C camera, M mute. Phones get on-screen buttons; gamepads work (triggers, left
+  stick steers, right stick leans).
+- **`core.js`** is the physics, with no drawing, so it also runs in the tests. You ride anywhere in 3D: the bike has a
+  position seen from above (`px`, `pz`) and a heading. Steering uses bike geometry (the bars turn less the faster you
+  go) and tyre grip (too fast for a turn and you slide wide and scrub off speed; going round a berm gives more grip),
+  and the bike leans into turns at tan(lean) = sideways acceleration / gravity. Up and down is a full model in the
+  bike's upright plane, which turns with it: each step `slice()` samples the ground along the way the bike points
+  (x = odometer, y = height), and a frame on a fork and a shock, two wheels with slip-based tyre grip, a 5-speed gearbox
+  with a rev limiter, brakes, nitro, and a rider on springy legs ride over it. Leaning moves the rider's weight on the
+  ground and spins the bike in the air; with no lean held in the air the rider levels the bike for the landing. A
+  small "rider instinct" stops held-gas wheelies and hard-braking stoppies from looping over. Crashes (body or head on
+  the ground, or upside down) send you back to the last checkpoint after ~2.3 s. Clean landings (+ more for big air and
+  perfect angles) and flips (+30% each) fill the nitro. Fixed 1/120 s steps with 8 substeps.
+- **The ground** is one function, `heightAt(T, s, u)` (s = metres along the track, u = metres right of its middle):
+  the riding surface follows the track's profile and is banked in the corners, jumps get dirt sides, and hills rise
+  further out. The 3D world draws exactly this, so the wheels sit on what you see. `locate()` turns a point seen from
+  above into (s, u). Past the tape (u beyond 5.2 m) the ground is rough and slow; a barrier at 11.5 m stops shortcuts.
+  Checkpoints (in order) and the finish go by s, and a WRONG WAY sign shows when you turn round.
+- **`bike.js`** builds the bike and rider from code and poses them from the physics every frame (fork, swingarm, shock,
+  spinning wheels, the rider's arms and legs reaching the bars and pegs). **`world.js`** builds the world around a track:
+  a Sky shader per theme (desert midday, forest overcast, snow dusk), sun shadows, fog, terrain with sculpted jumps and
+  banked berms, ruts, puddles, scenery, the start gate and arches, and particles. **`sound.js`** synthesises the engine
+  from the revs. **`game.js`** is the page: menus, controls (keyboard, touch buttons, gamepads), the chase/side/close
+  cameras, the HUD, solo time trials and online races.
+- **Tracks are data**: `public/js/games/moto/tracks.json`. Each one has an `id`, `name`, `emoji`, `theme` (`desert`,
+  `forest` or `snow`), `grip` (1 = hard dirt), `roll` (extra rolling resistance, like sand), `about`, `robot` (see below)
+  and a `course`: a list of pieces laid end to end, all sizes in metres:
+  - `flat L` · `bumps L H` (small random bumps) · `roller L H` / `rollers L H N` (smooth humps) · `whoops L H N`
+  - `up L H` / `down L H` (change the height) · `dip L D` · `drop H` (ride off a ledge)
+  - `kicker L H` (a ramp with free air after it) · `double L H G` (takeoff L long with its lip H high, a gap of G to the
+    top of the landing) · `table L H T` (a tabletop with a T-long top) · `stepup L H` (land on top of a step)
+  - `turn A R` (a bermed corner of A degrees, radius R; negative A turns left)
+  - `mud L` / `ice L` (slippery patches) · `start` · `cp` (a checkpoint) · `finish`
+- **Adding a track:** add it to `tracks.json` with `"robot": 0`, run `jsc tests/mototest.js`: the robot rider rides it
+  (from the start and from every checkpoint, which must work too) and prints its time; put that time in `robot`. That's
+  all: the server, leaderboards (`moto_<id>`), solo scores (`moto-<id>`) and online races pick it up by themselves. The
+  medal times are the robot's time +6% (gold), +20% (silver), +45% (bronze). If the robot crashes, make the jumps a little
+  gentler or give the checkpoint a longer run-up. (Profiles show tracks they don't know by their id.)
+- **Online** (`games/moto/game.py`): 2–6 riders; the host picks the track, everyone presses Ready and the race starts
+  by itself after a 3-2-1 countdown, everyone side by side in the start gate (party mode and "play again" skip the
+  ready-up). Each browser rides its own bike and sends its 3D position, heading and pose ~12 times a second; the others
+  are drawn as see-through bikes (in their paint job's colour, or their player colour) 130 ms in the past so they move
+  smoothly, with name tags and their engines. Places go by who crosses the
+  line first; once someone finishes, the rest have 30 s. Finish times faster than 70% of the robot's time, or longer than
+  the race has been on, are refused. Spectators follow the leader. Admin cheat: end the race.
+- **Saved:** solo `moto<id>.best` (fastest ms) and `moto<id>.wins` (finishes), `moto.finishes`, `moto.flips`; online also
+  `moto.races`, `moto.wins`, `moto.podiums` and the track's best time. Leaderboards `moto` (wins), `moto_flips` and one per
+  track. **Paint jobs** (`bikes` in `public/data/unlocks.json`, the `bike` look slot) unlock like the other rewards, and
+  others see yours in races. Local best times and settings are kept in the browser (`moto_best_<id>`, `moto_prefs`).
+- `tests/mototest.js` checks the bike (standing still, top speed, gears, brakes, wheelies, crashes, a backflip filling the
+  nitro, steering, sliding wide, the barrier, slow ground off the track, backing up, wrong way, wheels on the drawn
+  ground) and has the robot (which steers along its line) ride every track; `tests/motobot.py` tests solo scores, paint
+  jobs and an online race.
+  On localhost, `window.__moto.advance(seconds, controls)` drives the game by hand (the browser pane used for testing
+  barely runs animation frames).
 
 ## Billiards
 Top-down pool with real physics (spin, banks, kisses, rattling jaws). `public/js/games/pool-core.js` is the table, the
@@ -329,11 +390,13 @@ It starts a throwaway server (temporary SQLite database, test admin code `test-a
 - Websocket bots that play the online games like real players: accounts, friends, invites, votes, party mode, watching,
   Prop Hunt, tournaments, Poly Racer, Minesweeper, Front Wars, Billiards, Flappy Royale, Mini Golf, the Dash level
   editor (posting limit, admin review), themes and Halloween quests, cheats and rewards, roles and the update calendar, the Family Life shop and casino,
-  Song Rush (both modes, scoring, private chat once you know the answer) and Screen Volley (serves, passes, points, forfeits).
+  Song Rush (both modes, scoring, private chat once you know the answer), Screen Volley (serves, passes, points, forfeits)
+  and Motocross (solo times, paint jobs, ready-up, positions, finish checks, results).
 - In-process tests of the Prop Hunt rules and tournament brackets, the pool physics (Python vs JS, bit for bit), and
   Song Rush's answer checking, song list, hints and scoring, and Screen Volley's physics.
 - If JavaScriptCore (macOS) or Node is installed, an autopilot drives every Poly Racer track, every Neon Flappy
-  test level is checked to be flyable and every Mini Golf hole is solved within par + 1.
+  test level is checked to be flyable, every Mini Golf hole is solved within par + 1, and a robot rider rides every
+  Motocross track from the start and from every checkpoint.
 
 To run one bot on its own: start a server (`DATA_DIR=/tmp/x ADMIN_CODE=test-admin-code-123 PORT=8012 python3 server.py`),
 then `PORT=8012 python3 tests/gamesbot.py`. `accbot` expects a fresh database. The Doodle "show me the word" cheat check
@@ -347,6 +410,7 @@ fails now and then (a known flaky test) and is reported as a warning.
 - `games/`: one module per online game (server side)
 - `games/songs/`: Song Rush: the game, answer checking, the playlists and the iTunes build script
 - `games/volley.py` + `public/js/games/volley-core.js`: Screen Volley's server and its shared ball physics
+- `games/moto/` + `public/js/games/moto/`: Motocross: the online races, and the physics, 3D world, bike, sound and tracks
 - `games/casino/`: casino server. `match.py` runs the match (coins, scores, win conditions); every game is its own module
   built on the shared bases in `tables.py`: `HouseTable` (vs house), `PlayersTable` (vs players) and `RoundTable` (shared betting round).
   To add a game: subclass one of them, decorate it with `@register`, import it in `match.py`, and add a matching

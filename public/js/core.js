@@ -5,7 +5,7 @@
 
   // The site's version. Bump it with every update, together with a new entry at the
   // top of public/js/changelog.js (the /changelog page).
-  const VERSION = '3.1.0';
+  const VERSION = '3.2.0';
 
   // ---------------------------------------------------------------- helpers
   const $ = (s, r = document) => r.querySelector(s);
@@ -1052,11 +1052,11 @@
      × hides it for good. Set NEWS = null when there's nothing to say, and give a new message a new id so people
      who hid the last one see it. */
   const NEWS = {
-    id: 'massive-update-3', until: '2026-10-26', emoji: '💥',
-    title: 'MASSIVE UPDATE: two new games!',
-    text: 'Song Rush: name the song before your friends do. Screen Volley: punch a ball from your laptop onto your friend’s.',
-    hint: '🎧 Over 450 songs · 🏐 two laptops side by side, one ball',
-    links: [['/games/songs', '🎧 Song Rush'], ['/games/volley', '🏐 Screen Volley']],
+    id: 'motocross', until: '2026-11-02', emoji: '🏍️',
+    title: 'NEW GAME: Motocross!',
+    text: 'Realistic 3D dirt bikes: ride anywhere with WASD, huge jumps, backflips for nitro and online races for up to 6 riders.',
+    hint: '🏜️ Desert · 🌲 Forest mud · 🏔️ Snow, each with its own leaderboard',
+    links: [['/games/moto', '🏍️ Race friends'], ['/games/moto?solo=1', '🏁 Time trial']],
   };
   function news(bar) {
     if (!NEWS || store.get('pa_news_hide', null) === NEWS.id) return;

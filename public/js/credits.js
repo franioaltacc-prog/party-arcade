@@ -31,12 +31,13 @@
   const GAMES = [
     ['🟪', 'Neon Dash'], ['🏡', 'Family Life'], ['🎨', 'Doodle Guess'], ['🎧', 'Song Rush'], ['🏐', 'Screen Volley'], ['🕵️', 'Impostor'], ['💣', 'Minesweeper'],
     ['⚡', 'Party Blitz'], ['🎰', 'Casino Night'], ['🔴', 'Connect 4'], ['🎱', 'Billiards'], ['🐍', 'Neon Snake'], ['🔢', '2048'],
-    ['🃏', 'Memory Flip'], ['🛝', 'Slope'], ['🌍', 'Front Wars'], ['🔫', 'Prop Hunt'], ['🏎️', 'Poly Racer'], ['🐤', 'Neon Flappy'], ['⛳', 'Mini Golf'], ['🎡', 'Spin the Wheel'], ['🤔', 'Would You Rather'], ['🎱', 'Magic 8-Ball'],
+    ['🃏', 'Memory Flip'], ['🛝', 'Slope'], ['🌍', 'Front Wars'], ['🔫', 'Prop Hunt'], ['🏎️', 'Poly Racer'], ['🏍️', 'Motocross'], ['🐤', 'Neon Flappy'], ['⛳', 'Mini Golf'], ['🎡', 'Spin the Wheel'], ['🤔', 'Would You Rather'], ['🎱', 'Magic 8-Ball'],
   ];
 
   const TOOLS = [
     ['🐍', 'Python', 'the game server'],
-    ['🧊', 'three.js', 'the 3D graphics in Slope'],
+    ['🧊', 'three.js', 'the 3D graphics in Slope, Poly Racer, Mini Golf and Motocross'],
+    ['🔤', 'Kanit by Cadson Demak & Permanent Marker by Font Diner', 'the Motocross HUD fonts (Google Fonts)'],
     ['🟢', 'GSAP by GreenSock', 'animations'],
     ['🔤', 'Bungee by David Jonathan Ross', 'title font (Google Fonts)'],
     ['🔤', 'Fredoka by Milena Brandão', 'text font (Google Fonts)'],
@@ -50,7 +51,7 @@
   ];
 
   const INSPIRED = ['Geometry Dash (RobTop Games)', 'BitLife (Candywriter)', 'Pictionary & skribbl.io', 'Name That Tune, Heardle & SongTrivia', 'the two-laptop ball game going around on Instagram', 'Spyfall-style "who\'s the impostor?" word games',
-    'Classic Minesweeper', 'Slope (by Rob Kay)', 'OpenFront.io', 'Prop Hunt (the Garry’s Mod game mode)', 'PolyTrack (Kodub)', '2048 (Gabriele Cirulli)', 'Snake', 'Connect Four', 'Pool (8-ball and 9-ball)', 'Flappy Bird (Dong Nguyen)', 'WarioWare-style microgames'];
+    'Classic Minesweeper', 'Slope (by Rob Kay)', 'OpenFront.io', 'Prop Hunt (the Garry’s Mod game mode)', 'PolyTrack (Kodub)', 'Cork7 (the look and feel of Motocross)', 'Trials and Elasto Mania (bike physics)', '2048 (Gabriele Cirulli)', 'Snake', 'Connect Four', 'Pool (8-ball and 9-ball)', 'Flappy Bird (Dong Nguyen)', 'WarioWare-style microgames'];
 
   function render(players) {
     fill(root,
