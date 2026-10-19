@@ -826,6 +826,8 @@ svg.ico { width: 1.15em; height: 1.15em; flex: none; vertical-align: -0.2em; }
 .ballp.lg { width: 70px; height: 70px; }
 .ballp.sm { width: 30px; height: 30px; margin: 2px; }
 .ballp { --c: #39ff88; background: radial-gradient(circle at 32% 28%, rgba(255,255,255,.55), transparent 38%), var(--c); }
+/* Motocross paint job swatch: the bike's plastics with a racing stripe */
+.bikep { width: 64px; height: 38px; flex: none; margin: 12px 4px; border-radius: 12px 22px 9px 9px; background: linear-gradient(135deg, var(--c1) 52%, var(--c2) 52% 68%, var(--c1) 68%); box-shadow: inset 0 -5px 0 rgba(0,0,0,.25), inset 0 3px 6px rgba(255,255,255,.25), 0 6px 14px rgba(0,0,0,.35); }
 .ballp.b-glass { background: radial-gradient(circle at 30% 26%, #fff, transparent 22%), radial-gradient(circle at 65% 70%, rgba(186,230,253,.55), rgba(125,211,252,.18) 60%), rgba(186,230,253,.2); border: 1px solid rgba(255,255,255,.5); }
 .ballp.b-disco { background: radial-gradient(circle at 30% 28%, rgba(255,255,255,.95), transparent 22%), repeating-conic-gradient(from 10deg, #e5e7eb 0 10deg, #6b7280 10deg 20deg, #f9fafb 20deg 30deg, #9ca3af 30deg 40deg); }
 .ballp.b-soccer { background: radial-gradient(circle at 50% 50%, #111 0 16%, transparent 17%), radial-gradient(circle at 15% 30%, #111 0 11%, transparent 12%), radial-gradient(circle at 85% 30%, #111 0 11%, transparent 12%), radial-gradient(circle at 25% 88%, #111 0 11%, transparent 12%), radial-gradient(circle at 75% 88%, #111 0 11%, transparent 12%), #f8fafc; }

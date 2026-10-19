@@ -1,5 +1,5 @@
 """Motocross against a real server: solo best times per track (and impossible ones turned away),
-flips, the leaderboards, and an online race: ready-up, the countdown, positions passed on,
+flips, the leaderboards, bike paint jobs, and an online race: ready-up, the countdown, positions passed on,
 finish times checked, places and the saved results."""
 import os as _os, sys as _sys
 _HERE = _os.path.dirname(_os.path.abspath(__file__))
@@ -59,12 +59,24 @@ async def main():
     rows = r["board"]["rows"]
     check(rows and rows[0]["name"] == na and rows[0]["value"] == 71234, "the desert board shows the best time")
 
+    # bike paint jobs are rewards you wear: finishing tracks and races unlocks more
+    r = await req(a, "account:look", look={"bike": "chrome"})
+    check(not r["ok"], "a locked paint job can't be worn")
+    r = await req(a, "account:look", look={"bike": "camo"})
+    check(r["ok"] and r["user"]["look"].get("bike") == "camo", "finishing Desert Dunes unlocks Desert Camo")
+    r = await req(a, "account:look", look={"bike": "orange"})
+    check(r["ok"], "finishing any track unlocks Sunset Orange")
+    r = await req(a, "account:look", look={"bike": "factory"})
+    check(r["ok"] and r["user"]["look"].get("bike") == "factory", "the factory bike is free")
+
     # ---------------------------------------------------------------- an online race
     nb = "MotoB" + U
     b = await player("mbotB" + U + "x", nb)
     a.send({"t": "room:create", "game": "moto"}); j = await a.wait("room:joined")
     check(j["state"]["phase"] == "lobby" and j["state"]["min"] == 2, "a new room waits in the lobby")
-    b.send({"t": "room:join", "code": j["code"], "game": "moto"}); await b.wait("room:joined")
+    b.send({"t": "room:join", "code": j["code"], "game": "moto"}); jb = await b.wait("room:joined")
+    pa = next(p for p in jb["players"] if p["id"] == a.uid)
+    check(pa.get("bike") == "factory", "the others can see which bike you ride")
     await asyncio.sleep(0.2)
     b.send({"t": "g:settings", "track": "snow"}); a.send({"t": "g:settings", "track": "desert"})
     await asyncio.sleep(0.3)

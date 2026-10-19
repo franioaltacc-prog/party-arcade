@@ -38,13 +38,16 @@ async function loadUnlocks() {
   try {
     const d = await Unlocks.load();
     const u = Account.user;
-    if (!u) { unlocked = new Set((d.bikes || []).filter((b) => !b.rule).map((b) => b.id)); return; }
-    const prof = await Net.request('profile:get', { name: u.name });
-    const have = await Unlocks.of(prof.profile.level, prof.profile.stats || {});
-    unlocked = have.bike || new Set(['factory']);
+    if (!u) unlocked = new Set((d.bikes || []).filter((b) => !b.rule).map((b) => b.id));
+    else {
+      const prof = await Net.request('profile:get', { name: u.name });
+      const have = await Unlocks.of(prof.profile.level, prof.profile.stats || {});
+      unlocked = have.bike || new Set(['factory']);
+    }
   } catch { /* offline: keep the default */ }
   if (!unlocked.has(prefs.livery)) prefs.livery = 'factory';
   try { bikeList = (await Unlocks.load()).bikes || []; } catch { bikeList = []; }
+  for (const b of bikeList) if (b.rule && !bikeHints[b.id]) { try { bikeHints[b.id] = await Unlocks.hint(b.rule); } catch { /* no hint */ } }
 }
 const myLivery = () => (Account.user && Account.user.look && Account.user.look.bike && unlocked.has(Account.user.look.bike) ? Account.user.look.bike : unlocked.has(prefs.livery) ? prefs.livery : 'factory');
 
@@ -510,17 +513,17 @@ async function showMenu() {
     h('p', { class: 'mx-keys' }, 'D / → gas · A / ← brake · W / ↑ lean back · S / ↓ lean forward · Space nitro · R back to checkpoint · C camera · M mute'));
   if (FX.list) FX.list($('#menu .tracks').children, { y: 24, stagger: 0.05, duration: 0.45, ease: 'back.out(1.5)' });
 }
-let bikeList = [];
+let bikeList = []; const bikeHints = {};
 function liveryPicker(small) {
   const pick = myLivery();
   return h('div', {},
     h('div', { class: 'panel-title' }, '🏍️ Your bike', h('span', { class: 'count' }, `${bikeList.filter((b) => unlocked.has(b.id)).length}/${bikeList.length}`)),
     h('div', { class: 'mx-liveries' + (small ? ' small' : '') }, bikeList.map((b) => {
-      const lv = LIVERIES[b.id] || LIVERIES.factory; const have = unlocked.has(b.id);
+      const lv = LIVERIES[b.id] || LIVERIES.factory; const have = unlocked.has(b.id); const hint = bikeHints[b.id] || 'Locked';
       return h('button', {
-        class: 'mx-livery' + (b.id === pick ? ' on' : '') + (have ? '' : ' locked'), title: have ? lv.name : `🔒 ${b.about || 'Locked'}`,
-        style: { '--c1': lv.plastic, '--c2': lv.accent },
-        onclick: () => { if (!have) { UI.toast(`🔒 ${lv.name}: ${b.about}`, '', 3500); return; } chooseLivery(b.id); },
+        class: 'mx-livery' + (b.id === pick ? ' on' : '') + (have ? '' : ' locked'), title: have ? lv.name : `🔒 ${lv.name}: ${hint}`,
+        style: { '--c1': b.colors ? b.colors[0] : lv.plastic, '--c2': b.colors ? b.colors[1] : lv.accent },
+        onclick: () => { if (!have) { UI.toast(`🔒 ${lv.name}: ${hint}`, '', 3500); return; } chooseLivery(b.id); },
       }, h('i', {}), h('span', {}, have ? lv.name : '🔒'));
     })),
     h('p', { class: 'tiny faint' }, Account.user ? 'Level up, land flips and win races to unlock more paint jobs. Everyone online sees yours.' : 'Log in to unlock more paint jobs as you level up.'));
@@ -630,7 +633,9 @@ function startRace(race, countdown) {
   for (const id of Object.keys(race.runners)) {
     if (id === Net.id) continue;
     const p = playerOf(id);
-    R.others.set(id, { id, buf: [], x: race.runners[id].x || null, lane: 0, name: p.name, color: p.color || '#888888', livery: p.bike, model: null, tag: null, ang: [0, 0], done: race.runners[id].done });
+    // a rider who picked a paint job shows up in its colour, everyone else in their player colour
+    const paint = p.bike && p.bike !== 'factory' && LIVERIES[p.bike] ? LIVERIES[p.bike].plastic : null;
+    R.others.set(id, { id, buf: [], x: race.runners[id].x || null, lane: 0, name: p.name, color: paint || p.color || '#888888', model: null, tag: null, ang: [0, 0], done: race.runners[id].done });
   }
   begin(def, 'online', performance.now() + countdown * 1000);
 }
@@ -725,7 +730,8 @@ function drawBoard() {
   const rows = standings().slice(0, 6);
   fill($('#hud-board'), rows.map((r, i) => {
     const p = playerOf(r.id);
-    return h('div', { class: r.id === Net.id ? 'me' : '' }, h('i', { style: { background: p.color || '#888' } }), `${i + 1}. ${p.name}`, r.done ? ' 🏁' : '');
+    const o = R.others.get(r.id);
+    return h('div', { class: r.id === Net.id ? 'me' : '' }, h('i', { style: { background: (o && o.color) || p.color || '#888' } }), `${i + 1}. ${p.name}`, r.done ? ' 🏁' : '');
   }));
 }
 function otherSounds(b) {

@@ -1,4 +1,4 @@
-/* Settings: site theme, sound, motion, rewards (auras / animated avatars / Slope ball skins), account, data. */
+/* Settings: site theme, sound, motion, rewards (auras / animated avatars / Slope ball skins / Motocross paint), account, data. */
 (() => {
   'use strict';
   const { $, h, fill, UI, Net, Sfx, Account, Profile, Settings, Unlocks, store, on } = PA;
@@ -104,21 +104,23 @@
       render();
     } catch (e) { UI.toast(e.message, 'bad'); }
   }
+  const bikeSwatch = (b) => h('div', { class: 'bikep', style: { '--c1': (b && b.colors[0]) || '#d61f2c', '--c2': (b && b.colors[1]) || '#ffffff' } });
   function rewardsPanel() {
     const look = (Account.user && Account.user.look) || {};
     const p = me();
     const none = (slot, label) => h('button', { class: 'rw' + (!look[slot] ? ' on' : ''), onclick: () => wear(slot, '') },
       !look[slot] ? h('span', { class: 'tag' }, '✅') : null,
-      slot === 'ball' ? h('div', { class: 'ballp b-classic', style: { '--c': p.color } }) : UI.avatar({ ...p, aura: null, anim: null }, 'lg'), h('b', {}, label), h('span', { class: 'hint' }, 'The plain one'));
+      slot === 'ball' ? h('div', { class: 'ballp b-classic', style: { '--c': p.color } }) : slot === 'bike' ? bikeSwatch((U.bikes || [])[0]) : UI.avatar({ ...p, aura: null, anim: null }, 'lg'), h('b', {}, label), h('span', { class: 'hint' }, 'The plain one'));
     // limited-time rewards you missed disappear once their event is over
     const keep = (slot) => (x) => !Unlocks.gone(U, x, have && have[slot].has(x.id));
     const auras = U.auras.filter(keep('aura'));
     const anims = U.anims.filter(keep('anim'));
     const balls = U.balls.filter((b) => b.id !== 'classic').filter(keep('ball'));
+    const bikes = (U.bikes || []).filter((b) => b.id !== 'factory').filter(keep('bike'));
     const count = (slot, list) => `${list.filter((x) => have && have[slot].has(x.id)).length}/${list.length} unlocked`;
     return h('section', { class: 'panel', id: 'rewards' },
       h('h2', {}, '✨ Rewards'),
-      h('p', { class: 'muted small', style: { marginBottom: '10px' } }, 'Level up and earn achievements to unlock auras, animated avatars and Slope ball skins. Everyone sees your aura and animation in rooms, chat and on your profile.'),
+      h('p', { class: 'muted small', style: { marginBottom: '10px' } }, 'Level up and earn achievements to unlock auras, animated avatars, Slope ball skins and Motocross bike paint jobs. Everyone sees your aura and animation in rooms, chat and on your profile, and your bike in Motocross races.'),
       Account.user
         ? h('div', { class: 'rw-preview' }, UI.avatar(p, 'xl'), h('div', { class: 'ballp lg b-' + (look.ball || 'classic'), style: { '--c': p.color } }),
           h('div', {}, h('b', {}, p.name), h('div', { class: 'small muted' }, `Level ${Account.user.level}`), h('a', { class: 'small', href: '/profile' }, 'See your achievements →')))
@@ -129,7 +131,9 @@
       h('h3', {}, '🎭 Animated avatars', h('small', {}, count('anim', anims))),
       h('div', { class: 'rw-grid' }, none('anim', 'Still'), anims.map((a) => tile('anim', a, look.anim, UI.avatar({ ...p, aura: null, anim: a.id }, 'lg')))),
       h('h3', {}, '🛝 Slope ball skins', h('small', {}, count('ball', balls))),
-      h('div', { class: 'rw-grid' }, none('ball', 'Classic'), balls.map((b) => tile('ball', b, look.ball, h('div', { class: 'ballp b-' + b.id, style: { '--c': p.color } })))));
+      h('div', { class: 'rw-grid' }, none('ball', 'Classic'), balls.map((b) => tile('ball', b, look.ball, h('div', { class: 'ballp b-' + b.id, style: { '--c': p.color } })))),
+      h('h3', {}, '🏍️ Motocross bike paint', h('small', {}, count('bike', bikes))),
+      h('div', { class: 'rw-grid' }, none('bike', 'Factory Red'), bikes.map((b) => tile('bike', b, look.bike, bikeSwatch(b)))));
   }
 
   function accountPanel() {
@@ -173,7 +177,7 @@
       } catch { have = null; }
     }
     hints = {};
-    for (const [slot, list] of [['aura', U.auras], ['anim', U.anims], ['ball', U.balls], ['theme', U.themes || []]]) {
+    for (const [slot, list] of [['aura', U.auras], ['anim', U.anims], ['ball', U.balls], ['theme', U.themes || []], ['bike', U.bikes || []]]) {
       for (const item of list) hints[item.id + slot] = await Unlocks.hint(item.rule);
     }
     const y = scrollY;
