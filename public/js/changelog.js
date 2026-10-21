@@ -6,6 +6,14 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.7.0', date: '2026-10-21', emoji: '🏍️', title: 'Motocross: new worlds, air tricks and two new bikes', items: [
+      'Three more free-ride worlds: Golden Dunes (a sunset dune sea with an oasis), Autumn Ridge (gold and red woods round a lake) and Canyon Run (a deep river canyon)',
+      'Air tricks! Hold 1–6 in the air for a Superman, No-Hander, Can-Can, Nac-Nac, Heel Clicker or Cliffhanger, Z to whip the bike, X for a 360',
+      'Let go before you land or you bail. Put tricks and flips together in one jump for a combo: more points, more nitro and more coins',
+      'The flip counter is more accurate: a backflip off a kicker onto a downslope now counts, and a little bounce after landing no longer loses your flip',
+      'Two new bikes in the garage: the detailed Stark Varg electric bike and the chunky Hill Racer (3D models, credited on the Credits page)',
+      'New challenges: Sunset Run, Red Oak Rush, Dune Launch and the Trick Jam, where trick points count',
+    ] },
     { v: '3.6.0', date: '2026-10-21', emoji: '⛳', title: 'Mini Golf: four new courses and random courses', items: [
       'Cactus Canyon 🌵: sand trap alleys, mesas, mine carts, an oasis and a leap over the canyon',
       'Frosty Peaks ❄️: slippery ice, a snowman slalom, a spinning ice rink, a crevasse jump and a mountain pass',

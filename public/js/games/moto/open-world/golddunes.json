@@ -1,0 +1,807 @@
+{
+  "schemaVersion": 1,
+  "id": "golddunes",
+  "name": "Golden Dunes",
+  "tagline": "Ride into the sunset.",
+  "theme": "desert",
+  "seed": 5527,
+  "size": [
+    3200,
+    3200
+  ],
+  "baseHeight": 30,
+  "spawn": [
+    -950,
+    950
+  ],
+  "spawnHeading": 2.356194,
+  "palette": {
+    "sky": "#f2b27a",
+    "low": "#c4884a",
+    "high": "#f3d49a",
+    "trail": "#e2b97a",
+    "water": "#3f8f95",
+    "accent": "#ffb347"
+  },
+  "look": {
+    "sky": {
+      "sun": [
+        6,
+        250
+      ],
+      "turbidity": 12,
+      "rayleigh": 4,
+      "mie": 0.02,
+      "mieG": 0.93,
+      "exposure": 1.05,
+      "fog": 0.5,
+      "fogColor": "#f0a76a",
+      "sunColor": "#ffb57d"
+    },
+    "dirt": [
+      [
+        200,
+        140,
+        66
+      ],
+      [
+        252,
+        214,
+        146
+      ]
+    ],
+    "rock": [
+      [
+        170,
+        100,
+        50
+      ],
+      [
+        236,
+        170,
+        104
+      ]
+    ]
+  },
+  "terrain": {
+    "noise": 11,
+    "scale": 230,
+    "hills": [
+      [
+        -900,
+        -950,
+        230,
+        650,
+        600
+      ],
+      [
+        950,
+        -900,
+        300,
+        640,
+        640
+      ],
+      [
+        900,
+        800,
+        170,
+        520,
+        480
+      ],
+      [
+        0,
+        -1150,
+        150,
+        600,
+        420
+      ],
+      [
+        -300,
+        200,
+        70,
+        520,
+        400
+      ]
+    ],
+    "lake": {
+      "position": [
+        250,
+        350
+      ],
+      "radius": [
+        180,
+        140
+      ],
+      "level": 28,
+      "depth": 14
+    }
+  },
+  "regions": [
+    {
+      "name": "Caravan Camp",
+      "position": [
+        -950,
+        950
+      ]
+    },
+    {
+      "name": "Sunset Crest",
+      "position": [
+        -900,
+        -950
+      ]
+    },
+    {
+      "name": "Palm Oasis",
+      "position": [
+        -50,
+        450
+      ]
+    },
+    {
+      "name": "Sandstone Sphinx",
+      "position": [
+        950,
+        -900
+      ]
+    },
+    {
+      "name": "Spice Market",
+      "position": [
+        950,
+        800
+      ]
+    },
+    {
+      "name": "Signal Tower",
+      "position": [
+        0,
+        -1150
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "id": "dune-loop",
+      "name": "Dune Sea Loop",
+      "points": [
+        [
+          -950,
+          950
+        ],
+        [
+          -1300,
+          400
+        ],
+        [
+          -1350,
+          -300
+        ],
+        [
+          -1100,
+          -1000
+        ],
+        [
+          -500,
+          -1300
+        ],
+        [
+          0,
+          -1150
+        ],
+        [
+          600,
+          -1300
+        ],
+        [
+          1100,
+          -1000
+        ],
+        [
+          1350,
+          -300
+        ],
+        [
+          1300,
+          400
+        ],
+        [
+          950,
+          800
+        ],
+        [
+          400,
+          1200
+        ],
+        [
+          -300,
+          1300
+        ],
+        [
+          -950,
+          950
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20,
+      "closed": true
+    },
+    {
+      "id": "crest-climb",
+      "name": "Sunset Crest Climb",
+      "points": [
+        [
+          -950,
+          950
+        ],
+        [
+          -800,
+          500
+        ],
+        [
+          -1000,
+          0
+        ],
+        [
+          -700,
+          -400
+        ],
+        [
+          -1000,
+          -700
+        ],
+        [
+          -900,
+          -950
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "sphinx-run",
+      "name": "Sphinx Downhill",
+      "points": [
+        [
+          950,
+          -900
+        ],
+        [
+          700,
+          -500
+        ],
+        [
+          1000,
+          -100
+        ],
+        [
+          700,
+          300
+        ],
+        [
+          950,
+          800
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "market-ring",
+      "name": "Market Sprint",
+      "points": [
+        [
+          950,
+          800
+        ],
+        [
+          1150,
+          650
+        ],
+        [
+          1200,
+          400
+        ],
+        [
+          950,
+          250
+        ],
+        [
+          700,
+          450
+        ],
+        [
+          700,
+          750
+        ],
+        [
+          950,
+          800
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20,
+      "closed": true
+    },
+    {
+      "id": "oasis-link",
+      "name": "Oasis Road",
+      "points": [
+        [
+          -950,
+          950
+        ],
+        [
+          -500,
+          700
+        ],
+        [
+          -50,
+          450
+        ],
+        [
+          350,
+          100
+        ],
+        [
+          700,
+          300
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "ridge-road",
+      "name": "Ridge Road",
+      "points": [
+        [
+          -1000,
+          -700
+        ],
+        [
+          -500,
+          -900
+        ],
+        [
+          0,
+          -1150
+        ],
+        [
+          500,
+          -900
+        ],
+        [
+          950,
+          -900
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    }
+  ],
+  "spots": [
+    {
+      "id": "camp",
+      "name": "Caravan Camp",
+      "position": [
+        -950,
+        950
+      ],
+      "kind": "camp",
+      "radius": 24,
+      "about": "Shared spawn under the palms."
+    },
+    {
+      "id": "crest",
+      "name": "Sunset Crest",
+      "position": [
+        -900,
+        -950
+      ],
+      "kind": "lookout",
+      "radius": 24,
+      "about": "The highest dune: watch the sun go down."
+    },
+    {
+      "id": "oasis",
+      "name": "Palm Oasis",
+      "position": [
+        -50,
+        450
+      ],
+      "kind": "checkpoint",
+      "radius": 24,
+      "about": "Water, shade and a jump park."
+    },
+    {
+      "id": "sphinx",
+      "name": "Sandstone Sphinx",
+      "position": [
+        950,
+        -900
+      ],
+      "kind": "ruin",
+      "radius": 24,
+      "about": "Old ruins on the far dune."
+    },
+    {
+      "id": "market",
+      "name": "Spice Market",
+      "position": [
+        950,
+        800
+      ],
+      "kind": "yard",
+      "radius": 24,
+      "about": "A busy yard with a sprint round it."
+    },
+    {
+      "id": "tower",
+      "name": "Signal Tower",
+      "position": [
+        0,
+        -1150
+      ],
+      "kind": "tower",
+      "radius": 24,
+      "about": "A radio mast on the northern ridge."
+    }
+  ],
+  "races": [
+    {
+      "id": "dunes-grand",
+      "name": "Golden Dunes Rally",
+      "route": "dune-loop",
+      "type": "circuit",
+      "difficulty": "medium",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    },
+    {
+      "id": "dunes-climb",
+      "name": "King of the Crest",
+      "route": "crest-climb",
+      "type": "hillclimb",
+      "difficulty": "hard",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    },
+    {
+      "id": "dunes-downhill",
+      "name": "Sphinx Plunge",
+      "route": "sphinx-run",
+      "type": "downhill",
+      "difficulty": "hard",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    },
+    {
+      "id": "dunes-market",
+      "name": "Market Scramble",
+      "route": "market-ring",
+      "type": "circuit",
+      "difficulty": "easy",
+      "laps": 3,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    }
+  ],
+  "interactions": [
+    {
+      "id": "board",
+      "name": "Caravan Camp race board",
+      "position": [
+        -910,
+        950
+      ],
+      "kind": "race-board",
+      "radius": 18,
+      "event": "race.offer",
+      "about": "Choose a mini race and invite nearby friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "jam",
+      "name": "Spice Market trick jam",
+      "position": [
+        900,
+        780
+      ],
+      "kind": "trick-zone",
+      "radius": 18,
+      "event": "trick.land",
+      "about": "Share a two-minute trick score with friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "camera",
+      "name": "Sunset Crest photo perch",
+      "position": [
+        -900,
+        -950
+      ],
+      "kind": "photo",
+      "radius": 18,
+      "event": "photo.capture",
+      "about": "Get the whole group into a summit picture.",
+      "cooldownSeconds": 10
+    }
+  ],
+  "ramps": [
+    {
+      "id": "oasis-double",
+      "position": [
+        -350,
+        650
+      ],
+      "heading": 2.4,
+      "length": 90,
+      "width": 18,
+      "height": 7
+    },
+    {
+      "id": "market-table",
+      "position": [
+        820,
+        600
+      ],
+      "heading": 0.6,
+      "length": 100,
+      "width": 24,
+      "height": 9
+    }
+  ],
+  "surfaceZones": [
+    {
+      "id": "soft-sand",
+      "position": [
+        -500,
+        -200
+      ],
+      "radius": 260,
+      "surface": "sand",
+      "grip": 0.74,
+      "roll": 0.03
+    },
+    {
+      "id": "oasis-mud",
+      "position": [
+        150,
+        380
+      ],
+      "radius": 80,
+      "surface": "mud",
+      "grip": 0.72,
+      "roll": 0.025
+    }
+  ],
+  "quests": [
+    {
+      "id": "golddunes-welcome",
+      "name": "Welcome to Golden Dunes",
+      "start": "camp",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "oasis",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "market",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "camp",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "golddunes-summit",
+      "name": "Top of the World",
+      "start": "camp",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "crest",
+          "count": 1
+        },
+        {
+          "event": "photo.capture",
+          "target": "camera",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    }
+  ],
+  "coordinateSystem": {
+    "units": "metres",
+    "horizontal": [
+      "x",
+      "z"
+    ],
+    "up": "y",
+    "heading": "radians: 0 points +z; positive rotates towards +x"
+  },
+  "status": "Made by tools/make_worlds.py.",
+  "boundary": {
+    "softMargin": 100,
+    "policy": "warn-and-respawn",
+    "respawn": "last-safe-pad",
+    "cliffWidth": 300,
+    "cliffHeight": 500,
+    "sceneryApron": 1600
+  },
+  "spawnPads": [
+    {
+      "id": "spawn-1",
+      "position": [
+        -974,
+        932
+      ],
+      "heading": 2.356194
+    },
+    {
+      "id": "spawn-2",
+      "position": [
+        -969,
+        932
+      ],
+      "heading": 2.356194
+    },
+    {
+      "id": "spawn-3",
+      "position": [
+        -964,
+        932
+      ],
+      "heading": 2.356194
+    },
+    {
+      "id": "spawn-4",
+      "position": [
+        -974,
+        926
+      ],
+      "heading": 2.356194
+    },
+    {
+      "id": "spawn-5",
+      "position": [
+        -969,
+        926
+      ],
+      "heading": 2.356194
+    },
+    {
+      "id": "spawn-6",
+      "position": [
+        -964,
+        926
+      ],
+      "heading": 2.356194
+    }
+  ],
+  "safePads": [
+    {
+      "id": "camp",
+      "position": [
+        -950,
+        950
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -974,
+        932
+      ]
+    },
+    {
+      "id": "crest",
+      "position": [
+        -900,
+        -950
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -924,
+        -968
+      ]
+    },
+    {
+      "id": "oasis",
+      "position": [
+        -50,
+        450
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -74,
+        432
+      ]
+    },
+    {
+      "id": "sphinx",
+      "position": [
+        950,
+        -900
+      ],
+      "radius": 32,
+      "riderPosition": [
+        926,
+        -918
+      ]
+    },
+    {
+      "id": "market",
+      "position": [
+        950,
+        800
+      ],
+      "radius": 32,
+      "riderPosition": [
+        926,
+        782
+      ]
+    },
+    {
+      "id": "tower",
+      "position": [
+        0,
+        -1150
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -24,
+        -1168
+      ]
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {Sky} from 'three/addons/objects/Sky.js';
-import {buildOpenWorld} from './world.mjs';
+import {buildOpenWorld,autumnize} from './world.mjs';
 import {terrainMaterial} from './materials.mjs';
 import {renderPolicy} from './render-policy.mjs';
 import {gridHeight} from './grounding.mjs';
@@ -16,14 +16,15 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false){
  const scene=new THREE.Scene();scene.add(built.group);
  // The race tracks' skies, tuned for big daytime views: higher sun, clearer air, thinner haze.
  const OPEN={desert:{exposure:1.12,fog:.42},alpine:{sun:[38,205],turbidity:4,rayleigh:1.5,mie:.006,exposure:1.5,fog:.24,fogColor:'#b9c8cf'},snow:{sun:[24,232],turbidity:3,rayleigh:1.3,mie:.005,exposure:1.25,fog:.3,fogColor:'#c9d3e6'}};
- const base=THEMES[map.theme==='alpine'?'forest':map.theme]||THEMES.desert,o=OPEN[map.theme]||OPEN.desert;
+ const base=THEMES[map.theme==='alpine'?'forest':map.theme]||THEMES.desert,o={...(OPEN[map.theme]||OPEN.desert),...(map.look?.sky||{})};   // (a world can set its own sun and haze)
  const theme={...base,...o,exposure:base.exposure*o.exposure,fog:o.fogColor||base.fog,fogD:base.fogD*o.fog};
 
  // ---------------------------------------------------------------- sky, sun, haze
  const sky=new Sky();sky.scale.setScalar(20000);const su=sky.material.uniforms;
  su.turbidity.value=theme.turbidity;su.rayleigh.value=theme.rayleigh;su.mieCoefficient.value=theme.mie;su.mieDirectionalG.value=theme.mieG;
  const sunDir=new THREE.Vector3().setFromSphericalCoords(1,THREE.MathUtils.degToRad(90-Math.max(theme.sun[0],14)),THREE.MathUtils.degToRad(theme.sun[1]));
- su.sunPosition.value.copy(sunDir);scene.add(sky);
+ // (the light never comes from lower than 14°, for sensible shadows, but the sky can show a real sunset)
+ su.sunPosition.value.setFromSphericalCoords(1,THREE.MathUtils.degToRad(90-theme.sun[0]),THREE.MathUtils.degToRad(theme.sun[1]));scene.add(sky);
  let env=null;
  if(renderer){
   const pm=new THREE.PMREMGenerator(renderer),skyScene=new THREE.Scene(),sky2=new Sky();sky2.scale.setScalar(1000);
@@ -70,9 +71,9 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false){
  let cs=map.seed+99;const crand=()=>{cs=(Math.imul(cs,1664525)+1013904223)>>>0;return cs/4294967296;};
  const props=makeProps(map.theme==='alpine'?'forest':map.theme,crand,1),pebbleProps=makeProps(map.theme==='alpine'?'forest':map.theme,crand,0);
  const coverKinds=[
-  map.theme!=='snow'&&{geo:props.PROPS.grass(),mat:props.leafMat,max:Math.round((map.theme==='desert'?1500:3200)*Math.min(1,quality+.15)),every:map.theme==='desert'?.2:.5,size:[.8,1.5],sink:.04},
+  map.theme!=='snow'&&{geo:map.look?.autumn?autumnize(props.PROPS.grass(),map.seed):props.PROPS.grass(),mat:props.leafMat,max:Math.round((map.theme==='desert'?1500:3200)*Math.min(1,quality+.15)),every:map.theme==='desert'?.2:.5,size:[.8,1.5],sink:.04},
   {geo:pebbleProps.PROPS.rock(),mat:props.propMat,max:Math.round(500*Math.min(1,quality+.2)),every:.05,size:[.12,.45],sink:.06},
-  map.theme==='alpine'&&{geo:props.PROPS.shrub(),mat:props.propMat,max:Math.round(260*quality),every:.025,size:[.5,.9],sink:.05},
+  map.theme==='alpine'&&{geo:map.look?.autumn?autumnize(props.PROPS.shrub(),map.seed):props.PROPS.shrub(),mat:props.propMat,max:Math.round(260*quality),every:.025,size:[.5,.9],sink:.05},
  ].filter(Boolean).map(k=>{const im=new THREE.InstancedMesh(k.geo,k.mat,k.max);im.count=0;im.receiveShadow=true;im.frustumCulled=false;scene.add(im);return {...k,im};});
  const cHash=(x,z,s)=>{let h=Math.imul(x|0,374761393)^Math.imul(z|0,668265263)^s;h=Math.imul(h^(h>>>13),1274126177);return((h^(h>>>16))>>>0)/4294967296;};
  const cm=new THREE.Matrix4(),cq=new THREE.Quaternion(),cv=new THREE.Vector3(),cscale=new THREE.Vector3(),cup=new THREE.Vector3(0,1,0),ctint=new THREE.Color();

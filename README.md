@@ -148,6 +148,21 @@ lane, sees the others, and sends `g:finish` (races) or `g:score` (timed ones, be
 the best, ignores impossible ones and broadcasts it). Results go to `moto.challenges` / `moto.cwins` stats.
 In a challenge a crash puts you back where you last were on your wheels (not at a safe pad).
 
+**v3.6.0: More worlds, air tricks and model bikes.** Three more free-ride worlds — Golden Dunes (a sunset dune
+sea with an oasis), Autumn Ridge (orange and gold woods round a lake) and Canyon Run (a deep river canyon with a
+kicker over it) — written by `tools/make_worlds.py` from short specs (spots, hills, trails, races). A world file
+can carry a `look`: its own sky (`sky`: sun, haze, exposure, fog), ground colours (`rock` / `dirt` / `grass`) and
+`autumn` (leaves and grass turn gold and red). **Air tricks** (`MotoCore.TRICKS`): hold 1–6 for Superman,
+No-Hander, Can-Can, Nac-Nac, Heel Clicker and Cliffhanger, Z to whip, tap X for a 360 (gamepad X / Y / bumpers / B,
+touch ★ and ↻). A trick counts once it's done but only if you land it; touching down mid-trick is a bail. Tricks
+and flips in one jump make a combo (points, nitro, free-ride coins); the `tricks` challenge kind scores them.
+**Flips** are now counted as the bike's turn in the air less the change of slope from takeoff to landing, so a
+backflip off a kicker onto a steep downslope counts (it used to be missed). **Model bikes**: the Stark Varg and Hill
+Racer in the garage are glTF files (`public/models/moto`, CC BY 4.0, credited on `/credits`). `bike.js` loads one
+when it's picked, fits it onto the physics frame (its axles on the physics axles, wheels resized and spinning,
+the rider's hands and feet on its own bars and pegs) and draws the Factory 450 until it has loaded. The Stark
+Varg was cut from a million triangles to 90 000 by merging nearby points (vertex clustering).
+
 `MotoCore.groundTrack(terrain, spawn)` is the free-ride adapter: `slice()` samples world-space ground
 along the bike's heading; it bypasses track berms, fences, wrong-way checks and track-based finish
 logic. Track racing keeps its existing progression and room protocol. The high cliff perimeter is

@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildWorld } from './world.js';
-import { makeBike, poseBike, disposeBike, LIVERIES, MODELS, KITS, HELMETS } from './bike.js';
+import { makeBike, poseBike, disposeBike, preloadBike, bikesLoaded, LIVERIES, MODELS, KITS, HELMETS } from './bike.js';
 import { createAudio } from './sound.js';
 import { createMenus } from './menus.js';
 import {buildRideWorld} from './open-world/ride-world.mjs';
@@ -64,7 +64,9 @@ function setStyle(patch) {
   if (window.Room && Room.code) Net.send('g:style', { style: prefs.style });   // (so the others see it)
   Sfx.play('click');
   menus.refresh();
+  if (patch.model) preloadBike(patch.model).then(() => placeStage());   // (a model-file bike shows as soon as it has loaded)
 }
+preloadBike(prefs.style.model);
 
 // ------------------------------------------------------------------ renderer and world
 const canvas = $('#mx-canvas');
@@ -117,13 +119,16 @@ const R = {
   stuck: 0, hudAt: 0, trickTimer: null, lastLand: 0, emitAcc: 0, roll: 0,
 };
 const keys = {};
-const touch = { gas: false, brake: false, left: false, right: false, back: false, fwd: false, nitro: false };
+const touch = { gas: false, brake: false, left: false, right: false, back: false, fwd: false, nitro: false, trick: false, spin: false };
+// air tricks: keys 1–6 hold a pose, Z whips the bike sideways, X spins it 360 (MotoCore.TRICKS has the same order)
+const TRICK_KEYS = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'KeyZ', 'KeyX'];
 
 function snap(b) {
   const f = b.wh[0]; const r = b.wh[1];
   return {
     x: b.x, y: b.y, a: b.a, wf: [f.x, f.y, f.ang], wr: [r.x, r.y, r.ang], rx: b.rx, ry: b.ry, lean: b.lean, px: b.px, pz: b.pz, h: b.h, s: b.s,
     boost: b.boost, crashed: b.crashed, ragdoll: b.rider ? { hip: { x: b.rider.hip.x, y: b.rider.hip.y }, head: { x: b.rider.head.x, y: b.rider.head.y } } : null,
+    tk: b.tk, tp: b.pose, wh: b.whip, sp: b.spin,
   };
 }
 const lerpA = (p, q, t) => { let d = q - p; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return p + d * t; };
@@ -133,6 +138,7 @@ function mix(p, q, t) {
     x: L(p.x, q.x), y: L(p.y, q.y), a: lerpA(p.a, q.a, t), lean: L(p.lean, q.lean), rx: L(p.rx, q.rx), ry: L(p.ry, q.ry),
     px: L(p.px, q.px), pz: L(p.pz, q.pz), h: lerpA(p.h, q.h, t), s: L(p.s, q.s),
     wf: [L(p.wf[0], q.wf[0]), L(p.wf[1], q.wf[1]), L(p.wf[2], q.wf[2])], wr: [L(p.wr[0], q.wr[0]), L(p.wr[1], q.wr[1]), L(p.wr[2], q.wr[2])],
+    tk: q.tk, tp: L(p.tp || 0, q.tp || 0), wh: L(p.wh || 0, q.wh || 0), sp: q.sp ? (p.sp && p.sp <= q.sp ? L(p.sp, q.sp) : q.sp) : 0,
     boost: q.boost, crashed: q.crashed, ragdoll: q.ragdoll && p.ragdoll ? { hip: { x: L(p.ragdoll.hip.x, q.ragdoll.hip.x), y: L(p.ragdoll.hip.y, q.ragdoll.hip.y) }, head: { x: L(p.ragdoll.head.x, q.ragdoll.head.x), y: L(p.ragdoll.head.y, q.ragdoll.head.y) } } : q.ragdoll,
   };
 }
@@ -145,6 +151,9 @@ function controls() {
   let steer = (keys.KeyD || keys.ArrowRight || touch.right ? 1 : 0) - (keys.KeyA || keys.ArrowLeft || touch.left ? 1 : 0);
   let lean = (keys.KeyE || touch.fwd ? 1 : 0) - (keys.KeyQ || touch.back ? 1 : 0);
   let nitro = !!(keys.Space || keys.ShiftLeft || keys.ShiftRight || touch.nitro);
+  let trick = TRICK_KEYS.findIndex((k) => keys[k]);
+  if (trick < 0 && touch.trick) trick = 0;
+  if (trick < 0 && touch.spin) trick = 7;
   const axis=(value,dead)=>Math.abs(value)<=dead?0:Math.sign(value)*(Math.abs(value)-dead)/(1-dead);
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];
   for (const p of pads) {
@@ -154,8 +163,10 @@ function controls() {
     if (Math.abs(p.axes[0] || 0) > C.P.GAMEPAD_STEER_DEAD) steer = axis(p.axes[0],C.P.GAMEPAD_STEER_DEAD);
     if (Math.abs(p.axes[3] || 0) > C.P.GAMEPAD_LEAN_DEAD) lean = axis(p.axes[3],C.P.GAMEPAD_LEAN_DEAD);
     if (p.buttons[0] && p.buttons[0].pressed) nitro = true;
+    // X superman, Y no-hander, B 360, bumpers whip / can-can
+    for (const [btn, t] of [[2, 0], [3, 1], [1, 7], [4, 6], [5, 2]]) if (trick < 0 && p.buttons[btn] && p.buttons[btn].pressed) trick = t;
   }
-  return { gas, brake, steer, lean, nitro };
+  return { gas, brake, steer, lean, nitro, trick };
 }
 
 /** Start a ride. mode 'solo' or 'online'; goAt: when the gate drops (performance.now() time). */
@@ -168,8 +179,8 @@ function begin(def, mode, goAt) {
   if (mode === 'solo') { R.spectate = false; for (const o of R.others.values()) dropOther(o); R.others.clear(); }
   fill($('#hud-center'), h('div', { class: 'mx-loading' }, h('div', { class: 'mx-spin' }), 'Building the track…'));
   resize();
-  // let the loading message show before the (slow) world build
-  setTimeout(() => {
+  // let the loading message show before the (slow) world build (and your bike, if it's a model file, load)
+  setTimeout(() => preloadBike(myLook().model).then(() => {
     if (!riding || R.mode!==mode || R.def!==def) return;   // stale asynchronous start
     loadWorld(def);
     R.lane = mode === 'online' ? laneFor(Net.id) : 0;   // (your slot in the start gate)
@@ -190,7 +201,7 @@ function begin(def, mode, goAt) {
     R.audio = createAudio();
     R.running = true;
     requestAnimationFrame(frame);
-  }, 30);
+  }), 30);
   return true;
 }
 function stopRide() {
@@ -291,6 +302,8 @@ function respawnNow() {
 function onEvent(k, d) {
   const b = R.bike;
   if(k==='bounds'){showMessage('World edge · returning to a safe pad','small',1500);return;}
+  if (k === 'trick') { trickPop(d); return; }
+  if (k === 'bail') { showMessage(`BAILED! ${C.TRICKS[d].name}`, 'bad', 1400); return; }
   if (k === 'crash') {
     if (R.audio) R.audio.crash();
     R.cam.shake = C.P.CAM_CRASH_SHAKE;
@@ -302,14 +315,15 @@ function onEvent(k, d) {
     if (R.audio) R.audio.land(strength);
     R.cam.shake = Math.max(R.cam.shake, Math.min(C.P.CAM_SHAKE_MAX, d.air * C.P.CAM_LAND_SHAKE));
     burst(b.x, b.y - 0.4, Math.round(4 + d.air * 10), 'puff', 0.8 + d.air * 0.3);
-    if (d.clean && (d.turns || d.perfect || d.air > 0.9)) trick(d);
+    if (d.clean && (d.turns || d.perfect || d.air > 0.9 || (d.tricks && d.tricks.length))) trick(d);
     if (R.mode === 'free' && d.clean) {
-      const pay = (d.turns || 0) * 5 + (d.air > 2 ? 3 : 0);   // coins for flips and big air
+      const pay = (d.turns || 0) * 5 + (d.score || 0) + (d.air > 2 ? 3 : 0);   // coins for flips, tricks and big air
       if (pay) payCoins(pay);
       const ch = R.challenge;
       if (ch && !ch.done && performance.now() > R.goAt) {
         if (ch.def.kind === 'air') ch.score = Math.max(ch.score, d.air);
         if (ch.def.kind === 'flips' && d.turns) ch.score += d.turns;
+        if (ch.def.kind === 'tricks' && d.score) ch.score += d.score;
       }
     }
   } else if (k === 'fence') {
@@ -338,13 +352,23 @@ function onEvent(k, d) {
 
 function trick(d) {
   const names = ['', '', 'DOUBLE ', 'TRIPLE ', 'QUAD '];
-  const title = d.turns ? `${names[d.turns] || d.turns + '× '}${d.back ? 'BACKFLIP' : 'FRONTFLIP'}` : d.perfect ? 'PERFECT LANDING' : 'CLEAN LANDING';
-  const sub = `+${Math.round(d.gain * 100)}% NITRO` + (d.turns && d.perfect ? ' · PERFECT' : '');
+  const flip = d.turns ? `${names[d.turns] || d.turns + '× '}${d.back ? 'BACKFLIP' : 'FRONTFLIP'}` : '';
+  const moves = (d.tricks || []).map((i) => C.TRICKS[i].name);
+  const all = [...moves, flip].filter(Boolean);
+  const title = all.length ? all.join(' + ') : d.perfect ? 'PERFECT LANDING' : 'CLEAN LANDING';
+  const sub = (d.score ? `${d.score} PTS · ` : '') + `+${Math.round(d.gain * 100)}% NITRO` + (all.length && d.perfect ? ' · PERFECT' : '');
   const el = $('#hud-trick');
   fill(el, h('b', {}, title), h('small', {}, sub));
   el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
   clearTimeout(R.trickTimer); R.trickTimer = setTimeout(() => el.classList.remove('on'), 1600);
-  if (d.turns && R.audio) R.audio.trick();
+  if ((d.turns || moves.length) && R.audio) R.audio.trick();
+}
+/** A trick held long enough in the air: a little pop-up while you're still flying. */
+function trickPop(i) {
+  const el = $('#hud-trick');
+  fill(el, h('b', {}, C.TRICKS[i].name), h('small', {}, 'land it!'));
+  el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
+  clearTimeout(R.trickTimer); R.trickTimer = setTimeout(() => el.classList.remove('on'), 1100);
 }
 function showCount(n) {
   const el = h('div', { class: 'mx-count' + (n === 'GO!' ? ' go' : '') }, String(n));
@@ -545,7 +569,7 @@ function hud(now) {
     $('#hud-time').textContent = fmt(k === 'race' ? el : Math.max(0, ch.def.limit - el));   // (races count up, the rest count down)
     const togo = ch.finish ? Math.hypot(b.px - ch.finish[0], b.pz - ch.finish[1]) : 0;
     $('#hud-sub').textContent = ch.done ? (k === 'race' && ch.elapsed < ch.def.limit ? 'FINISHED!' : 'TIME’S UP') : k === 'race' ? (togo > 950 ? `${(togo / 1000).toFixed(1)} KM TO THE FINISH` : `${Math.round(togo)} M TO THE FINISH`)
-      : k === 'air' ? `BEST AIR ${ch.score.toFixed(2)} S` : k === 'flips' ? `${ch.score} FLIP${ch.score === 1 ? '' : 'S'}` : `TOP ${Math.round(ch.score)} KM/H`;
+      : k === 'air' ? `BEST AIR ${ch.score.toFixed(2)} S` : k === 'flips' ? `${ch.score} FLIP${ch.score === 1 ? '' : 'S'}` : k === 'tricks' ? `${ch.score} TRICK POINTS` : `TOP ${Math.round(ch.score)} KM/H`;
     $('#hud-left').textContent = ch.online && state.race ? `P${myPlace()} / ${Object.keys(state.race.runners).length} · ${k === 'race' ? 'FOLLOW THE GREEN BEAM' : 'TIME LEFT TOP RIGHT'}` : k === 'race' ? 'RIDE TO THE GREEN BEAM · ANY LINE YOU LIKE' : ch.def.about.toUpperCase();
   }
   // minimap: you and the others on the track seen from above
@@ -605,7 +629,7 @@ async function startFree(entry, opts = {}){
   fill($('#hud-center'),h('div',{class:'mx-loading'},'Building '+entry.name+'…'));$('#hud-time').closest('.mx-tr').hidden=true;
   try{
     const response=await fetch('/js/games/moto/open-world/'+entry.file);if(!response.ok)throw new Error('World unavailable');
-    const def=await response.json();if(!riding||R.ride!==ride)return;
+    const def=await response.json();await preloadBike(myLook().model);if(!riding||R.ride!==ride)return;
     for(const o of R.others.values())dropOther(o);R.others.clear();
     if(R.model){disposeBike(R.model);R.model=null;}
     for(const sb of stage.bikes.values()){sb.model.root.removeFromParent();sb.tag?.removeFromParent();}
@@ -655,7 +679,7 @@ function coinHud(total, gained) {
 }
 
 // ------------------------------------------------------------------ challenges
-const fmtScore = (kind, v) => (kind === 'race' ? fmt(v) : kind === 'air' ? `${v.toFixed(2)} s` : kind === 'flips' ? `${v} flip${v === 1 ? '' : 's'}` : `${Math.round(v)} km/h`);
+const fmtScore = (kind, v) => (kind === 'race' ? fmt(v) : kind === 'air' ? `${v.toFixed(2)} s` : kind === 'flips' ? `${v} flip${v === 1 ? '' : 's'}` : kind === 'tricks' ? `${v} pts` : `${Math.round(v)} km/h`);
 const challengeBest = (id) => store.get('moto_ch_best_' + id, null);
 /** Where a challenge starts (lane: a few metres to the side, so a room doesn't stack up) and where it finishes. */
 function challengeStart(ch, ground, def, lane) {
@@ -854,7 +878,7 @@ function placeStage() {
     keep.add(e.id);
     let sb = stage.bikes.get(e.id);
     if (!sb) { sb = { id: e.id, model: null, tag: null, tagKey: '' }; stage.bikes.set(e.id, sb); }
-    const lookKey = JSON.stringify(e.look);
+    const lookKey = JSON.stringify(e.look) + bikesLoaded();
     if (sb.model && sb.lookKey !== lookKey) { disposeBike(sb.model); sb.model = null; }
     if (!sb.model) { sb.model = makeBike(e.look); sb.lookKey = lookKey; }
     if (sb.model.root.parent !== world.scene) world.scene.add(sb.model.root);
@@ -1034,6 +1058,7 @@ function otherSnap(m, o) {
     x: 0, y: m.y, a: m.a, wf: wheel(0, m.c0, o.ang[0]), wr: wheel(1, m.c1, o.ang[1]), rx: m.rx, ry: m.y + m.ry, lean: m.l,
     px: m.px, pz: m.pz, h: m.h, s: m.x, roll: m.ro,
     boost: !!m.b, crashed: m.k, ragdoll: m.rg ? { hip: { x: m.rg[0], y: m.rg[1] }, head: { x: m.rg[2], y: m.rg[3] } } : null,
+    tk: m.tk ?? -1, tp: m.tp || 0, wh: m.wh || 0, sp: m.sp || 0,
   };
 }
 const DELAY = 130;   // draw the others a moment in the past, so there are always two messages to blend between
@@ -1047,7 +1072,7 @@ function sampleOther(o, now) {
   const k = Math.max(0, Math.min(1.2, (t - a.at) / (b.at - a.at)));
   const L = (p, q) => p + (q - p) * k;
   const out = { ...b };
-  for (const f of ['x', 'y', 'rx', 'ry', 'c0', 'c1', 'l', 's', 'px', 'pz', 'ro']) out[f] = L(a[f], b[f]);
+  for (const f of ['x', 'y', 'rx', 'ry', 'c0', 'c1', 'l', 's', 'px', 'pz', 'ro', 'tp', 'wh']) out[f] = L(a[f] || 0, b[f] || 0);
   out.a = lerpA(a.a, b.a, k); out.h = lerpA(a.h, b.h, k);
   return out;
 }
@@ -1077,7 +1102,7 @@ function sendPos(force) {
   // x = how far along the track (for the order), px/pz/h = where you are and which way you point,
   // the rest is the bike's pose in its upright plane (relative to the frame)
   const msg = { x: r2(b.s), px: r2(b.px), pz: r2(b.pz), h: r2(b.h), ro: r2(R.roll), y: r2(b.y), a: r2(b.a), rx: r2(b.rx - b.x), ry: r2(b.ry - b.y),
-    c0: r2(b.wh[0].c), c1: r2(b.wh[1].c), l: r2(b.lean),
+    c0: r2(b.wh[0].c), c1: r2(b.wh[1].c), l: r2(b.lean), tk: b.tk, tp: r2(b.pose), wh: r2(b.whip), sp: r2(b.spin),
     s: Math.round(Math.hypot(b.vx, b.vy) * 36) / 10, r: Math.round(b.rpm), th: r2(b.thr), k: b.crashed ? 1 : 0, b: b.boost ? 1 : 0, cp: b.cp };
   if (b.crashed && b.rider) msg.rg = [r2(b.rider.hip.x - b.x), r2(b.rider.hip.y), r2(b.rider.head.x - b.x), r2(b.rider.head.y)];
   Net.send('g:pos', msg);

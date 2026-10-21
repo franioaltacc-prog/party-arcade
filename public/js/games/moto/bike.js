@@ -1,11 +1,14 @@
-/* Motocross: the 3D bike and rider, built from code (no model files). Every moving part follows the
-   physics: the fork slides, the swingarm swings, the shock squashes, the wheels spin, and the rider's
-   body (hips from the physics, arms and legs worked out to reach the bars and the pegs) moves with it.
+/* Motocross: the 3D bike and rider, built from code. Every moving part follows the physics: the fork
+   slides, the swingarm swings, the shock squashes, the wheels spin, and the rider's body (hips from the
+   physics, arms and legs worked out to reach the bars and the pegs) moves with it. Two bikes are 3D
+   model files instead (/models/moto, both CC BY 4.0): they're fitted onto the same frame so their
+   wheels sit on the physics axles and spin, and the rider reaches their own bars and pegs.
    Bike coordinates: +X forward, +Y up, +Z to the rider's right; the origin is the frame's centre of
    mass (MotoCore's frame), so wheel and rider positions from the physics drop straight in. */
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 // paint jobs; the ids match the "bikes" rewards in /data/unlocks.json
 export const LIVERIES = {
@@ -30,6 +33,14 @@ export const MODELS = {
   enduro: { name: 'Enduro', emoji: '🔦', about: 'Headlight, hand guards, big tank' },
   retro: { name: 'Retro 70s', emoji: '🕶️', about: 'Chrome high pipe and gaiters' },
   electric: { name: 'E-Moto', emoji: '⚡', about: 'Battery pack that glows' },
+  varg: { name: 'Stark Varg', emoji: '🔋', about: 'Detailed electric MX bike (model by Hari Yojuta, CC BY)', file: true },
+  hcr2: { name: 'Hill Racer', emoji: '🧡', about: 'Chunky cartoon dirt bike (model by oakar258, CC BY)', file: true },
+};
+// the model files: which way the bike faces along the model's z (+1 = front wheel at +z), which parts are the
+// wheels (node names), and where its grips and footpegs are ([y, z] in the model's own units)
+const FILES = {
+  varg: { file: '/models/moto/stark-varg.glb', dir: -1, front: /^(Wheel-F|F-Dic|F-Hub|Spoke)/, rear: /^(Wheel-R|R-Wheel|Sprocket001)/, grips: [2.41, -0.42], pegs: [0.82, 0.36] },
+  hcr2: { file: '/models/moto/hcr2-motocross.glb', dir: 1, front: /Front_Wheel/, rear: /Rear_Wheel/, grips: [1.78, 0.26], pegs: [0.55, -0.2] },
 };
 export const KITS = {
   match: { name: 'Match my bike' },
@@ -267,12 +278,73 @@ const PIVOT = V(-0.17, -0.08);                  // swingarm pivot
 export const GRIPS = V(0.27, 0.74);             // handlebar grips (each side ±0.38)
 const PEGS = V(-0.11, -0.19);                   // footpegs (each side ±0.17)
 
-/** Build a bike + rider. opts: { livery (paint job id), model, kit, helmet, number (0–99), ghost colour (a see-through ghost) }. */
+// ------------------------------------------------------------------ model-file bikes
+const AXLE_F = V(0.8, -0.24); const AXLE_R = V(-0.68, -0.26);   // the axles with the bike sitting on its suspension
+const fitted = {}; const loading = {}; let modelsReady = 0;
+/** Load a model-file bike (if it is one, and not loaded yet). Resolves when it can be built (or failed: then makeBike draws the Factory 450). */
+export function preloadBike(id) {
+  const f = FILES[id];
+  if (!f || fitted[id]) return Promise.resolve(true);
+  if (!loading[id]) {
+    loading[id] = new Promise((resolve) => {
+      new GLTFLoader().load(f.file, (g) => { fitted[id] = fit(f, g.scene); modelsReady++; resolve(true); }, undefined, (e) => { console.warn('bike model', id, e); resolve(false); });
+    });
+  }
+  return loading[id];
+}
+/** How many model-file bikes have loaded (part of a bike's look key, so a stand-in is swapped for the real thing). */
+export const bikesLoaded = () => modelsReady;
+/** Work out where every part of a model goes on the physics frame: the axles onto the physics axles, the wheels
+    resized to the physics wheels and centred on their own axle (so they can spin). */
+function fit(f, scene) {
+  scene.updateMatrixWorld(true);
+  const nameOf = (o) => { for (let p = o; p; p = p.parent) if (p.name && !/^Object_/.test(p.name)) return p.name; return ''; };
+  const meshes = []; scene.traverse((o) => { if (o.isMesh) meshes.push({ o, wheel: f.front.test(nameOf(o)) ? 0 : f.rear.test(nameOf(o)) ? 1 : -1 }); });
+  const M0 = new THREE.Matrix4().set(0, 0, f.dir, 0, 0, 1, 0, 0, -f.dir, 0, 0, 0, 0, 0, 0, 1);   // model → bike axes (forward +X, up +Y)
+  const box = [new THREE.Box3(), new THREE.Box3()];
+  for (const m of meshes) if (m.wheel >= 0) box[m.wheel].union(new THREE.Box3().setFromObject(m.o));
+  const C = box.map((b) => b.getCenter(V(0, 0)).applyMatrix4(M0)); const rad = box.map((b) => (b.max.y - b.min.y) / 2);
+  const s = AXLE_F.distanceTo(AXLE_R) / Math.hypot(C[0].x - C[1].x, C[0].y - C[1].y);
+  const pitch = Math.atan2(AXLE_F.y - AXLE_R.y, AXLE_F.x - AXLE_R.x) - Math.atan2(C[0].y - C[1].y, C[0].x - C[1].x);
+  const F = new THREE.Matrix4().makeTranslation(AXLE_R.x, AXLE_R.y, 0).multiply(new THREE.Matrix4().makeRotationZ(pitch))
+    .multiply(new THREE.Matrix4().makeScale(s, s, s)).multiply(new THREE.Matrix4().makeTranslation(-C[1].x, -C[1].y, -C[1].z)).multiply(M0);
+  const parts = meshes.map(({ o, wheel }) => {
+    let mat;
+    if (wheel < 0) mat = F.clone().multiply(o.matrixWorld);
+    else {
+      const k = [0.35, 0.34][wheel] / rad[wheel];
+      mat = new THREE.Matrix4().makeScale(k, k, k).multiply(new THREE.Matrix4().makeTranslation(-C[wheel].x, -C[wheel].y, -C[wheel].z)).multiply(M0).multiply(o.matrixWorld);
+    }
+    return { geometry: o.geometry, material: o.material, matrix: mat, wheel };
+  });
+  const pt = ([y, z]) => { const v = new THREE.Vector3(0, y, z).applyMatrix4(F); return V(v.x, v.y); };
+  return { parts, grips: pt(f.grips), pegs: pt(f.pegs) };
+}
+/** Swap a built bike's own parts for a model file's (the rider, the nitro flame and the moving-part groups stay). */
+function dress(m, part, M, ghost) {
+  const keep = new Set([m.flame, m.flame2]);
+  for (const c of [...m.body.children]) if (!keep.has(c)) m.body.remove(c);
+  m.frontWheel.clear(); m.rearWheel.clear();
+  m.forkLower.visible = m.swing.visible = m.spring.visible = m.shockBody.visible = false;
+  for (const p of part.parts) {
+    const o = new THREE.Mesh(p.geometry, ghost ? M.plastic : p.material);
+    o.matrixAutoUpdate = false; o.matrix.copy(p.matrix);
+    o.castShadow = !ghost; o.receiveShadow = !ghost; o.userData.shared = !ghost;   // (the geometry and materials belong to every bike made from this file)
+    if (ghost) o.renderOrder = 2;
+    (p.wheel === 0 ? m.frontWheel : p.wheel === 1 ? m.rearWheel : m.body).add(o);
+  }
+  m.grips = part.grips; m.pegs = part.pegs;
+}
+
+/** Build a bike + rider. opts: { livery (paint job id), model, kit, helmet, number (0–99), ghost colour (a see-through ghost) }.
+    A model-file bike that hasn't loaded yet (see preloadBike) is drawn as the Factory 450 for now. */
 export function makeBike(opts = {}) {
   const paintJob = LIVERIES[opts.livery] || LIVERIES.factory;
   const num = Number.isInteger(opts.number) && opts.number >= 0 && opts.number <= 99 ? opts.number : paintJob.number;
   const lv = { ...paintJob, ...(KITS[opts.kit] && KITS[opts.kit].jersey ? KITS[opts.kit] : {}), ...(HELMETS[opts.helmet] && HELMETS[opts.helmet].helmet ? HELMETS[opts.helmet] : {}), name: paintJob.name, number: num };
-  const MODEL = MODELS[opts.model] ? opts.model : 'mx4';
+  const fromFile = FILES[opts.model] ? fitted[opts.model] : null;
+  if (FILES[opts.model] && !fromFile) preloadBike(opts.model);
+  const MODEL = MODELS[opts.model] && !FILES[opts.model] ? opts.model : 'mx4';
   const two = MODEL === 'mx2'; const enduro = MODEL === 'enduro'; const retro = MODEL === 'retro'; const electric = MODEL === 'electric';
   let tip = { x: -0.99, y: 0.43, z: 0.165, a: Math.PI / 2 - 0.2 };   // where the nitro flame comes out
   const M = materials(lv, opts.ghost);
@@ -420,10 +492,21 @@ export function makeBike(opts = {}) {
   hel.traverse((o) => { o.castShadow = true; });
 
   if (opts.ghost) root.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.renderOrder = 2; } });
-  const m = { root, body, forkLower, frontWheel, rearWheel, swing, spring, shockBody, flame, flame2, rider: R, parts, livery: lv, ghost: !!opts.ghost, materials: M };
+  const m = { root, body, forkLower, frontWheel, rearWheel, swing, spring, shockBody, flame, flame2, rider: R, parts, livery: lv, ghost: !!opts.ghost, materials: M, grips: GRIPS, pegs: PEGS };
+  if (fromFile) dress(m, fromFile, M, opts.ghost);
   return m;
 }
 
+/** The rider's air tricks (same order as MotoCore.TRICKS): how far the hips move and the body tips, and where the
+    hands ([forward, up from the shoulders, out]) and feet go: `feet` = both (z mirrored), `foot` = just the left one. */
+const TRICK_POSES = [
+  { hip: [-0.3, 0.2], lean: 0.75, feet: [-1.05, 0.5, 0.18] },                    // Superman: legs straight out behind
+  { hip: [0, 0.05], lean: -0.25, hand: [-0.05, 0.3, 0.55] },                    // No-Hander: arms out wide
+  { hip: [0.02, 0.06], lean: 0, foot: [0.32, 0.12, 0.42] },                      // Can-Can: one leg over to the other side
+  { hip: [-0.05, 0.1], lean: 0.1, foot: [-0.8, 0.55, 0.42] },                    // Nac-Nac: one leg back over the seat
+  { hip: [-0.12, 0.12], lean: -0.45, feet: [0.62, 0.78, 0.06] },                 // Heel Clicker: feet up over the bars
+  { hip: [0.14, 0.34], lean: 0.35, feet: [-0.55, 1.2, 0.14] },                  // Cliffhanger: up over the bars, legs kicked up behind
+];
 const tA = new THREE.Vector3(); const tB = new THREE.Vector3(); const tC = new THREE.Vector3(); const tD = new THREE.Vector3();
 const hipC = new THREE.Vector3(); const sho = new THREE.Vector3(); const headP = new THREE.Vector3();
 const poleArm = [V(-0.55, -0.5, -0.65), V(-0.55, -0.5, 0.65)];
@@ -435,7 +518,9 @@ const poleLeg = [V(1, 0.15, -0.35), V(1, 0.15, 0.35)];
 export function poseBike(m, s, place, heading, t) {
   const root = m.root;
   place(s.x, s.y, root.position);
-  root.rotation.set(s.roll || 0, -heading, s.a);
+  // air tricks: the 360 turns the whole bike round, the whip throws it sideways
+  const whip = s.wh || 0;
+  root.rotation.set((s.roll || 0) + whip * 0.85, -heading + (s.sp || 0) + whip * 0.35, s.a);
   const ca = Math.cos(-s.a); const sa = Math.sin(-s.a);
   const local = (x, y, out) => { const dx = x - s.x; const dy = y - s.y; return out.set(dx * ca - dy * sa, dx * sa + dy * ca, 0); };
   // wheels
@@ -482,11 +567,14 @@ export function poseBike(m, s, place, heading, t) {
   }
   local(s.rx, s.ry, hipC);
   hipC.y += 0.16;   // (the physics point is the rider's weight; the hips sit a little above it, standing on the pegs)
+  // a held air trick moves the hips (and below, the hands and feet) towards its pose
+  const tk = s.tp > 0 ? TRICK_POSES[s.tk] : null; const tp = tk ? s.tp * s.tp * (3 - 2 * s.tp) : 0;
+  if (tk) hipC.add(tA.set(tk.hip[0] * tp, tk.hip[1] * tp, 0));
   // the torso leans to reach the bars: more when leaning forward, upright and back when leaning back
-  let lean = 0.5 + 0.38 * Math.max(-1, Math.min(1, s.lean));
+  let lean = 0.5 + 0.38 * Math.max(-1, Math.min(1, s.lean)) + (tk ? tk.lean * tp : 0);
   for (let k = 0; k < 6; k++) {
     sho.set(hipC.x + Math.sin(lean) * 0.5, hipC.y + Math.cos(lean) * 0.5, 0);
-    const reach = Math.hypot(GRIPS.x - sho.x, GRIPS.y - sho.y);
+    const reach = Math.hypot(m.grips.x - sho.x, m.grips.y - sho.y);
     if (reach > 0.56) lean += 0.08; else if (reach < 0.3) lean -= 0.06; else break;
   }
   headP.set(sho.x + Math.sin(lean * 0.55) * 0.23, sho.y + Math.cos(lean * 0.55) * 0.23, 0);
@@ -495,17 +583,22 @@ export function poseBike(m, s, place, heading, t) {
     const z = i ? 1 : -1;
     // arms: shoulder → elbow (out and up, MX style) → grip
     tB.set(sho.x - 0.02, sho.y - 0.03, z * 0.2);
-    tD.set(GRIPS.x, GRIPS.y, z * 0.36);
+    tD.set(m.grips.x, m.grips.y, z * 0.36);
+    if (tk && tk.hand) tD.lerp(tA.set(sho.x + tk.hand[0], sho.y + tk.hand[1], z * tk.hand[2]), tp);
     ik(tB, tD, 0.3, 0.3, poleArm[i], tC);
     placeLimb(P.upperArm[i], tB, tC); placeLimb(P.foreArm[i], tC, tD);
     P.hand[i].position.copy(tD); P.hand[i].rotation.z = -0.5;
     // legs: hip → knee (forward, gripping the bike) → ankle over the peg
     tB.set(hipC.x, hipC.y - 0.03, z * 0.1);
-    tD.set(PEGS.x - 0.02, PEGS.y + 0.12, z * 0.2);
+    tD.set(m.pegs.x - 0.02, m.pegs.y + 0.12, z * 0.2);
+    const foot = tk && (tk.feet || (i === 0 ? tk.foot : null));
+    if (foot) tD.lerp(tA.set(foot[0], foot[1], foot[2] * (tk.feet ? z : 1)), tp);
     ik(tB, tD, 0.45, 0.44, poleLeg[i], tC);
     placeLimb(P.thigh[i], tB, tC); placeLimb(P.shin[i], tC, tD);
     P.knee[i].position.copy(tC).add(V(0.04, 0, 0)); P.knee[i].quaternion.copy(P.shin[i].quaternion);
-    P.boot[i].position.set(PEGS.x + 0.02, PEGS.y + 0.05, z * 0.2); P.boot[i].rotation.set(0, 0, 0);
+    if (foot) P.boot[i].position.copy(tD).add(tA.set(0.04, -0.07, 0));
+    else P.boot[i].position.set(m.pegs.x + 0.02, m.pegs.y + 0.05, z * 0.2);
+    P.boot[i].rotation.set(0, 0, 0);
   }
 }
 
@@ -523,6 +616,6 @@ function poseTorso(P, hip, shoulder, head, lean) {
 
 /** Free a bike's GPU memory (geometry shared between bikes is kept). */
 export function disposeBike(m) {
-  m.root.traverse((o) => { if (o.isMesh && o.material) { const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach((x) => { if (x.map) x.map.dispose(); x.dispose(); }); } });
+  m.root.traverse((o) => { if (o.isMesh && o.material && !o.userData.shared) { const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach((x) => { if (x.map) x.map.dispose(); x.dispose(); }); } });
   if (m.root.parent) m.root.parent.remove(m.root);
 }

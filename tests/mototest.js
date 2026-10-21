@@ -62,6 +62,45 @@ const flat = C.build({ id: 'flat', name: 'Flat', course: ['flat 20', 'start', 'f
     }
   }
   check(land && land.turns === 1 && land.back && b.nitro >= 0.3, `a backflip landed clean fills the nitro (${b.nitro.toFixed(2)})`);
+  // air tricks over the same double: a Superman let go in time lands as a trick, held to the ground it's a bail,
+  // and a 360 tapped off the lip spins round and lands
+  const ride = (hold) => {
+    const c = C.newBike(T); const ev = [];
+    for (let i = 0; i < 120 * 20 && !c.crashed; i++) {
+      const inp = C.robot(T, c);
+      inp.trick = hold(c);
+      for (const e of C.step(T, c, inp)) ev.push(e);
+      if (ev.some((e) => e[0] === 'land' && e[1].air > 0.8)) break;
+    }
+    return { c, ev, land: (ev.find((e) => e[0] === 'land' && e[1].air > 0.8) || [])[1] };
+  };
+  let apex = 0;
+  { const c = C.newBike(T); for (let i = 0; i < 120 * 20; i++) { C.step(T, c, C.robot(T, c)); if (c.air > 0.3) apex = Math.max(apex, c.air); if (c.air === 0 && apex) break; } }
+  const sup = ride((c) => (c.air > 0.15 && c.air < apex * 0.62 ? 0 : -1));
+  check(sup.land && sup.land.clean && sup.land.tricks.includes(0) && sup.land.score >= C.TRICKS[0].pts && sup.ev.some((e) => e[0] === 'trick' && e[1] === 0),
+    `a Superman let go before the landing counts (${sup.land && sup.land.score} points, ${apex.toFixed(2)} s of air)`);
+  const bail = ride((c) => (c.air > 0.15 || c.landing ? 0 : -1));
+  check(bail.c.crashed && bail.ev.some((e) => e[0] === 'bail' && e[1] === 0) && !bail.ev.some((e) => e[0] === 'land' && e[1].clean), 'still in the Superman when the wheels touch: a bail (a crash)');
+  const spin = ride((c) => (c.air > 0.15 && c.air < 0.25 ? 7 : -1));
+  check(apex < 1.05 || (spin.land && spin.land.clean && spin.land.tricks.includes(7)), `a 360 tapped off the lip spins round and lands (${spin.land ? spin.land.tricks : 'no landing'})`);
+  check(!sup.c.crashed && sup.c.tk === -1 && sup.c.pose === 0 && sup.c.spin === 0, 'after landing the rider is back on the pegs');
+  // flips are measured against the ground: a backflip off a kicker onto a steep downslope still counts as one
+  {
+    const D = C.build({ id: 'drop', name: 'Drop', course: ['flat 20', 'start', 'flat 40', 'kicker 6 1.6', 'flat 3', 'down 40 8', 'flat 80', 'finish', 'flat 40'] });
+    let got = null; let raw = 0;
+    for (let stop = 0.8; stop < 3.4 && !got; stop += 0.15) {
+      const c = C.newBike(D); let flipping = false; let rot = 0; let air = 0;
+      for (let i = 0; i < 120 * 20 && !got && !c.crashed; i++) {
+        const inp = C.robot(D, c);
+        const up = !(c.wh[0].ct || c.wh[1].ct);
+        if (up) air += c.w * C.DT;
+        if (up && c.air > 0.05 && !rot) flipping = true;
+        if (flipping) { rot += c.w * C.DT; if (rot > 2 * Math.PI - stop || !up) flipping = false; else inp.lean = -1; }
+        for (const [k, d] of C.step(D, c, inp)) if (k === 'land' && d.air > 0.4) { got = d; raw = air; }
+      }
+    }
+    check(got && got.clean && got.turns === 1 && got.back && raw < 2 * Math.PI - 0.3, `a backflip off a kicker onto a downslope counts as one, though the bike only turned ${(raw * 180 / Math.PI).toFixed(0)}° in the air`);
+  }
   const s = C.newBike(flat); const n = C.newBike(flat); n.nitro = 1;
   for (let i = 0; i < 120 * 3; i++) { C.step(flat, s, { gas: 1, lean: 1 }); C.step(flat, n, { gas: 1, lean: 1, nitro: true }); }
   check(n.x > s.x + 2 && n.nitro < 1, `nitro: ${(n.x - s.x).toFixed(1)} m ahead after 3 s`);

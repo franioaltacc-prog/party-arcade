@@ -1,5 +1,5 @@
 {
-  "about": "Motocross challenges in the open worlds, played solo or by a whole room at once (games/moto/game.py reads this too). kind: race = first to the finish pad (from/to are safe-pad ids); air = longest single jump in seconds; flips = most flips landed; speed = highest speed in km/h. at = a safe-pad id or 'park' (the send-it jump park). limit = seconds.",
+  "about": "Motocross challenges in the open worlds, played solo or by a whole room at once (games/moto/game.py reads this too). kind: race = first to the finish pad (from/to are safe-pad ids); air = longest single jump in seconds; flips = most flips landed; tricks = most trick points; speed = highest speed in km/h. at = a safe-pad id or 'park' (the send-it jump park). limit = seconds.",
   "challenges": [
     {"id": "frost-downhill", "world": "frostpeak", "kind": "race", "name": "Summit Downhill", "emoji": "⛷️", "from": "frost-summit", "to": "frost-lake", "limit": 240,
      "about": "From the Frostpeak summit down to the frozen lake. Any line you like: first one down wins."},
@@ -12,6 +12,14 @@
     {"id": "pine-flips", "world": "pinecrest", "kind": "flips", "name": "Flip Frenzy", "emoji": "🤸", "at": "park", "limit": 120,
      "about": "Two minutes to land as many flips as you can. Crashed flips don't count."},
     {"id": "frost-speed", "world": "frostpeak", "kind": "speed", "name": "Top Speed", "emoji": "⚡", "at": "frost-ranger", "limit": 60,
-     "about": "One minute to hit your highest speed. Find a long slope and send it. Stock engines only!"}
+     "about": "One minute to hit your highest speed. Find a long slope and send it. Stock engines only!"},
+    {"id": "dunes-sunset", "world": "golddunes", "kind": "race", "name": "Sunset Run", "emoji": "🌅", "from": "crest", "to": "camp", "limit": 240,
+     "about": "From the top of Sunset Crest back to Caravan Camp, over the dunes. First one home wins."},
+    {"id": "ridge-rush", "world": "autumnridge", "kind": "race", "name": "Red Oak Rush", "emoji": "🍁", "from": "summit", "to": "lodge", "limit": 240,
+     "about": "Down from Red Oak Summit through the autumn woods to Maple Lodge."},
+    {"id": "canyon-tricks", "world": "canyonrun", "kind": "tricks", "name": "Trick Jam", "emoji": "🌟", "at": "park", "limit": 120,
+     "about": "Two minutes at the jump park. Supermans, no-handers, whips, 360s and flips all score: land them!"},
+    {"id": "dunes-air", "world": "golddunes", "kind": "air", "name": "Dune Launch", "emoji": "🏜️", "at": "park", "limit": 90,
+     "about": "90 seconds to find the biggest air at the Oasis jump park."}
   ]
 }

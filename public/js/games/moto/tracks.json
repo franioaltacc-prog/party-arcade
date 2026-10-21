@@ -9,7 +9,7 @@
       "grip": 0.9,
       "roll": 0.012,
       "about": "Fast sandy straights, big doubles and a tabletop under the midday sun.",
-      "robot": 50.16,
+      "robot": 50.19,
       "course": [
         "flat 26", "start", "flat 44", "turn 40 22", "flat 22",
         "roller 14 1.0", "flat 16", "double 10 2.6 16", "flat 28", "cp",
@@ -51,7 +51,7 @@
       "grip": 0.72,
       "roll": 0,
       "about": "Packed snow and icy patches at dusk, with huge jumps down the mountain.",
-      "robot": 51.20,
+      "robot": 51.08,
       "course": [
         "flat 26", "start", "flat 36", "down 28 4", "flat 12", "kicker 8 1.6", "flat 28",
         "turn 40 24", "flat 16", "ice 16", "flat 16", "double 10 2.6 16", "flat 28", "cp",

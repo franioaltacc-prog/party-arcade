@@ -15,8 +15,9 @@ const themed={
 };
 function hash(x,y,seed){let n=Math.imul(x,374761393)^Math.imul(y,668265263)^seed;n=Math.imul(n^(n>>>13),1274126177);return((n^(n>>>16))>>>0)/4294967295;}
 function tileNoise(x,y,period,seed){const ix=Math.floor(x),iy=Math.floor(y),wrap=a=>((a%period)+period)%period;let u=x-ix,v=y-iy;u=u*u*(3-2*u);v=v*v*(3-2*v);const h=(a,b)=>hash(wrap(a),wrap(b),seed),a=h(ix,iy),b=h(ix+1,iy),c=h(ix,iy+1),d=h(ix+1,iy+1);return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v;}
-function texture(kind,theme,size=1024){
- const canvas=document.createElement('canvas');canvas.width=canvas.height=size;const context=canvas.getContext('2d'),pixels=context.createImageData(size,size),[low,high]=themed[theme]?.[kind]||palettes[kind],seed=kind.length*733;
+// (a world can bring its own colours too: "look": { "rock": [low, high], "dirt": …, "grass": … })
+function texture(kind,theme,size=1024,look=null){
+ const canvas=document.createElement('canvas');canvas.width=canvas.height=size;const context=canvas.getContext('2d'),pixels=context.createImageData(size,size),[low,high]=look?.[kind]||themed[theme]?.[kind]||palettes[kind],seed=kind.length*733;
  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
   const u=x/size,v=y/size;
   let h=.52*tileNoise(u*8,v*8,8,seed)+.26*tileNoise(u*32,v*32,32,seed+9)+.15*tileNoise(u*128,v*128,128,seed+3)+.07*hash(x,y,seed);
@@ -28,7 +29,7 @@ function texture(kind,theme,size=1024){
  context.putImageData(pixels,0,0);const tex=new THREE.CanvasTexture(canvas);tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.anisotropy=8;tex.colorSpace=THREE.NoColorSpace;return tex;
 }
 export function terrainMaterial(map,sharedTextures=null,detailed=true){
- const textures=sharedTextures || Object.fromEntries(Object.keys(palettes).map(k=>[k,texture(k,map.theme)]));
+ const textures=sharedTextures || Object.fromEntries(Object.keys(palettes).map(k=>[k,texture(k,map.theme,1024,map.look)]));
  const hole=new THREE.Vector4();
  const material=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.91,metalness:0});
  material.customProgramCacheKey=()=> 'ow-terrain-lod-v6-'+map.theme+'-'+detailed;

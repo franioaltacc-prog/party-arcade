@@ -1,0 +1,809 @@
+{
+  "schemaVersion": 1,
+  "id": "canyonrun",
+  "name": "Canyon Run",
+  "tagline": "Mind the drop.",
+  "theme": "desert",
+  "seed": 8861,
+  "size": [
+    3600,
+    3600
+  ],
+  "baseHeight": 60,
+  "spawn": [
+    -1100,
+    1100
+  ],
+  "spawnHeading": 2.356194,
+  "palette": {
+    "sky": "#e9c3a3",
+    "low": "#9a4a34",
+    "high": "#e3a77a",
+    "trail": "#d7a477",
+    "water": "#3b8e8a",
+    "accent": "#ff6a3c"
+  },
+  "look": {
+    "sky": {
+      "sun": [
+        44,
+        160
+      ],
+      "turbidity": 6,
+      "rayleigh": 2.2,
+      "mie": 0.007,
+      "exposure": 1.1,
+      "fog": 0.36,
+      "fogColor": "#e8c2a0"
+    },
+    "rock": [
+      [
+        118,
+        46,
+        40
+      ],
+      [
+        214,
+        120,
+        86
+      ]
+    ],
+    "dirt": [
+      [
+        160,
+        92,
+        62
+      ],
+      [
+        222,
+        160,
+        116
+      ]
+    ]
+  },
+  "terrain": {
+    "noise": 10,
+    "scale": 270,
+    "hills": [
+      [
+        -1100,
+        -1050,
+        280,
+        700,
+        660
+      ],
+      [
+        1050,
+        -1000,
+        330,
+        680,
+        640
+      ],
+      [
+        1150,
+        900,
+        220,
+        560,
+        560
+      ],
+      [
+        -1150,
+        750,
+        150,
+        500,
+        500
+      ],
+      [
+        0,
+        -1400,
+        160,
+        760,
+        420
+      ]
+    ],
+    "river": {
+      "x": 0,
+      "amplitude": 160,
+      "wavelength": 520,
+      "width": 130,
+      "depth": 70,
+      "level": 12
+    }
+  },
+  "regions": [
+    {
+      "name": "Red Rock Outpost",
+      "position": [
+        -1100,
+        1100
+      ]
+    },
+    {
+      "name": "Thunder Butte",
+      "position": [
+        -1100,
+        -1050
+      ]
+    },
+    {
+      "name": "Old Rail Bridge",
+      "position": [
+        -400,
+        0
+      ]
+    },
+    {
+      "name": "Window Arch",
+      "position": [
+        1050,
+        -1000
+      ]
+    },
+    {
+      "name": "Copper Mine",
+      "position": [
+        1150,
+        900
+      ]
+    },
+    {
+      "name": "Ranger Station",
+      "position": [
+        450,
+        300
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "id": "rim-loop",
+      "name": "Canyon Rim Loop",
+      "points": [
+        [
+          -1100,
+          1100
+        ],
+        [
+          -1450,
+          500
+        ],
+        [
+          -1500,
+          -300
+        ],
+        [
+          -1250,
+          -1150
+        ],
+        [
+          -600,
+          -1450
+        ],
+        [
+          0,
+          -1400
+        ],
+        [
+          650,
+          -1450
+        ],
+        [
+          1250,
+          -1150
+        ],
+        [
+          1500,
+          -300
+        ],
+        [
+          1450,
+          500
+        ],
+        [
+          1150,
+          900
+        ],
+        [
+          600,
+          1400
+        ],
+        [
+          -200,
+          1450
+        ],
+        [
+          -800,
+          1350
+        ],
+        [
+          -1100,
+          1100
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20,
+      "closed": true
+    },
+    {
+      "id": "butte-climb",
+      "name": "Thunder Butte Climb",
+      "points": [
+        [
+          -1100,
+          1100
+        ],
+        [
+          -900,
+          600
+        ],
+        [
+          -1150,
+          100
+        ],
+        [
+          -800,
+          -300
+        ],
+        [
+          -1200,
+          -700
+        ],
+        [
+          -1100,
+          -1050
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "arch-run",
+      "name": "Window Arch Descent",
+      "points": [
+        [
+          1050,
+          -1000
+        ],
+        [
+          1350,
+          -600
+        ],
+        [
+          1000,
+          -200
+        ],
+        [
+          1300,
+          300
+        ],
+        [
+          1150,
+          900
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "mine-ring",
+      "name": "Mine Sprint",
+      "points": [
+        [
+          1150,
+          900
+        ],
+        [
+          1350,
+          750
+        ],
+        [
+          1400,
+          500
+        ],
+        [
+          1150,
+          400
+        ],
+        [
+          950,
+          600
+        ],
+        [
+          950,
+          850
+        ],
+        [
+          1150,
+          900
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20,
+      "closed": true
+    },
+    {
+      "id": "canyon-cross",
+      "name": "Canyon Crossing",
+      "points": [
+        [
+          -1100,
+          1100
+        ],
+        [
+          -700,
+          600
+        ],
+        [
+          -400,
+          0
+        ],
+        [
+          50,
+          150
+        ],
+        [
+          450,
+          300
+        ],
+        [
+          950,
+          600
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "north-rim",
+      "name": "North Rim",
+      "points": [
+        [
+          -1200,
+          -700
+        ],
+        [
+          -600,
+          -950
+        ],
+        [
+          0,
+          -1400
+        ],
+        [
+          600,
+          -950
+        ],
+        [
+          1050,
+          -1000
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    }
+  ],
+  "spots": [
+    {
+      "id": "outpost",
+      "name": "Red Rock Outpost",
+      "position": [
+        -1100,
+        1100
+      ],
+      "kind": "camp",
+      "radius": 24,
+      "about": "Shared spawn on the west rim."
+    },
+    {
+      "id": "butte",
+      "name": "Thunder Butte",
+      "position": [
+        -1100,
+        -1050
+      ],
+      "kind": "lookout",
+      "radius": 24,
+      "about": "The top of the west butte."
+    },
+    {
+      "id": "bridge",
+      "name": "Old Rail Bridge",
+      "position": [
+        -400,
+        0
+      ],
+      "kind": "checkpoint",
+      "radius": 24,
+      "about": "On the edge of the canyon: look down."
+    },
+    {
+      "id": "arch",
+      "name": "Window Arch",
+      "position": [
+        1050,
+        -1000
+      ],
+      "kind": "ruin",
+      "radius": 24,
+      "about": "A stone arch on the east butte."
+    },
+    {
+      "id": "mine",
+      "name": "Copper Mine",
+      "position": [
+        1150,
+        900
+      ],
+      "kind": "yard",
+      "radius": 24,
+      "about": "Mine works on the east rim."
+    },
+    {
+      "id": "station",
+      "name": "Ranger Station",
+      "position": [
+        450,
+        300
+      ],
+      "kind": "cabin",
+      "radius": 24,
+      "about": "A ranger cabin across the canyon."
+    }
+  ],
+  "races": [
+    {
+      "id": "canyon-grand",
+      "name": "Canyon Rim Rally",
+      "route": "rim-loop",
+      "type": "circuit",
+      "difficulty": "medium",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    },
+    {
+      "id": "canyon-climb",
+      "name": "King of Thunder Butte",
+      "route": "butte-climb",
+      "type": "hillclimb",
+      "difficulty": "hard",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    },
+    {
+      "id": "canyon-downhill",
+      "name": "Arch Dive",
+      "route": "arch-run",
+      "type": "downhill",
+      "difficulty": "hard",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    },
+    {
+      "id": "canyon-mine",
+      "name": "Mine Scramble",
+      "route": "mine-ring",
+      "type": "circuit",
+      "difficulty": "easy",
+      "laps": 3,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    }
+  ],
+  "interactions": [
+    {
+      "id": "board",
+      "name": "Red Rock Outpost race board",
+      "position": [
+        -1060,
+        1100
+      ],
+      "kind": "race-board",
+      "radius": 18,
+      "event": "race.offer",
+      "about": "Choose a mini race and invite nearby friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "jam",
+      "name": "Copper Mine trick jam",
+      "position": [
+        1100,
+        880
+      ],
+      "kind": "trick-zone",
+      "radius": 18,
+      "event": "trick.land",
+      "about": "Share a two-minute trick score with friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "camera",
+      "name": "Thunder Butte photo perch",
+      "position": [
+        -1100,
+        -1050
+      ],
+      "kind": "photo",
+      "radius": 18,
+      "event": "photo.capture",
+      "about": "Get the whole group into a summit picture.",
+      "cooldownSeconds": 10
+    }
+  ],
+  "ramps": [
+    {
+      "id": "canyon-kicker",
+      "position": [
+        -250,
+        850
+      ],
+      "heading": 1.9,
+      "length": 110,
+      "width": 22,
+      "height": 11
+    },
+    {
+      "id": "mine-table",
+      "position": [
+        1000,
+        700
+      ],
+      "heading": 0.5,
+      "length": 100,
+      "width": 24,
+      "height": 9
+    }
+  ],
+  "surfaceZones": [
+    {
+      "id": "rim-sand",
+      "position": [
+        -800,
+        -300
+      ],
+      "radius": 220,
+      "surface": "sand",
+      "grip": 0.78,
+      "roll": 0.025
+    },
+    {
+      "id": "mine-gravel",
+      "position": [
+        1150,
+        800
+      ],
+      "radius": 120,
+      "surface": "gravel",
+      "grip": 0.8,
+      "roll": 0.02
+    }
+  ],
+  "quests": [
+    {
+      "id": "canyonrun-welcome",
+      "name": "Welcome to Canyon Run",
+      "start": "outpost",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "bridge",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "mine",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "outpost",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "canyonrun-summit",
+      "name": "Top of the World",
+      "start": "outpost",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "butte",
+          "count": 1
+        },
+        {
+          "event": "photo.capture",
+          "target": "camera",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    }
+  ],
+  "coordinateSystem": {
+    "units": "metres",
+    "horizontal": [
+      "x",
+      "z"
+    ],
+    "up": "y",
+    "heading": "radians: 0 points +z; positive rotates towards +x"
+  },
+  "status": "Made by tools/make_worlds.py.",
+  "boundary": {
+    "softMargin": 100,
+    "policy": "warn-and-respawn",
+    "respawn": "last-safe-pad",
+    "cliffWidth": 320,
+    "cliffHeight": 540,
+    "sceneryApron": 1600
+  },
+  "spawnPads": [
+    {
+      "id": "spawn-1",
+      "position": [
+        -1124,
+        1082
+      ],
+      "heading": 2.356194
+    },
+    {
+      "id": "spawn-2",
+      "position": [
+        -1119,
+        1082
+      ],
+      "heading": 2.356194
+    },
+    {
+      "id": "spawn-3",
+      "position": [
+        -1114,
+        1082
+      ],
+      "heading": 2.356194
+    },
+    {
+      "id": "spawn-4",
+      "position": [
+        -1124,
+        1076
+      ],
+      "heading": 2.356194
+    },
+    {
+      "id": "spawn-5",
+      "position": [
+        -1119,
+        1076
+      ],
+      "heading": 2.356194
+    },
+    {
+      "id": "spawn-6",
+      "position": [
+        -1114,
+        1076
+      ],
+      "heading": 2.356194
+    }
+  ],
+  "safePads": [
+    {
+      "id": "outpost",
+      "position": [
+        -1100,
+        1100
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -1124,
+        1082
+      ]
+    },
+    {
+      "id": "butte",
+      "position": [
+        -1100,
+        -1050
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -1124,
+        -1068
+      ]
+    },
+    {
+      "id": "bridge",
+      "position": [
+        -400,
+        0
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -424,
+        -18
+      ]
+    },
+    {
+      "id": "arch",
+      "position": [
+        1050,
+        -1000
+      ],
+      "radius": 32,
+      "riderPosition": [
+        1026,
+        -1018
+      ]
+    },
+    {
+      "id": "mine",
+      "position": [
+        1150,
+        900
+      ],
+      "radius": 32,
+      "riderPosition": [
+        1126,
+        882
+      ]
+    },
+    {
+      "id": "station",
+      "position": [
+        450,
+        300
+      ],
+      "radius": 32,
+      "riderPosition": [
+        426,
+        282
+      ]
+    }
+  ]
+}

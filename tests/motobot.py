@@ -99,13 +99,14 @@ async def main():
     b.drain()
     # positions are passed on to the other rider
     a.send({"t": "g:pos", "x": 40.5, "px": 70.5, "pz": -3.25, "h": 0.4, "ro": -0.2, "y": 0.6, "a": 0.1, "rx": -0.1, "ry": 0.4,
-            "c0": 0.07, "c1": 0.08, "l": 0.2, "s": 55, "r": 9000, "th": 1, "cp": -1})
+            "c0": 0.07, "c1": 0.08, "l": 0.2, "s": 55, "r": 9000, "th": 1, "cp": -1, "tk": 0, "tp": 0.8, "wh": 0, "sp": 1.5})
     p = await b.wait("g:pos")
     check(p["id"] == a.uid and p["x"] == 40.5 and p["px"] == 70.5 and p["pz"] == -3.25 and p["h"] == 0.4 and p["ro"] == -0.2
           and p["r"] == 9000 and not p["k"], "a rider's position (in 3D) reaches the others")
-    a.send({"t": "g:pos", "x": 1e9, "y": "up", "a": 0, "rx": 0, "ry": 0, "c0": 0, "c1": 0, "l": 0, "s": 0})
+    check(p["tk"] == 0 and p["tp"] == 0.8 and p["sp"] == 1.5, "their air trick (a Superman, mid-360) reaches the others too")
+    a.send({"t": "g:pos", "x": 1e9, "y": "up", "a": 0, "rx": 0, "ry": 0, "c0": 0, "c1": 0, "l": 0, "s": 0, "tk": 99, "tp": 5})
     p = await b.wait("g:pos")
-    check(p["x"] <= 5000 and p["y"] == 0, "nonsense positions are tamed")
+    check(p["x"] <= 5000 and p["y"] == 0 and p["tk"] == 7 and p["tp"] == 1, "nonsense positions (and tricks) are tamed")
     # a finish time that's too fast is turned away
     a.drain()
     a.send({"t": "g:finish", "time": 20000, "cp": 2, "crashes": 0, "flips": 1})

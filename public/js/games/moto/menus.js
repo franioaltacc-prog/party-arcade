@@ -3,6 +3,8 @@
    leaderboards and controls. game.js owns the 3D scene behind them and the ride itself. */
 const { h, fill, Net, Sfx, UI, Account, Profile } = PA;
 const FX = PA.FX || {};
+// each free-ride world's card colour and emoji
+const WORLD_LOOK = { redrock: ['red', '🏜️'], pinecrest: ['green', '🌲'], frostpeak: ['blue', '❄️'], golddunes: ['orange', '🌅'], autumnridge: ['red', '🍁'], canyonrun: ['purple', '🏞️'] };
 
 /** ctx: what the menus need from the game (see game.js). Returns { show, roomUpdate, refresh, onKey, screen }. */
 export function createMenus(ctx) {
@@ -47,7 +49,7 @@ export function createMenus(ctx) {
         ctx.medalTimes(t).map((m, i) => h('span', {}, `${ctx.MEDALS[i][0]} ${fmt(m)}`))));
   }
 
-  const KIND = { race: '🏁 Race to the finish', air: '🚀 Longest jump', flips: '🤸 Most flips', speed: '⚡ Top speed' };
+  const KIND = { race: '🏁 Race to the finish', air: '🚀 Longest jump', flips: '🤸 Most flips', speed: '⚡ Top speed', tricks: '🌟 Most trick points' };
   /** A challenge to pick: what it is, where, the goal and (big) your best on this device. */
   function challengeChip(c, on, onClick, big) {
     const best = ctx.challengeBest(c.id); const world = (ctx.worlds.find((w) => w.id === c.world) || {}).name || c.world;
@@ -72,7 +74,7 @@ export function createMenus(ctx) {
           card2('blue', '👤', 'Solo', 'Time trial · 3 tracks · medals', () => pick('solo'), { on: mode === 'solo', sticker: mode === 'solo' ? '✔ PICKED' : null }),
           card2('purple', '📡', 'Online', 'Race 2–6 riders with a code', () => pick('online'), { on: mode === 'online', sticker: mode === 'online' ? '✔ PICKED' : null })),
         h('div', { class: 'mx-two' },
-          card2('green', '🗺️', 'Free ride', '3 huge worlds · collect coins · faster engines', () => show('worlds'), { sticker: `🪙 ${ctx.Coins.wallet().coins.toLocaleString('en-US')}`, stickerCls: 'dark' }),
+          card2('green', '🗺️', 'Free ride', `${ctx.worlds.length || 6} huge worlds · collect coins · faster engines`, () => show('worlds'), { sticker: `🪙 ${ctx.Coins.wallet().coins.toLocaleString('en-US')}`, stickerCls: 'dark' }),
           card2('orange', '🎯', 'Challenges', 'Downhill, big air, flips · solo or with friends', () => show('challenges'), { sticker: 'NEW' })),
         licence(),
         go(mode === 'solo' ? 'Ride' : 'Race', mode === 'solo' ? 'Pick a track' : 'Make a room or join friends', next),
@@ -102,7 +104,7 @@ export function createMenus(ctx) {
         h('div',{class:'mx-ticket'},h('div',{class:'grow'},h('span',{class:'lab'},'Your free-ride bike'),
           h('div',{class:'nm'},h('small',{},'🪙 '+wl.coins.toLocaleString('en-US')+' COINS'),h('b',{},`${eng.emoji} ${eng.name}`)),
           h('div',{class:'acts'},h('button',{class:'mx-link',type:'button',onclick:()=>{garageTab='engine';show('garage');}},'⚡ Upgrade the engine ↗'))),h('span',{class:'mx-barcode'})),
-        list.map(w=>card2(w.id==='frostpeak'?'blue':w.id==='redrock'?'red':'green',w.id==='frostpeak'?'❄️':w.id==='redrock'?'🏜️':'🌲',w.name,`${w.areaKm2.toFixed(1)} km² · 4 mini races · solo free ride`,()=>ctx.startFree(w),{wide:true})),
+        list.map(w=>{const [c,e]=WORLD_LOOK[w.id]||['green','🗺️'];return card2(c,e,w.name,`${w.areaKm2.toFixed(1)} km² · 4 mini races · solo free ride`,()=>ctx.startFree(w),{wide:true});}),
         note('Grab the gold coins on the trails and over the jumps, land flips and finish mini races to earn coins, then buy faster engines in the garage (free ride only). Space / Shift for turbo, R returns to a safe pad, the flag button starts a mini race.'));
     },
 
@@ -243,8 +245,10 @@ export function createMenus(ctx) {
           glass('Keys', null, h('div', { class: 'mx-keys' },
             key(['W', '↑'], 'Gas'), key(['S', '↓'], 'Brake (hold when stopped to back up)'), key(['A', 'D'], 'Steer left and right'),
             key(['Q'], 'Lean back (backflip in the air)'), key(['E'], 'Lean forward (frontflip)'), key(['Space', 'Shift'], 'Nitro / free-ride turbo'),
+            key(['1', '2', '3'], 'Air tricks: Superman, No-Hander, Can-Can (hold)'), key(['4', '5', '6'], 'Nac-Nac, Heel Clicker, Cliffhanger (hold)'),
+            key(['Z'], 'Whip the bike sideways (hold)'), key(['X'], '360 spin (tap)'),
             key(['R'], 'Reset to checkpoint / free-ride safe pad'), key(['C'], 'Change camera'), key(['M'], 'Sound on/off'), key(['Esc'], 'Back to the menu'))),
-          note('Gamepads work too: triggers for gas and brake, left stick to steer, right stick to lean, A for nitro.')),
+          note('Gamepads work too: triggers for gas and brake, left stick to steer, right stick to lean, A for nitro, X / Y / bumpers for tricks, B for a 360.')),
         h('div', { class: 'mx-col' },
           glass('Settings', null,
             h('div', { class: 'mx-lab' }, 'CAMERA'), seg([['chase', '🎥 Chase'], ['side', '📺 Side'], ['close', '🎬 Close']], ctx.prefs.cam, ctx.setCam),
@@ -253,6 +257,7 @@ export function createMenus(ctx) {
           glass('How to ride', null, h('ul', { class: 'mx-tips' },
             h('li', {}, 'Slow down for corners or you slide wide. The banked berms help you round them.'),
             h('li', {}, 'In the air, lean back or forward to flip. Let go and the rider levels the bike for the landing.'),
+            h('li', {}, 'Hold a trick key in the air, then let go before you land: still in a trick when you touch down and you bail. Chain tricks and flips in one jump for a combo.'),
             h('li', {}, 'Land on your head or upside down and you crash: reset to a checkpoint or free-ride safe pad.'),
             h('li', {}, 'Clean landings and flips fill nitro. Free-ride turbo also recharges when released.')))),
       ];

@@ -10,6 +10,19 @@ import {makeProps} from '../world.js';
 import {buildingGeometry,signGeometry,textTexture,archGeometry,hayGeometry,stakeGeometry,flagGeometry} from './buildings.mjs';
 
 const CHUNK=250;
+/** Autumn: turn the green of leaves and grass (vertex colours) gold, orange and red, keeping their light and shade.
+ * Neighbouring leaves get the same colour, so a tree turns as a whole rather than in speckles. */
+export function autumnize(geo,seed=1){
+ const c=geo.attributes.color;if(!c)return geo;
+ const p=geo.attributes.position,hues=[[1,.62,.16],[.95,.38,.1],[.78,.16,.08],[1,.82,.28],[.66,.42,.14]];
+ for(let i=0;i<c.count;i++){
+  const r=c.getX(i),g=c.getY(i),b=c.getZ(i);
+  if(!(g>r*1.08&&g>b))continue;   // only the green bits (not bark, rock or flowers)
+  const l=(r+g+b)/3*1.9,k=Math.abs(Math.floor(p.getX(i)*.8)*7+Math.floor(p.getY(i)*.8)*13+Math.floor(p.getZ(i)*.8)*5+seed)%hues.length,h=hues[k];
+  c.setXYZ(i,h[0]*l,h[1]*l,h[2]*l);
+ }
+ c.needsUpdate=true;return geo;
+}
 /** What grows where: attempts per km², size range, steepest slope allowed, clustering (0 = even, 1 = tight
  * groves), how far the detailed model shows, how far anything shows (0 = only near), and how far to sink it. */
 const FLORA={
@@ -105,7 +118,8 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
   }
  }
  const geos=new Map();
- for(const spec of FLORA[theme]||FLORA.alpine){const g={near:near.PROPS[spec.kind](),far:spec.far?far.PROPS[spec.kind]():null,mat:near.MATS[spec.kind]||near.propMat};geos.set(spec,g);disposables.push(g.near);if(g.far)disposables.push(g.far);}
+ for(const spec of FLORA[theme]||FLORA.alpine){const g={near:near.PROPS[spec.kind](),far:spec.far?far.PROPS[spec.kind]():null,mat:near.MATS[spec.kind]||near.propMat};geos.set(spec,g);disposables.push(g.near);if(g.far)disposables.push(g.far);
+  if(map.look?.autumn&&(spec.kind==='broadleaf'||spec.kind==='shrub')){autumnize(g.near,map.seed);if(g.far)autumnize(g.far,map.seed);}}
  for(const m of [near.propMat,near.leafMat,near.cactusMat,far.propMat,far.leafMat,far.cactusMat])disposables.push(m);
  const place=(item,y,matrix)=>{dummy.position.set(item.x,y-item.sink,item.z);dummy.rotation.set(item.tilt,item.rot,item.tilt*.5);dummy.scale.set(item.s,item.sy,item.s);dummy.updateMatrix();matrix.copy(dummy.matrix);};
  const tmpM=new THREE.Matrix4(),hidden=new THREE.Matrix4().makeScale(0,0,0);

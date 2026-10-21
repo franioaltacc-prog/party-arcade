@@ -48,7 +48,7 @@ def load_challenges():
 
 
 CHALLENGES = load_challenges()
-TOP_SCORE = {"air": 30.0, "flips": 80, "speed": 420.0}   # more than anyone can do with the stock engine
+TOP_SCORE = {"air": 30.0, "flips": 80, "speed": 420.0, "tricks": 3000}   # more than anyone can do with the stock engine
 FASTEST_MS = 105.0     # nobody crosses a challenge course quicker than this many metres a second
 MIN_PLAYERS = 2
 COUNTDOWN = 4.0        # seconds from "go" to the gate dropping (the clients show 3-2-1)
@@ -216,7 +216,7 @@ class Moto(Game):
         v = num(msg.get("score"), -1)
         if v <= 0 or v > TOP_SCORE[kind]:   # (more than the stock engine can do: not believable)
             return
-        v = int(v) if kind == "flips" else round(v, 2)
+        v = int(v) if kind in ("flips", "tricks") else round(v, 2)
         if run["score"] is None or v > run["score"]:
             run["score"] = v
             if kind == "flips":
@@ -237,6 +237,10 @@ class Moto(Game):
         out["th"] = round(num(msg.get("th"), 0, 0, 1), 2)
         out["k"] = 1 if msg.get("k") else 0
         out["b"] = 1 if msg.get("b") else 0
+        # an air trick: which one (-1 none), how far into its pose, the whip and the 360 so far
+        out["tk"] = int(num(msg.get("tk"), -1, -1, 7))
+        for k, top in (("tp", 1), ("wh", 1), ("sp", 6.3)):
+            out[k] = round(num(msg.get(k), 0, 0, top), 2)
         rg = msg.get("rg")
         if out["k"] and isinstance(rg, list) and len(rg) == 4:
             out["rg"] = [round(num(v, 0, -1e4, 1e4), 2) for v in rg]
@@ -348,7 +352,8 @@ class Moto(Game):
         c = CHALLENGES.get(self.race["challenge"], {"name": "Challenge"})
         n = len(rows)
         unit = {"race": lambda r: f"{r['time'] / 1000:.2f}s", "air": lambda r: f"{r['score']:.2f}s of air",
-                "flips": lambda r: f"{r['score']} flips", "speed": lambda r: f"{r['score']:.0f} km/h"}.get(c.get("kind"), lambda r: "")
+                "flips": lambda r: f"{r['score']} flips", "speed": lambda r: f"{r['score']:.0f} km/h",
+                "tricks": lambda r: f"{r['score']} trick points"}.get(c.get("kind"), lambda r: "")
         for r in rows:
             won = n >= 2 and r["done"] and r["place"] == 1
             stats = {"moto.challenges": ("add", 1)}

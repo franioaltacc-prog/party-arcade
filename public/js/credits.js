@@ -38,6 +38,8 @@
     ['🐍', 'Python', 'the game server'],
     ['🧊', 'three.js', 'the 3D graphics in Slope, Poly Racer, Mini Golf and Motocross'],
     ['🔤', 'Kanit by Cadson Demak & Permanent Marker by Font Diner', 'the Motocross HUD fonts (Google Fonts)'],
+    ['🔋', '“Stark Varg SM” by Hari Yojuta (CC BY 4.0, Sketchfab)', 'the Stark Varg bike in Motocross (made lighter for the web)'],
+    ['🧡', '“HCR2 Motocross” by oakar258 (CC BY 4.0, Sketchfab)', 'the Hill Racer bike in Motocross'],
     ['🟢', 'GSAP by GreenSock', 'animations'],
     ['🔤', 'Bungee by David Jonathan Ross', 'title font (Google Fonts)'],
     ['🔤', 'Fredoka by Milena Brandão', 'text font (Google Fonts)'],

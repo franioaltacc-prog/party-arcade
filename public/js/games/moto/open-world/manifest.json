@@ -18,6 +18,24 @@
       "name": "Frostpeak Expedition",
       "file": "frostpeak.json",
       "areaKm2": 16
+    },
+    {
+      "id": "golddunes",
+      "name": "Golden Dunes",
+      "file": "golddunes.json",
+      "areaKm2": 10.24
+    },
+    {
+      "id": "autumnridge",
+      "name": "Autumn Ridge",
+      "file": "autumnridge.json",
+      "areaKm2": 11.56
+    },
+    {
+      "id": "canyonrun",
+      "name": "Canyon Run",
+      "file": "canyonrun.json",
+      "areaKm2": 12.96
     }
   ]
 }

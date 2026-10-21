@@ -414,7 +414,8 @@
       rx: 0, ry: 0, rvx: 0, rvy: 0,     // the rider's hips
       wh: [0, 1].map(() => ({ x: 0, y: 0, vx: 0, vy: 0, sp: 0, ang: 0, c: 0, ct: false, nx: 0, ny: 1, load: 0, slip: 0, fx: 0, fy: 0, tq: 0 })),
       gear: 1, rpm: P.IDLE, thr: 0, brk: 0, lean: 0, shift: 0, nitro: 0, boost: false, limiter: false,
-      air: 0, airRot: 0, airPeak: 0, ground: 0, landing: null,
+      air: 0, airRot: 0, airPeak: 0, airSlope: 0, airBase: 0, gslope: 0, ground: 0, landing: null,
+      tk: -1, pose: 0, tkT: 0, tkDone: false, whip: 0, whipDone: false, spin: 0, spinHeld: false, combo: [],   // air tricks
       crashed: 0, rider: null, hold: 0, cp: -1, t: 0, finished: null, crashes: 0, flips: 0, maxSpeed: 0,
       scrape: 0, slide: 0, bodyHit: false, lastLand: null,
     };
@@ -699,7 +700,7 @@
     b.wrong = !out && speed > 1.5 && Math.cos(b.h - L.h) * Math.sign(b.vx) < -0.2;
     }
     if (b.finished == null && !out) b.maxSpeed = Math.max(b.maxSpeed, speed);
-    tricks(G, b, ev);
+    tricks(G, b, ev, out || b.finished != null ? -1 : inp.trick);
     // crashing: your body hits the ground, or the bike lies upside down
     if (!b.crashed && !inp.hold) {
       const rel = Math.atan2(Math.sin(b.a - slope(G, b.x)), Math.cos(b.a - slope(G, b.x)));
@@ -765,19 +766,70 @@
     }
   }
 
-  /** Air time, flips and landings. Flips only count when you land them cleanly. */
-  function tricks(T, b, ev) {
+  /** Air tricks: hold one (0–5) to strike a pose, hold the whip (6) to throw the bike sideways, tap the 360 (7)
+      to spin it round once. Each counts once it's done (a pose held a moment), but only if you land it: still
+      in a trick when the wheels touch and you bail. pts: what it scores. */
+  const TRICKS = [
+    { id: 'superman', name: 'SUPERMAN', pts: 30 }, { id: 'nohander', name: 'NO-HANDER', pts: 15 }, { id: 'cancan', name: 'CAN-CAN', pts: 15 },
+    { id: 'nacnac', name: 'NAC-NAC', pts: 20 }, { id: 'heelclick', name: 'HEEL CLICKER', pts: 25 }, { id: 'cliffhanger', name: 'CLIFFHANGER', pts: 40 },
+    { id: 'whip', name: 'WHIP', pts: 15 }, { id: 'spin', name: '360', pts: 40 },
+  ];
+  const POSES = 6;
+  function airTricks(b, want, ev) {
+    // poses: one at a time; switching first lets go of the one you're in
+    if (want >= 0 && want < POSES && (b.tk < 0 || b.tk === want)) {
+      b.tk = want; b.pose = Math.min(1, b.pose + DT * 3.5);
+      if (b.pose >= 1) {
+        b.tkT += DT;
+        if (b.tkT >= 0.3 && !b.tkDone) { b.tkDone = true; b.combo.push(want); ev.push(['trick', want]); }
+      }
+    } else {
+      b.pose = Math.max(0, b.pose - DT * 5);
+      if (b.pose === 0) { b.tk = -1; b.tkT = 0; b.tkDone = false; }
+    }
+    if (want === 6) {
+      b.whip = Math.min(1, b.whip + DT * 3);
+      if (b.whip >= 1 && !b.whipDone) { b.whipDone = true; b.combo.push(6); ev.push(['trick', 6]); }
+    } else { b.whip = Math.max(0, b.whip - DT * 2.6); if (b.whip === 0) b.whipDone = false; }
+    if (want === 7 && !b.spinHeld && b.spin === 0) b.spin = 1e-4;
+    b.spinHeld = want === 7;
+    if (b.spin > 0) {
+      b.spin += DT * TAU / 0.8;
+      if (b.spin >= TAU) { b.spin = 0; b.combo.push(7); ev.push(['trick', 7]); }
+    }
+  }
+  function endTricks(b) { b.tk = -1; b.pose = 0; b.tkT = 0; b.tkDone = false; b.whip = 0; b.whipDone = false; b.spin = 0; }
+
+  /** Air time, flips, tricks and landings. Flips and tricks only count when you land them cleanly.
+      A flip is the bike's whole turn in the air less the change of slope between the takeoff and the landing
+      (so a backflip off a kicker onto a steep downslope counts, and riding off a lip onto a drop doesn't). */
+  function tricks(T, b, ev, want) {
     const f = b.wh[0].ct; const r = b.wh[1].ct;
     const touching = f || r || b.scrape;
     if (!touching) {
-      if (b.air === 0) { b.airRot = 0; b.airPeak = b.y; }
+      if (b.air === 0) {
+        const L = b.landing;
+        if (L && L.t < 0.3) {   // a bounce straight after touching down: still the same jump
+          b.airRot = L.raw; b.airSlope = L.slope0; b.airBase = L.air; b.combo = L.combo; b.landing = null;
+        } else { b.airRot = 0; b.airPeak = b.y; b.airSlope = b.gslope; b.airBase = 0; b.combo = []; }
+      }
       b.air += DT; b.airRot += b.w * DT; b.airPeak = Math.max(b.airPeak, b.y);
       b.ground = 0;
+      if (b.air > 0.15 && !b.crashed) airTricks(b, Number.isInteger(want) ? want : -1, ev);
       return;
     }
+    // the slope under the tyre that's touching (at takeoff that's the lip, not the drop behind it)
+    const under = slope(T, (r ? b.wh[1] : b.wh[0]).x);
+    if (b.air === 0) b.gslope = under;
     if (b.air > 0) {
-      if (b.air > 0.3) b.landing = { air: b.air, rot: b.airRot, t: 0, both: f && r, height: b.airPeak - groundY(T, b.x), angle: Math.abs(b.a - slope(T, b.x)) };
-      b.air = 0;
+      // touching down in the middle of a trick: bail
+      const mid = b.pose > 0.4 ? b.tk : b.whip > 0.5 ? 6 : b.spin > 0.6 && b.spin < TAU - 0.6 ? 7 : -1;
+      if (b.spin >= TAU - 0.6) b.combo.push(7);   // (as good as round)
+      endTricks(b);
+      if (mid >= 0 && !b.crashed) { crash(T, b, ev); ev.push(['bail', mid]); b.air = 0; return; }
+      const air = b.air + b.airBase;
+      if (air > 0.3) b.landing = { air, raw: b.airRot, slope0: b.airSlope, rot: b.airRot - (under - b.airSlope), t: 0, both: f && r, height: b.airPeak - groundY(T, b.x), angle: Math.abs(b.a - slope(T, b.x)), combo: b.combo };
+      b.air = 0; b.airBase = 0; b.gslope = under;
     }
     b.ground += DT;
     const L = b.landing;
@@ -787,21 +839,27 @@
     if (b.crashed) { b.landing = null; return; }
     if (L.t < 0.3) return;
     b.landing = null;
-    const turns = Math.floor((Math.abs(L.rot) + 1.0) / TAU);
+    const turns = Math.round(Math.abs(L.rot) / TAU);
     const clean = L.both && !b.scrape;
     if (!clean) { ev.push(['land', { clean: false, air: L.air }]); return; }
     let gain = L.air > 0.5 ? 0.05 + 0.035 * Math.min(L.air, 2.5) : 0;
     const perfect = L.angle < 0.14 && L.air > 0.5;
     if (perfect) gain += 0.05;
     if (turns > 0) gain += 0.3 * turns;
+    // trick points: each trick, each flip, and a bonus for putting several together
+    const moves = L.combo || [];
+    let score = moves.reduce((t, i) => t + TRICKS[i].pts, 0) + turns * 50;
+    const parts = moves.length + turns;
+    if (parts > 1) score = Math.round(score * (1 + 0.25 * (parts - 1)));
+    gain += 0.03 * moves.length;
     b.flips += turns;
     b.nitro = Math.min(1, b.nitro + gain);
-    b.lastLand = { air: L.air, turns, back: L.rot > 0, perfect, gain };
-    ev.push(['land', { clean: true, air: L.air, turns, back: L.rot > 0, perfect, gain, height: L.height }]);
+    b.lastLand = { air: L.air, turns, back: L.rot > 0, perfect, gain, tricks: moves, score };
+    ev.push(['land', { clean: true, air: L.air, turns, back: L.rot > 0, perfect, gain, height: L.height, tricks: moves, score }]);
   }
 
   function crash(T, b, ev) {
-    b.crashed = DT; b.crashes++;
+    b.crashed = DT; b.crashes++; endTricks(b);
     b.landing = null; b.air = 0;
     const ca = Math.cos(b.a); const sa = Math.sin(b.a);
     // previous positions for the Verlet ragdoll come from how the rider was moving
@@ -947,7 +1005,7 @@
   }
 
   root.MotoCore = {
-    DT, SUB, P, SURFACE, build, groundTrack, groundY, slope, gripAt, surfaceAt, plan, touch,
+    DT, SUB, P, SURFACE, TRICKS, build, groundTrack, groundY, slope, gripAt, surfaceAt, plan, touch,
     newBike, place, step, respawn, robot, robotSpeed, predictLanding, simulate, torqueCurve, launchSpeed, rollAt, cornerAt,
     pathAt, heightAt, natural, bank, bermAt, trackY, locate, slice, vnoise, fbm,
   };
