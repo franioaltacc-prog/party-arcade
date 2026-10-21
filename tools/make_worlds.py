@@ -255,4 +255,9 @@ if __name__ == "__main__":
         d["features"] = feats
         f.write_text(json.dumps(d, indent=2) + "\n")
         print("features for", wid)
+    # (the world picker shows how many gap jumps and pools each world has)
+    for entry in manifest["worlds"]:
+        feats = json.loads((OUT / entry["file"]).read_text()).get("features", {})
+        entry["gaps"] = len(feats.get("gaps", []))
+        entry["pools"] = len(feats.get("pools", []))
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")

@@ -100,11 +100,15 @@ export function createMenus(ctx) {
       const list=ctx.worlds;const sel=list.find(w=>w.id===ctx.prefs.world)||list[0];
       primary=()=>sel&&ctx.startFree(sel);
       const wl=ctx.Coins.wallet(),eng=ctx.Coins.engineOf(wl.engine);
-      return h('div',{class:'mx-col'},backBtn('Free ride'),
+      const NEW_WORLDS=['magmaisle','emeraldbay'];
+      const what=w=>[`${w.areaKm2.toFixed(1)} km²`,w.gaps?`${w.gaps} gap jump${w.gaps===1?'':'s'}`:null,w.pools?`${w.pools} pool${w.pools===1?'':'s'}`:null,'4 mini races'].filter(Boolean).join(' · ');
+      return h('div',{class:'mx-col wide'},backBtn('Free ride'),
         h('div',{class:'mx-ticket'},h('div',{class:'grow'},h('span',{class:'lab'},'Your free-ride bike'),
           h('div',{class:'nm'},h('small',{},'🪙 '+wl.coins.toLocaleString('en-US')+' COINS'),h('b',{},`${eng.emoji} ${eng.name}`)),
           h('div',{class:'acts'},h('button',{class:'mx-link',type:'button',onclick:()=>{garageTab='engine';show('garage');}},'⚡ Upgrade the engine ↗'))),h('span',{class:'mx-barcode'})),
-        list.map(w=>{const [c,e]=WORLD_LOOK[w.id]||['green','🗺️'];return card2(c,e,w.name,`${w.areaKm2.toFixed(1)} km² · 4 mini races · solo free ride`,()=>ctx.startFree(w),{wide:true});}),
+        // all the worlds at once, in a grid (no scrolling down a long list)
+        h('div',{class:'mx-wgrid'},list.map(w=>{const [c,e]=WORLD_LOOK[w.id]||['green','🗺️'];
+          return card2(c,e,w.name,what(w),()=>ctx.startFree(w),{on:w===sel,sticker:w===sel?'LAST RIDDEN':NEW_WORLDS.includes(w.id)?'NEW':null,stickerCls:w===sel?'dark':null});})),
         note('Grab the gold coins on the trails and over the jumps, land flips and finish mini races to earn coins, then buy faster engines in the garage (free ride only). Space / Shift for turbo, R returns to a safe pad, the flag button starts a mini race.'));
     },
 
@@ -116,11 +120,20 @@ export function createMenus(ctx) {
       const pick = (c) => { if (c === sel) { ctx.startChallengeSolo(c); return; } ctx.prefs.challenge = c.id; ctx.savePrefs(); Sfx.play('click'); show('challenges'); };
       primary = () => ctx.startChallengeSolo(sel);
       const friends = async () => { ctx.challengeFriends(sel); await create(); };
-      return h('div', { class: 'mx-col' },
+      // the picked challenge (and its buttons) beside a compact grid of all of them
+      const best = ctx.challengeBest(sel.id); const world = (ctx.worlds.find((w) => w.id === sel.world) || {}).name || sel.world;
+      return h('div', { class: 'mx-col wide' },
         backBtn('Challenges'),
-        h('div', { class: 'mx-chlist' }, list.map((c) => challengeChip(c, c === sel, () => pick(c), true))),
-        go('Ride it solo', `${sel.emoji} ${sel.name} · beat your best, earn coins`, () => ctx.startChallengeSolo(sel)),
-        card2('purple', '📡', 'Challenge friends', 'Make a room: everyone rides it at the same time', friends, { wide: true }),
+        h('div', { class: 'mx-chsplit' },
+          h('div', { class: 'mx-chpick' },
+            h('div', { class: 'mx-glass mx-chdetail' },
+              h('span', { class: 'e' }, sel.emoji), h('b', {}, sel.name),
+              h('small', {}, `${world} · ${KIND[sel.kind]}${sel.kind === 'race' ? '' : ` · ${sel.limit} s`}`),
+              h('p', {}, sel.about),
+              h('span', { class: 'best' }, best != null ? `Your best: ${ctx.fmtScore(sel.kind, best)}` : 'Not tried yet')),
+            go('Ride it solo', 'Beat your best, earn coins', () => ctx.startChallengeSolo(sel)),
+            card2('purple', '📡', 'Challenge friends', 'Make a room: everyone rides it at the same time', friends, { wide: true })),
+          h('div', { class: 'mx-chlist grid' }, list.map((c) => challengeChip(c, c === sel, () => pick(c), false)))),
         note('Everyone rides the stock engine in challenges, so it’s fair. Crash and you go back to where you last were on your wheels.'));
     },
 
@@ -221,7 +234,7 @@ export function createMenus(ctx) {
         name = `#${n}`;
       }
       return [
-        h('div', { class: 'mx-col' }, backBtn('Garage'),
+        h('div', { class: 'mx-col mid' }, backBtn('Garage'),
           h('div', { class: 'mx-seg' }, TABS.map(([k, label]) => h('button', { class: 'mx-sb' + (k === garageTab ? ' on' : ''), type: 'button', onclick: () => { garageTab = k; preview = null; Sfx.play('click'); show('garage'); } }, label))),
           panel),
         h('div', { class: 'mx-showcase' }, h('b', {}, name), sub ? h('small', {}, sub) : null),

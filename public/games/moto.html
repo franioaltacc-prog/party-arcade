@@ -52,6 +52,24 @@
     .mx-tab .new { font: 700 .58rem var(--kanit); letter-spacing: .08em; padding: 1px 6px; border-radius: 5px; background: #fff; color: var(--ink); }
     .mx-screen { flex: 1 0 auto; display: flex; gap: 16px; min-height: 0; align-items: flex-start; }
     .mx-col { width: min(440px, 100%); display: grid; gap: 12px; align-content: start; }
+    /* screens with long lists use more of the screen (in grids) instead of one long column */
+    .mx-col.mid { width: min(560px, 100%); }
+    .mx-col.wide { width: min(900px, 66vw); }
+    .mx-wgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+    .mx-wgrid .mx-card2 { min-height: 84px; padding: 34px 12px 10px; }
+    .mx-wgrid .mx-card2 b { font-size: clamp(1.05rem, 1.6vw, 1.35rem); }
+    .mx-chsplit { display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: 12px; align-items: start; }
+    .mx-chpick { display: grid; gap: 10px; position: sticky; top: 8px; }
+    .mx-chdetail { display: grid; gap: 4px; }
+    .mx-chdetail .e { font-size: 2.2rem; line-height: 1; }
+    .mx-chdetail b { font: 1.6rem var(--marker); text-transform: uppercase; line-height: 1.05; }
+    .mx-chdetail small { font: 600 .78rem var(--kanit); opacity: .85; }
+    .mx-chdetail p { margin: 6px 0 4px; font-size: .86rem; line-height: 1.35; opacity: .92; }
+    .mx-chdetail .best { justify-self: start; font: 600 .78rem var(--kanit); padding: 3px 9px; border-radius: 7px; background: rgba(255,255,255,.12); }
+    .mx-chlist.grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+    .mx-chlist.grid .mx-chal { padding: 8px 12px; }
+    .mx-chlist.grid .mx-chal .e { font-size: 1.4rem; }
+    .mx-chlist.grid .mx-chal b { font-size: 1.02rem; }
     .mx-foot { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; margin-top: 16px; font-size: .78rem; opacity: .8; }
     .mx-foot a { color: #fff; }
     .mx-foot a:first-child { font-weight: 600; }
@@ -239,6 +257,8 @@
     body.mx-page .rv-bar i { background: linear-gradient(90deg, #ff7a1a, #ffd21a); }
     .mx-app .room-tools .mx-sb { justify-content: center; }
     @media (max-width: 1100px) {
+      .mx-col.wide { width: min(720px, 100%); }
+      .mx-chsplit { grid-template-columns: minmax(240px, 300px) 1fr; }
       .mx-room { grid-template-columns: minmax(0, 420px) minmax(240px, 1fr); }
       .mx-gap { display: none; }
       .mx-room .mx-chat { grid-column: 2; }
@@ -246,7 +266,19 @@
     @media (max-width: 760px) {
       .mx-shade { background: linear-gradient(0deg, rgba(8,12,20,.75), rgba(8,12,20,.25) 60%, rgba(8,12,20,.45)); }
       .mx-screen { flex-direction: column; align-items: stretch; }
-      .mx-col { width: 100%; }
+      .mx-col, .mx-col.mid, .mx-col.wide { width: 100%; }
+      .mx-chsplit { grid-template-columns: 1fr; }
+      .mx-chpick { position: static; }
+      .mx-wgrid { grid-template-columns: 1fr 1fr; gap: 8px; }
+      .mx-wgrid .mx-card2 { min-height: 0; padding: 30px 10px 9px; }
+      .mx-wgrid .mx-card2 b { font-size: 1rem; }
+      .mx-wgrid .mx-card2 small { font-size: .66rem; }
+      .mx-wgrid .mx-sticker { font-size: .52rem; }
+      .mx-chlist.grid { grid-template-columns: 1fr 1fr; gap: 6px; }
+      .mx-chlist.grid .mx-chal { grid-template-columns: 1fr; padding: 7px 9px; gap: 0; }
+      .mx-chlist.grid .mx-chal .e { font-size: 1.1rem; }
+      .mx-chlist.grid .mx-chal b { font-size: .92rem; }
+      .mx-chlist.grid .mx-chal small { font-size: .62rem; }
       .mx-room { grid-template-columns: 1fr; }
       .mx-room .mx-chat { grid-column: 1; position: static; height: 320px; }
       .mx-showcase { align-self: start; margin: 4px 0 0; text-align: left; }

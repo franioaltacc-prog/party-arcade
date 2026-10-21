@@ -6,6 +6,11 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.8.1', date: '2026-10-21', emoji: '🗂️', title: 'Motocross: roomier menus', items: [
+      'Free ride shows every world at once in a grid, with how many gap jumps and pools each one has (no more scrolling down a long list)',
+      'Challenges: the one you picked and its buttons sit beside a grid of all of them, so Ride it solo is always in reach',
+      'The garage panel is wider, and the bike moves over to make room. On phones the worlds and challenges go two across',
+    ] },
     { v: '3.8.0', date: '2026-10-21', emoji: '🌋', title: 'Motocross: Magma Isle, Emerald Bay and gap jumps everywhere', items: [
       'Magma Isle 🌋: a volcano island with a lava lake in the crater, a lava river, lava pools and six big gap jumps over lava',
       'Emerald Bay 🏝️: a sunny bay with a lagoon, jungle hills and water gaps to clear',

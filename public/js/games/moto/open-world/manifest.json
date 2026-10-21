@@ -5,49 +5,65 @@
       "id": "redrock",
       "name": "Redrock Frontier",
       "file": "redrock.json",
-      "areaKm2": 12.96
+      "areaKm2": 12.96,
+      "gaps": 3,
+      "pools": 2
     },
     {
       "id": "pinecrest",
       "name": "Pinecrest Highlands",
       "file": "pinecrest.json",
-      "areaKm2": 10.24
+      "areaKm2": 10.24,
+      "gaps": 3,
+      "pools": 1
     },
     {
       "id": "frostpeak",
       "name": "Frostpeak Expedition",
       "file": "frostpeak.json",
-      "areaKm2": 16
+      "areaKm2": 16,
+      "gaps": 4,
+      "pools": 0
     },
     {
       "id": "golddunes",
       "name": "Golden Dunes",
       "file": "golddunes.json",
-      "areaKm2": 10.24
+      "areaKm2": 10.24,
+      "gaps": 3,
+      "pools": 2
     },
     {
       "id": "autumnridge",
       "name": "Autumn Ridge",
       "file": "autumnridge.json",
-      "areaKm2": 11.56
+      "areaKm2": 11.56,
+      "gaps": 4,
+      "pools": 0
     },
     {
       "id": "canyonrun",
       "name": "Canyon Run",
       "file": "canyonrun.json",
-      "areaKm2": 12.96
+      "areaKm2": 12.96,
+      "gaps": 4,
+      "pools": 1
     },
     {
       "id": "magmaisle",
       "name": "Magma Isle",
       "file": "magmaisle.json",
-      "areaKm2": 11.56
+      "areaKm2": 11.56,
+      "gaps": 6,
+      "pools": 8
     },
     {
       "id": "emeraldbay",
       "name": "Emerald Bay",
       "file": "emeraldbay.json",
-      "areaKm2": 10.24
+      "areaKm2": 10.24,
+      "gaps": 5,
+      "pools": 2
     }
   ]
 }

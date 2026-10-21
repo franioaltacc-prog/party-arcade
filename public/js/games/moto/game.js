@@ -855,7 +855,10 @@ const SHOTS = {
   tracks: { r: 9, y: 3, ang: 1.15, swing: 0.5, speed: 0.06, look: 0.9, off: 0.2, fov: 50 },
   garage: { r: 4.3, y: 1.1, ang: 1.5, swing: 0.32, speed: 0.12, look: 0.72, off: 0.19, fov: 42 },
   room: { r: 10.5, y: 3.2, ang: 0.62, swing: 0.3, speed: 0.05, look: 0.8, off: 0.03, fov: 50 },
+  // (the free-ride and challenge screens are wide grids, so the bike moves further right)
+  worlds: { r: 8.4, y: 2.4, ang: 1.0, swing: 0.35, speed: 0.06, look: 0.8, off: 0.33, fov: 44 },
 };
+SHOTS.challenges = SHOTS.worlds;
 
 /** Switch between the menus and the ride. */
 function setRiding(on) {
