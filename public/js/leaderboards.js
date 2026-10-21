@@ -6,7 +6,7 @@
   const GROUPS = [
     ['General', ['xp', 'wins', 'games']],
     ['Online games', ['dash', 'life', 'life_age', 'doodle', 'songs', 'songs_correct', 'volley', 'volley_rally', 'blitz', 'casino', 'casino_big', 'c4', 'pool', 'impostor', 'impostor_rounds', 'mines', 'front', 'golf']],
-    ['Solo', ['snake', '2048', 'memory', 'dash_solo', 'mines_medium', 'mines_hard', 'slope', 'front_solo', 'pool_speed', 'pool_cpu', 'flappy', 'golf_classic', 'golf_spooky']],
+    ['Solo', ['snake', '2048', 'memory', 'dash_solo', 'mines_medium', 'mines_hard', 'slope', 'front_solo', 'pool_speed', 'pool_cpu', 'flappy', 'golf_classic', 'golf_spooky', 'golf_desert', 'golf_frost', 'golf_beach', 'golf_volcano']],
     ['Motocross', (all) => all.filter((k) => k === 'moto' || k.startsWith('moto_'))],   // (every track has its own board)
   ];
   let boards = [];

@@ -1,13 +1,14 @@
-/* Mini Golf core: the two courses and the ball physics. No drawing here, so it also runs in node
+/* Mini Golf core: the courses, the random course maker and the ball physics. No drawing here, so it also runs in node
    (tests/golftest.js searches over shots to prove every hole can be holed within par + 1).
 
    A hole is a little tile map, one character per 1×1 tile (row 0 is the far end):
-     #  outside (a rail is built where the turf meets it)     .  turf      s  sand (slow)
-     ~  water (no rail: roll in and it's a splash, +1)         _  a drop / chasm (fall in: +1)
+     #  outside (a rail is built where the turf meets it)     .  turf      s  sand (slow)      i  ice (slippery)
+     ~  water / lava (no rail: roll in and it's a splash, +1)  _  a drop / chasm (fall in: +1)
      =  bridge (turf with rails against the water)            ,  turf with rails against the water
      7 9 1 3  turf with one corner cut off at 45°, like the keys on a number pad (7 = top-left cut)
      T  the tee     C  the cup   (both are turf; `tee` / `cup` can place them more exactly)
-   plus heights (ramps, plateaus, hills, rings), bumpers, blocks, moving obstacles and teleports.
+   plus heights (ramps, plateaus, hills, rings), bumpers, blocks, moving obstacles, speed pads and teleports.
+   generate(seed) makes a whole random course from a number (the server only needs genPar for its scorecard).
    Everything is driven by the hole clock t (seconds since the hole started), so a run is
    deterministic: the same shots at the same times always end in the same place. */
 (function (root) {
@@ -21,6 +22,9 @@
     DRAG: 0.18,        // …plus this much per unit of speed
     SAND_ROLL: 5.5,
     SAND_DRAG: 0.9,
+    ICE_ROLL: 0.4,
+    ICE_DRAG: 0.1,
+    BOOST: 15,         // a speed pad pushes this hard (units/s²) while the ball rolls over it, once a shot
     WALL_E: 0.64,      // how bouncy the rails are
     BUMP_E: 1.12,      // bumpers give a little kick
     MOVER_E: 0.6,
@@ -485,19 +489,880 @@
     },
   ];
 
+  const DESERT = [
+    {
+      name: 'Dusty Trail', par: 2, tip: 'Mind the cactus — it bounces back hard.',
+      map: [
+        '#########',
+        '##7...9##',
+        '#7.....9#',
+        '#...C...#',
+        '#.......#',
+        '#1.....3#',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##..T..##',
+        '##1...3##',
+        '#########',
+      ],
+      bumpers: [[3.4, 8.2, 0.42], [5.7, 6.2, 0.4]],
+      deco: [['cactus', 0.8, 9, 1.1], ['skull', 8.3, 11], ['cactus', 8.4, 4.5, 0.8], ['sign', 1.2, 12.6]],
+    },
+    {
+      name: 'Sand Trap Alley', par: 3, tip: 'Weave between the sand traps.',
+      map: [
+        '#########',
+        '##7...9##',
+        '#7.....9#',
+        '#...C...#',
+        '#1.....3#',
+        '##ss...##',
+        '##sss..##',
+        '##.....##',
+        '##...ss##',
+        '##..sss##',
+        '##.....##',
+        '##ss...##',
+        '##sss..##',
+        '##.....##',
+        '##.....##',
+        '##..T..##',
+        '##1...3##',
+        '#########',
+      ],
+      deco: [['cactus', 0.8, 12, 1], ['cactus', 8.2, 7, 0.9], ['skull', 8.4, 14], ['tumbleweed', 0.8, 6]],
+    },
+    {
+      name: 'Mesa Maze', par: 3, tip: 'Find a way round the rocks.',
+      map: [
+        '#############',
+        '#7.........9#',
+        '#.....C.....#',
+        '#...........#',
+        '#...........#',
+        '#...........#',
+        '#...........#',
+        '#...........#',
+        '#...........#',
+        '#...........#',
+        '#1.........3#',
+        '####.....####',
+        '####..T..####',
+        '####1...3####',
+        '#############',
+      ],
+      blocks: [[4.6, 7.6, 8.4, 8.5, 'mesa'], [1, 5, 3.4, 5.9, 'mesa'], [9.6, 5, 12, 5.9, 'mesa'], [5.4, 3.7, 7.6, 4.5, 'mesa']],
+      deco: [['cactus', 2, 12.5, 1.1], ['cactus', 11, 12.2, 0.9], ['skull', 3, 13.5]],
+    },
+    {
+      name: 'Canyon Leap', par: 3, tip: 'Hit the ramp hard and fly the canyon!',
+      map: [
+        '###########',
+        '##7.....9##',
+        '##.......##',
+        '##...C...##',
+        '##.......##',
+        '##.......##',
+        '##_______##',
+        '##_______##',
+        '##_______##',
+        '##.......##',
+        '##.......##',
+        '##.......##',
+        '##.......##',
+        '##.......##',
+        '##...T...##',
+        '##1.....3##',
+        '###########',
+      ],
+      h: [['ramp', 0, 9, 11, 12, 0.6, 0, 'z']],
+      bumpers: [[3.4, 4.6, 0.35], [7.6, 4.6, 0.35]],
+      deco: [['cactus', 0.8, 3, 1.1], ['cactus', 10.2, 12, 0.9], ['rock', 10, 4, 0.9], ['skull', 0.9, 13]],
+    },
+    {
+      name: 'Mine Cart', par: 3, tip: 'Carts coming through! Time your shot.',
+      map: [
+        '#########',
+        '##7...9##',
+        '#7.....9#',
+        '#...C...#',
+        '#.......#',
+        '#1.....3#',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##..T..##',
+        '##1...3##',
+        '#########',
+      ],
+      blocks: [[2, 9.6, 3.75, 10.4, 'mesa'], [5.25, 9.6, 7, 10.4, 'mesa']],
+      movers: [
+        { k: 'slide', x0: 2.85, z0: 10.58, x1: 6.15, z1: 10.58, w: 1.7, d: 0.36, period: 3.2, phase: 0, style: 'cart' },
+        { k: 'slide', x0: 6.0, z0: 6.4, x1: 3.0, z1: 6.4, w: 1.6, d: 0.42, period: 2.8, phase: 1, style: 'cart' },
+      ],
+      deco: [['cactus', 0.8, 13, 1], ['barrel', 8.3, 12], ['barrel', 8.4, 8], ['skull', 0.8, 7.5]],
+    },
+    {
+      name: 'Oasis', par: 3, tip: 'Round the pond — the water is cold.',
+      map: [
+        '###########',
+        '##7.....9##',
+        '#7.......9#',
+        '#....C....#',
+        '#.........#',
+        '#...~~~...#',
+        '#..~~~~~..#',
+        '#..~~~~~..#',
+        '#...~~~...#',
+        '#.........#',
+        '#1.......3#',
+        '##1.....3##',
+        '###.....###',
+        '###..T..###',
+        '###1...3###',
+        '###########',
+      ],
+      deco: [['palm', 5.5, 6.9, 1.1, 0.4], ['reeds', 3.6, 5.6], ['reeds', 7.4, 8.4], ['cactus', 10.4, 12], ['cactus', 0.6, 12.5, 0.8]],
+    },
+    {
+      name: 'Rattlesnake', par: 4, tip: 'Snake your way up. Bank it off the rails!',
+      map: [
+        '###############',
+        '#7...........9#',
+        '#..C..........#',
+        '#1............#',
+        '###########...#',
+        '###########...#',
+        '###########...#',
+        '#7............#',
+        '#.............#',
+        '#............3#',
+        '#...###########',
+        '#...###########',
+        '#...###########',
+        '#............9#',
+        '#..........T..#',
+        '#1...........3#',
+        '###############',
+      ],
+      blocks: [[6.2, 7, 7.0, 8.6, 'mesa']],
+      deco: [['cactus', 6, 5, 1.2], ['cactus', 8, 11.5, 1], ['skull', 4, 5.4], ['tumbleweed', 12.5, 11.5], ['rock', 2, 5.5, 1]],
+    },
+    {
+      name: 'Dune Hills', par: 3, tip: 'Read the dunes — they bend your putt.',
+      map: [
+        '###########',
+        '##7.....9##',
+        '#7.......9#',
+        '#....C....#',
+        '#.........#',
+        '#.........#',
+        '#.........#',
+        '#.........#',
+        '#.........#',
+        '#.........#',
+        '#.........#',
+        '#1.......3#',
+        '##1.....3##',
+        '###..T..###',
+        '###1...3###',
+        '###########',
+      ],
+      h: [['hill', 5.5, 9.4, 1.6, 0.34], ['hill', 3, 6.6, 1.3, 0.28], ['hill', 8, 6.6, 1.3, 0.28], ['hill', 5.5, 5.6, 0.9, 0.16]],
+      deco: [['cactus', 0.6, 8, 1], ['cactus', 10.4, 6, 1.1], ['tumbleweed', 10, 12.5], ['skull', 1.2, 12.6]],
+    },
+    {
+      name: 'Gold Mine', par: 4, tip: 'The long way round… or down the mine shaft.',
+      map: [
+        '################',
+        '#7............9#',
+        '#..............#',
+        '#..............#',
+        '#....3####1....#',
+        '#....######....#',
+        '#....######....#',
+        '#....######....#',
+        '#....######....#',
+        '#....######....#',
+        '#....######....#',
+        '#....######.s..#',
+        '#....######....#',
+        '#..T.######..C.#',
+        '#1..3######1..3#',
+        '################',
+      ],
+      tele: [{ from: [4.58, 8.5], r: 0.5, to: [11.42, 8.6], dir: [0.4, 1], style: 'cave' }],
+      movers: [{ k: 'slide', x0: 7.5, z0: 1.85, x1: 7.5, z1: 3.15, w: 0.42, d: 1.6, period: 3, phase: 0, style: 'cart' }],
+      deco: [['barrel', 7.5, 6], ['cactus', 8.5, 11, 1], ['skull', 7, 13], ['cactus', 7.4, 9, 0.8]],
+    },
+  ];
+
+  const WINTER = [
+    {
+      name: 'First Frost', par: 2, tip: 'Ice ahead! The ball slides much further on it.',
+      map: [
+        '#########',
+        '##7...9##',
+        '#7.....9#',
+        '#...C...#',
+        '#1.....3#',
+        '##.....##',
+        '##iiiii##',
+        '##iiiii##',
+        '##iiiii##',
+        '##iiiii##',
+        '##.....##',
+        '##.....##',
+        '##..T..##',
+        '##1...3##',
+        '#########',
+      ],
+      bumpers: [[3.3, 7.6, 0.38]],
+      deco: [['snowman', 8.2, 10, 1], ['snowpine', 0.7, 6, 1], ['snowpine', 8.4, 3, 0.9], ['sign', 1.2, 12.6]],
+    },
+    {
+      name: "Slip 'n' Slide", par: 3, tip: 'Slide round the icy corner.',
+      map: [
+        '##############',
+        '#7..........9#',
+        '#..........C.#',
+        '#iiiiii......#',
+        '#iiiiii.....3#',
+        '#iiiii########',
+        '#iiiii########',
+        '#.....########',
+        '#.....########',
+        '#.....########',
+        '#.....########',
+        '#..T..########',
+        '#1...3########',
+        '##############',
+      ],
+      deco: [['snowpine', 8, 7, 1.1], ['snowpine', 10, 9.5, 0.9], ['snowman', 7.4, 11], ['rock', 12, 7, 0.9]],
+    },
+    {
+      name: 'Snowman Slalom', par: 3, tip: 'Weave through the snowmen.',
+      map: [
+        '#########',
+        '##7...9##',
+        '#7.....9#',
+        '#...C...#',
+        '#1.....3#',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##..T..##',
+        '##1...3##',
+        '#########',
+      ],
+      bumpers: [[3.9, 12.4, 0.5], [5.1, 10.2, 0.5], [3.9, 8.0, 0.5], [5.1, 5.8, 0.5]],
+      deco: [['snowpine', 0.8, 10, 1], ['snowpine', 8.2, 7, 1.1], ['snowman', 8.3, 13]],
+    },
+    {
+      name: 'Ice Rink', par: 3, tip: 'Across the rink and past the spinner.',
+      map: [
+        '###########',
+        '#7.......9#',
+        '#....C....#',
+        '#.........#',
+        '#iiiiiiiii#',
+        '#iiiiiiiii#',
+        '#iiiiiiiii#',
+        '#iiiiiiiii#',
+        '#iiiiiiiii#',
+        '#iiiiiiiii#',
+        '#iiiiiiiii#',
+        '#1.......3#',
+        '###..T..###',
+        '###1...3###',
+        '###########',
+      ],
+      movers: [{ k: 'spin', x: 5.5, z: 7.5, len: 5.2, w: 0.32, period: 4.2, phase: 0, style: 'iceblock' }],
+      deco: [['snowman', 1.4, 13], ['snowpine', 9.8, 13, 1], ['snowpine', 10.5, 2, 0.9]],
+    },
+    {
+      name: 'Avalanche', par: 3, tip: 'Downhill all the way. Snowdrifts slow you down.',
+      map: [
+        '#########',
+        '##7...9##',
+        '#7.....9#',
+        '#...C...#',
+        '#1.....3#',
+        '##.....##',
+        '##ss...##',
+        '##.....##',
+        '##...ss##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##..T..##',
+        '##1...3##',
+        '#########',
+      ],
+      h: [['flat', 0, 11, 9, 15, 0.8], ['ramp', 0, 5, 9, 11, 0, 0.8, 'z']],
+      deco: [['snowpine', 0.8, 9, 1.2], ['snowpine', 8.2, 6, 1], ['rock', 8.3, 12, 1], ['snowman', 0.8, 3]],
+    },
+    {
+      name: 'Frozen Pond', par: 3, tip: 'Cross the ice to the island. No rails out there!',
+      map: [
+        '###########',
+        '#~~~~~~~~~#',
+        '#~7.....9~#',
+        '#~...C...~#',
+        '#~1.....3~#',
+        '#~~~iii~~~#',
+        '#~~~iii~~~#',
+        '#~~~iii~~~#',
+        '#~~~iii~~~#',
+        '#~,,,,,,,~#',
+        '#~,,,,,,,~#',
+        '#~,,,,,,,~#',
+        '#~~~~~~~~~#',
+        '###########',
+      ],
+      tee: [5.5, 10.6],
+      deco: [['snowpine', 9.6, 8, 1], ['snowpine', 0.6, 6, 1.1], ['snowman', 10, 12]],
+    },
+    {
+      name: 'Crevasse', par: 3, tip: 'Leap the crevasse, then round the corner.',
+      map: [
+        '#############',
+        '#7.........9#',
+        '#.........C.#',
+        '#...........#',
+        '#..........3#',
+        '#.....#######',
+        '#_____#######',
+        '#_____#######',
+        '#.....#######',
+        '#.....#######',
+        '#.....#######',
+        '#.....#######',
+        '#.....#######',
+        '#..T..#######',
+        '#1...3#######',
+        '#############',
+      ],
+      h: [['ramp', 0, 8, 6, 11, 0.6, 0, 'z']],
+      deco: [['snowpine', 7.5, 8, 1.2], ['snowpine', 9.5, 10, 1], ['snowman', 7.4, 13], ['rock', 11, 7, 1]],
+    },
+    {
+      name: 'Sliding Glaciers', par: 3, tip: 'Two blocks of ice, sliding on ice. Good luck!',
+      map: [
+        '#########',
+        '##7...9##',
+        '#7.....9#',
+        '#...C...#',
+        '#1.....3#',
+        '##.....##',
+        '##.....##',
+        '##iiiii##',
+        '##iiiii##',
+        '##iiiii##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##..T..##',
+        '##1...3##',
+        '#########',
+      ],
+      movers: [
+        { k: 'slide', x0: 3.0, z0: 12, x1: 6.0, z1: 12, w: 1.6, d: 0.5, period: 3, phase: 0, style: 'iceblock' },
+        { k: 'slide', x0: 6.0, z0: 6.2, x1: 3.0, z1: 6.2, w: 1.6, d: 0.5, period: 2.5, phase: 1.2, style: 'iceblock' },
+      ],
+      deco: [['snowpine', 0.8, 9, 1], ['snowpine', 8.2, 11, 1.1], ['snowman', 8.3, 4]],
+    },
+    {
+      name: 'Mountain Pass', par: 4, tip: 'Up, over the icy top and down to the cup.',
+      map: [
+        '###############',
+        '#7...........9#',
+        '#.............#',
+        '#..iiiiiiiii..#',
+        '#....3###1....#',
+        '#....#####....#',
+        '#....#####....#',
+        '#....#####....#',
+        '#....#####....#',
+        '#....#####....#',
+        '#....#####....#',
+        '#....#####....#',
+        '#....#####..C.#',
+        '#.T..#####....#',
+        '#1..3#####1..3#',
+        '###############',
+      ],
+      h: [['flat', 0, 0, 15, 6, 0.7], ['ramp', 0, 6, 5, 11, 0.7, 0, 'z'], ['ramp', 10, 6, 15, 11, 0.7, 0, 'z']],
+      deco: [['snowpine', 7.5, 8, 1.3], ['snowpine', 6.5, 11, 1], ['snowman', 8.5, 12.5], ['rock', 7.5, 5.6, 1.1]],
+    },
+  ];
+
+  const BEACH = [
+    {
+      name: 'Beach Day', par: 2, tip: 'Sun, sand… stay out of the sand.',
+      map: [
+        '#########',
+        '##7...9##',
+        '#7.....9#',
+        '#...C...#',
+        '#.......#',
+        '#1.....3#',
+        '##ss...##',
+        '##s....##',
+        '##.....##',
+        '##....s##',
+        '##...ss##',
+        '##.....##',
+        '##..T..##',
+        '##1...3##',
+        '#########',
+      ],
+      deco: [['palm', 0.6, 8, 1.1], ['umbrella', 8.3, 11], ['palm', 8.5, 4, 0.9], ['starfish', 1.3, 12.5]],
+    },
+    {
+      name: 'Island Hop', par: 3, tip: 'Bridge to island to bridge. Islands have no rails!',
+      map: [
+        '##############',
+        '#~~~~~~~~~~~~#',
+        '#~~~~~~7..9~~#',
+        '#~~~~~~..C.~~#',
+        '#~~~~~~1..3~~#',
+        '#~~~~~~~==~~~#',
+        '#~~~~~~~==~~~#',
+        '#~~7.....9~~~#',
+        '#~~.......~~~#',
+        '#~~1.....3~~~#',
+        '#~~~==~~~~~~~#',
+        '#~~~==~~~~~~~#',
+        '#~,,,,,,,,~~~#',
+        '#~,,,,,,,,~~~#',
+        '#~~~~~~~~~~~~#',
+        '##############',
+      ],
+      tee: [5, 12.9],
+      deco: [['palm', 5, 8, 0.9], ['palm', 9.5, 2.6, 0.7], ['rock', 12, 10, 0.8], ['boat', 11.5, 13]],
+    },
+    {
+      name: 'Beach Balls', par: 3, tip: 'Boing! Beach balls everywhere.',
+      map: [
+        '#############',
+        '####7...9####',
+        '###7.....9###',
+        '##7...C...9##',
+        '#7.........9#',
+        '#...........#',
+        '#...........#',
+        '#...........#',
+        '#1.........3#',
+        '##1.......3##',
+        '###1.....3###',
+        '####.....####',
+        '####.....####',
+        '####..T..####',
+        '####1...3####',
+        '#############',
+      ],
+      bumpers: [[6.5, 9.2, 0.5], [4.4, 7.5, 0.45], [8.6, 7.5, 0.45], [6.5, 6.1, 0.4], [3.0, 5.5, 0.4], [10.0, 5.5, 0.4]],
+      deco: [['umbrella', 1.5, 11.5], ['palm', 11.5, 11, 1], ['starfish', 2.5, 13], ['palm', 1, 2, 0.9]],
+    },
+    {
+      name: 'Crab Crossing', par: 3, tip: 'Watch out for the crabs!',
+      map: [
+        '#########',
+        '##7...9##',
+        '#7.....9#',
+        '#...C...#',
+        '#1.....3#',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##..T..##',
+        '##1...3##',
+        '#########',
+      ],
+      movers: [
+        { k: 'slide', x0: 3.0, z0: 13.4, x1: 6.0, z1: 13.4, w: 1.3, d: 0.5, period: 2.6, phase: 0, style: 'crab' },
+        { k: 'slide', x0: 6.0, z0: 10.2, x1: 3.0, z1: 10.2, w: 1.3, d: 0.5, period: 3.0, phase: 1, style: 'crab' },
+        { k: 'slide', x0: 3.0, z0: 7.0, x1: 6.0, z1: 7.0, w: 1.3, d: 0.5, period: 2.2, phase: 2, style: 'crab' },
+      ],
+      deco: [['palm', 0.6, 11, 1], ['umbrella', 8.3, 14], ['starfish', 8.4, 8], ['palm', 8.6, 3, 0.9]],
+    },
+    {
+      name: 'Lagoon Loop', par: 4, tip: 'All the way round the lagoon… or take the bridge.',
+      map: [
+        '###############',
+        '#7...........9#',
+        '#.............#',
+        '#...~~~~~~~...#',
+        '#...~~~~~~~...#',
+        '#...~~~~~~~...#',
+        '#...=======...#',
+        '#...=======...#',
+        '#...~~~~~~~...#',
+        '#...~~~~~~~...#',
+        '#.C.~~~~~~~.T.#',
+        '#1..~~~~~~~..3#',
+        '###############',
+      ],
+      deco: [['palm', 7.5, 4.2, 0.9], ['boat', 7.5, 9.6], ['umbrella', 7.5, 0.2], ['palm', 14.5, 9, 1]],
+    },
+    {
+      name: 'Shipwreck', par: 3, tip: 'Crates from the wreck are everywhere.',
+      map: [
+        '###########',
+        '#7.......9#',
+        '#...C.....#',
+        '#.........#',
+        '#.........#',
+        '#.........#',
+        '#.........#',
+        '#.........#',
+        '#.........#',
+        '#.........#',
+        '#1.......3#',
+        '###.....###',
+        '###..T..###',
+        '###1...3###',
+        '###########',
+      ],
+      blocks: [[3.6, 8.4, 5.4, 9.2, 'crate'], [6.4, 6.6, 8.8, 7.4, 'crate'], [1, 5, 2.6, 5.8, 'crate'], [4.4, 4.4, 6.0, 5.2, 'crate']],
+      deco: [['wreck', 10.5, 5.5], ['palm', 0.4, 11, 1], ['barrel', 9.4, 12], ['starfish', 1.5, 13]],
+    },
+    {
+      name: "Surf's Up", par: 3, tip: 'Ride the arrows up the wave!',
+      map: [
+        '#########',
+        '##7...9##',
+        '#7.....9#',
+        '#...C...#',
+        '#.......#',
+        '#1.....3#',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##..T..##',
+        '##1...3##',
+        '#########',
+      ],
+      h: [['flat', 0, 0, 9, 6, 1.1], ['ramp', 0, 6, 9, 10, 1.1, 0, 'z']],
+      boost: [[3.3, 11.2, 0, -1], [5.7, 11.2, 0, -1]],
+      deco: [['palm', 0.6, 12, 1], ['surfboard', 8.4, 12], ['umbrella', 8.3, 3.5]],
+    },
+    {
+      name: 'Coconut Swing', par: 3, tip: 'Two swinging logs. Wait for the gap.',
+      map: [
+        '#########',
+        '##7...9##',
+        '#7.....9#',
+        '#...C...#',
+        '#1.....3#',
+        '##.....##',
+        '##1...3##',
+        '###...###',
+        '###...###',
+        '###...###',
+        '###...###',
+        '###...###',
+        '###...###',
+        '##7...9##',
+        '##.....##',
+        '##..T..##',
+        '##1...3##',
+        '#########',
+      ],
+      movers: [
+        { k: 'swing', x: 4.5, z: 8.4, amp: 1.2, w: 1.5, d: 0.55, period: 2.4, phase: 0, style: 'log' },
+        { k: 'swing', x: 4.5, z: 11.4, amp: 1.2, w: 1.5, d: 0.55, period: 2.0, phase: 1.5, style: 'log' },
+      ],
+      deco: [['palm', 0.8, 14, 1], ['palm', 8.2, 3, 0.9], ['starfish', 8, 15]],
+    },
+    {
+      name: 'Treasure Island', par: 3, tip: 'Over the bridge, up the ramp and jump to the treasure island!',
+      map: [
+        '#############',
+        '#~~~~~~~~~~~#',
+        '#~~,,,,,,,~~#',
+        '#~~,,,C,,,~~#',
+        '#~~,,,,,,,~~#',
+        '#~~~~~~~~~~~#',
+        '#~~~~~~~~~~~#',
+        '#~~.......~~#',
+        '#~~,,,,,,,~~#',
+        '#~~,,,,,,,~~#',
+        '#~~~~~==~~~~#',
+        '#~~~~~==~~~~#',
+        '#~,,,,,,,,,~#',
+        '#~,,,,,,,,,~#',
+        '#~,,,,,,,,,~#',
+        '#~~~~~~~~~~~#',
+        '#############',
+      ],
+      tee: [7, 13.6],
+      h: [['ramp', 0, 7, 13, 10, 0.6, 0, 'z']],
+      deco: [['chest', 8.6, 2.6], ['palm', 3.6, 2.6, 0.8], ['boat', 11.6, 7]],
+    },
+  ];
+
+  const VOLCANO = [
+    {
+      name: 'Warm Up', par: 2, tip: 'That’s lava, not water. Keep clear!',
+      map: [
+        '#########',
+        '##7...9##',
+        '#7.....9#',
+        '#...C...#',
+        '#1.....3#',
+        '##.....##',
+        '##~....##',
+        '##~~...##',
+        '##.....##',
+        '##...~~##',
+        '##....~##',
+        '##.....##',
+        '##..T..##',
+        '##1...3##',
+        '#########',
+      ],
+      deco: [['crystal', 0.8, 8], ['basalt', 8.3, 11, 1], ['crystal', 8.4, 4], ['sign', 1.2, 12.6]],
+    },
+    {
+      name: 'Lava Bridge', par: 3, tip: 'A long, thin bridge over the lava.',
+      map: [
+        '#############',
+        '#~~~~~~~~~~~#',
+        '#~~~7...9~~~#',
+        '#~~~..C..~~~#',
+        '#~~~1...3~~~#',
+        '#~~~~~=~~~~~#',
+        '#~~~~~=~~~~~#',
+        '#~~~~~====~~#',
+        '#~~~~~~~~=~~#',
+        '#~~~~~~~~=~~#',
+        '#~~,,,,,,,,~#',
+        '#~~,,,,,,,,~#',
+        '#~~,,,,,,,,~#',
+        '#~~~~~~~~~~~#',
+        '#############',
+      ],
+      tee: [5.5, 11.5],
+      deco: [['basalt', 12, 6, 1.1], ['crystal', 0.6, 4], ['basalt', 0.5, 11, 0.9]],
+    },
+    {
+      name: 'Fire Spinner', par: 3, tip: 'Past the spinner — mind the lava at the sides.',
+      map: [
+        '###########',
+        '##7.....9##',
+        '#7.......9#',
+        '#....C....#',
+        '#.........#',
+        '#.........#',
+        '#~.......~#',
+        '#~.......~#',
+        '#~.......~#',
+        '#.........#',
+        '#1.......3#',
+        '##1.....3##',
+        '###..T..###',
+        '###1...3###',
+        '###########',
+      ],
+      movers: [{ k: 'spin', x: 5.5, z: 7.5, len: 5.0, w: 0.34, period: 3.6, phase: 0.6, style: 'magma' }],
+      deco: [['crystal', 10.4, 3], ['basalt', 0.5, 12, 1], ['basalt', 10.3, 11.5, 0.8]],
+    },
+    {
+      name: 'Boost Vents', par: 3, tip: 'The vents shoot you along — aim for the arrows.',
+      map: [
+        '#############',
+        '#7.........9#',
+        '#.........C.#',
+        '#...........#',
+        '#.....~~~~~3#',
+        '#.....#######',
+        '#.....#######',
+        '#.....#######',
+        '#.....#######',
+        '#.....#######',
+        '#.....#######',
+        '#..T..#######',
+        '#1...3#######',
+        '#############',
+      ],
+      boost: [[3.5, 8.5, 0, -1], [3.2, 2.6, 1, 0]],
+      deco: [['basalt', 8, 8, 1.2], ['crystal', 7.5, 11], ['basalt', 10, 6.5, 0.8]],
+    },
+    {
+      name: 'Magma Gates', par: 3, tip: 'Molten rock on the move. Pick your moment.',
+      map: [
+        '#########',
+        '##7...9##',
+        '#7.....9#',
+        '#...C...#',
+        '#.......#',
+        '#1.....3#',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##.....##',
+        '##..T..##',
+        '##1...3##',
+        '#########',
+      ],
+      blocks: [[2, 7.6, 3.75, 8.4, 'basalt'], [5.25, 7.6, 7, 8.4, 'basalt']],
+      movers: [
+        { k: 'slide', x0: 2.85, z0: 8.58, x1: 6.15, z1: 8.58, w: 1.7, d: 0.36, period: 3.0, phase: 0, style: 'magma' },
+        { k: 'slide', x0: 6.0, z0: 12, x1: 3.0, z1: 12, w: 1.6, d: 0.42, period: 2.4, phase: 1, style: 'magma' },
+      ],
+      deco: [['crystal', 0.8, 10], ['basalt', 8.3, 13, 1], ['crystal', 8.4, 5]],
+    },
+    {
+      name: 'Obsidian Maze', par: 3, tip: 'Left, right, left… and watch the lava pockets.',
+      map: [
+        '#############',
+        '#7.........9#',
+        '#.....C.....#',
+        '#...........#',
+        '#...........#',
+        '#...........#',
+        '#...........#',
+        '#~~.........#',
+        '#~~.........#',
+        '#...........#',
+        '#..........~#',
+        '#1.........3#',
+        '####.....####',
+        '####..T..####',
+        '####1...3####',
+        '#############',
+      ],
+      blocks: [[1, 9.1, 8, 9.9, 'basalt'], [5, 6, 12, 6.8, 'basalt'], [7.8, 3.6, 12, 4.4, 'basalt']],
+      deco: [['crystal', 2, 13], ['basalt', 11, 13, 1.1], ['crystal', 10.6, 14]],
+    },
+    {
+      name: 'Eruption Jump', par: 3, tip: 'Hit the vent, hit the ramp, fly the chasm!',
+      map: [
+        '###########',
+        '#7.......9#',
+        '#.........#',
+        '#....C....#',
+        '#.........#',
+        '#1.......3#',
+        '#_________#',
+        '#_________#',
+        '#_________#',
+        '###.....###',
+        '###.....###',
+        '###.....###',
+        '###.....###',
+        '###.....###',
+        '###..T..###',
+        '###1...3###',
+        '###########',
+      ],
+      h: [['flat', 0, 0, 11, 6, 0.15], ['ramp', 0, 9, 11, 12, 0.62, 0, 'z']],
+      boost: [[5.5, 12.7, 0, -1]],
+      deco: [['basalt', 1, 12, 1.1], ['crystal', 10, 12], ['basalt', 10.2, 2.5, 0.9]],
+    },
+    {
+      name: 'Crater', par: 3, tip: 'Into the crater! Not too hard or you’ll fly out.',
+      map: [
+        '#############',
+        '#~~7.....9~~#',
+        '#~7.......9~#',
+        '#7.........9#',
+        '#...........#',
+        '#...........#',
+        '#...........#',
+        '#1.........3#',
+        '#~1.......3~#',
+        '#~~1.....3~~#',
+        '####.....####',
+        '####.....####',
+        '####..T..####',
+        '####1...3####',
+        '#############',
+      ],
+      cup: [6.5, 4.9],
+      h: [['ring', 6.5, 4.9, 1.8, 0.8, 0.4, 'rim']],
+      deco: [['crystal', 2, 11.5], ['basalt', 11, 11.5, 1], ['smoke', 6.5, 4.9]],
+    },
+    {
+      name: 'Volcano Summit', par: 4, tip: 'Climb to the top. The cup is at the summit!',
+      map: [
+        '###############',
+        '#7...........9#',
+        '#.............#',
+        '#....~~~~~....#',
+        '#....3###1....#',
+        '#....#####....#',
+        '#....#####....#',
+        '#....#####....#',
+        '#....#####....#',
+        '#....#####....#',
+        '#....#####....#',
+        '#....#####....#',
+        '#..C.#####....#',
+        '#....#####.T..#',
+        '#1..3#####1..3#',
+        '###############',
+      ],
+      h: [['flat', 0, 0, 15, 15, 0.7], ['ramp', 10, 6, 15, 12, 0.7, 0, 'z'], ['flat', 10, 12, 15, 15, 0]],
+      boost: [[12, 10.2, 0, -1]],
+      deco: [['basalt', 7.5, 8, 1.4], ['crystal', 7, 11], ['smoke', 7.5, 6], ['basalt', 6.5, 13, 0.9]],
+    },
+  ];
+
   const COURSES = [
     { id: 'classic', name: 'Classic Meadow', emoji: '🌼', theme: 'meadow', blurb: 'Sunny warm-up course: windmill, ramp jump, island green.', holes: CLASSIC },
     { id: 'spooky', name: 'Spooky Hollow', emoji: '🎃', theme: 'spooky', blurb: 'A haunted night course: sliding graves, coffins, a haunted house.', holes: SPOOKY },
+    { id: 'desert', name: 'Cactus Canyon', emoji: '🌵', theme: 'desert', blurb: 'Sand traps, mine carts, mesas and a leap over the canyon.', holes: DESERT },
+    { id: 'frost', name: 'Frosty Peaks', emoji: '❄️', theme: 'winter', blurb: 'Slippery ice, snowmen, a spinning rink and a mountain pass.', holes: WINTER },
+    { id: 'beach', name: 'Tropical Cove', emoji: '🏝️', theme: 'beach', blurb: 'Island hopping, crabs, beach balls and a jump to the treasure.', holes: BEACH },
+    { id: 'volcano', name: 'Volcano Isle', emoji: '🌋', theme: 'volcano', blurb: 'Lava everywhere, fire spinners, boost vents and a summit cup.', holes: VOLCANO },
   ];
   COURSES.forEach((c) => c.holes.forEach((hd, i) => { hd.id = `${c.id}-${i + 1}`; hd.n = i + 1; hd.course = c.id; }));
-  const courseById = (id) => COURSES.find((c) => c.id === id) || COURSES[0];
+  const courseById = (id) => (typeof id === 'string' && /^gen-\d+$/.test(id) ? generate(+id.slice(4)) : COURSES.find((c) => c.id === id) || COURSES[0]);
   const par = (id) => courseById(id).holes.reduce((s, x) => s + x.par, 0);
 
   // ------------------------------------------------------------------ building a hole
   // cell codes
-  const VOID = 0; const TURF = 1; const SAND = 2; const WATER = 3; const GAP = 4;
-  const CODE = { '#': VOID, ' ': VOID, '.': TURF, T: TURF, C: TURF, s: SAND, '~': WATER, _: GAP, '=': TURF, ',': TURF, 7: TURF, 9: TURF, 1: TURF, 3: TURF };
-  const solid = (c) => c === TURF || c === SAND;
+  const VOID = 0; const TURF = 1; const SAND = 2; const WATER = 3; const GAP = 4; const ICE = 5;
+  const CODE = { '#': VOID, ' ': VOID, '.': TURF, T: TURF, C: TURF, s: SAND, i: ICE, '~': WATER, _: GAP, '=': TURF, ',': TURF, 7: TURF, 9: TURF, 1: TURF, 3: TURF };
+  const solid = (c) => c === TURF || c === SAND || c === ICE;
 
   function build(hd) {
     if (hd._built) return hd._built;
@@ -534,7 +1399,7 @@
     tee = hd.tee || tee; cup = hd.cup || cup;
     if (!tee || !cup) throw new Error(`${hd.id}: needs a tee and a cup`);
 
-    const H = { hd, W, D, code, diag, railed, cutType, tee, cup, walls: [], bumpers: [], blocks: [], movers: [], tele: [], hf: [] };
+    const H = { hd, W, D, code, diag, railed, cutType, tee, cup, walls: [], bumpers: [], blocks: [], movers: [], tele: [], boosts: [], hf: [] };
 
     // heights
     for (const f of hd.h || []) {
@@ -621,6 +1486,8 @@
       return b;
     };
     for (const b of hd.blocks || []) addBlock(b[0], b[1], b[2], b[3], b[4] || 'rock', b[4] === 'house' ? 6 : b[4] === 'tomb' ? 1.1 : 1.4);
+    // speed pads: [x, z, dirX, dirZ] (a circle of radius 0.55 that pushes the ball along dir)
+    for (const s of hd.boost || []) { const l = Math.hypot(s[2], s[3]); H.boosts.push({ x: s[0], z: s[1], r: 0.55, dx: s[2] / l, dz: s[3] / l }); }
     for (const b of hd.bumpers || []) H.bumpers.push({ x: b[0], z: b[1], r: b[2], e: hd.bumperE || P.BUMP_E });
 
     // moving obstacles
@@ -659,7 +1526,7 @@
     });
     H.bumpers.forEach((b, i) => cellsOf(b.x - b.r, b.z - b.r, b.x + b.r, b.z + b.r, (c) => c.b.push(i)));
     // the period after which every moving thing is back where it started (for the solver)
-    H.cycle = H.movers.reduce((m, o) => Math.max(m, o.period || 0), 0);
+    H.cycle = H.movers.reduce((m, o) => Math.max(m, Math.abs(o.period || 0)), 0);
     hd._built = H;
     return H;
   }
@@ -734,14 +1601,14 @@
   // ------------------------------------------------------------------ the ball
   function newBall(H, at) {
     const [x, z] = at || H.tee;
-    return { x, z, y: surface(H, x, z).h, vx: 0, vy: 0, vz: 0, state: 'rest', why: null, tc: 0, pin: false, pc: 0, ev: null };
+    return { x, z, y: surface(H, x, z).h, vx: 0, vy: 0, vz: 0, state: 'rest', why: null, tc: 0, pin: false, pc: 0, bu: 0, bin: -1, ev: null };
   }
-  const cloneBall = (b) => ({ x: b.x, z: b.z, y: b.y, vx: b.vx, vy: b.vy, vz: b.vz, state: b.state, why: b.why, tc: b.tc, pin: !!b.pin, pc: b.pc || 0, ev: null });
+  const cloneBall = (b) => ({ x: b.x, z: b.z, y: b.y, vx: b.vx, vy: b.vy, vz: b.vz, state: b.state, why: b.why, tc: b.tc, pin: !!b.pin, pc: b.pc || 0, bu: b.bu || 0, bin: b.bin ?? -1, ev: null });
   /** Hit the ball: angle in radians (0 = +x, π/2 = +z), power 0..1. */
   function hit(b, angle, power) {
     const v = Math.max(0.04, Math.min(1, power)) * P.VMAX;
     b.vx = Math.cos(angle) * v; b.vz = Math.sin(angle) * v; b.vy = 0;
-    b.state = 'roll'; b.pin = false; b.pc = 0;
+    b.state = 'roll'; b.pin = false; b.pc = 0; b.bu = 0; b.bin = -1;
   }
   const emit = (b, e) => { if (b.ev) b.ev.push(e); };
 
@@ -908,8 +1775,8 @@
       else if (f === VOID && b.y < -0.3) { out(b, 'oob'); return; }
       if (b.y < P.OUT_Y) { out(b, f === WATER ? 'water' : f === GAP ? 'gap' : 'oob'); return; }
     } else {
-      const sand = floorAt(H, b.x, b.z) === SAND;
-      const roll = sand ? P.SAND_ROLL : P.ROLL; const drag = sand ? P.SAND_DRAG : P.DRAG;
+      const fl = floorAt(H, b.x, b.z);
+      const roll = fl === SAND ? P.SAND_ROLL : fl === ICE ? P.ICE_ROLL : P.ROLL; const drag = fl === SAND ? P.SAND_DRAG : fl === ICE ? P.ICE_DRAG : P.DRAG;
       const slope = P.G * Math.hypot(s.gx, s.gz);
       if (b.state === 'rest' && slope > roll * 1.05 && !b.pin) b.state = 'roll';
       if (b.state === 'roll') {
@@ -955,6 +1822,18 @@
         if (b.state === 'rest') b.state = 'roll';
         if (!b.lip) { b.lip = true; if (v >= P.CAP_V) emit(b, ['lip']); }
       } else b.lip = false;
+      // speed pads: push while on one, and each pad only once a shot (so nothing can bounce between pads for ever)
+      let on = -1;
+      for (let k = 0; k < H.boosts.length; k++) {
+        const o = H.boosts[k];
+        if (!(b.bu & (1 << k)) && (b.x - o.x) * (b.x - o.x) + (b.z - o.z) * (b.z - o.z) < o.r * o.r) { on = k; break; }
+      }
+      if (b.bin >= 0 && b.bin !== on) { b.bu |= 1 << b.bin; b.bin = -1; }
+      if (on >= 0 && b.state === 'roll') {        // (a ball put back down on a pad stays put until it's hit)
+        const o = H.boosts[on];
+        if (b.bin !== on) { b.bin = on; emit(b, ['boost', on]); }
+        b.vx += o.dx * P.BOOST * dt; b.vz += o.dz * P.BOOST * dt;
+      }
       // teleports
       if (b.tc <= 0) {
         for (const tp of H.tele) {
@@ -1006,7 +1885,7 @@
     const dist = new Float64Array(W * D).fill(Infinity);
     const cost = (i) => {
       const c = H.code[i];
-      return c === TURF ? 1 : c === SAND ? 2.5 : c === GAP ? 1.6 : c === WATER ? 6 : Infinity;
+      return c === TURF || c === ICE ? 1 : c === SAND ? 2.5 : c === GAP ? 1.6 : c === WATER ? 6 : Infinity;
     };
     const blocked = new Uint8Array(W * D);
     for (const bl of H.blocks) {
@@ -1122,6 +2001,377 @@
     return null;
   }
 
+  // ------------------------------------------------------------------ random courses
+  // A random course is just a number (its seed). The pars come from the seed alone, so the server can keep the
+  // scorecard without building anything (games/golf.py has the same genPar). Each hole then grows from the seed:
+  // a lane that turns a corner or two, with obstacles picked to suit the course's look. Only whole-number
+  // maths decides the shape, so every browser builds exactly the same holes. tests/golftest.js plays hundreds
+  // of them to prove each one can be holed within par + 1.
+  /** A 32-bit integer hash (same bits in every browser and in Python). */
+  const mix = (x) => { x = Math.imul(x ^ (x >>> 16), 0x45d9f3b); x = Math.imul(x ^ (x >>> 16), 0x45d9f3b); return (x ^ (x >>> 16)) >>> 0; };
+  const holeSeed = (seed, i) => (mix((seed ^ mix(i + 101)) >>> 0) % 2147483646) + 1;
+  const GEN_PARS = [2, 3, 3, 3, 3, 4, 4];
+  const genPar = (seed, i) => (i === 0 ? 2 : GEN_PARS[Math.floor((mix(holeSeed(seed, i) + 7) * GEN_PARS.length) / 4294967296)]);
+  const GEN_THEMES = ['meadow', 'spooky', 'desert', 'winter', 'beach', 'volcano'];
+  const GEN_LOOK = {
+    meadow: { name: 'Meadow', block: 'rock', slide: 'gate', swing: 'log', mill: 'mill',
+      feats: { sand: 3, bumpers: 2, hill: 3, block: 1, water: 2, bridge: 1, jump: 2, windmill: 2, gate: 1, slide: 1, climb: 1 } },
+    spooky: { name: 'Haunted', block: 'tomb', slide: 'tomb', swing: 'coffin', mill: 'bat',
+      feats: { sand: 1, bumpers: 2, hill: 1, block: 2, water: 1, bridge: 1, jump: 2, windmill: 2, slide: 2, swing: 2 } },
+    desert: { name: 'Desert', block: 'mesa', slide: 'cart', swing: 'log', mill: 'mill',
+      feats: { sand: 4, bumpers: 2, hill: 3, block: 3, water: 1, jump: 2, gate: 2, slide: 1, windmill: 1, climb: 1 } },
+    winter: { name: 'Frozen', block: 'iceblock', slide: 'iceblock', swing: 'log', mill: 'mill',
+      feats: { ice: 4, sand: 2, bumpers: 2, hill: 2, block: 1, jump: 2, spin: 2, slide: 2, windmill: 1, water: 1, bridge: 1, climb: 1 } },
+    beach: { name: 'Tropical', block: 'crate', slide: 'crab', swing: 'log', mill: 'mill',
+      feats: { water: 3, bridge: 2, sand: 3, bumpers: 3, slide: 2, boost: 1, swing: 1, hill: 1 } },
+    volcano: { name: 'Volcanic', block: 'basalt', slide: 'magma', swing: 'log', mill: 'mill',
+      feats: { water: 3, bridge: 2, boost: 3, spin: 2, jump: 2, block: 2, slide: 2, hill: 1, climb: 1 } },
+  };
+  const GEN_NAMES = {
+    windmill: ['Windmill Way', 'Spin Cycle', 'Blade Runner'], gate: ['Gatecrasher', 'Perfect Timing', 'Open Sesame'],
+    jump: ['Leap of Faith', 'Mind the Gap', 'Big Air'], swing: ['Pendulum', 'Swing Time', 'Tick Tock'],
+    spin: ['Spinner', 'Round and Round', 'Merry-Go-Round'], slide: ['Rush Hour', 'Traffic Jam', 'Dodge It'],
+    bridge: ['Plank Walk', 'Bridge Crossing', 'Narrow Escape'], boost: ['Turbo Lane', 'Zoom Zoom', 'Speed Trap'],
+    water: { meadow: ['Pond Life', 'Duck Pond', 'Wet Feet'], spooky: ['Swamp Thing', 'Bog Hop', 'Murky Waters'], desert: ['Oasis', 'Mirage', 'Watering Hole'],
+      winter: ['Thin Ice', 'Cold Plunge', 'Polar Dip'], beach: ['Lagoon', 'Tide Pool', 'Shallow End'], volcano: ['Lava Flow', 'Hot Foot', 'Magma Moat'] },
+    ice: ['Slippery Slope', 'Skating Rink', 'Black Ice'], bumpers: ['Pinball', 'Bumper Cars', 'Ping Pong'],
+    block: ['Roadblock', 'Detour', 'In the Way'], climb: ['Uphill Battle', 'The Climb', 'Step Up'], hill: ['Bumpy Ride', 'Hill and Dale', 'Rollercoaster'],
+    sand: ['Sandy Bottom', 'Bunker Hill', 'Sand Trap'],
+  };
+  const GEN_TIPS = {
+    windmill: 'Time it through the windmill.', gate: 'Wait for the gate to open.', jump: 'Hit the ramp hard to clear the gap!',
+    swing: 'Slip past the swinging log.', spin: 'Watch the spinner — go when it lines up.', slide: 'Dodge the sliding blocks.',
+    bridge: 'Stay on the bridge!', boost: 'The arrows give you a big push.', water: 'Keep it dry.', ice: 'Ice is slippery — go easy.',
+    bumpers: 'Bounce off the bumpers.', block: 'Find a way round.', climb: 'Up the slope — too soft and it rolls back.', hill: 'Read the bumps.',
+    sand: 'Stay out of the sand.',
+  };
+  const BIG = ['windmill', 'gate', 'slide', 'swing', 'spin', 'jump', 'bridge', 'water', 'ice', 'boost', 'climb'];
+  const SMALL = ['sand', 'bumpers', 'hill', 'block'];
+  const MOVING = ['windmill', 'gate', 'slide', 'swing', 'spin'];
+  const NORTH = ['windmill', 'gate', 'slide', 'swing', 'jump'];     // these only go on lanes heading up the screen
+  const ROOM = { windmill: 5, gate: 4, slide: 4, swing: 4, spin: 5, jump: 9, bridge: 5, water: 4, ice: 3, boost: 3, climb: 6 };
+  const NOTE = ['windmill', 'gate', 'jump', 'swing', 'spin', 'slide', 'bridge', 'boost', 'water', 'ice', 'bumpers', 'block', 'climb', 'hill', 'sand'];
+
+  /** Lay out one random hole, or null if this try didn't work out. */
+  function layHole(rnd, par, theme, plain, seen = {}) {
+    const look = GEN_LOOK[theme];
+    const ri = (a, b) => a + Math.floor(rnd() * (b - a + 1));
+    const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
+    const side = rnd() < 0.5 ? 'E' : 'W'; const other = side === 'E' ? 'W' : 'E';
+    // (anything the course already has a few of gets less likely, so nine holes don't all have windmills)
+    const weight = (k) => look.feats[k] / (1 + 6 * (seen[k] || 0));
+    const weighted = (names) => {
+      const pool = names.filter((k) => look.feats[k]);
+      if (!pool.length) return null;
+      let r = rnd() * pool.reduce((t, k) => t + weight(k), 0);
+      for (const k of pool) { r -= weight(k); if (r <= 0) return k; }
+      return pool[pool.length - 1];
+    };
+    // first the big idea of the hole (a windmill, a jump, a bridge…), then a lane shaped to fit it
+    const bigs = [];
+    const nBig = plain ? 0 : par === 2 ? (rnd() < 0.75 ? 1 : 0) : par === 3 ? 1 : (rnd() < 0.5 ? 2 : 1);
+    for (let k = 0; k < 8 && bigs.length < nBig; k++) {
+      const name = weighted(BIG.filter((x) => !bigs.includes(x) && !(MOVING.includes(x) && bigs.some((y) => MOVING.includes(y)))));
+      if (name && !(name === 'climb' && par === 2)) bigs.push(name);
+    }
+    let w = par === 2 ? ri(4, 5) : pick([3, 4, 4, 5, 5]);
+    if (bigs.some((x) => ['windmill', 'gate', 'spin'].includes(x))) w = 5;
+    else if (bigs.includes('swing')) w = ri(3, 4);
+    else if (bigs.includes('slide') || bigs.includes('water')) w = Math.max(w, 4);
+    let legs; let shape;
+    if (par === 2) { legs = [['N', ri(8, 10)]]; shape = 'straight'; } else if (par === 3) {
+      shape = pick(['L', 'L', 'long', 'zig']);
+      if (shape === 'L') legs = [['N', ri(6, 9)], [side, ri(5, 8)]];
+      else if (shape === 'long') legs = [['N', ri(12, 15)]];
+      else legs = [['N', ri(5, 7)], [side, ri(3, 6)], ['N', ri(w + 2, 8)]];
+    } else {
+      shape = pick(['zig', 'zig', 'snake', 'long']);
+      if (shape === 'zig') legs = [['N', ri(6, 9)], [side, ri(5, 8)], ['N', ri(Math.max(5, w + 2), 9)]];
+      else if (shape === 'snake') legs = [['N', ri(5, 7)], [side, ri(4, 7)], ['N', ri(w + 2, w + 4)], [other, ri(4, 7)]];
+      else { legs = [['N', ri(15, 18)]]; w = Math.max(w, 4); }
+    }
+    // stretch the leg each big idea goes on, so it has room
+    const target = bigs.map((name) => {
+      const ok = legs.map((l, i) => i).filter((i) => (NORTH.includes(name) ? legs[i][0] === 'N' : true) && (name !== 'climb' || (i === 0 && legs.length > 1)));
+      if (!ok.length) return -1;
+      const i = name === 'climb' ? 0 : ok[Math.floor(rnd() * ok.length)];
+      legs[i][1] += ROOM[name];
+      return i;
+    });
+    const a = Math.floor((w - 1) / 2); const b = w - 1 - a;
+    const cells = new Map();          // "x,z" -> map character
+    const K = (x, z) => x + ',' + z;
+    const get = (x, z) => cells.get(K(x, z)) || '#';
+    const DIR = { N: [0, -1], E: [1, 0], W: [-1, 0] };
+    let px = 0; let pz = 0;
+    const L = [];
+    legs.forEach(([d, len], i) => {
+      const [dx, dz] = DIR[d];
+      const qx = px + dx * len; const qz = pz + dz * len;
+      for (let z = Math.min(pz, qz) - a; z <= Math.max(pz, qz) + b; z++) for (let x = Math.min(px, qx) - a; x <= Math.max(px, qx) + b; x++) cells.set(K(x, z), '.');
+      L.push({ d, dx, dz, len, px, pz, i, base: 0 });
+      px = qx; pz = qz;
+    });
+    const last = L.length - 1;
+    const tee = [0, 0];
+    const back = ri(0, Math.min(1, L[last].len - 4));
+    const cup = [px - L[last].dx * back, pz - L[last].dz * back];
+    // where a point `s` tiles along a leg is, and its lane: lateral edges (lo, hi) in tile-edge coordinates
+    const at = (g, s) => [g.px + g.dx * s, g.pz + g.dz * s];
+    const lane = (g) => (g.d === 'N' ? [g.px - a, g.px + b + 1] : [g.pz - a, g.pz + b + 1]);
+    const span = (g) => [g.i === 0 ? 2 : a + 2, g.i === last ? g.len - back - 2.5 : g.len - a - 2];
+    const hd = { par, tip: '', map: null, h: [], bumpers: [], blocks: [], movers: [], boost: [], gen: true };
+    const objs = [];                  // [x, z, r] of everything placed, so nothing overlaps
+    const used = L.map(() => []);     // spans [s0, s1] of each leg already taken
+    const free = (g, s0, s1) => s0 >= span(g)[0] && s1 <= span(g)[1] && used[g.i].every(([u0, u1]) => s1 < u0 - 0.5 || s0 > u1 + 0.5);
+    const clearOf = (x, z, r) => Math.hypot(x - tee[0] - 0.5, z - tee[1] - 0.5) > r + 1.6 && Math.hypot(x - cup[0] - 0.5, z - cup[1] - 0.5) > r + 1.8
+      && objs.every(([ox, oz, or]) => Math.hypot(x - ox, z - oz) > r + or + 0.9);
+    const findSpan = (g, n) => {
+      const [s0, s1] = span(g);
+      if (s1 - s0 < n) return null;
+      for (let k = 0; k < 6; k++) { const s = s0 + Math.floor(rnd() * (s1 - s0 - n + 1)); if (free(g, s, s + n)) return s; }
+      return null;
+    };
+    // a point in the middle of a leg's lane (x, z), s tiles along it, offset `o` across it
+    const pt = (g, s, o = 0) => {
+      const [c0, c1] = lane(g); const mid = (c0 + c1) / 2 + o;
+      const [x, z] = at(g, s);
+      return g.d === 'N' ? [mid, z + 0.5] : [x + 0.5, mid];
+    };
+    // the tiles across a leg's lane at s (whole rows/columns)
+    const across = (g, s) => { const [x, z] = at(g, s); const out = []; for (let k = -a; k <= b; k++) out.push(g.d === 'N' ? [x + k, z] : [x, z + k]); return out; };
+    const legsBy = (f) => L.filter(f);
+
+    const F = {
+      sand(g) {
+        g = g || pick(L); const n = ri(2, 3); const s = findSpan(g, n); if (s == null) return false;
+        const wide = w >= 5 ? ri(1, 2) : 1; const left = rnd() < 0.5;
+        for (let k = 0; k < n; k++) across(g, s + k).forEach(([x, z], j) => { if ((left ? j : w - 1 - j) < wide) cells.set(K(x, z), 's'); });
+        used[g.i].push([s, s + n]); return true;
+      },
+      bumpers() {
+        if (w < 4) return false;
+        const g = pick(L); let n = ri(1, w >= 5 ? 3 : 2); let put = 0;
+        for (let k = 0; k < 20 && n > 0; k++) {
+          const [s0, s1] = span(g); const s = s0 + rnd() * (s1 - s0); const r = 0.35 + rnd() * 0.15;
+          const [x, z] = pt(g, s, (rnd() - 0.5) * (w - 2 * r - 1.4));
+          if (!free(g, Math.floor(s), Math.ceil(s)) || !clearOf(x, z, r)) continue;
+          hd.bumpers.push([x, z, r]); objs.push([x, z, r]); n--; put++;
+        }
+        return put > 0;
+      },
+      hill(g) {
+        g = g || pick(L); const s = findSpan(g, 3); if (s == null) return false;
+        const r = 1 + rnd() * 0.5; const [x, z] = pt(g, s + 1.5, (rnd() - 0.5) * (w - 2));
+        if (!clearOf(x, z, r)) return false;
+        hd.h.push(['hill', x, z, r, 0.14 + rnd() * 0.14]); objs.push([x, z, r - 0.6]); used[g.i].push([s, s + 3]); return true;
+      },
+      block(g) {
+        if (w < 4) return false;
+        g = g || pick(L); const s = findSpan(g, 2); if (s == null) return false;
+        const bw = w >= 5 ? 1 + rnd() * 0.6 : 1; const bd = 0.6 + rnd() * 0.3;
+        const [x, z] = pt(g, s + 1, w >= 5 ? (rnd() - 0.5) * 0.8 : 0);
+        if (!clearOf(x, z, 0.8)) return false;
+        const [hx, hz] = g.d === 'N' ? [bw / 2, bd / 2] : [bd / 2, bw / 2];
+        hd.blocks.push([x - hx, z - hz, x + hx, z + hz, look.block]); objs.push([x, z, 0.9]); used[g.i].push([s, s + 2]); return true;
+      },
+      water(g) {
+        if (w < 4) return false;
+        g = g || pick(L); const n = ri(3, 5); const s = findSpan(g, n); if (s == null) return false;
+        const wide = w - 3; const left = rnd() < 0.5;
+        for (let k = 0; k < n; k++) across(g, s + k).forEach(([x, z], j) => { if ((left ? j : w - 1 - j) < wide) cells.set(K(x, z), '~'); });
+        used[g.i].push([s, s + n]); return true;
+      },
+      bridge(g) {
+        g = g || pick(L); const s = findSpan(g, 4); if (s == null) return false;
+        const at0 = ri(0, w - 2);
+        for (const k of [1, 2]) across(g, s + k).forEach(([x, z], j) => cells.set(K(x, z), j === at0 || j === at0 + 1 ? '=' : '~'));
+        used[g.i].push([s, s + 4]); return true;
+      },
+      ice(g) {
+        g = g || pick(L); const n = ri(2, 5); const s = findSpan(g, n); if (s == null) return false;
+        for (let k = 0; k < n; k++) across(g, s + k).forEach(([x, z]) => cells.set(K(x, z), 'i'));
+        used[g.i].push([s, s + n]); return true;
+      },
+      boost(g) {
+        g = g || pick(L); const s = findSpan(g, 3); if (s == null) return false;
+        const [x, z] = pt(g, s + 1); if (!clearOf(x, z, 0.6)) return false;
+        hd.boost.push([x, z, g.dx, g.dz]); objs.push([x, z, 0.6]); used[g.i].push([s, s + 3]); return true;
+      },
+      climb() {
+        const g = L[0]; if (L.length < 2 || g.len < b + 9 || used[0].length) return false;
+        const hh = 0.45 + rnd() * 0.3; const z0 = g.pz - g.len + b + 1;
+        const [c0, c1] = lane(g);
+        hd.h.unshift(['flat', -99, -99, 99, z0, hh], ['ramp', c0, z0, c1, z0 + 4, hh, 0, 'z']);
+        for (const o of L) if (o.i > 0) o.base = hh;
+        used[0].push([g.len - b - 6, g.len]); return true;
+      },
+      jump(g) {
+        g = g || pick(legsBy((o) => o.d === 'N')); if (!g) return false;
+        const gap = ri(2, 3); const s = findSpan(g, gap + 6); if (s == null) return false;
+        // from the tee side: 3 rows of ramp, then the gap, then turf to land on
+        const zTop = g.pz - s + 1;                 // the ramp's tee-side edge…
+        const zLip = zTop - 3;                     // …and its lip, where the gap starts
+        const [c0, c1] = lane(g);
+        hd.h.push(['ramp', c0, zLip, c1, zTop, g.base + 0.6, g.base, 'z']);
+        for (let k = 0; k < gap; k++) for (let x = c0; x < c1; x++) cells.set(K(x, zLip - 1 - k), '_');
+        used[g.i].push([s, s + gap + 6]); return true;
+      },
+      windmill(g) {
+        g = g || pick(legsBy((o) => o.d === 'N')); if (!g || w !== 5) return false;
+        const s = findSpan(g, 4); if (s == null) return false;
+        const [x, z] = pt(g, s + 2); if (!clearOf(x, z, 2.2)) return false;
+        hd.movers.push({ k: 'windmill', x, z, w: 1.3, d: 1.6, span: 2.5, period: 4.2 + rnd() * 1.2, face: 1, style: look.mill });
+        objs.push([x, z, 2.2]); used[g.i].push([s, s + 4]); return true;
+      },
+      gate(g) {
+        g = g || pick(legsBy((o) => o.d === 'N')); if (!g || w < 5) return false;
+        const s = findSpan(g, 3); if (s == null) return false;
+        const [c0, c1] = lane(g); const gc = (c0 + c1) / 2; const z0 = at(g, s + 1)[1] + 0.1;
+        if (!clearOf(gc, z0 + 0.5, 2)) return false;
+        hd.blocks.push([c0, z0, gc - 0.75, z0 + 0.8, look.block], [gc + 0.75, z0, c1, z0 + 0.8, look.block]);
+        hd.movers.push({ k: 'slide', x0: gc - 1.65, z0: z0 + 0.98, x1: gc + 1.65, z1: z0 + 0.98, w: 1.7, d: 0.36, period: 3 + rnd() * 0.8, phase: 0, style: look.slide === 'tomb' ? 'tomb' : 'gate' });
+        objs.push([gc, z0 + 0.5, 2.2]); used[g.i].push([s, s + 3]); return true;
+      },
+      slide(g) {
+        g = g || pick(legsBy((o) => o.d === 'N')); if (!g || w < 4) return false;
+        const s = findSpan(g, 3); if (s == null) return false;
+        const [c0, c1] = lane(g); const [, z] = pt(g, s + 1.5);
+        if (!clearOf((c0 + c1) / 2, z, 2)) return false;
+        const flip = rnd() < 0.5;
+        hd.movers.push({ k: 'slide', x0: flip ? c1 - 0.85 : c0 + 0.85, z0: z, x1: flip ? c0 + 0.85 : c1 - 0.85, z1: z, w: 1.6, d: 0.42, period: 2.6 + rnd(), phase: rnd() * 3, style: look.slide });
+        objs.push([(c0 + c1) / 2, z, 2]); used[g.i].push([s, s + 3]); return true;
+      },
+      swing(g) {
+        g = g || pick(legsBy((o) => o.d === 'N')); if (!g || w > 4) return false;
+        const s = findSpan(g, 3); if (s == null) return false;
+        const [x, z] = pt(g, s + 1.5); if (!clearOf(x, z, 2)) return false;
+        hd.movers.push({ k: 'swing', x, z, amp: w / 2 - 0.3, w: 1.5, d: 0.55, period: 2.2 + rnd() * 0.6, phase: 0, style: look.swing });
+        objs.push([x, z, 2]); used[g.i].push([s, s + 3]); return true;
+      },
+      spin(g) {
+        if (w < 5) return false;
+        g = g || pick(L); const len = w - 1.6; const n = Math.ceil(len) + 1; const s = findSpan(g, n); if (s == null) return false;
+        const [x, z] = pt(g, s + n / 2); if (!clearOf(x, z, len / 2 + 0.2)) return false;
+        hd.movers.push({ k: 'spin', x, z, len, w: 0.3, period: (3 + rnd() * 2) * (rnd() < 0.5 ? -1 : 1), phase: rnd() * 6, style: look.slide });
+        objs.push([x, z, len / 2 + 0.2]); used[g.i].push([s, s + n]); return true;
+      },
+    };
+    const got = [];
+    for (let k = 0; k < bigs.length; k++) {
+      if (target[k] < 0 || !F[bigs[k]](L[target[k]])) return null;    // it didn't fit: try again
+      got.push(bigs[k]);
+    }
+    // then a few smaller things round the rest of the hole
+    const want = plain || (par === 2 && !got.length) ? 1 : par === 2 ? ri(0, 1) : par === 3 ? ri(1, 2) : ri(1, 3);
+    for (let tries = 0, n = 0; n < want && tries < 12; tries++) {
+      const name = weighted(SMALL.filter((x) => !got.includes(x) || x === 'sand'));
+      if (name && F[name]()) { got.push(name); n++; }
+    }
+    // bumpers/blocks/etc on a raised leg sit on its plateau already (heights add up); ramps used g.base
+    // the map: everything shifted so the top-left tile is (1, 1), with a border of outside all round
+    let x0 = 1e9; let x1 = -1e9; let z0 = 1e9; let z1 = -1e9;
+    for (const key of cells.keys()) { const [x, z] = key.split(',').map(Number); x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
+    const ox = 1 - x0; const oz = 1 - z0; const W = x1 - x0 + 3; const D = z1 - z0 + 3;
+    if (W > 26 || D > 26) return null;
+    cells.set(K(tee[0], tee[1]), 'T'); cells.set(K(cup[0], cup[1]), 'C');
+    // cut the outside corners at 45°, like the hand-made holes
+    const isOut = (x, z) => get(x, z) === '#';
+    const keep = (x, z) => Math.abs(x - tee[0]) <= 1 && Math.abs(z - tee[1]) <= 1 || Math.abs(x - cup[0]) <= 1 && Math.abs(z - cup[1]) <= 1;
+    for (const key of [...cells.keys()]) {
+      const [x, z] = key.split(',').map(Number);
+      if (get(x, z) !== '.' || keep(x, z)) continue;
+      const n = isOut(x, z - 1); const s2 = isOut(x, z + 1); const wv = isOut(x - 1, z); const e = isOut(x + 1, z);
+      if (n && wv && !s2 && !e) cells.set(key, '7'); else if (n && e && !s2 && !wv) cells.set(key, '9');
+      else if (s2 && wv && !n && !e) cells.set(key, '1'); else if (s2 && e && !n && !wv) cells.set(key, '3');
+    }
+    const rows = [];
+    for (let z = 0; z < D; z++) { let r = ''; for (let x = 0; x < W; x++) r += get(x - ox, z - oz); rows.push(r); }
+    hd.map = rows;
+    const sx = (v) => v + ox; const sz = (v) => v + oz;
+    hd.h = hd.h.map((f) => (f[0] === 'hill' ? ['hill', sx(f[1]), sz(f[2]), f[3], f[4]] : f[0] === 'flat' ? ['flat', f[1], -99, 99, sz(f[4]), f[5]] : ['ramp', sx(f[1]), sz(f[2]), sx(f[3]), sz(f[4]), f[5], f[6], f[7]]));
+    hd.bumpers = hd.bumpers.map(([x, z, r]) => [sx(x), sz(z), r]);
+    hd.blocks = hd.blocks.map(([a0, b0, a1, b1, st]) => [sx(a0), sz(b0), sx(a1), sz(b1), st]);
+    hd.boost = hd.boost.map(([x, z, dx, dz]) => [sx(x), sz(z), dx, dz]);
+    hd.movers = hd.movers.map((m) => (m.k === 'slide' ? { ...m, x0: sx(m.x0), z0: sz(m.z0), x1: sx(m.x1), z1: sz(m.z1) } : { ...m, x: sx(m.x), z: sz(m.z) }));
+    const note = NOTE.find((k) => got.includes(k));
+    // a name from its main obstacle (generate() swaps in another if the course already has one)
+    const list = (k) => (Array.isArray(GEN_NAMES[k]) ? GEN_NAMES[k] : GEN_NAMES[k][theme]);
+    const shaped = shape === 'L' ? [side === 'E' ? 'Dogleg Right' : 'Dogleg Left'] : shape === 'zig' ? ['Zig Zag'] : shape === 'snake' ? ['The Snake'] : ['Straight Shot', 'The Runway', 'Long Haul'];
+    hd.names = [...(note ? list(note) : []), ...got.filter((k) => k !== note).flatMap(list), ...shaped];
+    hd.name = note ? pick(list(note)) : pick(shaped);
+    hd.tip = note ? GEN_TIPS[note] : 'Find the best line to the cup.';
+    hd.feats = [...new Set(got)];
+    return hd;
+  }
+  /** The checks a hand-made hole gets from the tests, cheap enough to run on every random one. */
+  function holeOk(hd) {
+    let H;
+    try { H = build(hd); } catch (e) { return false; }
+    const [tx, tz] = H.tee; const [cx, cz] = H.cup;
+    if (!solid(floorAt(H, tx, tz))) return false;
+    for (let a = 0; a < Math.PI * 2; a += Math.PI / 8) for (const r of [0, P.CUP_R, 0.62]) if (floorAt(H, cx + Math.cos(a) * r, cz + Math.sin(a) * r) !== TURF) return false;
+    const s0 = surface(H, cx, cz, {}); const s1 = surface(H, tx, tz, {});
+    if (Math.hypot(s0.gx, s0.gz) > 0.02 || Math.hypot(s1.gx, s1.gz) * P.G > P.ROLL * 0.9) return false;
+    for (const w of H.walls) {
+      const ex = w.bx - w.ax; const ez = w.bz - w.az;
+      const u = Math.max(0, Math.min(1, ((cx - w.ax) * ex + (cz - w.az) * ez) / (w.len * w.len)));
+      if (Math.hypot(cx - w.ax - ex * u, cz - w.az - ez * u) < P.CUP_R + P.R + 0.05) return false;
+    }
+    if (H.blocks.some((b) => tx > b.x0 - 0.4 && tx < b.x1 + 0.4 && tz > b.z0 - 0.4 && tz < b.z1 + 0.4)) return false;
+    if (H.bumpers.some((o) => Math.hypot(tx - o.x, tz - o.z) < o.r + 0.6)) return false;
+    if (pathDist(H, tx, tz) >= 999) return false;
+    return true;
+  }
+  /** A plain lane, for the (very rare) seed where nothing else fits. */
+  function plainHole(par) {
+    const n = par === 2 ? 9 : par === 3 ? 14 : 19;
+    const map = ['#######', '##7.9##'];
+    for (let k = 0; k < n; k++) map.push(k === 1 ? '##.C.##' : k === n - 2 ? '##.T.##' : '##...##');
+    map.push('##1.3##', '#######');
+    return { par, name: 'Straight Shot', tip: 'Nice and simple.', map, gen: true, feats: [] };
+  }
+  function genHole(seed, i, theme, seen) {
+    const par = genPar(seed, i);
+    const base = holeSeed(seed, i);
+    for (let k = 0; k < 40; k++) {
+      // (whole-number 32-bit maths, so every browser gets the same numbers)
+      let s = (base * 2654435761 + k * 40503) | 0;
+      const rnd = () => {
+        s = (s + 0x6D2B79F5) | 0;
+        let t = Math.imul(s ^ (s >>> 15), 1 | s);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+      const hd = layHole(rnd, par, theme, k >= 28, seen);
+      if (hd && holeOk(hd)) return hd;
+    }
+    return plainHole(par);
+  }
+  const genCache = new Map();
+  /** A whole random course from its seed (1 … 2147483646). */
+  function generate(seed, n = 9) {
+    seed = Math.max(1, Math.min(2147483646, Math.floor(seed) || 1));
+    const id = `gen-${seed}`;
+    if (genCache.has(id + '/' + n)) return genCache.get(id + '/' + n);
+    const theme = GEN_THEMES[mix(seed) % GEN_THEMES.length];
+    const look = GEN_LOOK[theme];
+    const holes = [];
+    const taken = new Set(); const seen = {};
+    for (let i = 0; i < n; i++) {
+      const hd = genHole(seed, i, theme, seen);
+      for (const f of hd.feats) if (BIG.includes(f)) seen[f] = (seen[f] || 0) + 1;
+      if (taken.has(hd.name)) hd.name = (hd.names || []).find((x) => !taken.has(x)) || `${hd.name} ${['II', 'III', 'IV', 'V'].find((r) => !taken.has(`${hd.name} ${r}`))}`;
+      taken.add(hd.name);
+      Object.assign(hd, { id: `${id}-${i + 1}`, n: i + 1, course: id });
+      holes.push(hd);
+    }
+    const c = { id, seed, gen: true, name: 'Random Course', emoji: '🎲', theme, blurb: `${look.name} course #${seed}`, holes };
+    genCache.set(id + '/' + n, c);
+    return c;
+  }
+  const newSeed = () => 1 + Math.floor(Math.random() * 2000000000);
+
   root.GolfCore = { P, COURSES, courseById, par, build, floorAt, surface, heightAt, moverPose, newBall, cloneBall, hit, step,
-    simulateShot, idle, geodesic, pathDist, pathDir, solve, VOID, TURF, SAND, WATER, GAP, solid };
+    simulateShot, idle, geodesic, pathDist, pathDir, solve, generate, genPar, newSeed, GEN_THEMES, VOID, TURF, SAND, WATER, GAP, ICE, solid };
 })(typeof window !== 'undefined' ? window : globalThis);

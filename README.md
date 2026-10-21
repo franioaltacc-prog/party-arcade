@@ -279,23 +279,37 @@ refresh rate; the bird's x depends only on time, which is what lets the server c
   `tests/flappybot.py` plays Flappy Royale over websockets.
 
 ## Mini Golf
-Low-poly 3D mini golf (three.js). `public/js/games/golf-core.js` holds both 9-hole courses as data (tile maps plus ramps,
-hills, bumpers, blocks, moving obstacles and teleports) and the ball physics in fixed 1/120 s steps on the hole clock,
-with no drawing, so the same shots always end in the same place. Drag back from the ball like a slingshot (mouse or
-touch), drag elsewhere to look around, 🗺️ / V for the whole hole; ←/→ ↑/↓ and Space on a keyboard. Water, drops and
-out of bounds cost a stroke and put you back where you played from (not when a moving obstacle knocks a waiting ball in);
-8 strokes and the ball is picked up.
-- **Classic Meadow** (windmill, ramp jump, sliding gate, island green, rabbit-hole teleport) and **Spooky Hollow**
-  (sliding tombstones, swinging coffin, bat mill, haunted house with a trick door, crypt jump, toxic marsh).
+Low-poly 3D mini golf (three.js). `public/js/games/golf-core.js` holds the six 9-hole courses as data (tile maps plus
+ramps, hills, bumpers, blocks, moving obstacles, speed pads and teleports), the random course maker, and the ball physics
+in fixed 1/120 s steps on the hole clock, with no drawing, so the same shots always end in the same place. Drag back from
+the ball like a slingshot (mouse or touch), drag elsewhere to look around, 🗺️ / V for the whole hole; ←/→ ↑/↓ and Space
+on a keyboard. Water / lava, drops and out of bounds cost a stroke and put you back where you played from (not when a
+moving obstacle knocks a waiting ball in); 8 strokes and the ball is picked up. Sand is slow, ice (`i` tiles) is
+slippery, and a speed pad pushes the ball along its arrow (each pad once a shot).
+- **Classic Meadow** (windmill, ramp jump, sliding gate, island green, rabbit-hole teleport), **Spooky Hollow**
+  (sliding tombstones, swinging coffin, bat mill, haunted house with a trick door, crypt jump, toxic marsh),
+  **Cactus Canyon** (sand alleys, mesas, mine carts, oasis, canyon leap, mine-shaft shortcut), **Frosty Peaks** (ice,
+  snowman slalom, spinning ice rink, crevasse, sliding glaciers, mountain pass), **Tropical Cove** (island hopping,
+  beach balls, crabs, swinging logs, surf boosts, jump to Treasure Island) and **Volcano Isle** (lava, fire spinner,
+  boost vents, magma gates, crater cup, summit). Each course has its own look in `THEMES` in `golf.js`.
+- **Random courses** (`generate(seed)`): a course is a number. The pars come from the seed alone (`genPar`, copied
+  exactly as `gen_par` in `games/golf.py` with the same 32-bit hash), then each hole grows from it: a lane with up to
+  three turns, sized round one big idea (windmill, gate, jump, bridge, spinner, ice, speed pads, a climb…) plus a few
+  smaller things, in one of the six looks. Only whole-number maths picks the shape, so every browser builds the same
+  holes. Solo: 🎲 on the course menu, or `?solo=1&course=gen-123456`; the end card shows the code to share.
 - **Solo** (`/games/golf?solo=1`, or `&course=spooky&hole=6` for one hole): scorecard, best total per course,
-  `golf-classic` / `golf-spooky` leaderboards (lowest strokes; a Spooky round also counts as `golf.spooky_done`).
-- **Online** (`games/golf.py`, course classic / spooky / random, 3 / 6 / 9 holes): everyone plays the same hole at once;
+  `golf-<course>` leaderboards (lowest strokes; a Spooky round also counts as `golf.spooky_done`). Random courses have
+  no best or leaderboard.
+- **Online** (`games/golf.py`, course classic / spooky / desert / frost / beach / volcano, `random` = one of those,
+  `gen` = a new random course every game (`gen-<seed>`), 3 / 6 / 9 holes): everyone plays the same hole at once;
   each browser runs its own ball and sends its position (drawn as coloured ghost balls) and its strokes. The hole ends
   when everyone is done or 45 s after the first player holes out (the rest get 8). Lowest total wins. The server
-  checks strokes (1–8, at least 0.8 s a stroke). Stats: `golf.games/wins/holes/aces/best/spooky_done`. Admin cheats:
-  hole in one, end the hole. Also in party mode and tournaments (3 random holes).
+  checks strokes (1–8, at least 0.8 s a stroke). Stats: `golf.games/wins/holes/aces/best/spooky_done` (`best` only on
+  the six fixed courses). Admin cheats: hole in one, end the hole. Also in party mode and tournaments (3 random holes).
 - `tests/golftest.js` (`node tests/golftest.js`) solves every hole within par + 1 and fuzzes the physics (no escapes,
-  no tunnelling, obstacles never push the ball through a rail); `tests/golfbot.py` plays Mini Golf over websockets.
+  no tunnelling, obstacles never push the ball through a rail), for the fixed courses and a spread of random ones, then
+  solves a hundred-odd more random holes; `tests/golfbot.py` plays Mini Golf over websockets and checks that the
+  server's random-course pars match the browser's.
 
 ## Song Rush
 A song plays and everyone races to name it (`games/songs/`, `public/js/games/songs.js`, 1–16 players, party mode too).

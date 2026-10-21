@@ -5,7 +5,39 @@ from .base import Game, num
 
 # course id -> (name, par of each hole) — must match public/js/games/golf-core.js (tests/golftest.js checks)
 COURSES = {"classic": ("Classic Meadow", [2, 3, 3, 3, 3, 3, 3, 3, 4]),
-           "spooky": ("Spooky Hollow", [2, 3, 3, 3, 3, 3, 3, 3, 4])}
+           "spooky": ("Spooky Hollow", [2, 3, 3, 3, 3, 3, 3, 3, 4]),
+           "desert": ("Cactus Canyon", [2, 3, 3, 3, 3, 3, 4, 3, 4]),
+           "frost": ("Frosty Peaks", [2, 3, 3, 3, 3, 3, 3, 3, 4]),
+           "beach": ("Tropical Cove", [2, 3, 3, 3, 4, 3, 3, 3, 3]),
+           "volcano": ("Volcano Isle", [2, 3, 3, 3, 3, 3, 3, 3, 4])}
+# "gen" in the settings = a brand-new random course every game; the round's course is then "gen-<seed>" and
+# each browser builds the holes from the seed. Only the pars are needed here: the same sums as genPar in golf-core.js.
+GEN_PARS = [2, 3, 3, 3, 3, 4, 4]
+M32 = 0xFFFFFFFF
+
+
+def mix(x):
+    x &= M32
+    x = ((x ^ (x >> 16)) * 0x45d9f3b) & M32
+    x = ((x ^ (x >> 16)) * 0x45d9f3b) & M32
+    return x ^ (x >> 16)
+
+
+def gen_par(seed, i):
+    if i == 0:
+        return 2
+    hole_seed = mix(seed ^ mix(i + 101)) % 2147483646 + 1
+    return GEN_PARS[(mix(hole_seed + 7) * len(GEN_PARS)) >> 32]
+
+
+def course_info(cid):
+    """(name, pars) of a course id, random ones included."""
+    if cid.startswith("gen-"):
+        seed = int(cid[4:])
+        return "Random Course", [gen_par(seed, i) for i in range(9)]
+    return COURSES[cid]
+
+
 MAX_STROKES = 8
 COUNTDOWN = 3.0
 HURRY_SECONDS = 45
@@ -40,7 +72,7 @@ class Golf(Game):
         if not r:
             return None
         return {"id": r["id"], "course": r["course"], "holes": r["holes"], "hole": r["hole"], "stage": r["stage"],
-                "elapsed": round(time.time() - r["start"], 2), "pars": COURSES[r["course"]][1][:r["holes"]],
+                "elapsed": round(time.time() - r["start"], 2), "pars": course_info(r["course"])[1][:r["holes"]],
                 "hurry": round(self.hurry_at - time.time(), 1) if self.hurry_at else None,
                 "players": {u: {"scores": p["scores"], "how": p["how"], "s": p["s"], "pos": p["pos"],
                                 "done": p["scores"][r["hole"]] is not None} for u, p in r["players"].items()}}
@@ -54,7 +86,7 @@ class Golf(Game):
         host = self.is_host(m)
         if t == "settings" and host and self.phase != "playing":
             c = msg.get("course")
-            if c in COURSES or c == "random":
+            if c in COURSES or c in ("random", "gen"):
                 self.settings["course"] = c
             n = msg.get("holes")
             if n in (3, 6, 9):
@@ -78,6 +110,8 @@ class Golf(Game):
         course = self.settings["course"]
         if course == "random":
             course = random.choice(list(COURSES))
+        elif course == "gen":
+            course = f"gen-{random.randint(1, 2_000_000_000)}"
         n = self.settings["holes"]
         players = {u.uid: {"scores": [None] * n, "how": [None] * n, "s": 0, "pos": None} for u in self.room.players_now()}
         if not players:
@@ -179,7 +213,7 @@ class Golf(Game):
             return
         self.room.cancel(self.timer)
         self.phase = "results"
-        name, pars = COURSES[r["course"]]
+        name, pars = course_info(r["course"])
         par = sum(pars[:r["holes"]])
         rows = []
         for uid, p in r["players"].items():
@@ -219,7 +253,7 @@ class Golf(Game):
                 stats["golf.wins"] = ("add", 1)
             if row["aces"]:
                 stats["golf.aces"] = ("add", row["aces"])
-            if r["holes"] == 9:
+            if r["holes"] == 9 and r["course"] in COURSES:     # (random courses are all different, so no best)
                 stats["golf.best"] = ("min", row["total"])
                 if r["course"] == "spooky" and all(h in ("ace", "holed", "picked") for h in row["how"]):
                     stats["golf.spooky_done"] = ("add", 1)

@@ -83,6 +83,10 @@ BOARDS = {
     "volley_rally": ("🤝 Longest Screen Volley rally", "volley.best_rally", "desc", "int"),
     "golf_classic": ("⛳ Mini Golf: Classic Meadow", "golfclassic.best", "asc", "strokes"),
     "golf_spooky": ("🎃 Mini Golf: Spooky Hollow", "golfspooky.best", "asc", "strokes"),
+    "golf_desert": ("🌵 Mini Golf: Cactus Canyon", "golfdesert.best", "asc", "strokes"),
+    "golf_frost": ("❄️ Mini Golf: Frosty Peaks", "golffrost.best", "asc", "strokes"),
+    "golf_beach": ("🏝️ Mini Golf: Tropical Cove", "golfbeach.best", "asc", "strokes"),
+    "golf_volcano": ("🌋 Mini Golf: Volcano Isle", "golfvolcano.best", "asc", "strokes"),
 }
 
 # Scores the browser reports for solo games: game -> (stat ops, lowest, highest)
@@ -108,8 +112,13 @@ SOLO = {
     "flappy": ("flappy", 1, 10000),                  # Neon Flappy: pipes passed in one run
     "golf-classic": ("golfclassic", 9, 72),          # Mini Golf solo: strokes for all 9 holes (max 8 a hole)
     "golf-spooky": ("golfspooky", 9, 72),            # (a finished Spooky Hollow round also counts as golf.spooky_done)
+    "golf-desert": ("golfdesert", 9, 72),
+    "golf-frost": ("golffrost", 9, 72),
+    "golf-beach": ("golfbeach", 9, 72),
+    "golf-volcano": ("golfvolcano", 9, 72),
 }
-FASTEST = {"memory", "dash-solo", "mines-easy", "mines-medium", "mines-hard", "pool-speed", "golf-classic", "golf-spooky"} | {f"poly-{i}" for i in range(1, 7)}   # solo games where a lower time wins
+FASTEST = {"memory", "dash-solo", "mines-easy", "mines-medium", "mines-hard", "pool-speed", "golf-classic", "golf-spooky",
+           "golf-desert", "golf-frost", "golf-beach", "golf-volcano"} | {f"poly-{i}" for i in range(1, 7)}   # solo games where a lower time wins
 
 # Motocross tracks are data (public/js/games/moto/tracks.json): each one gets a best-time board and a
 # solo score, and nobody can beat the robot rider's time by more than 30%.

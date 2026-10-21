@@ -210,8 +210,38 @@ async def nine_holes():
         x.send({"t": "room:leave"})
 
 
+async def random_course():
+    """A random course: the server picks a seed, the pars match the browser's genPar, no best round is kept."""
+    from games.golf import gen_par, COURSES
+    # the same numbers golf-core.js's genPar gives for these seeds (if this fails, the two copies differ)
+    js = {1: "233233344", 2: "243343333", 3: "223433324", 777: "232332433", 12345: "233333342", 2000000000: "223334323"}
+    check(all("".join(str(gen_par(s, i)) for i in range(9)) == v for s, v in js.items()), "random course pars match the browser's")
+    check(set(COURSES) == {"classic", "spooky", "desert", "frost", "beach", "volcano"}, "six courses")
+    a, b = WS(), WS()
+    await a.connect("gr" + U + "aa", "Rae"); await b.connect("gr" + U + "bb", "Rob")
+    for x in (a, b):
+        await x.wait("welcome")
+    a.send({"t": "room:create", "game": "golf"}); j = await a.wait("room:joined")
+    b.send({"t": "room:join", "code": j["code"], "game": "golf"}); await b.wait("room:joined")
+    a.send({"t": "g:settings", "course": "volcano"})
+    st = await wait_for(b, "g:settings", pred=lambda m: m["settings"]["course"] == "volcano")
+    check(st["settings"]["course"] == "volcano", "host picks Volcano Isle")
+    a.send({"t": "g:settings", "course": "gen", "holes": 3})
+    st = await wait_for(b, "g:settings", pred=lambda m: m["settings"]["course"] == "gen")
+    check(st["settings"] == {"course": "gen", "holes": 3}, "host picks a random course, 3 holes")
+    a.send({"t": "g:start"})
+    hole = await wait_for(b, "g:hole", 5)
+    r = hole["round"]
+    seed = int(r["course"][4:]) if r["course"].startswith("gen-") else 0
+    check(seed > 0 and r["pars"] == [gen_par(seed, i) for i in range(3)], f"the round is {r['course']} with pars {r['pars']}")
+    a.send({"t": "g:start"})
+    check(await nothing(b, "g:start", 0.3), "can't restart mid-game")
+    for x in (a, b):
+        x.send({"t": "room:leave"})
+
+
 async def main():
-    await asyncio.gather(three_holes(), nine_holes())
+    await asyncio.gather(three_holes(), nine_holes(), random_course())
     print("FAILED:", check.failed)
 
 if __name__ == "__main__":

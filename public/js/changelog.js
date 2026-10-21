@@ -6,6 +6,15 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.6.0', date: '2026-10-21', emoji: '⛳', title: 'Mini Golf: four new courses and random courses', items: [
+      'Cactus Canyon 🌵: sand trap alleys, mesas, mine carts, an oasis and a leap over the canyon',
+      'Frosty Peaks ❄️: slippery ice, a snowman slalom, a spinning ice rink, a crevasse jump and a mountain pass',
+      'Tropical Cove 🏝️: island hopping, beach-ball bumpers, crabs, swinging logs, surf boosts and a jump to Treasure Island',
+      'Volcano Isle 🌋: lava instead of water, fire spinners, boost vents, magma gates and a cup at the summit',
+      'Random courses 🎲: nine brand-new holes made up on the spot, in any of the six looks. Every one comes with a course code to share with friends',
+      'Online, the host can pick a random course too: new holes every game, the same for everyone in the room',
+      'New things on the holes: ice, glowing speed pads and spinning bars. Each new course has its own leaderboard',
+    ] },
     { v: '3.5.0', date: '2026-10-19', emoji: '🪙', title: 'Motocross: coins, faster engines and challenges', items: [
       'Gold coins in all three free-ride worlds: along the trails and up in the air over every jump (those are worth more)',
       'Earn more coins riding around, landing flips and big air, finishing mini races and in challenges',

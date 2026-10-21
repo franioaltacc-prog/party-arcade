@@ -1,6 +1,6 @@
 // Mini Golf: headless checks of every hole in public/js/games/golf-core.js.
 //   node tests/golftest.js            (all holes)
-//   node tests/golftest.js spooky-6   (one hole)
+//   node tests/golftest.js spooky-6   (one hole; random courses: gen-1234-3)
 // For every hole a search over (wait, angle, power) shot sequences must hole out within par + 1,
 // moving obstacles must move, random shots must never leave the ball somewhere it can't be,
 // and the same shots must always give exactly the same result.
@@ -29,7 +29,17 @@ if (hasNode) {
   }
 }
 
-for (const course of C.COURSES) {
+// random courses get every check a hand-made one does (a handful of seeds, spread over all the looks)
+const GEN = [1, 2, 3, 77, 1234, 99999, 2000000000, 424242].map((seed) => C.generate(seed));
+check(new Set(GEN.map((c) => c.theme)).size >= 4, `random courses come in different looks (${GEN.map((c) => c.theme).join(', ')})`);
+for (const c of GEN) {
+  check(c.holes.length === 9 && c.holes.every((hd, i) => hd.par === C.genPar(c.seed, i)), `${c.id}: 9 holes with the pars the server expects (${c.holes.map((x) => x.par).join(' ')})`);
+  check(new Set(c.holes.map((x) => x.name)).size === 9, `${c.id}: every hole has its own name (${c.holes.map((x) => x.name).join(', ')})`);
+  check(c.holes.every((hd) => hd.map.length <= 26 && hd.map[0].length <= 26), `${c.id}: every hole fits in 26×26 tiles`);
+  check(C.courseById(c.id) === c, `${c.id}: found again by its id`);
+}
+
+for (const course of C.COURSES.concat(GEN)) {
   for (const hd of course.holes) {
     if (only && hd.id !== only) continue;
     const H = C.build(hd);
@@ -54,7 +64,7 @@ for (const course of C.COURSES) {
       let moves = true;
       for (const m of H.movers) {
         const a = C.moverPose(m, 0); const b = C.moverPose(m, m.period / 4); const c = C.moverPose(m, m.period * 0.6);
-        const changed = Math.hypot(a.x - b.x, a.z - b.z) + Math.hypot(a.x - c.x, a.z - c.z) > 0.3 || a.on !== b.on || a.on !== c.on;
+        const changed = Math.hypot(a.x - b.x, a.z - b.z) + Math.hypot(a.x - c.x, a.z - c.z) > 0.3 || a.on !== b.on || a.on !== c.on || Math.abs(a.a - b.a) > 0.3;
         let on = 0; let off = 0;
         for (let t = 0; t < m.period; t += 0.02) (C.moverPose(m, t).on ? on++ : off++);
         if (!changed || (m.k === 'windmill' && (!on || !off))) moves = false;
@@ -84,7 +94,7 @@ for (const course of C.COURSES) {
     }
 
     // ---- the ball never escapes: random shots from random spots
-    const rnd = rng(1234 + hd.n * 77 + (course.id === 'spooky' ? 9 : 0));
+    const rnd = rng(1234 + hd.n * 77 + C.COURSES.concat(GEN).indexOf(course) * 9);
     const spots = [];
     for (let z = 0; z < H.D; z++) for (let x = 0; x < H.W; x++) if (C.solid(C.floorAt(H, x + 0.5, z + 0.5))) spots.push([x + 0.5, z + 0.5]);
     let bad = null; let holed = 0; let outs = 0; let rests = 0;
@@ -160,6 +170,16 @@ if (!only || only === 'classic-7') {
   let still = b.state === 'rest';
   for (let i = 0; i < 240 && still; i++) { C.step(H, b, t); t += P.DT; if (b.state !== 'rest') still = false; }
   check(still && t < 4, `classic-7 Hilltop: a ball pinned against the corner rail by the slope settles (${t.toFixed(2)}s, ${b.state})`);
+}
+// lots more random courses: each hole must be holeable within par + 1 (just the solver, to keep this quick)
+if (!only) {
+  let bad = []; let n = 0;
+  const t0 = Date.now();
+  for (let k = 0; k < 16; k++) {
+    const c = C.generate(1 + ((k * 2654435761) % 2000000000));
+    for (const hd of c.holes) { n++; if (!C.solve(C.build(hd), hd.par + 1)) bad.push(`${hd.id} ${hd.name}`); }
+  }
+  check(!bad.length, `${n} more random holes can all be holed within par + 1 (${((Date.now() - t0) / 1000).toFixed(1)}s)` + (bad.length ? ` — not: ${bad.join(', ')}` : ''));
 }
 say('FAILED: ' + failed);
 if (failed) { if (hasNode) process.exitCode = 1; else throw new Error(failed + ' golf checks failed'); }

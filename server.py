@@ -1366,6 +1366,10 @@ GAME_TITLES = {"dash": "Neon Dash", "life": "Family Life", "doodle": "Doodle Gue
                "flappy": "Neon Flappy",
                "golf": "Mini Golf", "golf-classic": "Mini Golf · Classic Meadow", "golfclassic": "Mini Golf · Classic Meadow",
                "golf-spooky": "Mini Golf · Spooky Hollow", "golfspooky": "Mini Golf · Spooky Hollow",
+               "golf-desert": "Mini Golf · Cactus Canyon", "golfdesert": "Mini Golf · Cactus Canyon",
+               "golf-frost": "Mini Golf · Frosty Peaks", "golffrost": "Mini Golf · Frosty Peaks",
+               "golf-beach": "Mini Golf · Tropical Cove", "golfbeach": "Mini Golf · Tropical Cove",
+               "golf-volcano": "Mini Golf · Volcano Isle", "golfvolcano": "Mini Golf · Volcano Isle",
                "eightball": "Magic 8-Ball", "wyr": "Would You Rather", "wheel": "Spin the Wheel", "tour": "Tournament",
                "moto": "Motocross"}
 for _t in MOTO_TRACKS:
