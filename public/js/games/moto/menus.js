@@ -160,7 +160,7 @@ export function createMenus(ctx) {
       back = () => { preview = null; show('home'); };
       const mine = ctx.myLivery(); const lvMine = ctx.LIVERIES[mine] || ctx.LIVERIES.factory; const st = ctx.style;
       if (!preview) preview = mine;
-      const TABS = [['bike', '🏍️ Bike'], ['engine', '⚡ Engine'], ['paint', '🎨 Paint'], ['kit', '👕 Rider kit'], ['helmet', '⛑️ Helmet'], ['number', '#️⃣ Number']];
+      const TABS = [['bike', '🏍️ Bike'], ['engine', '⚡ Engine'], ['paint', '🎨 Paint'], ['rider', '🧍 Rider'], ['kit', '👕 Rider kit'], ['helmet', '⛑️ Helmet'], ['number', '#️⃣ Number']];
       const grid = (items, cur, onPick) => h('div', { class: 'mx-liveries' }, items.map(([id, label, c1, c2, opts = {}]) => h('button', {
         class: 'mx-livery' + (id === cur ? ' on' : '') + (opts.locked ? ' locked' : ''), type: 'button', style: { '--c1': c1, '--c2': c2 }, title: opts.title || label, onclick: () => onPick(id) },
       id === cur && !opts.locked ? h('span', { class: 'eq' }, opts.on || 'ON') : null, opts.locked ? h('span', { class: 'lk' }, '🔒') : null,
@@ -195,6 +195,11 @@ export function createMenus(ctx) {
       } else if (garageTab === 'bike') {
         panel = glass('Bikes', 'only looks: they all ride the same', grid(Object.entries(ctx.MODELS).map(([id, m]) => [id, m.name, '#000', '#000', { emoji: m.emoji, title: m.about }]), st.model, (id) => ctx.setStyle({ model: id })));
         name = ctx.MODELS[st.model] ? ctx.MODELS[st.model].name : ''; sub = ctx.MODELS[st.model] ? ctx.MODELS[st.model].about.toUpperCase() : '';
+      } else if (garageTab === 'rider') {
+        const rid = ctx.RIDERS[st.rider] ? st.rider : 'biker';
+        panel = glass('Rider', 'only looks', grid(Object.entries(ctx.RIDERS).map(([id, r]) => [id, r.name, '#000', '#000', { emoji: r.emoji, title: r.about }]), rid, (id) => ctx.setStyle({ rider: id })),
+          note('Rider kit and helmet colours go on the MX Racer.'));
+        name = ctx.RIDERS[rid].name; sub = ctx.RIDERS[rid].about.toUpperCase();
       } else if (garageTab === 'kit') {
         panel = glass('Rider kit', null, grid(Object.entries(ctx.KITS).map(([id, k]) => [id, k.name, k.jersey || lvMine.jersey, k.pants || lvMine.pants]), st.kit, (id) => ctx.setStyle({ kit: id })),
           note('Your jersey, pants and boots. “Match my bike” goes with your paint job.'));

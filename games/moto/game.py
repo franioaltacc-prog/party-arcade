@@ -57,10 +57,10 @@ FASTEST = 0.7          # nobody beats the robot rider's time by more than 30%
 
 
 def clean_style(st):
-    """Someone's bike style, rider kit, helmet and race number, tidied up (the browser draws whatever ids it knows)."""
+    """Someone's bike style, rider, rider kit, helmet and race number, tidied up (the browser draws whatever ids it knows)."""
     st = st if isinstance(st, dict) else {}
     out = {}
-    for k in ("model", "kit", "helmet"):
+    for k in ("model", "rider", "kit", "helmet"):
         v = str(st.get(k) or "")[:12]
         if v.isalnum() and v.isascii():
             out[k] = v.lower()

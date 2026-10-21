@@ -79,9 +79,9 @@ async def main():
     check(pa.get("bike") == "factory", "the others can see which bike you ride")
     await asyncio.sleep(0.2)
     # bike styles (looks only) are passed on, tidied up
-    a.send({"t": "g:style", "style": {"model": "retro", "kit": "galaxy", "helmet": "<b>x", "number": 77}})
+    a.send({"t": "g:style", "style": {"model": "retro", "rider": "mx", "kit": "galaxy", "helmet": "<b>x", "number": 77}})
     lob = await b.wait("g:lobby")
-    check(lob["styles"].get(a.uid) == {"model": "retro", "kit": "galaxy", "number": 77}, f"a rider's bike style reaches the others ({lob['styles'].get(a.uid)})")
+    check(lob["styles"].get(a.uid) == {"model": "retro", "rider": "mx", "kit": "galaxy", "number": 77}, f"a rider's bike style reaches the others ({lob['styles'].get(a.uid)})")
     b.send({"t": "g:settings", "track": "snow"}); a.send({"t": "g:settings", "track": "desert"})
     await asyncio.sleep(0.3)
     lob = [m for m in a.drain() if m["t"] == "g:lobby"]

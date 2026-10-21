@@ -6,6 +6,11 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.7.1', date: '2026-10-21', emoji: '🧥', title: 'Motocross: a new rider', items: [
+      'Meet the Mystery Biker: a proper 3D rider in a leather jacket, jeans and a black visor helmet, now riding every bike',
+      'He grips the bars, stands on the pegs, throws every air trick and tumbles when you crash',
+      'Prefer the old look? Pick the MX Racer in Garage → Rider (rider kit and helmet colours go on him)',
+    ] },
     { v: '3.7.0', date: '2026-10-21', emoji: '🏍️', title: 'Motocross: new worlds, air tricks and two new bikes', items: [
       'Three more free-ride worlds: Golden Dunes (a sunset dune sea with an oasis), Autumn Ridge (gold and red woods round a lake) and Canyon Run (a deep river canyon)',
       'Air tricks! Hold 1–6 in the air for a Superman, No-Hander, Can-Can, Nac-Nac, Heel Clicker or Cliffhanger, Z to whip the bike, X for a 360',

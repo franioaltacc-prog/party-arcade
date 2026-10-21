@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildWorld } from './world.js';
-import { makeBike, poseBike, disposeBike, preloadBike, bikesLoaded, LIVERIES, MODELS, KITS, HELMETS } from './bike.js';
+import { makeBike, poseBike, disposeBike, preloadBike, bikesLoaded, LIVERIES, MODELS, RIDERS, KITS, HELMETS } from './bike.js';
 import { createAudio } from './sound.js';
 import { createMenus } from './menus.js';
 import {buildRideWorld} from './open-world/ride-world.mjs';
@@ -57,16 +57,16 @@ async function loadUnlocks() {
 }
 const myLivery = () => (Account.user && Account.user.look && Account.user.look.bike && unlocked.has(Account.user.look.bike) ? Account.user.look.bike : unlocked.has(prefs.livery) ? prefs.livery : 'factory');
 // your bike style, rider kit, helmet and race number (free to pick; only looks)
-prefs.style = Object.assign({ model: 'mx4', kit: 'match', helmet: 'match', number: null }, prefs.style);
+prefs.style = Object.assign({ model: 'mx4', rider: 'biker', kit: 'match', helmet: 'match', number: null }, prefs.style);
 const myLook = () => ({ ...prefs.style, livery: myLivery() });
 function setStyle(patch) {
   prefs.style = { ...prefs.style, ...patch }; savePrefs();
   if (window.Room && Room.code) Net.send('g:style', { style: prefs.style });   // (so the others see it)
   Sfx.play('click');
   menus.refresh();
-  if (patch.model) preloadBike(patch.model).then(() => placeStage());   // (a model-file bike shows as soon as it has loaded)
+  if (patch.model || patch.rider) preloadBike(prefs.style.model).then(() => placeStage());   // (a model-file bike or rider shows as soon as it has loaded)
 }
-preloadBike(prefs.style.model);
+preloadBike(prefs.style.model).then(() => placeStage());
 
 // ------------------------------------------------------------------ renderer and world
 const canvas = $('#mx-canvas');
@@ -1231,7 +1231,7 @@ async function init() {
     startSolo,startFree,get worlds(){return WORLDS;},
     get challenges() { return CHALLENGES; }, challengeBest, fmtScore, startChallengeSolo, challengeFriends: (c) => { pendingChallenge = c.id; }, Coins,
     watchRace: () => { if (state.race) startRace(state.race, 0, true); },
-    MODELS, KITS, HELMETS, get style() { return prefs.style; }, setStyle,
+    MODELS, RIDERS, KITS, HELMETS, get style() { return prefs.style; }, setStyle,
     setCam: (k) => { prefs.cam = R.camMode = k; savePrefs(); },
     setQuality: (k) => { prefs.quality = k; savePrefs(); worldKey = null; resize(); if (stage.trackId) stageTrack(stage.trackId); },
     stage: { solo: stageSolo, room: stageRoom },

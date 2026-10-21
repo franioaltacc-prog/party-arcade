@@ -161,7 +161,13 @@ backflip off a kicker onto a steep downslope counts (it used to be missed). **Mo
 Racer in the garage are glTF files (`public/models/moto`, CC BY 4.0, credited on `/credits`). `bike.js` loads one
 when it's picked, fits it onto the physics frame (its axles on the physics axles, wheels resized and spinning,
 the rider's hands and feet on its own bars and pegs) and draws the Factory 450 until it has loaded. The Stark
-Varg was cut from a million triangles to 90 000 by merging nearby points (vertex clustering).
+Varg was cut from a million triangles to 90 000 by merging nearby points (vertex clustering). **Model rider**:
+the default rider (Garage → Rider: Mystery Biker) is a rigged glTF character (`public/models/moto/rider.glb`, "80's
+mystery biker" by thomasdonovan26, CC BY 4.0, packed with `tools/pack_rider.py`: no clips or shape keys, 512 px
+JPEG textures). It has no animations: `poseBike` works out the same hips, shoulders, head, grips and pegs as for the
+drawn rider and turns its skeleton's bones towards them (spine and neck aimed, arms and legs by two-bone IK with the
+model's own bone lengths and hinges that only bend the right way, feet flat on the pegs, fingers curled round the
+grips), so tricks and the crash ragdoll work unchanged. The MX Racer is the drawn rider, and the one in kit colours.
 
 `MotoCore.groundTrack(terrain, spawn)` is the free-ride adapter: `slice()` samples world-space ground
 along the bike's heading; it bypasses track berms, fences, wrong-way checks and track-based finish

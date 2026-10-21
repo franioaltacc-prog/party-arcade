@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 // paint jobs; the ids match the "bikes" rewards in /data/unlocks.json
 export const LIVERIES = {
@@ -67,6 +68,10 @@ export const HELMETS = {
   candy: { name: 'Candy', helmet: '#ff5fb8', helmet2: '#ffffff', lens: '#9ad7ff' },
   orange: { name: 'Orange', helmet: '#ff7a1a', helmet2: '#16181c', lens: '#ffd21a' },
   gold: { name: 'Gold', helmet: '#e3b021', helmet2: '#16181c', lens: '#ffb02e' },
+};
+export const RIDERS = {
+  biker: { name: 'Mystery Biker', emoji: '🧥', about: 'Leather jacket, jeans and a black visor (model by thomasdonovan26, CC BY)' },
+  mx: { name: 'MX Racer', emoji: '🏁', about: 'Classic motocross kit in your rider kit and helmet colours' },
 };
 
 const V = (x, y, z = 0) => new THREE.Vector3(x, y, z);
@@ -284,13 +289,14 @@ const fitted = {}; const loading = {}; let modelsReady = 0;
 /** Load a model-file bike (if it is one, and not loaded yet). Resolves when it can be built (or failed: then makeBike draws the Factory 450). */
 export function preloadBike(id) {
   const f = FILES[id];
-  if (!f || fitted[id]) return Promise.resolve(true);
+  const rider = preloadRider();
+  if (!f || fitted[id]) return rider.then(() => true);
   if (!loading[id]) {
     loading[id] = new Promise((resolve) => {
       new GLTFLoader().load(f.file, (g) => { fitted[id] = fit(f, g.scene); modelsReady++; resolve(true); }, undefined, (e) => { console.warn('bike model', id, e); resolve(false); });
     });
   }
-  return loading[id];
+  return Promise.all([loading[id], rider]).then(([ok]) => ok);
 }
 /** How many model-file bikes have loaded (part of a bike's look key, so a stand-in is swapped for the real thing). */
 export const bikesLoaded = () => modelsReady;
@@ -334,6 +340,146 @@ function dress(m, part, M, ghost) {
     (p.wheel === 0 ? m.frontWheel : p.wheel === 1 ? m.rearWheel : m.body).add(o);
   }
   m.grips = part.grips; m.pegs = part.pegs;
+}
+
+// ------------------------------------------------------------------ the model-file rider
+// A rigged character (public/models/moto/rider.glb: a Character Creator skeleton in a T-pose, facing the model's +z with
+// its left at +x). It has no riding animation: every frame its bones are turned towards the same hips, shoulders,
+// elbows, hands, knees and feet the drawn rider uses, so it rides, does every trick and crashes the same way.
+const RIDER_FILE = '/models/moto/rider.glb';
+let riderSrc = null; let riderLoading = null;
+const boneName = (o) => o.name.replace(/_\d+$/, '');
+// bone -> [the joint it points at ('up': straight up), which way its side faces]: 'z' = the rider's right,
+// 'fwd' / 'back' = the way the elbow / knee bends (so they only ever bend the right way)
+const AIMS = {
+  CC_Base_Hip: ['CC_Base_Waist', 'z'], CC_Base_Waist: ['CC_Base_Spine01', 'z'], CC_Base_Spine01: ['CC_Base_Spine02', 'z'],
+  CC_Base_Spine02: ['CC_Base_NeckTwist01', 'z'], CC_Base_NeckTwist01: ['CC_Base_Head', 'z'], CC_Base_Head: ['up', 'z'],
+};
+for (const S of ['L', 'R']) {
+  Object.assign(AIMS, {
+    [`CC_Base_${S}_Upperarm`]: [`CC_Base_${S}_Forearm`, 'fwd'], [`CC_Base_${S}_Forearm`]: [`CC_Base_${S}_Hand`, 'fwd'],
+    [`CC_Base_${S}_Thigh`]: [`CC_Base_${S}_Calf`, 'back'], [`CC_Base_${S}_Calf`]: [`CC_Base_${S}_Foot`, 'back'],
+    [`CC_Base_${S}_Foot`]: [`CC_Base_${S}_ToeBase`, 'z'],
+  });
+}
+const AX = V(1, 0, 0); const AZ = V(0, 0, 1);
+const cP = new THREE.Vector3(); const cQ = new THREE.Quaternion(); const cQ2 = new THREE.Quaternion(); const cM = new THREE.Matrix4();
+const aX = new THREE.Vector3(); const aY = new THREE.Vector3(); const aZ = new THREE.Vector3();
+/** A bone's position and turn in the rider group's space (top), found by walking up its parents; returns its overall scale. */
+function chain(b, top, outP, outQ) {
+  outP.set(0, 0, 0); outQ.identity(); let k = 1;
+  for (let x = b; x && x !== top; x = x.parent) { outP.multiply(x.scale).applyQuaternion(x.quaternion).add(x.position); outQ.premultiply(x.quaternion); k *= x.scale.x; }
+  return k;
+}
+/** The turn that takes the x axis to dir and the z axis (as near as it can) to side. */
+function basisQ(dir, side, out) {
+  aX.copy(dir).normalize();
+  aZ.copy(side).addScaledVector(aX, -side.dot(aX)).normalize();
+  aY.crossVectors(aZ, aX);
+  return out.setFromRotationMatrix(cM.makeBasis(aX, aY, aZ));
+}
+/** Load the rider model (once). Resolves when it can be used (or failed: then riders are drawn as the MX Racer). */
+export function preloadRider() {
+  if (!riderLoading) {
+    riderLoading = new Promise((resolve) => {
+      new GLTFLoader().load(RIDER_FILE, (g) => { riderSrc = prepRider(g.scene); modelsReady++; resolve(true); }, undefined, (e) => { console.warn('rider model', e); resolve(false); });
+    });
+  }
+  return riderLoading;
+}
+/** Measure the T-pose: the size that gives the drawn rider's leg length, how each aimed bone sits against its
+    own aim, the arm and leg lengths, and how to curl the fingers round the grips. */
+function prepRider(scene) {
+  const top = new THREE.Group(); const root = new THREE.Group(); root.rotation.y = Math.PI / 2; top.add(root); root.add(scene);
+  const bones = {}; scene.traverse((o) => { if (o.isBone) bones[boneName(o)] = o; });
+  const at = (n) => { chain(bones[n], top, cP, cQ); return cP.clone(); };
+  const legOf = () => at('CC_Base_L_Thigh').distanceTo(at('CC_Base_L_Calf')) + at('CC_Base_L_Calf').distanceTo(at('CC_Base_L_Foot'));
+  const k = 0.88 / legOf(); root.scale.setScalar(k);
+  const rest = {};
+  for (const [n, [to, side]] of Object.entries(AIMS)) {
+    const p = at(n); chain(bones[n], top, cP, cQ); const q = cQ.clone();
+    const dir = to === 'up' ? UP.clone() : at(to).sub(p).normalize();
+    const sd = side === 'z' ? AZ.clone() : new THREE.Vector3().crossVectors(dir, side === 'fwd' ? AX : V(-1, 0, 0)).normalize();
+    rest[n] = { q, off: basisQ(dir, sd, new THREE.Quaternion()).invert().multiply(q) };
+  }
+  const len = (a, b) => at(a).distanceTo(at(b));
+  const limbs = {};
+  for (const [S, i] of [['L', 0], ['R', 1]]) {
+    limbs[`arm${i}`] = { a: `CC_Base_${S}_Upperarm`, b: `CC_Base_${S}_Forearm`, l1: len(`CC_Base_${S}_Upperarm`, `CC_Base_${S}_Forearm`), l2: len(`CC_Base_${S}_Forearm`, `CC_Base_${S}_Hand`) + 0.5 * len(`CC_Base_${S}_Hand`, `CC_Base_${S}_Mid1`) };
+    limbs[`leg${i}`] = { a: `CC_Base_${S}_Thigh`, b: `CC_Base_${S}_Calf`, l1: len(`CC_Base_${S}_Thigh`, `CC_Base_${S}_Calf`), l2: len(`CC_Base_${S}_Calf`, `CC_Base_${S}_Foot`) };
+  }
+  // fingers curl towards the palm (palms face down in the T-pose)
+  const curls = [];
+  for (const [n, b] of Object.entries(bones)) {
+    const f = /^CC_Base_[LR]_(Index|Mid|Ring|Pinky)([123])$/.exec(n); const kid = b.children.find((c) => c.isBone);
+    if (!f || !kid) continue;
+    const p = at(n); chain(b, top, cP, cQ); const q = cQ.clone();
+    const dir = at(boneName(kid)).sub(p).normalize();
+    const axis = new THREE.Vector3().crossVectors(dir, V(0, -1, 0)).normalize().applyQuaternion(q.invert());
+    curls.push({ n, axis, ang: [0.85, 1.0, 0.6][f[2] - 1] });
+  }
+  const ankle = at('CC_Base_L_Foot'); const ball = at('CC_Base_L_ToeBase');
+  const dims = { torso: at('CC_Base_L_Upperarm').y - at('CC_Base_Hip').y, arm: limbs.arm0.l1 + limbs.arm0.l2, foot: [ankle.x - ball.x, ankle.y - ball.y + 0.03] };
+  root.remove(scene);
+  return { scene, k, rest, limbs, curls, dims };
+}
+/** Put a copy of the rider model on a built bike in place of the drawn rider. */
+function addRider(m, M, ghost) {
+  const src = riderSrc; const scene = SkeletonUtils.clone(src.scene);
+  const root = new THREE.Group(); root.rotation.y = Math.PI / 2; root.scale.setScalar(src.k); root.add(scene);
+  const bones = {};
+  scene.traverse((o) => {
+    if (o.isBone) bones[boneName(o)] = o;
+    if (o.isSkinnedMesh) {
+      o.frustumCulled = false; o.castShadow = !ghost;
+      if (ghost) { o.material = /pants|boots/.test(o.material.name) ? M.pants : M.jersey; o.renderOrder = 2; } else o.userData.shared = true;
+    }
+  });
+  for (const c of src.curls) bones[c.n].quaternion.multiply(cQ.setFromAxisAngle(c.axis, c.ang));
+  for (const p of Object.values(m.parts)) p.visible = false;
+  m.rider.add(root);
+  m.fig = { top: m.rider, bones, rest: src.rest, limbs: src.limbs, dims: src.dims, hinge: {} };
+}
+/** Turn a bone so it points along dir with its side towards side (both in the rider group's space). */
+function aimBone(F, n, dir, side) {
+  const b = F.bones[n];
+  basisQ(dir, side, cQ2).multiply(F.rest[n].off);
+  chain(b.parent, F.top, cP, cQ);
+  b.quaternion.copy(cQ.invert()).multiply(cQ2);
+}
+const fA = new THREE.Vector3(); const fB = new THREE.Vector3(); const fC = new THREE.Vector3(); const fD = new THREE.Vector3();
+/** The rider model's body: hips at hip, the spine towards the shoulders, the neck and head towards head.
+    follow: how much the pelvis tips with the spine (riding: a bit; thrown off: all the way). */
+function figTorso(F, hip, sho, head, follow) {
+  const B = F.bones.CC_Base_Hip;
+  const k = chain(B.parent, F.top, cP, cQ);
+  B.position.copy(hip).sub(cP).applyQuaternion(cQ.invert()).multiplyScalar(1 / k);
+  fA.copy(sho).sub(hip).normalize();
+  fB.copy(UP).lerp(fA, follow).normalize();
+  aimBone(F, 'CC_Base_Hip', fB, AZ);
+  aimBone(F, 'CC_Base_Waist', fA, AZ); aimBone(F, 'CC_Base_Spine01', fA, AZ); aimBone(F, 'CC_Base_Spine02', fA, AZ);
+  chain(F.bones.CC_Base_NeckTwist01, F.top, fB, cQ);
+  fB.subVectors(head, fB).normalize();
+  aimBone(F, 'CC_Base_NeckTwist01', fB, AZ);
+  aimBone(F, 'CC_Base_Head', fB.lerp(UP, 1 - follow * 0.6).normalize(), AZ);
+}
+/** An arm or leg of the rider model: from its real shoulder / hip joint through mid (the elbow / knee) to end. With a
+    pole, mid is worked out here (the joint bends towards the pole) from the model's own bone lengths. */
+function figLimb(F, key, mid, end, pole) {
+  const L = F.limbs[key];
+  chain(F.bones[L.a], F.top, fA, cQ);
+  if (pole) ik(fA, end, L.l1, L.l2, pole, mid);
+  fB.subVectors(mid, fA); fC.subVectors(end, mid);
+  const n = F.hinge[key] || (F.hinge[key] = new THREE.Vector3(0, 0, 1));
+  fD.crossVectors(fB, fC);
+  if (fD.lengthSq() > 1e-8) n.copy(fD.normalize());
+  aimBone(F, L.a, fB, n); aimBone(F, L.b, fC, n);
+}
+/** Stand a foot flat on its peg (as in the T-pose, in the bike's own frame). */
+function figFootFlat(F, i) {
+  const n = i ? 'CC_Base_R_Foot' : 'CC_Base_L_Foot';
+  chain(F.bones[n].parent, F.top, cP, cQ);
+  F.bones[n].quaternion.copy(cQ.invert()).multiply(F.rest[n].q);
 }
 
 /** Build a bike + rider. opts: { livery (paint job id), model, kit, helmet, number (0–99), ghost colour (a see-through ghost) }.
@@ -494,6 +640,7 @@ export function makeBike(opts = {}) {
   if (opts.ghost) root.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.renderOrder = 2; } });
   const m = { root, body, forkLower, frontWheel, rearWheel, swing, spring, shockBody, flame, flame2, rider: R, parts, livery: lv, ghost: !!opts.ghost, materials: M, grips: GRIPS, pegs: PEGS };
   if (fromFile) dress(m, fromFile, M, opts.ghost);
+  if (!RIDERS[opts.rider] || opts.rider === 'biker') { if (riderSrc) addRider(m, M, opts.ghost); else preloadRider(); }
   return m;
 }
 
@@ -543,25 +690,26 @@ export function poseBike(m, s, place, heading, t) {
   if (s.boost) { const f = 0.8 + Math.sin(t * 60) * 0.15 + Math.random() * 0.15; m.flame.scale.set(1, f, 1); m.flame2.scale.set(1, f * 0.9, 1); }
 
   // the rider
-  const P = m.parts;
+  const P = m.parts; const fig = m.fig;
   if (s.crashed && s.ragdoll) {
     // thrown off: hips and head from the ragdoll, arms and legs flailing
     const rg = s.ragdoll;
     local(rg.hip.x, rg.hip.y, hipC); local(rg.head.x, rg.head.y, headP);
     tA.copy(headP).sub(hipC).normalize();
-    sho.copy(hipC).addScaledVector(tA, 0.5);
-    poseTorso(P, hipC, sho, headP.copy(sho).addScaledVector(tA, 0.26), -Math.atan2(tA.x, tA.y));
+    sho.copy(hipC).addScaledVector(tA, fig ? fig.dims.torso : 0.5);
+    headP.copy(sho).addScaledVector(tA, 0.26);
+    if (fig) figTorso(fig, hipC, sho, headP, 1); else poseTorso(P, hipC, sho, headP, -Math.atan2(tA.x, tA.y));
     const side = V(-tA.y, tA.x, 0);
     for (let i = 0; i < 2; i++) {
       const z = i ? 0.18 : -0.18; const ph = t * 9 + i * 2;
       tB.copy(sho).setZ(z);
       tC.copy(tB).addScaledVector(side, Math.sin(ph) * 0.3).add(V(Math.cos(ph) * 0.2, 0.2, z * 1.5));
       tD.copy(tC).add(V(Math.sin(ph * 1.3) * 0.3, Math.cos(ph) * 0.25, z));
-      placeLimb(P.upperArm[i], tB, tC); placeLimb(P.foreArm[i], tC, tD); P.hand[i].position.copy(tD);
+      if (fig) figLimb(fig, `arm${i}`, tC, tD); else { placeLimb(P.upperArm[i], tB, tC); placeLimb(P.foreArm[i], tC, tD); P.hand[i].position.copy(tD); }
       tB.copy(hipC).setZ(z * 0.6);
       tC.copy(tB).addScaledVector(tA, -0.45).add(V(Math.sin(ph * 0.8) * 0.2, 0, z * 0.5));
       tD.copy(tC).add(V(Math.cos(ph * 0.7) * 0.3, -0.35, 0));
-      placeLimb(P.thigh[i], tB, tC); placeLimb(P.shin[i], tC, tD); P.boot[i].position.copy(tD); P.knee[i].position.copy(tC);
+      if (fig) figLimb(fig, `leg${i}`, tC, tD); else { placeLimb(P.thigh[i], tB, tC); placeLimb(P.shin[i], tC, tD); P.boot[i].position.copy(tD); P.knee[i].position.copy(tC); }
     }
     return;
   }
@@ -572,27 +720,36 @@ export function poseBike(m, s, place, heading, t) {
   if (tk) hipC.add(tA.set(tk.hip[0] * tp, tk.hip[1] * tp, 0));
   // the torso leans to reach the bars: more when leaning forward, upright and back when leaning back
   let lean = 0.5 + 0.38 * Math.max(-1, Math.min(1, s.lean)) + (tk ? tk.lean * tp : 0);
+  const torso = fig ? fig.dims.torso : 0.5; const arm = fig ? fig.dims.arm : 0.6;
   for (let k = 0; k < 6; k++) {
-    sho.set(hipC.x + Math.sin(lean) * 0.5, hipC.y + Math.cos(lean) * 0.5, 0);
+    sho.set(hipC.x + Math.sin(lean) * torso, hipC.y + Math.cos(lean) * torso, 0);
     const reach = Math.hypot(m.grips.x - sho.x, m.grips.y - sho.y);
-    if (reach > 0.56) lean += 0.08; else if (reach < 0.3) lean -= 0.06; else break;
+    if (reach > arm * 0.93) lean += 0.08; else if (reach < arm * 0.5) lean -= 0.06; else break;
   }
   headP.set(sho.x + Math.sin(lean * 0.55) * 0.23, sho.y + Math.cos(lean * 0.55) * 0.23, 0);
-  poseTorso(P, hipC, sho, headP, lean);
+  if (fig) figTorso(fig, hipC, sho, headP, 0.6); else poseTorso(P, hipC, sho, headP, lean);
   for (let i = 0; i < 2; i++) {
     const z = i ? 1 : -1;
     // arms: shoulder → elbow (out and up, MX style) → grip
     tB.set(sho.x - 0.02, sho.y - 0.03, z * 0.2);
     tD.set(m.grips.x, m.grips.y, z * 0.36);
     if (tk && tk.hand) tD.lerp(tA.set(sho.x + tk.hand[0], sho.y + tk.hand[1], z * tk.hand[2]), tp);
-    ik(tB, tD, 0.3, 0.3, poleArm[i], tC);
-    placeLimb(P.upperArm[i], tB, tC); placeLimb(P.foreArm[i], tC, tD);
-    P.hand[i].position.copy(tD); P.hand[i].rotation.z = -0.5;
+    if (fig) figLimb(fig, `arm${i}`, tC, tD, poleArm[i]);
+    else {
+      ik(tB, tD, 0.3, 0.3, poleArm[i], tC);
+      placeLimb(P.upperArm[i], tB, tC); placeLimb(P.foreArm[i], tC, tD);
+      P.hand[i].position.copy(tD); P.hand[i].rotation.z = -0.5;
+    }
     // legs: hip → knee (forward, gripping the bike) → ankle over the peg
     tB.set(hipC.x, hipC.y - 0.03, z * 0.1);
     tD.set(m.pegs.x - 0.02, m.pegs.y + 0.12, z * 0.2);
     const foot = tk && (tk.feet || (i === 0 ? tk.foot : null));
     if (foot) tD.lerp(tA.set(foot[0], foot[1], foot[2] * (tk.feet ? z : 1)), tp);
+    if (fig) {
+      if (!foot) tD.set(m.pegs.x + fig.dims.foot[0], m.pegs.y + fig.dims.foot[1], z * 0.2);   // (the ball of the foot on the peg)
+      figLimb(fig, `leg${i}`, tC, tD, poleLeg[i]); if (!foot) figFootFlat(fig, i);
+      continue;
+    }
     ik(tB, tD, 0.45, 0.44, poleLeg[i], tC);
     placeLimb(P.thigh[i], tB, tC); placeLimb(P.shin[i], tC, tD);
     P.knee[i].position.copy(tC).add(V(0.04, 0, 0)); P.knee[i].quaternion.copy(P.shin[i].quaternion);
