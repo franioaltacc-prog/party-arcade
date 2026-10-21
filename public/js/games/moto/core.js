@@ -33,6 +33,7 @@
     FREE_SHIFT: .045, FREE_TURBO_POWER: 2.1, // shift seconds and boosted torque multiplier
     FREE_TURBO_REGEN: .13, FREE_TURBO_USE: .16, FREE_START_TURBO: .7, // meter per second; initial charge
     FREE_LAND_SPEED: 8, FREE_LAND_ANGLE: .65, // extra impact absorption for upright cliff landings
+    FREE_WHEELIE: [.06, .22], // with all that power the rider leans over the bars from this pitch, and eases off from this one (lean back to wheelie)
     G: 10.5,                 // gravity (a touch above real, so jumps don't feel floaty)
     M: 104, I: 17,           // the bike's frame: mass (kg) and how hard it is to spin (the wheels and the rider come on top)
     MR: 70,                  // the rider: a body on springy legs and arms, so bumps aren't passed straight into the bike
@@ -647,10 +648,16 @@
       // the rider's instinct on a wheelie: weight forward and ease off before it loops (looking a moment
       // ahead, so a fast pop is caught too). Hold lean-back to keep a wheelie going, up to a point.
       const rel = b.a - slope(G, b.x) + Math.max(0, b.w) * 0.22;
-      const wheelie = b.lean < -0.3 ? 0.75 : 0.24;
-      if (rel > wheelie) {
-        leanTq -= Math.min(1.5, (rel - wheelie) * 4) * P.LEAN_GROUND * 2.2;
-        engine *= clamp(1 - (rel - wheelie) * 3, 0, 1);
+      if (T.terrain && b.lean >= -0.3) {
+        const [lift, ease] = P.FREE_WHEELIE;
+        if (rel > lift) leanTq -= Math.min(4.5, (rel - lift) * 12) * P.LEAN_GROUND * 2.2;
+        if (rel > ease) engine *= clamp(1 - (rel - ease) * 6, 0, 1);
+      } else {
+        const wheelie = b.lean < -0.3 ? 0.75 : 0.24;
+        if (rel > wheelie) {
+          leanTq -= Math.min(1.5, (rel - wheelie) * 4) * P.LEAN_GROUND * 2.2;
+          engine *= clamp(1 - (rel - wheelie) * 3, 0, 1);
+        }
       }
       // ...and on a stoppie (back wheel lifting under braking): ease off the front brake, weight back
       const stoppie = b.lean > 0.3 ? 0.55 : 0.16;

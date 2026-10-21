@@ -6,6 +6,10 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.7.2', date: '2026-10-21', emoji: '🏍️', title: 'Motocross: no more accidental wheelies in free ride', items: [
+      'Full throttle in free ride no longer stands the bike up on its back wheel: the rider leans over the bars and keeps the front down',
+      'Still want a wheelie? Hold lean back',
+    ] },
     { v: '3.7.1', date: '2026-10-21', emoji: '🧥', title: 'Motocross: a new rider', items: [
       'Meet the Mystery Biker: a proper 3D rider in a leather jacket, jeans and a black visor helmet, now riding every bike',
       'He grips the bars, stands on the pegs, throws every air trick and tumbles when you crash',
