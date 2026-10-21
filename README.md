@@ -169,6 +169,25 @@ drawn rider and turns its skeleton's bones towards them (spine and neck aimed, a
 model's own bone lengths and hinges that only bend the right way, feet flat on the pegs, fingers curled round the
 grips), so tricks and the crash ragdoll work unchanged. The MX Racer is the drawn rider, and the one in kit colours.
 
+**v3.8.0: Magma Isle, Emerald Bay and gap jumps.** Two more worlds: Magma Isle (a volcano island: a lava lake in
+the crater, a lava river, lava pools) and Emerald Bay (a lagoon in green hills). A lake or river can be `"lava":
+true`; `look.flora` keeps only some kinds of scenery. Every world file has `features` (`tools/make_worlds.py`
+writes them, including for the first three worlds): **gaps** (lava, water, ice or chasm; anchored to a point
+beside a trail, then placed by `terrain.mjs` on the nearest clear ground with a straight-slope fit: run-in, a 23°
+kicker, the pit and a long landing) and **pools** (lava, tar, water). `terrain.featureAt` shapes the ground,
+`hazardAt` says what fluid is there (deep lake and river water too) and `boostAt` finds the boost pads laid on
+the trails' straights. In `core.js` a bike that sinks into a hazard crashes (`hazard` event, with the gap's
+`retry` spot); boost pads push you along (`pad` event). After a free-ride crash you go back to the gap's run-in, or
+where you were riding a few seconds before (R and the world edge still go to a safe pad). Hoops over every gap and
+the biggest park jumps pay 15 coins. The world test checks that every feature is placed, no trail runs through
+one, full throttle from the run-in clears every gap and rolling up slowly drops you in. Jumps are much smaller than
+the coarse ground's cells, so `world.mjs` gives every tabletop, gap and pool its own always-drawn piece of ground
+(3–5 m spacing, cut away by the coarse material's hole where the detailed patch is) and pushes the coarse ground
+under the pits down; `ride-world.update(point, dt, camera, ahead)` centres the detailed patch up to 30 m ahead of a
+fast bike. **Steering**: the front end of the drawn bikes (bars, clamps, fork tubes, mudguard, plate) is its own
+group turning on the fork axis with the front wheel and fork legs (`s.st`, shown a little more than the physics'
+angle at speed); the hands follow the grips. Model bikes turn just their front wheel.
+
 `MotoCore.groundTrack(terrain, spawn)` is the free-ride adapter: `slice()` samples world-space ground
 along the bike's heading; it bypasses track berms, fences, wrong-way checks and track-based finish
 logic. Track racing keeps its existing progression and room protocol. The high cliff perimeter is

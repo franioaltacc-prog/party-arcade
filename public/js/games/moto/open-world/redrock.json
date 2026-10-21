@@ -997,5 +997,69 @@
         -918
       ]
     }
-  ]
+  ],
+  "features": {
+    "gaps": [
+      {
+        "id": "frontier-chasm",
+        "kind": "chasm",
+        "route": "frontier-loop",
+        "at": 0.15,
+        "side": 1,
+        "gap": 47,
+        "height": 3.7,
+        "width": 28
+      },
+      {
+        "id": "mesa-chasm",
+        "kind": "chasm",
+        "route": "mesa-run",
+        "at": 0.5,
+        "side": -1,
+        "gap": 54,
+        "height": 4.1,
+        "width": 28
+      },
+      {
+        "id": "wash-gap",
+        "kind": "water",
+        "route": "wash-link",
+        "at": 0.5,
+        "side": 1,
+        "gap": 43,
+        "height": 3.7,
+        "width": 28
+      }
+    ],
+    "pools": [
+      {
+        "id": "quarry-tar",
+        "kind": "tar",
+        "position": [
+          900,
+          350
+        ],
+        "radius": [
+          36,
+          26
+        ],
+        "turn": 0.5,
+        "trail": 30
+      },
+      {
+        "id": "ruins-tar",
+        "kind": "tar",
+        "position": [
+          -150,
+          -650
+        ],
+        "radius": [
+          30,
+          22
+        ],
+        "turn": 1.2,
+        "trail": 30
+      }
+    ]
+  }
 }

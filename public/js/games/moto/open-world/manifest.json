@@ -36,6 +36,18 @@
       "name": "Canyon Run",
       "file": "canyonrun.json",
       "areaKm2": 12.96
+    },
+    {
+      "id": "magmaisle",
+      "name": "Magma Isle",
+      "file": "magmaisle.json",
+      "areaKm2": 11.56
+    },
+    {
+      "id": "emeraldbay",
+      "name": "Emerald Bay",
+      "file": "emeraldbay.json",
+      "areaKm2": 10.24
     }
   ]
 }

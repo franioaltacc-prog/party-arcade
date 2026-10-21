@@ -815,5 +815,49 @@
         -618
       ]
     }
-  ]
+  ],
+  "features": {
+    "gaps": [
+      {
+        "id": "creek-gap",
+        "kind": "water",
+        "route": "ridge-loop",
+        "at": 0.08,
+        "side": 1,
+        "gap": 43,
+        "height": 3.7,
+        "width": 28
+      },
+      {
+        "id": "mill-gap",
+        "kind": "water",
+        "route": "lake-link",
+        "at": 0.75,
+        "side": -1,
+        "gap": 50,
+        "height": 3.9,
+        "width": 28
+      },
+      {
+        "id": "oak-chasm",
+        "kind": "chasm",
+        "route": "summit-climb",
+        "at": 0.3,
+        "side": -1,
+        "gap": 47,
+        "height": 3.7,
+        "width": 28
+      },
+      {
+        "id": "falls-gap",
+        "kind": "water",
+        "route": "falls-run",
+        "at": 0.5,
+        "side": -1,
+        "gap": 54,
+        "height": 4.1,
+        "width": 28
+      }
+    ]
+  }
 }

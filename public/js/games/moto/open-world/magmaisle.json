@@ -1,0 +1,1052 @@
+{
+  "schemaVersion": 1,
+  "id": "magmaisle",
+  "name": "Magma Isle",
+  "tagline": "The floor is lava. Really.",
+  "theme": "desert",
+  "seed": 6661,
+  "size": [
+    3400,
+    3400
+  ],
+  "baseHeight": 40,
+  "spawn": [
+    -1100,
+    1050
+  ],
+  "spawnHeading": 2.332943,
+  "palette": {
+    "sky": "#b98a74",
+    "low": "#2c2624",
+    "high": "#6e625c",
+    "trail": "#8a7466",
+    "water": "#ff5a1a",
+    "accent": "#ff4a1a"
+  },
+  "look": {
+    "flora": [
+      "rock",
+      "deadtree",
+      "shrub"
+    ],
+    "sky": {
+      "sun": [
+        18,
+        235
+      ],
+      "turbidity": 14,
+      "rayleigh": 3.2,
+      "mie": 0.03,
+      "mieG": 0.9,
+      "exposure": 1.15,
+      "fog": 0.46,
+      "fogColor": "#9a7262",
+      "sunColor": "#ffb08a"
+    },
+    "rock": [
+      [
+        30,
+        28,
+        30
+      ],
+      [
+        92,
+        84,
+        82
+      ]
+    ],
+    "dirt": [
+      [
+        70,
+        58,
+        52
+      ],
+      [
+        138,
+        116,
+        100
+      ]
+    ],
+    "grass": [
+      [
+        64,
+        60,
+        44
+      ],
+      [
+        112,
+        104,
+        70
+      ]
+    ]
+  },
+  "terrain": {
+    "noise": 9,
+    "scale": 240,
+    "hills": [
+      [
+        200,
+        -250,
+        360,
+        620,
+        620
+      ],
+      [
+        1100,
+        -1050,
+        150,
+        420,
+        420
+      ],
+      [
+        -1050,
+        -950,
+        140,
+        480,
+        460
+      ],
+      [
+        1150,
+        950,
+        70,
+        420,
+        380
+      ],
+      [
+        -300,
+        900,
+        40,
+        500,
+        380
+      ]
+    ],
+    "lake": {
+      "position": [
+        200,
+        -250
+      ],
+      "radius": [
+        150,
+        130
+      ],
+      "level": 318,
+      "depth": 18,
+      "lava": true
+    },
+    "river": {
+      "x": -700,
+      "amplitude": 110,
+      "wavelength": 560,
+      "width": 70,
+      "depth": 26,
+      "level": 22,
+      "lava": true
+    }
+  },
+  "regions": [
+    {
+      "name": "Ash Camp",
+      "position": [
+        -1100,
+        1050
+      ]
+    },
+    {
+      "name": "Crater Rim",
+      "position": [
+        200,
+        -470
+      ]
+    },
+    {
+      "name": "Hot Springs",
+      "position": [
+        -250,
+        700
+      ]
+    },
+    {
+      "name": "Obsidian Temple",
+      "position": [
+        1100,
+        -1050
+      ]
+    },
+    {
+      "name": "Lava Works",
+      "position": [
+        1100,
+        800
+      ]
+    },
+    {
+      "name": "Ember Tower",
+      "position": [
+        -1050,
+        -950
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "id": "fire-ring",
+      "name": "Ring of Fire",
+      "points": [
+        [
+          -1100,
+          1050
+        ],
+        [
+          -1400,
+          450
+        ],
+        [
+          -1400,
+          -300
+        ],
+        [
+          -1150,
+          -1000
+        ],
+        [
+          -500,
+          -1350
+        ],
+        [
+          200,
+          -1300
+        ],
+        [
+          800,
+          -1350
+        ],
+        [
+          1300,
+          -950
+        ],
+        [
+          1400,
+          -200
+        ],
+        [
+          1350,
+          450
+        ],
+        [
+          1100,
+          800
+        ],
+        [
+          500,
+          1250
+        ],
+        [
+          -300,
+          1300
+        ],
+        [
+          -1100,
+          1050
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20,
+      "closed": true
+    },
+    {
+      "id": "crater-climb",
+      "name": "Crater Climb",
+      "points": [
+        [
+          -250,
+          700
+        ],
+        [
+          520,
+          304
+        ],
+        [
+          163,
+          359
+        ],
+        [
+          -148,
+          215
+        ],
+        [
+          -319,
+          -64
+        ],
+        [
+          -307,
+          -374
+        ],
+        [
+          -134,
+          -611
+        ],
+        [
+          124,
+          -706
+        ],
+        [
+          376,
+          -645
+        ],
+        [
+          539,
+          -467
+        ],
+        [
+          573,
+          -244
+        ],
+        [
+          484,
+          -56
+        ],
+        [
+          319,
+          40
+        ],
+        [
+          145,
+          29
+        ],
+        [
+          21,
+          -69
+        ],
+        [
+          -20,
+          -203
+        ],
+        [
+          200,
+          -470
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "lava-run",
+      "name": "Lava River Run",
+      "points": [
+        [
+          -1050,
+          -950
+        ],
+        [
+          -900,
+          -500
+        ],
+        [
+          -1050,
+          -100
+        ],
+        [
+          -850,
+          350
+        ],
+        [
+          -1100,
+          1050
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "works-ring",
+      "name": "Foundry Sprint",
+      "points": [
+        [
+          1100,
+          800
+        ],
+        [
+          1300,
+          650
+        ],
+        [
+          1300,
+          400
+        ],
+        [
+          1050,
+          350
+        ],
+        [
+          850,
+          550
+        ],
+        [
+          900,
+          800
+        ],
+        [
+          1100,
+          800
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20,
+      "closed": true
+    },
+    {
+      "id": "springs-link",
+      "name": "Springs Road",
+      "points": [
+        [
+          -1100,
+          1050
+        ],
+        [
+          -700,
+          850
+        ],
+        [
+          -250,
+          700
+        ],
+        [
+          400,
+          750
+        ],
+        [
+          850,
+          550
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "temple-road",
+      "name": "Temple Road",
+      "points": [
+        [
+          1350,
+          450
+        ],
+        [
+          1150,
+          0
+        ],
+        [
+          1250,
+          -500
+        ],
+        [
+          1100,
+          -1050
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    }
+  ],
+  "spots": [
+    {
+      "id": "camp",
+      "name": "Ash Camp",
+      "position": [
+        -1100,
+        1050
+      ],
+      "kind": "camp",
+      "radius": 24,
+      "about": "Shared spawn, a safe way from the lava."
+    },
+    {
+      "id": "rim",
+      "name": "Crater Rim",
+      "position": [
+        200,
+        -470
+      ],
+      "kind": "lookout",
+      "radius": 24,
+      "about": "Look down into the lava lake. Don't fall in."
+    },
+    {
+      "id": "springs",
+      "name": "Hot Springs",
+      "position": [
+        -250,
+        700
+      ],
+      "kind": "checkpoint",
+      "radius": 24,
+      "about": "Steam vents and a jump park."
+    },
+    {
+      "id": "obsidian",
+      "name": "Obsidian Temple",
+      "position": [
+        1100,
+        -1050
+      ],
+      "kind": "ruin",
+      "radius": 24,
+      "about": "Black glass ruins on the small cone."
+    },
+    {
+      "id": "works",
+      "name": "Lava Works",
+      "position": [
+        1100,
+        800
+      ],
+      "kind": "yard",
+      "radius": 24,
+      "about": "A foundry yard with a quick sprint."
+    },
+    {
+      "id": "ember",
+      "name": "Ember Tower",
+      "position": [
+        -1050,
+        -950
+      ],
+      "kind": "tower",
+      "radius": 24,
+      "about": "A watchtower over the lava river."
+    }
+  ],
+  "races": [
+    {
+      "id": "magma-grand",
+      "name": "Ring of Fire Rally",
+      "route": "fire-ring",
+      "type": "circuit",
+      "difficulty": "medium",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    },
+    {
+      "id": "magma-climb",
+      "name": "King of the Crater",
+      "route": "crater-climb",
+      "type": "hillclimb",
+      "difficulty": "hard",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    },
+    {
+      "id": "magma-downhill",
+      "name": "Lava River Rush",
+      "route": "lava-run",
+      "type": "downhill",
+      "difficulty": "hard",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    },
+    {
+      "id": "magma-works",
+      "name": "Foundry Scramble",
+      "route": "works-ring",
+      "type": "circuit",
+      "difficulty": "easy",
+      "laps": 3,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    }
+  ],
+  "interactions": [
+    {
+      "id": "board",
+      "name": "Ash Camp race board",
+      "position": [
+        -1060,
+        1050
+      ],
+      "kind": "race-board",
+      "radius": 18,
+      "event": "race.offer",
+      "about": "Choose a mini race and invite nearby friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "jam",
+      "name": "Lava Works trick jam",
+      "position": [
+        1050,
+        780
+      ],
+      "kind": "trick-zone",
+      "radius": 18,
+      "event": "trick.land",
+      "about": "Share a two-minute trick score with friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "camera",
+      "name": "Crater Rim photo perch",
+      "position": [
+        200,
+        -470
+      ],
+      "kind": "photo",
+      "radius": 18,
+      "event": "photo.capture",
+      "about": "Get the whole group into a summit picture.",
+      "cooldownSeconds": 10
+    }
+  ],
+  "ramps": [
+    {
+      "id": "springs-double",
+      "position": [
+        -600,
+        820
+      ],
+      "heading": 2.1,
+      "length": 90,
+      "width": 18,
+      "height": 7
+    },
+    {
+      "id": "works-table",
+      "position": [
+        950,
+        600
+      ],
+      "heading": 0.6,
+      "length": 100,
+      "width": 24,
+      "height": 9
+    }
+  ],
+  "surfaceZones": [
+    {
+      "id": "ash-flats",
+      "position": [
+        600,
+        400
+      ],
+      "radius": 220,
+      "surface": "sand",
+      "grip": 0.8,
+      "roll": 0.025
+    },
+    {
+      "id": "cinder",
+      "position": [
+        -300,
+        -800
+      ],
+      "radius": 160,
+      "surface": "gravel",
+      "grip": 0.8,
+      "roll": 0.02
+    }
+  ],
+  "quests": [
+    {
+      "id": "magmaisle-welcome",
+      "name": "Welcome to Magma Isle",
+      "start": "camp",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "springs",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "works",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "camp",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "magmaisle-summit",
+      "name": "Top of the World",
+      "start": "camp",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "rim",
+          "count": 1
+        },
+        {
+          "event": "photo.capture",
+          "target": "camera",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    }
+  ],
+  "coordinateSystem": {
+    "units": "metres",
+    "horizontal": [
+      "x",
+      "z"
+    ],
+    "up": "y",
+    "heading": "radians: 0 points +z; positive rotates towards +x"
+  },
+  "status": "Made by tools/make_worlds.py.",
+  "boundary": {
+    "softMargin": 100,
+    "policy": "warn-and-respawn",
+    "respawn": "last-safe-pad",
+    "cliffWidth": 300,
+    "cliffHeight": 520,
+    "sceneryApron": 1600
+  },
+  "spawnPads": [
+    {
+      "id": "spawn-1",
+      "position": [
+        -1124,
+        1032
+      ],
+      "heading": 2.332943
+    },
+    {
+      "id": "spawn-2",
+      "position": [
+        -1119,
+        1032
+      ],
+      "heading": 2.332943
+    },
+    {
+      "id": "spawn-3",
+      "position": [
+        -1114,
+        1032
+      ],
+      "heading": 2.332943
+    },
+    {
+      "id": "spawn-4",
+      "position": [
+        -1124,
+        1026
+      ],
+      "heading": 2.332943
+    },
+    {
+      "id": "spawn-5",
+      "position": [
+        -1119,
+        1026
+      ],
+      "heading": 2.332943
+    },
+    {
+      "id": "spawn-6",
+      "position": [
+        -1114,
+        1026
+      ],
+      "heading": 2.332943
+    }
+  ],
+  "safePads": [
+    {
+      "id": "camp",
+      "position": [
+        -1100,
+        1050
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -1124,
+        1032
+      ]
+    },
+    {
+      "id": "rim",
+      "position": [
+        200,
+        -470
+      ],
+      "radius": 32,
+      "riderPosition": [
+        176,
+        -488
+      ]
+    },
+    {
+      "id": "springs",
+      "position": [
+        -250,
+        700
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -274,
+        682
+      ]
+    },
+    {
+      "id": "obsidian",
+      "position": [
+        1100,
+        -1050
+      ],
+      "radius": 32,
+      "riderPosition": [
+        1076,
+        -1068
+      ]
+    },
+    {
+      "id": "works",
+      "position": [
+        1100,
+        800
+      ],
+      "radius": 32,
+      "riderPosition": [
+        1076,
+        782
+      ]
+    },
+    {
+      "id": "ember",
+      "position": [
+        -1050,
+        -950
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -1074,
+        -968
+      ]
+    }
+  ],
+  "features": {
+    "gaps": [
+      {
+        "id": "lava-leap",
+        "kind": "lava",
+        "route": "springs-link",
+        "at": 0.35,
+        "side": 1,
+        "gap": 47,
+        "height": 3.7,
+        "width": 28
+      },
+      {
+        "id": "magma-gap",
+        "kind": "lava",
+        "route": "fire-ring",
+        "at": 0.05,
+        "side": -1,
+        "gap": 54,
+        "height": 4.1,
+        "width": 28
+      },
+      {
+        "id": "east-lava",
+        "kind": "lava",
+        "route": "fire-ring",
+        "at": 0.62,
+        "side": -1,
+        "gap": 50,
+        "height": 3.7,
+        "width": 28
+      },
+      {
+        "id": "temple-lava",
+        "kind": "lava",
+        "route": "temple-road",
+        "at": 0.5,
+        "side": -1,
+        "gap": 58,
+        "height": 4.4,
+        "width": 28
+      },
+      {
+        "id": "north-lava",
+        "kind": "lava",
+        "route": "fire-ring",
+        "at": 0.38,
+        "side": -1,
+        "gap": 43,
+        "height": 3.7,
+        "width": 28
+      },
+      {
+        "id": "cinder-chasm",
+        "kind": "chasm",
+        "route": "fire-ring",
+        "at": 0.3,
+        "side": -1,
+        "gap": 47,
+        "height": 3.7,
+        "width": 28
+      }
+    ],
+    "pools": [
+      {
+        "id": "pool-1",
+        "kind": "lava",
+        "position": [
+          300,
+          1000
+        ],
+        "radius": [
+          45,
+          30
+        ],
+        "turn": 0.5,
+        "trail": 30
+      },
+      {
+        "id": "pool-2",
+        "kind": "lava",
+        "position": [
+          900,
+          150
+        ],
+        "radius": [
+          38,
+          26
+        ],
+        "turn": 1.1,
+        "trail": 30
+      },
+      {
+        "id": "pool-3",
+        "kind": "lava",
+        "position": [
+          -350,
+          -650
+        ],
+        "radius": [
+          50,
+          32
+        ],
+        "turn": 0.2,
+        "trail": 30
+      },
+      {
+        "id": "pool-4",
+        "kind": "lava",
+        "position": [
+          700,
+          -800
+        ],
+        "radius": [
+          40,
+          28
+        ],
+        "turn": 2.0,
+        "trail": 30
+      },
+      {
+        "id": "pool-5",
+        "kind": "lava",
+        "position": [
+          -800,
+          300
+        ],
+        "radius": [
+          30,
+          22
+        ],
+        "turn": 0.8,
+        "trail": 30
+      },
+      {
+        "id": "pool-6",
+        "kind": "lava",
+        "position": [
+          1250,
+          -450
+        ],
+        "radius": [
+          34,
+          24
+        ],
+        "turn": 0.0,
+        "trail": 30
+      },
+      {
+        "id": "pool-7",
+        "kind": "lava",
+        "position": [
+          -150,
+          1150
+        ],
+        "radius": [
+          28,
+          20
+        ],
+        "turn": 1.4,
+        "trail": 30
+      },
+      {
+        "id": "pool-8",
+        "kind": "lava",
+        "position": [
+          400,
+          -1100
+        ],
+        "radius": [
+          36,
+          26
+        ],
+        "turn": 0.3,
+        "trail": 30
+      }
+    ]
+  }
+}

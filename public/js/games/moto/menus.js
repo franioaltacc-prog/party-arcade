@@ -4,7 +4,7 @@
 const { h, fill, Net, Sfx, UI, Account, Profile } = PA;
 const FX = PA.FX || {};
 // each free-ride world's card colour and emoji
-const WORLD_LOOK = { redrock: ['red', '🏜️'], pinecrest: ['green', '🌲'], frostpeak: ['blue', '❄️'], golddunes: ['orange', '🌅'], autumnridge: ['red', '🍁'], canyonrun: ['purple', '🏞️'] };
+const WORLD_LOOK = { redrock: ['red', '🏜️'], pinecrest: ['green', '🌲'], frostpeak: ['blue', '❄️'], golddunes: ['orange', '🌅'], autumnridge: ['red', '🍁'], canyonrun: ['purple', '🏞️'], magmaisle: ['red', '🌋'], emeraldbay: ['blue', '🏝️'] };
 
 /** ctx: what the menus need from the game (see game.js). Returns { show, roomUpdate, refresh, onKey, screen }. */
 export function createMenus(ctx) {

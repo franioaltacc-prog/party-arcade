@@ -5,7 +5,7 @@
 
   // The site's version. Bump it with every update, together with a new entry at the
   // top of public/js/changelog.js (the /changelog page).
-  const VERSION = '3.7.2';
+  const VERSION = '3.8.0';
 
   // ---------------------------------------------------------------- helpers
   const $ = (s, r = document) => r.querySelector(s);
@@ -1052,11 +1052,11 @@
      × hides it for good. Set NEWS = null when there's nothing to say, and give a new message a new id so people
      who hid the last one see it. */
   const NEWS = {
-    id: 'golf-courses', until: '2026-11-11', emoji: '⛳',
-    title: 'Mini Golf: 4 new courses + random ones!',
-    text: 'Desert, ice, beach and volcano courses, and a random course maker that builds nine brand-new holes every time.',
-    hint: '🌵 Cactus Canyon · ❄️ Frosty Peaks · 🏝️ Tropical Cove · 🌋 Volcano Isle · 🎲 Random',
-    links: [['/games/golf?solo=1', '⛳ Play solo'], ['/games/golf', '🌐 With friends']],
+    id: 'moto-lava', until: '2026-11-11', emoji: '🌋',
+    title: 'Motocross: jump the lava!',
+    text: 'Two new free-ride worlds, Magma Isle and Emerald Bay, and gap jumps over lava, water and chasms in every world.',
+    hint: '🌋 Magma Isle · 🏝️ Emerald Bay · ⭕ Hoops · ⚡ Boost pads',
+    links: [['/games/moto?free=1&world=magmaisle', '🌋 Ride Magma Isle'], ['/games/moto?free=1&world=emeraldbay', '🏝️ Emerald Bay']],
   };
   function news(bar) {
     if (!NEWS || store.get('pa_news_hide', null) === NEWS.id) return;

@@ -6,6 +6,17 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.8.0', date: '2026-10-21', emoji: '🌋', title: 'Motocross: Magma Isle, Emerald Bay and gap jumps everywhere', items: [
+      'Magma Isle 🌋: a volcano island with a lava lake in the crater, a lava river, lava pools and six big gap jumps over lava',
+      'Emerald Bay 🏝️: a sunny bay with a lagoon, jungle hills and water gaps to clear',
+      'Every free-ride world now has gap jumps: chasms in the canyons and deserts, water gaps in the woods, freezing ice crevasses on Frostpeak',
+      'Fall in and you crash: lava, deep water, tar pits and chasms all count. You get another go from the run-in',
+      'Fly through the pink hoops over the big jumps for 15 coins, and ride over the glowing boost pads on the trails for a burst of speed',
+      'Lakes and rivers are deep now (no more riding along the bottom), and after a crash you go back to where you were riding, not the far-off safe pad',
+      'New challenges: Escape the Volcano, Lava Leap, Peak to Beach and Splash Flips',
+      'No more ramps popping up in front of you at speed: every jump is drawn from far away, and the detailed ground loads further ahead the faster you go',
+      'Steering looks real: the front wheel, forks and handlebars turn (and the rider\'s hands go with them) instead of the whole bike swivelling',
+    ] },
     { v: '3.7.2', date: '2026-10-21', emoji: '🏍️', title: 'Motocross: no more accidental wheelies in free ride', items: [
       'Full throttle in free ride no longer stands the bike up on its back wheel: the rider leans over the bars and keeps the front down',
       'Still want a wheelie? Hold lean back',

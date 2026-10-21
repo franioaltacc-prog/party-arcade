@@ -57,5 +57,30 @@ for(const entry of read('manifest.json').worlds){
   assert(bike.crashed>0);
  });
  check(w.id+': safe-pad lookup and outer boundary policy',()=>{assert(!t.inBounds(w.size[0],0));const pad=t.nearestSafePad(...w.spawn);assert.equal(pad.id,w.safePads[0].id);for(const pad of w.safePads){const h=t.heightAt(...pad.position);assert(Math.abs(t.heightAt(pad.position[0]+5,pad.position[1])-h)<.01);}});
+ const dry=(x,z)=>{const h=t.hazardAt(x,z);return !h||t.heightAt(x,z)>h.level+1;};   // (over a river causeway is fine)
+ check(w.id+': every gap jump and pool is placed, clear of the trails, and no trail runs through lava',()=>{
+  const F=w.features||{};assert.equal(t.gaps.length,(F.gaps||[]).length,'gaps placed');assert.equal(t.pools.length,(F.pools||[]).length,'pools placed');
+  for(const r of w.routes)for(let d=0;d<routeLength(r);d+=8){const p=routePoint(r,d),h=t.featureAt(p.x,p.z).hazard;assert(!h,r.id+' runs through '+(h&&h.id));}
+  for(const g of t.gaps){assert(t.inBounds(...g.retry.position,200));assert(dry(...g.retry.position));const s=t.surfaceAt(g.x-g.s*2,g.z-g.c*2);assert.equal(s.kind,'trail',g.id+' kicker surface');}
+  for(const p of t.boosts){assert(dry(p.x,p.z));assert(t.boostAt(p.x,p.z)===p||t.boostAt(p.x,p.z));}
+ });
+ check(w.id+': full throttle from the run-in clears every gap; rolling up slowly drops you in (and back to the run-in)',()=>{
+  for(const g of t.gaps){
+   const go=gas=>{const track=C.groundTrack(t,g.retry),bike=C.newBike(track);for(let i=0;i<120*30;i++){const ev=C.step(track,bike,{gas,lean:0});const hz=ev.find(e=>e[0]==='hazard');if(hz)return hz[1];if(bike.crashed)return 'crash';if((bike.px-g.x)*g.s+(bike.pz-g.z)*g.c>g.end+10)return 'over';}return 'stuck';};
+   assert.equal(go(1),'over',g.id+' at full throttle');
+   const slow=go(.2);assert(slow.kind===g.kind&&slow.retry===g.retry,g.id+' slowly: '+JSON.stringify(slow));
+  }
+ });
+ check(w.id+': deep water and lava are hazards, the shallows and the trails are not',()=>{
+  const L=w.terrain.lake;
+  if(L&&!L.frozen){const h=t.hazardAt(...L.position);assert(h&&h.kind===(L.lava?'lava':'water'));assert(t.heightAt(...L.position)<h.level);}
+  for(const p of t.pools){const h=t.hazardAt(p.x,p.z);assert(h&&h.kind===p.kind);assert(t.heightAt(p.x,p.z)<h.level-1,p.id+' is deep');}
+  for(const s of w.safePads)assert(dry(...(s.riderPosition||s.position)),s.id);
+ });
+ check(w.id+': boost pads push you along',()=>{
+  const p=t.boosts[0],start={position:[p.x-p.s*30,p.z-p.c*30],heading:p.heading},a=C.newBike(C.groundTrack(t,start)),T2=C.groundTrack(t,start);let pushed=false;
+  for(let i=0;i<120*8&&!pushed;i++){const ev=C.step(T2,a,{gas:.7,lean:0});if(ev.some(e=>e[0]==='pad'))pushed=true;}
+  assert(pushed,'rode over the pad');
+ });
 }
 console.log(checks+' checks passed.');

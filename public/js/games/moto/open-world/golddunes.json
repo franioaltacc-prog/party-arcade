@@ -803,5 +803,69 @@
         -1168
       ]
     }
-  ]
+  ],
+  "features": {
+    "gaps": [
+      {
+        "id": "oasis-gap",
+        "kind": "water",
+        "route": "oasis-link",
+        "at": 0.3,
+        "side": 1,
+        "gap": 43,
+        "height": 3.7,
+        "width": 28
+      },
+      {
+        "id": "dune-gap",
+        "kind": "water",
+        "route": "dune-loop",
+        "at": 0.62,
+        "side": -1,
+        "gap": 54,
+        "height": 4.1,
+        "width": 28
+      },
+      {
+        "id": "ridge-chasm",
+        "kind": "chasm",
+        "route": "ridge-road",
+        "at": 0.55,
+        "side": 1,
+        "gap": 47,
+        "height": 3.7,
+        "width": 28
+      }
+    ],
+    "pools": [
+      {
+        "id": "tar-pit",
+        "kind": "tar",
+        "position": [
+          -400,
+          -650
+        ],
+        "radius": [
+          40,
+          28
+        ],
+        "turn": 0.6,
+        "trail": 30
+      },
+      {
+        "id": "market-tar",
+        "kind": "tar",
+        "position": [
+          600,
+          650
+        ],
+        "radius": [
+          30,
+          22
+        ],
+        "turn": 0.0,
+        "trail": 30
+      }
+    ]
+  }
 }

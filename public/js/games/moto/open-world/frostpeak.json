@@ -1006,5 +1006,49 @@
         -478
       ]
     }
-  ]
+  ],
+  "features": {
+    "gaps": [
+      {
+        "id": "crevasse-1",
+        "kind": "ice",
+        "route": "frost-summit-climb",
+        "at": 0.5,
+        "side": 1,
+        "gap": 43,
+        "height": 3.7,
+        "width": 28
+      },
+      {
+        "id": "crevasse-2",
+        "kind": "ice",
+        "route": "frost-timber-run",
+        "at": 0.1,
+        "side": -1,
+        "gap": 50,
+        "height": 3.9,
+        "width": 28
+      },
+      {
+        "id": "crevasse-3",
+        "kind": "ice",
+        "route": "frost-lake-loop",
+        "at": 0.7,
+        "side": -1,
+        "gap": 54,
+        "height": 4.1,
+        "width": 28
+      },
+      {
+        "id": "frost-chasm",
+        "kind": "chasm",
+        "route": "frost-ridge-link",
+        "at": 0.5,
+        "side": -1,
+        "gap": 47,
+        "height": 3.7,
+        "width": 28
+      }
+    ]
+  }
 }

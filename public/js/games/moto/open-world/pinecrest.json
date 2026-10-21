@@ -1001,5 +1001,55 @@
         -418
       ]
     }
-  ]
+  ],
+  "features": {
+    "gaps": [
+      {
+        "id": "creek-gap",
+        "kind": "water",
+        "route": "lake-loop",
+        "at": 0.5,
+        "side": -1,
+        "gap": 43,
+        "height": 3.7,
+        "width": 28
+      },
+      {
+        "id": "timber-gap",
+        "kind": "water",
+        "route": "timber-run",
+        "at": 0.5,
+        "side": -1,
+        "gap": 50,
+        "height": 3.9,
+        "width": 28
+      },
+      {
+        "id": "ridge-chasm",
+        "kind": "chasm",
+        "route": "summit-climb",
+        "at": 0.35,
+        "side": 1,
+        "gap": 47,
+        "height": 3.7,
+        "width": 28
+      }
+    ],
+    "pools": [
+      {
+        "id": "bog",
+        "kind": "water",
+        "position": [
+          -1250,
+          -300
+        ],
+        "radius": [
+          34,
+          24
+        ],
+        "turn": 0.4,
+        "trail": 30
+      }
+    ]
+  }
 }

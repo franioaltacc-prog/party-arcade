@@ -47,6 +47,26 @@ const FLORA={
  ],
 };
 const ACCENT={desert:'#ff6a10',alpine:'#2ecc71',snow:'#2a7fff'};
+/** Molten rock: glowing orange-yellow cracks between dark crusts (tileable, drawn here; it slowly flows). */
+function lavaTexture(seed=7){
+ const N=256,c=document.createElement('canvas');c.width=c.height=N;const g=c.getContext('2d'),img=g.createImageData(N,N);
+ const h=(x,y,s)=>{let n=Math.imul(x,374761393)^Math.imul(y,668265263)^s;n=Math.imul(n^(n>>>13),1274126177);return((n^(n>>>16))>>>0)/4294967295;};
+ const tn=(x,y,p,s)=>{const ix=Math.floor(x),iy=Math.floor(y),w=a=>((a%p)+p)%p;let u=x-ix,v=y-iy;u=u*u*(3-2*u);v=v*v*(3-2*v);const a=h(w(ix),w(iy),s),b=h(w(ix+1),w(iy),s),cc=h(w(ix),w(iy+1),s),d=h(w(ix+1),w(iy+1),s);return a+(b-a)*u+(cc-a)*v+(a-b-cc+d)*u*v;};
+ for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+  const u=x/N,v=y/N,n=.55*tn(u*6,v*6,6,seed)+.3*tn(u*16,v*16,16,seed+3)+.15*tn(u*48,v*48,48,seed+9);
+  const crack=1-Math.min(1,Math.abs(n-.5)*7),hot=Math.pow(crack,2.2),i=(y*N+x)*4;
+  const glow=.25+.2*n;img.data[i]=Math.min(255,120*glow+190*Math.min(1,hot*1.3)+60);img.data[i+1]=Math.min(255,26*glow+215*Math.pow(hot,1.5)+8);img.data[i+2]=Math.min(255,8+120*Math.pow(hot,3.2));img.data[i+3]=255;
+ }
+ g.putImageData(img,0,0);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.colorSpace=THREE.SRGBColorSpace;return t;
+}
+/** Boost pad arrows: bright chevrons pointing along the pad (towards the texture's bottom edge). */
+function padTexture(){
+ const c=document.createElement('canvas');c.width=64;c.height=128;const g=c.getContext('2d');
+ g.fillStyle='rgba(20,30,40,.55)';g.fillRect(0,0,64,128);g.strokeStyle='#5ff2ff';g.lineWidth=9;g.lineJoin='miter';
+ for(let y=-8;y<128;y+=42){g.beginPath();g.moveTo(8,y);g.lineTo(32,y+22);g.lineTo(56,y);g.stroke();}
+ g.fillStyle='#ffe14a';g.fillRect(0,0,5,128);g.fillRect(59,0,5,128);
+ const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.colorSpace=THREE.SRGBColorSpace;return t;
+}
 
 export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,detailed=true}={}) {
  const terrain=buildTerrain(map), group=new THREE.Group(), disposables=[], theme=map.theme, W=map.size[0], D=map.size[1];
@@ -60,9 +80,37 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
   trailWeights[i]=Math.max(terrain.roadAt(x,z)?.weight||0,terrain.rampAt(x,z).weight);
   const k=.91+Math.sin(x*.037+z*.013)*.035+Math.cos(z*.025)*.025; colors[i*3]=colors[i*3+1]=colors[i*3+2]=k;
  }
+ // Jumps are far smaller than the coarse ground's cells, so each one (tabletops, gap jumps, pools) gets its own
+ // detailed piece of ground that is always there (no ramp popping up in front of you at speed). Under the pits
+ // (gap jumps and pools) the coarse ground is pushed down to the lowest ground nearby, so it never pokes through;
+ // tabletops are bumps, so the coarse ground is under them anyway.
+ const cellW=W/resolution,jumpAreas=[];
+ for(const r of terrain.ramps)jumpAreas.push({x:r.position[0],z:r.position[1],s:r.s??Math.sin(r.heading),c:r.c??Math.cos(r.heading),a0:-r.length/2-4,a1:r.length/2+4,w:r.width+4});
+ for(const g of terrain.gaps)jumpAreas.push({pit:true,x:g.x,z:g.z,s:g.s,c:g.c,a0:-g.K-6,a1:g.gap+g.deck+24,w:g.width/2+8});   // (the long gentle landing slope is fine in the coarse ground)
+ for(const p of terrain.pools){const r=Math.max(p.rx,p.rz)*1.25;jumpAreas.push({pit:true,pool:true,x:p.x,z:p.z,s:0,c:1,a0:-r,a1:r,w:r});}
+ const inArea=(f,x,z,m=0)=>{const dx=x-f.x,dz=z-f.z,al=dx*f.s+dz*f.c,ac=Math.abs(dx*f.c-dz*f.s);return al>f.a0-m&&al<f.a1+m&&ac<f.w+m;};
+ for(let i=0;i<pos.count;i++){
+  const x=pos.getX(i),z=pos.getZ(i);if(!jumpAreas.some(f=>f.pit&&inArea(f,x,z)))continue;
+  let low=pos.getY(i);for(const ox of [-cellW,0,cellW])for(const oz of [-cellW,0,cellW])low=Math.min(low,terrain.heightAt(x+ox,z+oz));
+  pos.setY(i,low-.3);minHeight=Math.min(minHeight,low-.3);
+ }
  groundGeo.setAttribute('color',new THREE.BufferAttribute(colors,3));groundGeo.setAttribute('trailWeight',new THREE.BufferAttribute(trailWeights,1));groundGeo.computeVertexNormals();
  const layered=terrainMaterial(map,null,detailed),groundMat=layered.material;
  const ground=new THREE.Mesh(groundGeo,groundMat);ground.receiveShadow=true;
+ const jumpStep=resolution>=160?3:resolution>=128?4:5;   // (only seen from 50 m away or more: the detailed patch draws them close up)
+ for(const f of jumpAreas){
+  const m=f.pit?Math.min(cellW,24)+2:2,a0=f.a0-m,a1=f.a1+m,w=f.w+m,step=f.pool?jumpStep*1.6:jumpStep,nu=Math.ceil((a1-a0)/step),nv=Math.ceil(2*w/step),p=[],col=[],tw=[],idx=[];
+  for(let j=0;j<=nv;j++)for(let i=0;i<=nu;i++){
+   const al=a0+(a1-a0)*i/nu,ac=-w+2*w*j/nv,x=f.x+al*f.s+ac*f.c,z=f.z+al*f.c-ac*f.s;
+   p.push(x,terrain.heightAt(x,z)+.12,z);tw.push(Math.max(terrain.roadAt(x,z)?.weight||0,terrain.rampAt(x,z).weight));
+   const k=.91+Math.sin(x*.037+z*.013)*.035+Math.cos(z*.025)*.025;col.push(k,k,k);
+   if(i<nu&&j<nv){const a=j*(nu+1)+i;idx.push(a,a+nu+1,a+1,a+1,a+nu+1,a+nu+2);}
+  }
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));g.setAttribute('trailWeight',new THREE.Float32BufferAttribute(tw,1));g.setIndex(idx);g.computeVertexNormals();g.computeBoundingSphere();
+  // (keep the winding facing up whichever way the jump points)
+  if(g.attributes.normal.getY(0)<0){idx.reverse();g.setIndex(idx);g.computeVertexNormals();}
+  const piece=new THREE.Mesh(g,groundMat);piece.receiveShadow=true;group.add(piece);disposables.push(g);
+ }
  if(!chunkSegments)group.add(ground);
  else{
   // Bounded tiles let the renderer reject ground behind the camera instead of drawing the whole map.
@@ -81,11 +129,15 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
 
  // ---------------------------------------------------------------- water
  const lake=map.terrain.lake, river=map.terrain.river;
+ const lavaTex=lavaTexture(map.seed),lavaMat=new THREE.MeshBasicMaterial({map:lavaTex,color:'#ffffff'});lavaTex.repeat.set(1/24,1/24);disposables.push(lavaTex,lavaMat);
  const waterMat=new THREE.MeshStandardMaterial({color:map.palette.water,roughness:lake?.frozen ? .35 : .08,metalness:lake?.frozen ? .1 : .35,transparent:true,opacity:lake?.frozen ? .95 : .82});disposables.push(waterMat);
- if(lake) {const g=new THREE.CircleGeometry(1,96);g.rotateX(-Math.PI/2);const w=new THREE.Mesh(g,waterMat);w.position.set(lake.position[0],lake.level+(lake.frozen ? .12 : 0),lake.position[1]);w.scale.set(lake.radius[0]*1.03,1,lake.radius[1]*1.03);w.receiveShadow=true;group.add(w);disposables.push(g);}
+ if(lake) {const g=new THREE.CircleGeometry(1,96);g.rotateX(-Math.PI/2);if(lake.lava){const uv=g.attributes.uv,q=g.attributes.position;for(let i=0;i<uv.count;i++)uv.setXY(i,q.getX(i)*lake.radius[0],q.getZ(i)*lake.radius[1]);}
+  const w=new THREE.Mesh(g,lake.lava?lavaMat:waterMat);w.position.set(lake.position[0],lake.level+(lake.frozen ? .12 : 0),lake.position[1]);w.scale.set(lake.radius[0]*1.03,1,lake.radius[1]*1.03);w.receiveShadow=true;group.add(w);disposables.push(g);}
  if(river) {
   const vertices=[],indices=[];for(let i=0;i<=180;i++) {const z=-D/2+D*i/180,cx=river.x+Math.sin(z/river.wavelength)*river.amplitude;vertices.push(cx-river.width*.45,river.level,z,cx+river.width*.45,river.level,z);if(i<180){const a=i*2;indices.push(a,a+2,a+1,a+1,a+2,a+3);}}
-  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setIndex(indices);g.computeVertexNormals();group.add(new THREE.Mesh(g,waterMat));disposables.push(g);
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setIndex(indices);g.computeVertexNormals();
+  if(river.lava){const uv=[];for(let i=0;i<vertices.length;i+=3)uv.push(vertices[i],vertices[i+2]);g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));}
+  group.add(new THREE.Mesh(g,river.lava?lavaMat:waterMat));disposables.push(g);
  }
  const lakeDist=(x,z)=>lake?Math.hypot((x-lake.position[0])/lake.radius[0],(z-lake.position[1])/lake.radius[1]):Infinity;
  const riverDist=(x,z)=>river?Math.abs(x-river.x-Math.sin(z/river.wavelength)*river.amplitude):Infinity;
@@ -97,14 +149,15 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
  const keepOut=[...map.safePads.map(p=>[p.position,48]),...map.spots.map(s=>[s.position,40]),...(map.spawnPads||[]).map(p=>[p.position,20])];
  const chunks=new Map(), dummy=new THREE.Object3D(), tint=new THREE.Color();
  const cluster=(x,z,k)=>{let n=0,a=.5,f=1/380,t=0;for(let i=0;i<3;i++){const s=Math.sin(x*f*1.7+z*f*.6+k*5.1+i*2.3)*Math.cos(z*f*1.3-x*f*.4+k*3.7+i*1.1);n+=a*s;t+=a;a*=.5;f*=2.1;}return .5+.5*n/t;};
- for(const spec of FLORA[theme]||FLORA.alpine) {
+ const flora=(FLORA[theme]||FLORA.alpine).filter(f=>!map.look?.flora||map.look.flora.includes(f.kind));   // (a world can keep only some kinds)
+ for(const spec of flora) {
   const attempts=Math.round(spec.per*W*D/1e6*density*(spec.far?1:.8));
   for(let i=0;i<attempts;i++) {
    const x=(random()-.5)*W,z=(random()-.5)*D,r1=random(),r2=random(),r3=random(),r4=random();
    if(spec.cluster&&cluster(x,z,spec.kind.length)<spec.cluster*.9+r1*.18)continue;
    if(terrain.cliffRise(x,z)>(spec.kind==='rock'?260:90))continue;
    const road=terrain.roadAt(x,z);if(road&&road.distance<9+spec.clear)continue;
-   if(terrain.rampAt(x,z).weight>0)continue;
+   if(terrain.rampAt(x,z).weight>0||terrain.featureAt(x,z).flat>.02)continue;
    if(keepOut.some(([p,r])=>Math.hypot(x-p[0],z-p[1])<r))continue;
    if(lakeDist(x,z)<1.1||riverDist(x,z)<(river?river.width*.62:0))continue;
    const y=renderHeightAt(x,z);if(spec.treeLine&&y>map.baseHeight+spec.treeLine+r2*80)continue;
@@ -118,7 +171,7 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
   }
  }
  const geos=new Map();
- for(const spec of FLORA[theme]||FLORA.alpine){const g={near:near.PROPS[spec.kind](),far:spec.far?far.PROPS[spec.kind]():null,mat:near.MATS[spec.kind]||near.propMat};geos.set(spec,g);disposables.push(g.near);if(g.far)disposables.push(g.far);
+ for(const spec of flora){const g={near:near.PROPS[spec.kind](),far:spec.far?far.PROPS[spec.kind]():null,mat:near.MATS[spec.kind]||near.propMat};geos.set(spec,g);disposables.push(g.near);if(g.far)disposables.push(g.far);
   if(map.look?.autumn&&(spec.kind==='broadleaf'||spec.kind==='shrub')){autumnize(g.near,map.seed);if(g.far)autumnize(g.far,map.seed);}}
  for(const m of [near.propMat,near.leafMat,near.cactusMat,far.propMat,far.leafMat,far.cactusMat])disposables.push(m);
  const place=(item,y,matrix)=>{dummy.position.set(item.x,y-item.sink,item.z);dummy.rotation.set(item.tilt,item.rot,item.tilt*.5);dummy.scale.set(item.s,item.sy,item.s);dummy.updateMatrix();matrix.copy(dummy.matrix);};
@@ -211,6 +264,33 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
   const tex=textTexture('Send-it park',{bg:accent,fg:'#ffffff'}),m=new THREE.MeshStandardMaterial({map:tex,roughness:.7});disposables.push(tex,m);
   const face=new THREE.Mesh(new THREE.PlaneGeometry(5.7,1.35),m);face.position.set(0,2.3,-0.03);sign.add(face);disposables.push(face.geometry);
  }
+ // ---------------------------------------------------------------- gap jumps, pools and boost pads
+ const iceMat=new THREE.MeshStandardMaterial({color:'#2f6f9a',roughness:.06,metalness:.4,transparent:true,opacity:.9}),tarMat=new THREE.MeshStandardMaterial({color:'#121214',roughness:.15,metalness:.3});disposables.push(iceMat,tarMat);
+ const fluidMat=kind=>kind==='lava'?lavaMat:kind==='ice'?iceMat:kind==='tar'?tarMat:waterMat;
+ const GAPNAME={lava:'LAVA GAP',water:'WATER GAP',ice:'ICE CREVASSE',chasm:'CHASM JUMP'};
+ for(const g of terrain.gaps){
+  if(g.kind!=='chasm'){const geo=new THREE.PlaneGeometry(g.width-1.6,g.gap-.5);geo.rotateX(-Math.PI/2);if(g.kind==='lava'){const uv=geo.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)*(g.width-1.6),uv.getY(i)*(g.gap-.5));}
+   const m=new THREE.Mesh(geo,fluidMat(g.kind));m.position.set(g.x+g.s*g.gap/2,g.level,g.z+g.c*g.gap/2);m.rotation.y=g.heading;group.add(m);disposables.push(geo);}
+  const side=(along,across)=>[g.x+g.s*along+g.c*across,g.z+g.c*along-g.s*across];
+  const [sx,sz]=side(-g.run+10,g.width/2+4),sign=solid(signGeo,sx,terrain.heightAt(sx,sz)-.15,sz,g.heading+Math.PI);
+  const tex=textTexture(`${GAPNAME[g.kind]} ${Math.round(g.gap)} M`,{bg:g.kind==='lava'?'#b3260f':g.kind==='chasm'?'#2b2f36':'#1d5bd8',fg:'#ffffff'}),m=new THREE.MeshStandardMaterial({map:tex,roughness:.7});disposables.push(tex,m);
+  const face=new THREE.Mesh(new THREE.PlaneGeometry(5.7,1.35),m);face.position.set(0,2.3,-0.03);sign.add(face);disposables.push(face.geometry);
+  for(const k of [-1,1]){flags.push([...side(-1,k*(g.width/2+1.5)),k]);flags.push([...side(g.gap+2,k*(g.width/2+1.5)),k]);}
+ }
+ for(const p of terrain.pools){
+  const geo=new THREE.CircleGeometry(1,56);geo.rotateX(-Math.PI/2);
+  if(p.kind==='lava'){const uv=geo.attributes.uv,q=geo.attributes.position;for(let i=0;i<uv.count;i++)uv.setXY(i,q.getX(i)*p.rx,q.getZ(i)*p.rz);}
+  const m=new THREE.Mesh(geo,fluidMat(p.kind));m.position.set(p.x,p.level,p.z);m.scale.set(p.rx*.95,1,p.rz*.95);m.rotation.y=p.turn;group.add(m);disposables.push(geo);
+ }
+ const padTex=padTexture(),padMat=new THREE.MeshBasicMaterial({map:padTex,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-4,toneMapped:false});disposables.push(padTex,padMat);
+ for(const p of terrain.boosts){
+  const geo=new THREE.PlaneGeometry(p.width,p.length,2,8);geo.rotateX(-Math.PI/2);const q=geo.attributes.position,uv=geo.attributes.uv;
+  for(let i=0;i<q.count;i++){const lx=q.getX(i),lz=q.getZ(i),x=p.x+lx*p.c+lz*p.s,z=p.z-lx*p.s+lz*p.c;q.setXYZ(i,x,terrain.heightAt(x,z)+.1,z);uv.setY(i,uv.getY(i)*p.length/6);}
+  geo.computeVertexNormals();geo.computeBoundingSphere();group.add(new THREE.Mesh(geo,padMat));disposables.push(geo);
+ }
+ let animAt=performance.now();
+ /** Lava flows and the pad arrows run. */
+ function animate(){const now=performance.now(),dt=Math.min(.1,(now-animAt)/1000);animAt=now;lavaTex.offset.x+=dt*.008;lavaTex.offset.y+=dt*.013;padTex.offset.y+=dt*1.6;}
  const instanced=(geo,material,list,matrixFor)=>{if(!list.length)return;const im=new THREE.InstancedMesh(geo,material,list.length);list.forEach((it,i)=>{matrixFor(it);dummy.updateMatrix();im.setMatrixAt(i,dummy.matrix);});im.computeBoundingSphere();im.castShadow=true;im.receiveShadow=true;group.add(im);disposables.push(geo);};
  dummy.scale.set(1,1,1);dummy.rotation.set(0,0,0);
  instanced(stakeGeometry(accent),buildMat,stakes,([x,z])=>{dummy.position.set(x,terrain.heightAt(x,z)-.3,z);dummy.rotation.set(0,0,0);});
@@ -234,5 +314,5 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
  }
  const apron=new THREE.BufferGeometry();apron.setAttribute('position',new THREE.Float32BufferAttribute(ringPositions,3));apron.setAttribute('color',new THREE.Float32BufferAttribute(ringColors,3));apron.setAttribute('trailWeight',new THREE.Float32BufferAttribute(ringTrails,1));apron.setIndex(ringIndices);apron.computeVertexNormals();const mountainRim=new THREE.Mesh(apron,groundMat);mountainRim.receiveShadow=true;group.add(mountainRim);disposables.push(apron);
  update({x:map.spawn[0],z:map.spawn[1]});
- return {group,terrain,routes,minHeight,maxHeight,ground,layered,renderHeightAt,syncScenery,update,trueUp,dispose(){group.traverse(o=>{if(o.isInstancedMesh)o.dispose();});for(const d of [...new Set(disposables),...Object.values(mats)])d.dispose();}};
+ return {group,terrain,routes,minHeight,maxHeight,ground,layered,renderHeightAt,syncScenery,update(eye){update(eye);animate();},trueUp,dispose(){group.traverse(o=>{if(o.isInstancedMesh)o.dispose();});for(const d of [...new Set(disposables),...Object.values(mats)])d.dispose();}};
 }

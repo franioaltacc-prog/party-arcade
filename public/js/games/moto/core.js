@@ -33,6 +33,7 @@
     FREE_SHIFT: .045, FREE_TURBO_POWER: 2.1, // shift seconds and boosted torque multiplier
     FREE_TURBO_REGEN: .13, FREE_TURBO_USE: .16, FREE_START_TURBO: .7, // meter per second; initial charge
     FREE_LAND_SPEED: 8, FREE_LAND_ANGLE: .65, // extra impact absorption for upright cliff landings
+    FREE_BOOST_PAD: 16,       // a boost pad's push (m/s²) while your wheels are on it (it fills your turbo too)
     FREE_WHEELIE: [.06, .22], // with all that power the rider leans over the bars from this pitch, and eases off from this one (lean back to wheelie)
     G: 10.5,                 // gravity (a touch above real, so jumps don't feel floaty)
     M: 104, I: 17,           // the bike's frame: mass (kg) and how hard it is to spin (the wheels and the rider come on top)
@@ -698,6 +699,16 @@
       // buildings and arch posts are solid: bounce off and come off the bike
       const o = !out && !inp.hold && T.terrain.obstacleAt ? T.terrain.obstacleAt(b.px, b.pz) : null;
       if (o && b.y < o.top) { const dx = b.px - o.x; const dz = b.pz - o.z; const l = Math.hypot(dx, dz) || 1; b.px = o.x + dx / l * (o.r + 0.4); b.pz = o.z + dz / l * (o.r + 0.4); b.vx *= -0.25; crash(T, b, ev); }
+      // lava, deep water and chasms: in you go (lava the moment a tyre touches it, water once it's over the axles)
+      const hz = !b.crashed && !inp.hold && T.terrain.hazardAt ? T.terrain.hazardAt(b.px, b.pz) : null;
+      if (hz && b.y < hz.level + (hz.kind === 'lava' || hz.kind === 'tar' ? 0.55 : hz.kind === 'chasm' ? 0 : -0.25)) { crash(T, b, ev); b.vx *= 0.3; ev.push(['hazard', hz]); }
+      // boost pads push you along (whichever way you ride over them)
+      const pad = !out && !inp.hold && T.terrain.boostAt && (b.wh[0].ct || b.wh[1].ct) ? T.terrain.boostAt(b.px, b.pz) : null;
+      if (pad && b.vx > 1 && Math.abs(Math.cos(b.h) * pad.s + Math.sin(b.h) * pad.c) > 0.5) {
+        b.vx += P.FREE_BOOST_PAD * DT; b.nitro = Math.min(1, b.nitro + 0.6 * DT);
+        if (!(b.padT > 0)) ev.push(['pad']);
+        b.padT = 0.4;
+      } else if (b.padT > 0) b.padT -= DT;
     } else {
     const L = locate(T, b.px, b.pz, b.s);
     b.s = L.s; b.u = L.u;
@@ -901,9 +912,10 @@
     }
   }
 
-  /** Back to the last checkpoint (or the start), in the middle of the track (or a lane). */
-  function respawn(T, b, u = 0) {
-    const x = T.terrain ? T.terrain.nearestSafePad(b.px,b.pz) : b.cp >= 0 ? T.cps[b.cp] : T.start;
+  /** Back to the last checkpoint (or the start), in the middle of the track (or a lane); in free ride the nearest
+      safe pad, or spot ({ position: [x, z], heading }) if given. */
+  function respawn(T, b, u = 0, spot = null) {
+    const x = spot || (T.terrain ? T.terrain.nearestSafePad(b.px,b.pz) : b.cp >= 0 ? T.cps[b.cp] : T.start);
     const keep = { nitro: b.nitro, cp: b.cp, t: b.t, crashes: b.crashes, flips: b.flips, maxSpeed: b.maxSpeed };
     place(T, b, x, u);
     Object.assign(b, keep);

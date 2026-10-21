@@ -89,6 +89,7 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false){
    if(!sample||sample.trail>.12)continue;
    if(lake&&Math.hypot((x-lake.position[0])/lake.radius[0],(z-lake.position[1])/lake.radius[1])<1.08)continue;
    if(river&&Math.abs(x-river.x-Math.sin(z/river.wavelength)*river.amplitude)<river.width*.62)continue;
+   if(built.terrain.featureAt(x,z).flat>.02)continue;
    const y=gridHeight(pos.array,half*2,half*2,n,x-cx,z-cz),s=kind.size[0]+(kind.size[1]-kind.size[0])*cHash(gx,gz,21);
    cq.setFromAxisAngle(cup,cHash(gx,gz,31)*6.283);cm.compose(cv.set(x,y-kind.sink,z),cq,cscale.set(s,s*(.8+cHash(gx,gz,41)*.5),s));
    kind.im.setMatrixAt(kind.im.count,cm);const t=.85+cHash(gx,gz,51)*.3;kind.im.setColorAt(kind.im.count,ctint.setRGB(t,t,t*.97));kind.im.count++;
@@ -128,6 +129,8 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false){
  const coins=[],ground=built.terrain;
  for(const r of map.routes){const len=routeLength(r);for(let d=60,i=0;d<len-20;d+=105,i++){const p=routePoint(r,d),o=((i*7)%5-2)*1.6;const x=p.x+Math.cos(p.heading)*o,z=p.z-Math.sin(p.heading)*o;if(ground.rampAt(x,z).weight>0)continue;coins.push({x,y:ground.heightAt(x,z)+1.3,z,value:2,back:0});}}
  for(const ramp of ground.ramps){const s=Math.sin(ramp.heading),c=Math.cos(ramp.heading);for(const [t,up] of [[.15,4.5],[.35,6],[.55,4.5]]){const along=(t-.5)*ramp.length*1.6,x=ramp.position[0]+s*along,z=ramp.position[1]+c*along;coins.push({x,y:ground.heightAt(x,z)+up+ramp.height*.25,z,value:5,back:0});}}
+ // and a trail of them over every gap jump
+ for(const g of ground.gaps)for(const t of [.2,.5,.8]){const along=g.gap*t,x=g.x+g.s*along,z=g.z+g.c*along;coins.push({x,y:g.base+g.tilt*along+g.height+2+6*4*t*(1-t),z,value:5,back:0});}
  const coinGeo=new THREE.CylinderGeometry(.8,.8,.16,24);coinGeo.rotateX(Math.PI/2);
  const coinMat=new THREE.MeshStandardMaterial({color:'#ffcf3a',metalness:.85,roughness:.28,emissive:'#8a5a00',emissiveIntensity:.45});
  const coinMesh=new THREE.InstancedMesh(coinGeo,coinMat,Math.max(1,coins.length));coinMesh.count=coins.length;coinMesh.frustumCulled=false;coinMesh.castShadow=false;scene.add(coinMesh);
@@ -137,9 +140,23 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false){
   coins.forEach((k,i)=>{cq4.setFromAxisAngle(cy,spin+i*.7);cm4.compose(cpos.set(k.x,k.y+Math.sin(now/400+i)*.18,k.z),cq4,k.back>now?czero:cone);coinMesh.setMatrixAt(i,cm4);});
   coinMesh.instanceMatrix.needsUpdate=true;
  }
- /** Coins the bike at (x, y, z) is touching now: each is taken (and comes back in 2 minutes). Returns the value collected. */
- function collect(x,y,z,now){
+ // ---------------------------------------------------------------- hoops to fly through (15 coins each)
+ // Over every gap jump and the two biggest jumps of each send-it park.
+ const hoops=[];
+ for(const g of ground.gaps)hoops.push({x:g.x+g.s*g.gap*.55,y:g.base+g.tilt*g.gap*.55+g.height+8.5,z:g.z+g.c*g.gap*.55,heading:g.heading,back:0});
+ for(const park of ground.parks)for(const r of [park.ramps[2],park.ramps[4]]){const[x,z]=r.position;hoops.push({x,y:ground.heightAt(x,z)+6.5,z,heading:r.heading,back:0});}
+ const hoopGeo=new THREE.TorusGeometry(4.4,.32,10,40),hoopMat=new THREE.MeshStandardMaterial({color:'#ff5fd2',emissive:'#ff2fb8',emissiveIntensity:.9,metalness:.3,roughness:.35});
+ const hoopMesh=new THREE.InstancedMesh(hoopGeo,hoopMat,Math.max(1,hoops.length));hoopMesh.count=hoops.length;hoopMesh.frustumCulled=false;scene.add(hoopMesh);
+ const hq=new THREE.Quaternion(),hs=new THREE.Vector3();
+ function drawHoops(now){
+  hoops.forEach((k,i)=>{hq.setFromAxisAngle(cy,k.heading);const pulse=1+Math.sin(now/260+i)*.04;cm4.compose(cpos.set(k.x,k.y,k.z),hq,k.back>now?czero:hs.set(pulse,pulse,pulse));hoopMesh.setMatrixAt(i,cm4);});
+  hoopMesh.instanceMatrix.needsUpdate=true;
+ }
+ /** Coins the bike at (x, y, z) is touching now: each is taken (and comes back in 2 minutes). Returns the value
+     collected; onHoop() is called for each hoop flown through. */
+ function collect(x,y,z,now,onHoop){
   let got=0;
+  for(const k of hoops){if(k.back>now||Math.abs(k.x-x)>4.6||Math.abs(k.z-z)>4.6||Math.abs(k.y-y)>4.6)continue;if(Math.hypot(k.x-x,k.y-y,k.z-z)>4.4)continue;k.back=now+90000;got+=15;onHoop?.();}
   for(const k of coins){if(k.back>now||Math.abs(k.x-x)>3.2||Math.abs(k.z-z)>3.2||Math.abs(k.y-y)>3.4)continue;if(Math.hypot(k.x-x,k.z-z)>3.2)continue;k.back=now+120000;got+=k.value;}
   return got;
  }
@@ -150,8 +167,9 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false){
  const contact=new THREE.Mesh(shadowGeo,shadowMat);contact.visible=!shadows;scene.add(contact);const up=new THREE.Vector3(0,1,0),normal=new THREE.Vector3();
  return {
   free:true,scene,theme,fx,gates:[],ground:built.terrain,definition:map,policy,sun,coins,collect,
-  update(point,dt,camera){
-   updatePatch(point);fx.update(dt,camera);built.update(camera.position);drawCoins(performance.now());
+  /** ahead: where to centre the detailed ground (a little ahead of a fast bike, so the ground it's riding into is ready). */
+  update(point,dt,camera,ahead=point){
+   updatePatch(ahead);fx.update(dt,camera);built.update(camera.position);drawCoins(performance.now());drawHoops(performance.now());
    sun.position.copy(point).addScaledVector(sunDir,220);sun.target.position.copy(point);
    if(!shadows){
     const y=built.terrain.heightAt(point.x,point.z),nn=built.terrain.normalAt(point.x,point.z);
@@ -161,7 +179,7 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false){
   dispose(){
    samples.clear();built.dispose();geo.dispose();detail.dispose();shadowGeo.dispose();shadowMat.dispose();shadowTex.dispose();
    for(const k of coverKinds){k.im.dispose();k.geo.dispose();}for(const m of [props.propMat,props.leafMat,props.cactusMat,pebbleProps.propMat,pebbleProps.leafMat,pebbleProps.cactusMat])m.dispose();
-   cloudTex.dispose();cloudMat.dispose();coinMesh.dispose();coinGeo.dispose();coinMat.dispose();sky.geometry.dispose();sky.material.dispose();env?.dispose();
+   cloudTex.dispose();cloudMat.dispose();coinMesh.dispose();coinGeo.dispose();coinMat.dispose();hoopMesh.dispose();hoopGeo.dispose();hoopMat.dispose();sky.geometry.dispose();sky.material.dispose();env?.dispose();
    const textures=new Set();fxRoot.traverse(o=>{o.geometry?.dispose();if(o.material){for(const u of Object.values(o.material.uniforms||{}))if(u.value?.isTexture)textures.add(u.value);if(o.material.map)textures.add(o.material.map);o.material.dispose();}});textures.forEach(t=>t.dispose());
   }
  };

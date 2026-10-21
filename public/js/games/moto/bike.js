@@ -331,7 +331,8 @@ function dress(m, part, M, ghost) {
   const keep = new Set([m.flame, m.flame2]);
   for (const c of [...m.body.children]) if (!keep.has(c)) m.body.remove(c);
   m.frontWheel.clear(); m.rearWheel.clear();
-  m.forkLower.visible = m.swing.visible = m.spring.visible = m.shockBody.visible = false;
+  m.forkLower.visible = m.swing.visible = m.spring.visible = m.shockBody.visible = m.bars.visible = false;
+  m.steers = false;   // (only its front wheel turns: the model's bars are part of its frame)
   for (const p of part.parts) {
     const o = new THREE.Mesh(p.geometry, ghost ? M.plastic : p.material);
     o.matrixAutoUpdate = false; o.matrix.copy(p.matrix);
@@ -558,29 +559,32 @@ export function makeBike(opts = {}) {
   if (retro) body.add(mesh(extrudeSide([[0.04, 0.49], [-0.3, 0.5, -0.82, 0.48], [-0.84, 0.43], [-0.3, 0.43, 0.02, 0.43]], 0.2, 0.03), M.leather, 0, 0, 0));
   else body.add(mesh(extrudeSide([[0.06, 0.5], [-0.3, 0.5, -0.82, 0.46], [-0.84, 0.41], [-0.3, 0.41, 0.0, 0.42]], 0.17, 0.03), M.seat, 0, 0, 0));
   body.add(mesh(extrudeSide([[-0.6, 0.44], [-0.9, 0.47, -1.08, 0.55], [-1.09, 0.52], [-0.9, 0.42, -0.62, 0.39]], 0.15, 0.015), retro ? M.chrome : M.plastic, 0, 0, 0));
-  body.add(mesh(extrudeSide([[0.52, 0.2], [0.78, 0.27, 1.16, 0.16], [1.15, 0.13], [0.8, 0.22, 0.53, 0.16]], 0.13, 0.015), retro ? M.chrome : M.plastic, 0, 0, 0));
+  // the front end that steers (bars, triple clamps, fork tubes, number plate) turns on the fork axis through FORK_0
+  const bars = new THREE.Group(); bars.position.copy(FORK_0); root.add(bars);
+  const toBars = (o) => { o.position.sub(FORK_0); bars.add(o); return o; };
+  toBars(mesh(extrudeSide([[0.52, 0.2], [0.78, 0.27, 1.16, 0.16], [1.15, 0.13], [0.8, 0.22, 0.53, 0.16]], 0.13, 0.015), retro ? M.chrome : M.plastic, 0, 0, 0));   // front mudguard
   const plate = mesh(retro ? new THREE.CylinderGeometry(0.13, 0.13, 0.02, 32) : new RoundedBoxGeometry(0.02, 0.24, 0.27, 2, 0.008), M.plate);
-  plate.position.copy(onFork(0.86)).add(V(FORK_U.y, -FORK_U.x).multiplyScalar(0.1)); plate.rotation.z = FORK_ANGLE + (retro ? Math.PI / 2 : 0); body.add(plate);
+  plate.position.copy(onFork(0.86)).add(V(FORK_U.y, -FORK_U.x).multiplyScalar(0.1)); plate.rotation.z = FORK_ANGLE + (retro ? Math.PI / 2 : 0); toBars(plate);
   if (enduro) {
     // a headlight in the front plate, a tail light and a little licence plate
-    const lamp = mesh(new THREE.CylinderGeometry(0.055, 0.06, 0.03, 24), M.light); lamp.position.copy(onFork(0.82)).add(V(FORK_U.y, -FORK_U.x).multiplyScalar(0.12)); lamp.rotation.z = FORK_ANGLE + Math.PI / 2; body.add(lamp);
+    const lamp = mesh(new THREE.CylinderGeometry(0.055, 0.06, 0.03, 24), M.light); lamp.position.copy(onFork(0.82)).add(V(FORK_U.y, -FORK_U.x).multiplyScalar(0.12)); lamp.rotation.z = FORK_ANGLE + Math.PI / 2; toBars(lamp);
     body.add(mesh(new RoundedBoxGeometry(0.04, 0.03, 0.08, 1, 0.01), M.tail, -1.06, 0.53, 0));
     body.add(mesh(new THREE.BoxGeometry(0.01, 0.1, 0.16), M.dark, -1.0, 0.43, 0));
   }
-  if (electric) { const led = mesh(new THREE.BoxGeometry(0.025, 0.02, 0.2), M.glow); led.position.copy(onFork(0.74)).add(V(FORK_U.y, -FORK_U.x).multiplyScalar(0.12)); led.rotation.z = FORK_ANGLE; body.add(led); }
+  if (electric) { const led = mesh(new THREE.BoxGeometry(0.025, 0.02, 0.2), M.glow); led.position.copy(onFork(0.74)).add(V(FORK_U.y, -FORK_U.x).multiplyScalar(0.12)); led.rotation.z = FORK_ANGLE; toBars(led); }
   // triple clamps and the fork's outer tubes, on the same axis the physics uses
-  for (const t of [0.97, 0.8]) { const cl = mesh(new RoundedBoxGeometry(0.08, 0.035, 0.3, 2, 0.012), M.alu); cl.position.copy(onFork(t)); cl.rotation.z = FORK_ANGLE; body.add(cl); }
+  for (const t of [0.97, 0.8]) { const cl = mesh(new RoundedBoxGeometry(0.08, 0.035, 0.3, 2, 0.012), M.alu); cl.position.copy(onFork(t)); cl.rotation.z = FORK_ANGLE; toBars(cl); }
   for (const z of [-0.11, 0.11]) {
     const outer = mesh(new THREE.CylinderGeometry(0.031, 0.031, 0.58, 18), M.gold);
-    outer.position.copy(onFork(0.71)).setZ(z); outer.rotation.z = FORK_ANGLE; body.add(outer);
+    outer.position.copy(onFork(0.71)).setZ(z); outer.rotation.z = FORK_ANGLE; toBars(outer);
   }
-  body.add(mesh(tube([V(0.3, 0.73, -0.39), V(0.33, 0.7, -0.2), V(0.38, 0.62, 0), V(0.33, 0.7, 0.2), V(0.3, 0.73, 0.39)], 0.012, 30), M.alu));
-  body.add(mesh(new RoundedBoxGeometry(0.05, 0.03, 0.2, 2, 0.01), M.black, 0.38, 0.66, 0));
+  toBars(mesh(tube([V(0.3, 0.73, -0.39), V(0.33, 0.7, -0.2), V(0.38, 0.62, 0), V(0.33, 0.7, 0.2), V(0.3, 0.73, 0.39)], 0.012, 30), M.alu));
+  toBars(mesh(new RoundedBoxGeometry(0.05, 0.03, 0.2, 2, 0.01), M.black, 0.38, 0.66, 0));
   for (const z of [-1, 1]) {
-    const grip = mesh(new THREE.CylinderGeometry(0.019, 0.019, 0.13, 14), M.black, GRIPS.x, GRIPS.y, z * 0.38); grip.rotation.x = Math.PI / 2; body.add(grip);
-    const lever = mesh(tube([V(0.31, 0.73, z * 0.3), V(0.37, 0.72, z * 0.34), V(0.4, 0.7, z * 0.42)], 0.006, 8, 6), M.alu); body.add(lever);
+    const grip = mesh(new THREE.CylinderGeometry(0.019, 0.019, 0.13, 14), M.black, GRIPS.x, GRIPS.y, z * 0.38); grip.rotation.x = Math.PI / 2; toBars(grip);
+    const lever = mesh(tube([V(0.31, 0.73, z * 0.3), V(0.37, 0.72, z * 0.34), V(0.4, 0.7, z * 0.42)], 0.006, 8, 6), M.alu); toBars(lever);
     body.add(mesh(new RoundedBoxGeometry(0.06, 0.02, 0.05, 1, 0.006), M.alu, PEGS.x, PEGS.y, z * 0.17));
-    if (enduro) body.add(mesh(tube([V(0.29, 0.71, z * 0.22), V(0.4, 0.745, z * 0.3), V(0.43, 0.73, z * 0.38), V(0.33, 0.72, z * 0.44)], 0.022, 16, 8), M.plastic));   // hand guards
+    if (enduro) toBars(mesh(tube([V(0.29, 0.71, z * 0.22), V(0.4, 0.745, z * 0.3), V(0.43, 0.73, z * 0.38), V(0.33, 0.72, z * 0.44)], 0.022, 16, 8), M.plastic));   // hand guards
   }
 
   // the moving parts
@@ -638,7 +642,7 @@ export function makeBike(opts = {}) {
   hel.traverse((o) => { o.castShadow = true; });
 
   if (opts.ghost) root.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.renderOrder = 2; } });
-  const m = { root, body, forkLower, frontWheel, rearWheel, swing, spring, shockBody, flame, flame2, rider: R, parts, livery: lv, ghost: !!opts.ghost, materials: M, grips: GRIPS, pegs: PEGS };
+  const m = { root, body, bars, steers: true, forkLower, frontWheel, rearWheel, swing, spring, shockBody, flame, flame2, rider: R, parts, livery: lv, ghost: !!opts.ghost, materials: M, grips: GRIPS, pegs: PEGS };
   if (fromFile) dress(m, fromFile, M, opts.ghost);
   if (!RIDERS[opts.rider] || opts.rider === 'biker') { if (riderSrc) addRider(m, M, opts.ghost); else preloadRider(); }
   return m;
@@ -654,6 +658,8 @@ const TRICK_POSES = [
   { hip: [-0.12, 0.12], lean: -0.45, feet: [0.62, 0.78, 0.06] },                 // Heel Clicker: feet up over the bars
   { hip: [0.14, 0.34], lean: 0.35, feet: [-0.55, 1.2, 0.14] },                  // Cliffhanger: up over the bars, legs kicked up behind
 ];
+const FORK_AXIS = V(FORK_U.x, FORK_U.y, 0).normalize(); const Z_AXIS = V(0, 0, 1);
+const qSteer = new THREE.Quaternion(); const qSpin = new THREE.Quaternion();
 const tA = new THREE.Vector3(); const tB = new THREE.Vector3(); const tC = new THREE.Vector3(); const tD = new THREE.Vector3();
 const hipC = new THREE.Vector3(); const sho = new THREE.Vector3(); const headP = new THREE.Vector3();
 const poleArm = [V(-0.55, -0.5, -0.65), V(-0.55, -0.5, 0.65)];
@@ -671,7 +677,12 @@ export function poseBike(m, s, place, heading, t) {
   const ca = Math.cos(-s.a); const sa = Math.sin(-s.a);
   const local = (x, y, out) => { const dx = x - s.x; const dy = y - s.y; return out.set(dx * ca - dy * sa, dx * sa + dy * ca, 0); };
   // wheels
-  local(s.wf[0], s.wf[1], m.frontWheel.position); m.frontWheel.rotation.z = -s.wf[2];
+  local(s.wf[0], s.wf[1], m.frontWheel.position);
+  // steering: the front wheel, fork legs and bars turn on the fork's axis (s.st radians, + = to the right)
+  const st = Math.max(-1, Math.min(1, s.st || 0)) * (m.steers ? 1 : 0.6);
+  qSteer.setFromAxisAngle(FORK_AXIS, -st);
+  m.frontWheel.quaternion.copy(qSteer).multiply(qSpin.setFromAxisAngle(Z_AXIS, -s.wf[2]));
+  m.forkLower.quaternion.copy(qSteer); m.bars.quaternion.copy(qSteer);
   local(s.wr[0], s.wr[1], m.rearWheel.position); m.rearWheel.rotation.z = -s.wr[2];
   m.forkLower.position.copy(m.frontWheel.position);
   // swingarm from the pivot to the rear axle
@@ -733,6 +744,7 @@ export function poseBike(m, s, place, heading, t) {
     // arms: shoulder → elbow (out and up, MX style) → grip
     tB.set(sho.x - 0.02, sho.y - 0.03, z * 0.2);
     tD.set(m.grips.x, m.grips.y, z * 0.36);
+    if (m.steers) tD.sub(FORK_0).applyQuaternion(qSteer).add(FORK_0);   // (the grips turn with the bars)
     if (tk && tk.hand) tD.lerp(tA.set(sho.x + tk.hand[0], sho.y + tk.hand[1], z * tk.hand[2]), tp);
     if (fig) figLimb(fig, `arm${i}`, tC, tD, poleArm[i]);
     else {

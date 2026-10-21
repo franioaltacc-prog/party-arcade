@@ -116,7 +116,7 @@ const R = {
   goAt: 0, acc: 0, last: 0, finished: false, spectate: false, lane: 0, camMode: prefs.cam,
   cam: { pos: new THREE.Vector3(), look: new THREE.Vector3(), fov: 60, shake: 0, init: false },
   audio: null, others: new Map(), sentAt: 0, beeped: 0, gateDown: false, prScale: 1, slowFrames: 0,
-  stuck: 0, hudAt: 0, trickTimer: null, lastLand: 0, emitAcc: 0, roll: 0,
+  stuck: 0, hudAt: 0, trickTimer: null, lastLand: 0, emitAcc: 0, roll: 0, safeTrail: [], retry: null, toPad: false,
 };
 const keys = {};
 const touch = { gas: false, brake: false, left: false, right: false, back: false, fwd: false, nitro: false, trick: false, spin: false };
@@ -254,6 +254,7 @@ function frame(now) {
   if (R.slowFrames > 90 && R.prScale > 0.6) { R.prScale -= 0.15; R.slowFrames = 0; resize(); }
 }
 
+const aheadV = new THREE.Vector3();
 function physicsStep(now) {
   const b = R.bike; const T = R.T;
   R.prev = R.cur;
@@ -275,15 +276,28 @@ function physicsStep(now) {
   for (const [k, d] of ev) onEvent(k, d);
   if (R.mode === 'free' && !holding) {
     if (!b.crashed && !R.finished) payCoins(Math.abs(b.x - xBefore) / 250, false);   // (a coin for every 250 m ridden)
+    // where to put you back after a crash: somewhere you were riding along on both wheels (not on a jump)
+    const g = T.terrain;
+    if (!b.crashed && b.wh[0].ct && b.wh[1].ct && b.vx > 3 && now - (R.safeTrail.at(-1)?.t || 0) > 500 && g.inBounds(b.px, b.pz, 60) && !g.hazardAt(b.px, b.pz) && g.rampAt(b.px, b.pz).weight < 0.05 && !g.obstacleAt(b.px, b.pz)) {
+      R.safeTrail.push({ x: b.px, z: b.pz, h: Math.PI / 2 - b.h, t: now });
+      if (R.safeTrail.length > 24) R.safeTrail.shift();
+    }
     if (R.challenge) challengeStep(b, now);
   }
   if (b.crashed > C.P.CRASH_TIME) {
     if(R.mode==='free'){R.trial=null;updateTrialMarker();}
     // in a challenge you go back to where you last were on your wheels (a safe pad could be a shortcut)
-    if (R.challenge) { const sp = R.challenge.safe; C.place(T, b, { position: [sp.x, sp.z], heading: sp.h }); }
-    else C.respawn(T, b);
+    let where;
+    if (R.challenge) { const sp = R.challenge.safe; C.place(T, b, { position: [sp.x, sp.z], heading: sp.h }); where = 'where you were'; }
+    else if (R.mode === 'free') {
+      // free ride: another go at the gap you fell into, else where you were riding a few seconds ago (R and the
+      // world edge go to a safe pad)
+      const back = R.toPad ? null : R.retry ? { ...R.retry, gap: true } : R.safeTrail.findLast((p) => p.t < now - C.P.CRASH_TIME * 1000 - 2500);
+      C.respawn(T, b, 0, back ? { position: back.position || [back.x, back.z], heading: back.heading ?? back.h } : null);
+      where = back ? (back.gap ? 'the run-in: have another go!' : 'where you were riding') : 'a safe riding pad';
+      R.retry = null; R.toPad = false; R.safeTrail.length = 0;
+    } else { C.respawn(T, b); where = b.cp >= 0 ? `checkpoint ${b.cp + 1}` : 'the start'; }
     R.prev = snap(b); R.cam.init = false;
-    const where = R.challenge ? 'where you were' : R.mode==='free' ? 'a safe riding pad' : b.cp >= 0 ? `checkpoint ${b.cp + 1}` : 'the start';
     showMessage(`Back to ${where}`, 'small', 1000);
   }
   // stuck (e.g. sitting in a pit): offer to go back
@@ -297,11 +311,26 @@ function respawnNow() {
   const b = R.bike;
   if (!R.running || R.finished || !b || performance.now() < R.goAt || b.hold > 0) return;
   if (!b.crashed) { b.crashes++; b.crashed = C.P.CRASH_TIME + 1; }
+  R.toPad = true;
 }
 
+const HAZARD_TEXT = {
+  lava: ['🔥 TOO HOT! Into the lava', new THREE.Color('#ff7a2a')], water: ['💦 SPLASH!', new THREE.Color('#cfe8ff')],
+  ice: ['🥶 SPLASH! That water is freezing', new THREE.Color('#e4f4ff')], chasm: ['😱 DOWN THE CHASM!', null],
+  tar: ['🛢️ STUCK IN THE TAR PIT!', new THREE.Color('#3a3530')],
+};
 function onEvent(k, d) {
   const b = R.bike;
-  if(k==='bounds'){showMessage('World edge · returning to a safe pad','small',1500);return;}
+  if(k==='bounds'){R.toPad=true;showMessage('World edge · returning to a safe pad','small',1500);return;}
+  if (k === 'hazard') {
+    // (the crash event came first; this says what you fell into, and where you'll get another go)
+    R.retry = d.retry || null;
+    const [text, col] = HAZARD_TEXT[d.kind] || HAZARD_TEXT.water;
+    setTimeout(() => showMessage(text, 'bad', 1600), 0);
+    burst(b.x, b.y, 30, 'puff', 1.8, col);
+    return;
+  }
+  if (k === 'pad') { showMessage('⚡ BOOST!', 'cp', 700); if (R.audio) R.audio.checkpoint(); return; }
   if (k === 'trick') { trickPop(d); return; }
   if (k === 'bail') { showMessage(`BAILED! ${C.TRICKS[d].name}`, 'bad', 1400); return; }
   if (k === 'crash') {
@@ -401,6 +430,11 @@ function render(now, dt, alpha) {
   const want = b.crashed || !(b.wh[0].ct || b.wh[1].ct) ? 0 : Math.atan(b.vx * b.yaw / C.P.G);
   R.roll += (clampN(want, -0.85, 0.85) - R.roll) * (1 - Math.exp(-dt * 8));
   s.roll = R.roll;
+  // the front wheel steers (shown a bit more than the physics' small angle at speed, so you can see it)
+  const lock = C.P.STEER / (1 + Math.abs(b.vx) * C.P.STEER_FALL);
+  const steerTo = b.crashed ? 0 : (b.wh[0].ct || b.wh[1].ct) ? b.steer * Math.min(0.55, lock * 1.5 + 0.12) : b.steer * 0.25;
+  R.steerVis = (R.steerVis || 0) + (steerTo - (R.steerVis || 0)) * (1 - Math.exp(-dt * 12));
+  s.st = R.steerVis;
   poseBike(R.model, s, place, s.h, now / 1000);
   R.model.root.visible = !R.spectate;
   // gates drop at GO
@@ -411,13 +445,17 @@ function render(now, dt, alpha) {
   if (!R.spectate) effects(s, dt, place);
   if (R.spectate && leader) updateCamera(leader.snap, dt, 20, leader.place);
   else updateCamera(s, dt, speed, place);
-  w.update(R.model.root.position, dt, camera);
+  if (w.free) {
+    // (the detailed ground is centred up to 30 m ahead of a fast bike)
+    const lead = Math.min(30, Math.max(0, b.vx) * 0.7), p = R.model.root.position;
+    w.update(p, dt, camera, aheadV.set(p.x + Math.cos(s.h) * lead, p.y, p.z + Math.sin(s.h) * lead));
+  } else w.update(R.model.root.position, dt, camera);
   if (R.audio) {
     R.audio.update(b, dt, { scrub: b.scrub, surface: b.G ? C.surfaceAt(b.G, b.x) : 0 });
     if (R.mode === 'online' || R.challenge?.online) R.audio.others(otherSounds(b));
   }
   // gold coins (free ride and challenges)
-  if (w.collect && !R.spectate && !b.crashed) { const got = w.collect(b.px, b.y, b.pz, performance.now()); if (got) { payCoins(got); Sfx.play('coin'); } }
+  if (w.collect && !R.spectate && !b.crashed) { const got = w.collect(b.px, b.y, b.pz, performance.now(), () => showMessage('⭕ THROUGH THE HOOP! +15', 'cp', 1200)); if (got) { payCoins(got); Sfx.play('coin'); } }
   renderer.render(w.scene, camera);
   if (now - R.hudAt > 60) { R.hudAt = now; hud(now); }
   if ((R.mode === 'online' || R.challenge?.online) && now - R.sentAt > 80) sendPos(false);
@@ -504,10 +542,10 @@ function effects(s, dt, place) {
     fx.puff(ex.x, ex.y, ex.z, -D[0] * 0.6, 0.25, -D[1] * 0.6, { life: 0.8, size: 0.12, grow: 0.7, alpha: b.boost ? 0 : 0.12, drag: 1, color: fx.colors.smoke });
   }
 }
-function burst(x, y, n, kind, power) {
+function burst(x, y, n, kind, power, color = null) {
   const w = world; if (!w || !R.cur) return;
   const p = placer(R.cur)(x, y, new THREE.Vector3());
-  const col = R.bike.G && C.surfaceAt(R.bike.G, x) === 1 ? w.fx.colors.mud : w.fx.colors.puff;
+  const col = color || (R.bike.G && C.surfaceAt(R.bike.G, x) === 1 ? w.fx.colors.mud : w.fx.colors.puff);
   for (let i = 0; i < n; i++) {
     const a = Math.random() * Math.PI * 2; const sp = (1 + Math.random() * 3) * power;
     w.fx.puff(p.x, p.y, p.z, Math.cos(a) * sp, 0.6 + Math.random() * power, Math.sin(a) * sp, { life: 1.2 + Math.random(), size: 0.8, grow: 3.5 + power * 2, alpha: w.theme.snowing ? 0.55 : 0.38, drag: 1.6, color: col });
@@ -531,6 +569,9 @@ function drawMapBase() {
     const mark=(x,z,c,r)=>{const [px,py]=R.mapPt(x,z);g.fillStyle=c;g.strokeStyle='rgba(0,0,0,.6)';g.lineWidth=1.5;g.beginPath();g.arc(px,py,r,0,7);g.fill();g.stroke();};
     for(const s of def.spots)mark(...s.position,'#ffffff',3.5);
     for(const p of world.ground.parks)mark(p.ramps[2].position[0],p.ramps[2].position[1],'#ff8a1f',4);
+    // gap jumps and pools: red for lava, blue for water, grey for a chasm
+    const HUE={lava:'#ff4a1a',water:'#3aa0ff',ice:'#9ad7ff',chasm:'#8a8f99',tar:'#2a2a2a'};
+    for(const f of [...world.ground.gaps,...world.ground.pools])mark(f.cx,f.cz,HUE[f.kind]||'#ff4a1a',f.pool?3:4);
     return;
   }
   const a = C.pathAt(T, T.start); const z = C.pathAt(T, T.finish);
@@ -649,7 +690,7 @@ async function startFree(entry, opts = {}){
     R.T=C.groundTrack(world.ground,spawn,engine);R.bike=C.newBike(R.T);
     R.model=makeBike(myLook());world.scene.add(R.model.root);
     if(opts.online&&state.race){fillOthers(state.race);for(const o of R.others.values())addOtherModel(o);}
-    R.prev=R.cur=snap(R.bike);R.acc=0;R.last=performance.now();R.finished=false;R.cam.init=false;R.stuck=0;R.emitAcc=0;R.roll=0;R.best=null;R.beeped=0;
+    R.prev=R.cur=snap(R.bike);R.acc=0;R.last=performance.now();R.finished=false;R.cam.init=false;R.stuck=0;R.emitAcc=0;R.roll=0;R.best=null;R.beeped=0;R.safeTrail=[];R.retry=null;R.toPad=false;
     R.goAt=ch?Math.max(opts.goAt||0,performance.now()+(opts.online?600:3200)):0;R.gateDown=!ch;
     R.trialMarker=null;R.finishMarker=finish?finishBeacon(finish):null;R.audio=createAudio();$('.mx-nlab').textContent='TURBO · SPACE / SHIFT';$('#mx-trials').hidden=!!ch;
     $('#hud-track').textContent=ch?`${ch.emoji} ${ch.name}`:def.name;

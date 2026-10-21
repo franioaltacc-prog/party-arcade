@@ -1,0 +1,908 @@
+{
+  "schemaVersion": 1,
+  "id": "emeraldbay",
+  "name": "Emerald Bay",
+  "tagline": "Sun, sand and splashdowns.",
+  "theme": "alpine",
+  "seed": 4242,
+  "size": [
+    3200,
+    3200
+  ],
+  "baseHeight": 30,
+  "spawn": [
+    -1100,
+    1050
+  ],
+  "spawnHeading": 2.332943,
+  "palette": {
+    "sky": "#bfe6ff",
+    "low": "#6aa34a",
+    "high": "#e8d9a8",
+    "trail": "#e0c98e",
+    "water": "#25c4c4",
+    "accent": "#ffcc33"
+  },
+  "look": {
+    "flora": [
+      "broadleaf",
+      "shrub",
+      "rock",
+      "log"
+    ],
+    "sky": {
+      "sun": [
+        55,
+        140
+      ],
+      "turbidity": 3,
+      "rayleigh": 1.2,
+      "mie": 0.004,
+      "exposure": 1.25,
+      "fog": 0.2,
+      "fogColor": "#c6ecf4",
+      "sunColor": "#fff4dc"
+    },
+    "grass": [
+      [
+        72,
+        140,
+        58
+      ],
+      [
+        156,
+        204,
+        92
+      ]
+    ],
+    "dirt": [
+      [
+        200,
+        176,
+        124
+      ],
+      [
+        244,
+        226,
+        176
+      ]
+    ],
+    "rock": [
+      [
+        118,
+        112,
+        100
+      ],
+      [
+        206,
+        198,
+        178
+      ]
+    ]
+  },
+  "terrain": {
+    "noise": 8,
+    "scale": 230,
+    "hills": [
+      [
+        -950,
+        -950,
+        260,
+        600,
+        560
+      ],
+      [
+        950,
+        -900,
+        210,
+        560,
+        600
+      ],
+      [
+        1050,
+        900,
+        160,
+        480,
+        480
+      ],
+      [
+        -1100,
+        600,
+        90,
+        460,
+        460
+      ],
+      [
+        0,
+        -1250,
+        120,
+        700,
+        360
+      ]
+    ],
+    "lake": {
+      "position": [
+        0,
+        200
+      ],
+      "radius": [
+        430,
+        300
+      ],
+      "level": 26,
+      "depth": 22
+    }
+  },
+  "regions": [
+    {
+      "name": "Surf Shack",
+      "position": [
+        -1100,
+        1050
+      ]
+    },
+    {
+      "name": "Parrot Peak",
+      "position": [
+        -950,
+        -950
+      ]
+    },
+    {
+      "name": "Harbour",
+      "position": [
+        0,
+        650
+      ]
+    },
+    {
+      "name": "Coral Ruins",
+      "position": [
+        950,
+        -900
+      ]
+    },
+    {
+      "name": "Banana Yard",
+      "position": [
+        1050,
+        900
+      ]
+    },
+    {
+      "name": "Lighthouse",
+      "position": [
+        0,
+        -1250
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "id": "bay-loop",
+      "name": "Round the Bay",
+      "points": [
+        [
+          -1100,
+          1050
+        ],
+        [
+          -1350,
+          450
+        ],
+        [
+          -1350,
+          -300
+        ],
+        [
+          -1100,
+          -1000
+        ],
+        [
+          -500,
+          -1300
+        ],
+        [
+          0,
+          -1250
+        ],
+        [
+          600,
+          -1300
+        ],
+        [
+          1100,
+          -1000
+        ],
+        [
+          1350,
+          -300
+        ],
+        [
+          1300,
+          450
+        ],
+        [
+          1050,
+          900
+        ],
+        [
+          500,
+          1250
+        ],
+        [
+          -300,
+          1300
+        ],
+        [
+          -1100,
+          1050
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20,
+      "closed": true
+    },
+    {
+      "id": "peak-climb",
+      "name": "Parrot Peak Climb",
+      "points": [
+        [
+          -1100,
+          1050
+        ],
+        [
+          -850,
+          550
+        ],
+        [
+          -1100,
+          50
+        ],
+        [
+          -750,
+          -350
+        ],
+        [
+          -1150,
+          -650
+        ],
+        [
+          -950,
+          -950
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "ruins-run",
+      "name": "Ruins Descent",
+      "points": [
+        [
+          950,
+          -900
+        ],
+        [
+          1250,
+          -500
+        ],
+        [
+          900,
+          -100
+        ],
+        [
+          1200,
+          350
+        ],
+        [
+          1050,
+          900
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "yard-ring",
+      "name": "Banana Sprint",
+      "points": [
+        [
+          1050,
+          900
+        ],
+        [
+          1250,
+          750
+        ],
+        [
+          1300,
+          500
+        ],
+        [
+          1050,
+          400
+        ],
+        [
+          850,
+          600
+        ],
+        [
+          850,
+          850
+        ],
+        [
+          1050,
+          900
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20,
+      "closed": true
+    },
+    {
+      "id": "shore-road",
+      "name": "Shore Road",
+      "points": [
+        [
+          -1100,
+          1050
+        ],
+        [
+          -600,
+          750
+        ],
+        [
+          0,
+          650
+        ],
+        [
+          550,
+          700
+        ],
+        [
+          1050,
+          900
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "light-road",
+      "name": "Lighthouse Road",
+      "points": [
+        [
+          -1150,
+          -650
+        ],
+        [
+          -600,
+          -800
+        ],
+        [
+          0,
+          -1250
+        ],
+        [
+          600,
+          -850
+        ],
+        [
+          950,
+          -900
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    }
+  ],
+  "spots": [
+    {
+      "id": "shack",
+      "name": "Surf Shack",
+      "position": [
+        -1100,
+        1050
+      ],
+      "kind": "camp",
+      "radius": 24,
+      "about": "Shared spawn on the beach."
+    },
+    {
+      "id": "peak",
+      "name": "Parrot Peak",
+      "position": [
+        -950,
+        -950
+      ],
+      "kind": "lookout",
+      "radius": 24,
+      "about": "The highest hill on the bay."
+    },
+    {
+      "id": "harbour",
+      "name": "Harbour",
+      "position": [
+        0,
+        650
+      ],
+      "kind": "dock",
+      "radius": 24,
+      "about": "Boats, a jetty and the bay."
+    },
+    {
+      "id": "ruins",
+      "name": "Coral Ruins",
+      "position": [
+        950,
+        -900
+      ],
+      "kind": "ruin",
+      "radius": 24,
+      "about": "Old walls on the eastern hill."
+    },
+    {
+      "id": "yard",
+      "name": "Banana Yard",
+      "position": [
+        1050,
+        900
+      ],
+      "kind": "yard",
+      "radius": 24,
+      "about": "Crates, ramps and a sprint."
+    },
+    {
+      "id": "light",
+      "name": "Lighthouse",
+      "position": [
+        0,
+        -1250
+      ],
+      "kind": "tower",
+      "radius": 24,
+      "about": "The lighthouse on the north point."
+    }
+  ],
+  "races": [
+    {
+      "id": "bay-grand",
+      "name": "Round the Bay Rally",
+      "route": "bay-loop",
+      "type": "circuit",
+      "difficulty": "medium",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    },
+    {
+      "id": "bay-climb",
+      "name": "King of Parrot Peak",
+      "route": "peak-climb",
+      "type": "hillclimb",
+      "difficulty": "hard",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    },
+    {
+      "id": "bay-downhill",
+      "name": "Ruins Plunge",
+      "route": "ruins-run",
+      "type": "downhill",
+      "difficulty": "hard",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    },
+    {
+      "id": "bay-yard",
+      "name": "Banana Scramble",
+      "route": "yard-ring",
+      "type": "circuit",
+      "difficulty": "easy",
+      "laps": 3,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    }
+  ],
+  "interactions": [
+    {
+      "id": "board",
+      "name": "Surf Shack race board",
+      "position": [
+        -1060,
+        1050
+      ],
+      "kind": "race-board",
+      "radius": 18,
+      "event": "race.offer",
+      "about": "Choose a mini race and invite nearby friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "jam",
+      "name": "Banana Yard trick jam",
+      "position": [
+        1000,
+        880
+      ],
+      "kind": "trick-zone",
+      "radius": 18,
+      "event": "trick.land",
+      "about": "Share a two-minute trick score with friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "camera",
+      "name": "Parrot Peak photo perch",
+      "position": [
+        -950,
+        -950
+      ],
+      "kind": "photo",
+      "radius": 18,
+      "event": "photo.capture",
+      "about": "Get the whole group into a summit picture.",
+      "cooldownSeconds": 10
+    }
+  ],
+  "ramps": [
+    {
+      "id": "shack-double",
+      "position": [
+        -750,
+        900
+      ],
+      "heading": 2.2,
+      "length": 90,
+      "width": 18,
+      "height": 7
+    },
+    {
+      "id": "yard-table",
+      "position": [
+        900,
+        700
+      ],
+      "heading": 0.6,
+      "length": 100,
+      "width": 24,
+      "height": 9
+    }
+  ],
+  "surfaceZones": [
+    {
+      "id": "beach-sand",
+      "position": [
+        -150,
+        1180
+      ],
+      "radius": 200,
+      "surface": "sand",
+      "grip": 0.78,
+      "roll": 0.025
+    },
+    {
+      "id": "jungle-mud",
+      "position": [
+        600,
+        -500
+      ],
+      "radius": 150,
+      "surface": "mud",
+      "grip": 0.74,
+      "roll": 0.02
+    }
+  ],
+  "quests": [
+    {
+      "id": "emeraldbay-welcome",
+      "name": "Welcome to Emerald Bay",
+      "start": "shack",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "harbour",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "yard",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "shack",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "emeraldbay-summit",
+      "name": "Top of the World",
+      "start": "shack",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "peak",
+          "count": 1
+        },
+        {
+          "event": "photo.capture",
+          "target": "camera",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    }
+  ],
+  "coordinateSystem": {
+    "units": "metres",
+    "horizontal": [
+      "x",
+      "z"
+    ],
+    "up": "y",
+    "heading": "radians: 0 points +z; positive rotates towards +x"
+  },
+  "status": "Made by tools/make_worlds.py.",
+  "boundary": {
+    "softMargin": 100,
+    "policy": "warn-and-respawn",
+    "respawn": "last-safe-pad",
+    "cliffWidth": 280,
+    "cliffHeight": 480,
+    "sceneryApron": 1600
+  },
+  "spawnPads": [
+    {
+      "id": "spawn-1",
+      "position": [
+        -1124,
+        1032
+      ],
+      "heading": 2.332943
+    },
+    {
+      "id": "spawn-2",
+      "position": [
+        -1119,
+        1032
+      ],
+      "heading": 2.332943
+    },
+    {
+      "id": "spawn-3",
+      "position": [
+        -1114,
+        1032
+      ],
+      "heading": 2.332943
+    },
+    {
+      "id": "spawn-4",
+      "position": [
+        -1124,
+        1026
+      ],
+      "heading": 2.332943
+    },
+    {
+      "id": "spawn-5",
+      "position": [
+        -1119,
+        1026
+      ],
+      "heading": 2.332943
+    },
+    {
+      "id": "spawn-6",
+      "position": [
+        -1114,
+        1026
+      ],
+      "heading": 2.332943
+    }
+  ],
+  "safePads": [
+    {
+      "id": "shack",
+      "position": [
+        -1100,
+        1050
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -1124,
+        1032
+      ]
+    },
+    {
+      "id": "peak",
+      "position": [
+        -950,
+        -950
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -974,
+        -968
+      ]
+    },
+    {
+      "id": "harbour",
+      "position": [
+        0,
+        650
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -24,
+        632
+      ]
+    },
+    {
+      "id": "ruins",
+      "position": [
+        950,
+        -900
+      ],
+      "radius": 32,
+      "riderPosition": [
+        926,
+        -918
+      ]
+    },
+    {
+      "id": "yard",
+      "position": [
+        1050,
+        900
+      ],
+      "radius": 32,
+      "riderPosition": [
+        1026,
+        882
+      ]
+    },
+    {
+      "id": "light",
+      "position": [
+        0,
+        -1250
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -24,
+        -1268
+      ]
+    }
+  ],
+  "features": {
+    "gaps": [
+      {
+        "id": "lagoon-gap",
+        "kind": "water",
+        "route": "shore-road",
+        "at": 0.25,
+        "side": 1,
+        "gap": 47,
+        "height": 3.7,
+        "width": 28
+      },
+      {
+        "id": "reef-gap",
+        "kind": "water",
+        "route": "bay-loop",
+        "at": 0.55,
+        "side": -1,
+        "gap": 54,
+        "height": 4.1,
+        "width": 28
+      },
+      {
+        "id": "creek-leap",
+        "kind": "water",
+        "route": "bay-loop",
+        "at": 0.88,
+        "side": -1,
+        "gap": 43,
+        "height": 3.7,
+        "width": 28
+      },
+      {
+        "id": "light-gap",
+        "kind": "water",
+        "route": "light-road",
+        "at": 0.6,
+        "side": -1,
+        "gap": 50,
+        "height": 3.9,
+        "width": 28
+      },
+      {
+        "id": "ruins-chasm",
+        "kind": "chasm",
+        "route": "ruins-run",
+        "at": 0.5,
+        "side": 1,
+        "gap": 47,
+        "height": 3.7,
+        "width": 28
+      }
+    ],
+    "pools": [
+      {
+        "id": "rock-pool",
+        "kind": "water",
+        "position": [
+          700,
+          -150
+        ],
+        "radius": [
+          34,
+          24
+        ],
+        "turn": 0.7,
+        "trail": 30
+      },
+      {
+        "id": "jungle-pool",
+        "kind": "water",
+        "position": [
+          -500,
+          -500
+        ],
+        "radius": [
+          30,
+          22
+        ],
+        "turn": 1.2,
+        "trail": 30
+      }
+    ]
+  }
+}

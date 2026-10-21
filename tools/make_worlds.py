@@ -1,10 +1,35 @@
 """Writes the extra Motocross free-ride worlds (public/js/games/moto/open-world/<id>.json) from short specs:
 spots (the places, each with a safe pad), hills, trails between the spots and mini races on those trails.
 Everything else in a world file (pads, interaction points, quests…) follows the same pattern as the first three.
+It also gives every world (the first three included, see EXTRAS) its gap jumps and pools ("features"):
+  gaps:  {id, kind: lava | water | ice | chasm, route, at (0..1 along it), side (±1), gap (m), height, width}
+         placed beside that point of the trail, on the nearest clear, flattish ground (terrain.mjs)
+  pools: {id, kind: lava | tar | water, position, radius: [rx, rz], turn, trail (how far from trails)}
 Run: python3 tools/make_worlds.py"""
 import json
 import math
 from pathlib import Path
+
+
+def spiral(cx, cz, r0, r1, a0, turns, n, start=None, end=None):
+    """Trail points winding round (cx, cz) from radius r0 at angle a0 to radius r1 (a gentle climb up a cone)."""
+    pts = [] if start is None else [start]
+    for i in range(n + 1):
+        t = i / n
+        a = a0 + turns * 2 * math.pi * t
+        r = r0 + (r1 - r0) * t
+        pts.append([round(cx + math.cos(a) * r), round(cz + math.sin(a) * r)])
+    return pts + ([] if end is None else [end])
+
+
+def gap(i, kind, route, at, side, length, height=3.2, width=24):
+    # (sizes are given small and scaled up: the free-ride bike flies a long way)
+    return {"id": i, "kind": kind, "route": route, "at": at, "side": side, "gap": round(length * 1.8), "height": round(height * 1.15, 1), "width": width + 4}
+
+
+def pool(i, kind, x, z, rx, rz, turn=0.0, trail=30):
+    return {"id": i, "kind": kind, "position": [x, z], "radius": [rx, rz], "turn": turn, "trail": trail}
+
 
 OUT = Path(__file__).resolve().parent.parent / "public" / "js" / "games" / "moto" / "open-world"
 
@@ -33,6 +58,9 @@ WORLDS = [
                   ("dunes-downhill", "Sphinx Plunge", "sphinx-run", "downhill", "hard", 1), ("dunes-market", "Market Scramble", "market-ring", "circuit", "easy", 3)],
         "ramps": [("oasis-double", -350, 650, 2.4, 90, 18, 7), ("market-table", 820, 600, 0.6, 100, 24, 9)],
         "zones": [("soft-sand", -500, -200, 260, "sand", 0.74, 0.03), ("oasis-mud", 150, 380, 80, "mud", 0.72, 0.025)],
+        "features": {"gaps": [gap("oasis-gap", "water", "oasis-link", 0.3, 1, 24), gap("dune-gap", "water", "dune-loop", 0.62, -1, 30, 3.6),
+                              gap("ridge-chasm", "chasm", "ridge-road", 0.55, 1, 26)],
+                     "pools": [pool("tar-pit", "tar", -400, -650, 40, 28, 0.6), pool("market-tar", "tar", 600, 650, 30, 22)]},
     },
     {
         "id": "autumnridge", "name": "Autumn Ridge", "tagline": "Gold leaves, fast trails.", "theme": "alpine", "seed": 3307,
@@ -58,6 +86,8 @@ WORLDS = [
                   ("ridge-downhill", "Falls Freefall", "falls-run", "downhill", "hard", 1), ("ridge-mill", "Sawmill Scramble", "mill-ring", "circuit", "easy", 3)],
         "ramps": [("lodge-double", -700, 950, 2.0, 90, 18, 7), ("mill-table", 1000, 450, 0.3, 100, 24, 9)],
         "zones": [("leaf-mud", -1150, -150, 180, "mud", 0.74, 0.02), ("lake-mud", -150, 520, 90, "mud", 0.72, 0.025)],
+        "features": {"gaps": [gap("creek-gap", "water", "ridge-loop", 0.08, 1, 24), gap("mill-gap", "water", "lake-link", 0.75, -1, 28, 3.4),
+                              gap("oak-chasm", "chasm", "summit-climb", 0.3, -1, 26), gap("falls-gap", "water", "falls-run", 0.5, -1, 30, 3.6)]},
     },
     {
         "id": "canyonrun", "name": "Canyon Run", "tagline": "Mind the drop.", "theme": "desert", "seed": 8861,
@@ -83,6 +113,72 @@ WORLDS = [
                   ("canyon-downhill", "Arch Dive", "arch-run", "downhill", "hard", 1), ("canyon-mine", "Mine Scramble", "mine-ring", "circuit", "easy", 3)],
         "ramps": [("canyon-kicker", -250, 850, 1.9, 110, 22, 11), ("mine-table", 1000, 700, 0.5, 100, 24, 9)],
         "zones": [("rim-sand", -800, -300, 220, "sand", 0.78, 0.025), ("mine-gravel", 1150, 800, 120, "gravel", 0.8, 0.02)],
+        "features": {"gaps": [gap("slot-canyon", "chasm", "rim-loop", 0.12, -1, 26), gap("rim-chasm", "chasm", "butte-climb", 0.5, -1, 32, 3.8),
+                              gap("arch-chasm", "chasm", "arch-run", 0.45, 1, 28), gap("mine-gap", "water", "mine-ring", 0.4, -1, 22, 3)],
+                     "pools": [pool("outpost-tar", "tar", -700, 1250, 32, 24, 0.4)]},
+    },
+    {
+        "id": "magmaisle", "name": "Magma Isle", "tagline": "The floor is lava. Really.", "theme": "desert", "seed": 6661,
+        "size": 3400, "baseHeight": 40, "cliff": [300, 520],
+        "palette": {"sky": "#b98a74", "low": "#2c2624", "high": "#6e625c", "trail": "#8a7466", "water": "#ff5a1a", "accent": "#ff4a1a"},
+        "look": {"flora": ["rock", "deadtree", "shrub"],
+                 "sky": {"sun": [18, 235], "turbidity": 14, "rayleigh": 3.2, "mie": 0.03, "mieG": 0.9, "exposure": 1.15, "fog": 0.46, "fogColor": "#9a7262", "sunColor": "#ffb08a"},
+                 "rock": [[30, 28, 30], [92, 84, 82]], "dirt": [[70, 58, 52], [138, 116, 100]], "grass": [[64, 60, 44], [112, 104, 70]]},
+        "terrain": {"noise": 9, "scale": 240, "hills": [[200, -250, 360, 620, 620], [1100, -1050, 150, 420, 420], [-1050, -950, 140, 480, 460], [1150, 950, 70, 420, 380], [-300, 900, 40, 500, 380]],
+                    "lake": {"position": [200, -250], "radius": [150, 130], "level": 318, "depth": 18, "lava": True},
+                    "river": {"x": -700, "amplitude": 110, "wavelength": 560, "width": 70, "depth": 26, "level": 22, "lava": True}},
+        "spots": [("camp", "Ash Camp", -1100, 1050, "camp", "Shared spawn, a safe way from the lava."),
+                  ("rim", "Crater Rim", 200, -470, "lookout", "Look down into the lava lake. Don't fall in."),
+                  ("springs", "Hot Springs", -250, 700, "checkpoint", "Steam vents and a jump park."),
+                  ("obsidian", "Obsidian Temple", 1100, -1050, "ruin", "Black glass ruins on the small cone."),
+                  ("works", "Lava Works", 1100, 800, "yard", "A foundry yard with a quick sprint."),
+                  ("ember", "Ember Tower", -1050, -950, "tower", "A watchtower over the lava river.")],
+        "routes": [("fire-ring", "Ring of Fire", [[-1100, 1050], [-1400, 450], [-1400, -300], [-1150, -1000], [-500, -1350], [200, -1300], [800, -1350], [1300, -950], [1400, -200], [1350, 450], [1100, 800], [500, 1250], [-300, 1300], [-1100, 1050]], True),
+                   ("crater-climb", "Crater Climb", spiral(200, -250, 640, 225, math.radians(60), 1.3, 14, start=[-250, 700], end=[200, -470]), False),
+                   ("lava-run", "Lava River Run", [[-1050, -950], [-900, -500], [-1050, -100], [-850, 350], [-1100, 1050]], False),
+                   ("works-ring", "Foundry Sprint", [[1100, 800], [1300, 650], [1300, 400], [1050, 350], [850, 550], [900, 800], [1100, 800]], True),
+                   ("springs-link", "Springs Road", [[-1100, 1050], [-700, 850], [-250, 700], [400, 750], [850, 550]], False),
+                   ("temple-road", "Temple Road", [[1350, 450], [1150, 0], [1250, -500], [1100, -1050]], False)],
+        "races": [("magma-grand", "Ring of Fire Rally", "fire-ring", "circuit", "medium", 1), ("magma-climb", "King of the Crater", "crater-climb", "hillclimb", "hard", 1),
+                  ("magma-downhill", "Lava River Rush", "lava-run", "downhill", "hard", 1), ("magma-works", "Foundry Scramble", "works-ring", "circuit", "easy", 3)],
+        "ramps": [("springs-double", -600, 820, 2.1, 90, 18, 7), ("works-table", 950, 600, 0.6, 100, 24, 9)],
+        "zones": [("ash-flats", 600, 400, 220, "sand", 0.8, 0.025), ("cinder", -300, -800, 160, "gravel", 0.8, 0.02)],
+        "features": {"gaps": [gap("lava-leap", "lava", "springs-link", 0.35, 1, 26), gap("magma-gap", "lava", "fire-ring", 0.05, -1, 30, 3.6),
+                              gap("east-lava", "lava", "fire-ring", 0.62, -1, 28), gap("temple-lava", "lava", "temple-road", 0.5, -1, 32, 3.8),
+                              gap("north-lava", "lava", "fire-ring", 0.38, -1, 24), gap("cinder-chasm", "chasm", "fire-ring", 0.3, -1, 26)],
+                     "pools": [pool("pool-1", "lava", 300, 1000, 45, 30, 0.5), pool("pool-2", "lava", 900, 150, 38, 26, 1.1), pool("pool-3", "lava", -350, -650, 50, 32, 0.2),
+                               pool("pool-4", "lava", 700, -800, 40, 28, 2.0), pool("pool-5", "lava", -800, 300, 30, 22, 0.8), pool("pool-6", "lava", 1250, -450, 34, 24),
+                               pool("pool-7", "lava", -150, 1150, 28, 20, 1.4), pool("pool-8", "lava", 400, -1100, 36, 26, 0.3)]},
+    },
+    {
+        "id": "emeraldbay", "name": "Emerald Bay", "tagline": "Sun, sand and splashdowns.", "theme": "alpine", "seed": 4242,
+        "size": 3200, "baseHeight": 30, "cliff": [280, 480],
+        "palette": {"sky": "#bfe6ff", "low": "#6aa34a", "high": "#e8d9a8", "trail": "#e0c98e", "water": "#25c4c4", "accent": "#ffcc33"},
+        "look": {"flora": ["broadleaf", "shrub", "rock", "log"],
+                 "sky": {"sun": [55, 140], "turbidity": 3, "rayleigh": 1.2, "mie": 0.004, "exposure": 1.25, "fog": 0.2, "fogColor": "#c6ecf4", "sunColor": "#fff4dc"},
+                 "grass": [[72, 140, 58], [156, 204, 92]], "dirt": [[200, 176, 124], [244, 226, 176]], "rock": [[118, 112, 100], [206, 198, 178]]},
+        "terrain": {"noise": 8, "scale": 230, "hills": [[-950, -950, 260, 600, 560], [950, -900, 210, 560, 600], [1050, 900, 160, 480, 480], [-1100, 600, 90, 460, 460], [0, -1250, 120, 700, 360]],
+                    "lake": {"position": [0, 200], "radius": [430, 300], "level": 26, "depth": 22}},
+        "spots": [("shack", "Surf Shack", -1100, 1050, "camp", "Shared spawn on the beach."),
+                  ("peak", "Parrot Peak", -950, -950, "lookout", "The highest hill on the bay."),
+                  ("harbour", "Harbour", 0, 650, "dock", "Boats, a jetty and the bay."),
+                  ("ruins", "Coral Ruins", 950, -900, "ruin", "Old walls on the eastern hill."),
+                  ("yard", "Banana Yard", 1050, 900, "yard", "Crates, ramps and a sprint."),
+                  ("light", "Lighthouse", 0, -1250, "tower", "The lighthouse on the north point.")],
+        "routes": [("bay-loop", "Round the Bay", [[-1100, 1050], [-1350, 450], [-1350, -300], [-1100, -1000], [-500, -1300], [0, -1250], [600, -1300], [1100, -1000], [1350, -300], [1300, 450], [1050, 900], [500, 1250], [-300, 1300], [-1100, 1050]], True),
+                   ("peak-climb", "Parrot Peak Climb", [[-1100, 1050], [-850, 550], [-1100, 50], [-750, -350], [-1150, -650], [-950, -950]], False),
+                   ("ruins-run", "Ruins Descent", [[950, -900], [1250, -500], [900, -100], [1200, 350], [1050, 900]], False),
+                   ("yard-ring", "Banana Sprint", [[1050, 900], [1250, 750], [1300, 500], [1050, 400], [850, 600], [850, 850], [1050, 900]], True),
+                   ("shore-road", "Shore Road", [[-1100, 1050], [-600, 750], [0, 650], [550, 700], [1050, 900]], False),
+                   ("light-road", "Lighthouse Road", [[-1150, -650], [-600, -800], [0, -1250], [600, -850], [950, -900]], False)],
+        "races": [("bay-grand", "Round the Bay Rally", "bay-loop", "circuit", "medium", 1), ("bay-climb", "King of Parrot Peak", "peak-climb", "hillclimb", "hard", 1),
+                  ("bay-downhill", "Ruins Plunge", "ruins-run", "downhill", "hard", 1), ("bay-yard", "Banana Scramble", "yard-ring", "circuit", "easy", 3)],
+        "ramps": [("shack-double", -750, 900, 2.2, 90, 18, 7), ("yard-table", 900, 700, 0.6, 100, 24, 9)],
+        "zones": [("beach-sand", -150, 1180, 200, "sand", 0.78, 0.025), ("jungle-mud", 600, -500, 150, "mud", 0.74, 0.02)],
+        "features": {"gaps": [gap("lagoon-gap", "water", "shore-road", 0.25, 1, 26), gap("reef-gap", "water", "bay-loop", 0.55, -1, 30, 3.6),
+                              gap("creek-leap", "water", "bay-loop", 0.88, -1, 24), gap("light-gap", "water", "light-road", 0.6, -1, 28, 3.4),
+                              gap("ruins-chasm", "chasm", "ruins-run", 0.5, 1, 26)],
+                     "pools": [pool("rock-pool", "water", 700, -150, 34, 24, 0.7), pool("jungle-pool", "water", -500, -500, 30, 22, 1.2)]},
     },
 ]
 
@@ -128,7 +224,21 @@ def build(w):
         "boundary": {"softMargin": 100, "policy": "warn-and-respawn", "respawn": "last-safe-pad", "cliffWidth": w["cliff"][0], "cliffHeight": w["cliff"][1], "sceneryApron": 1600},
         "spawnPads": pads,
         "safePads": [{"id": s["id"], "position": s["position"], "radius": 32, "riderPosition": [s["position"][0] - 24, s["position"][1] - 18]} for s in spots],
+        "features": w.get("features", {}),
     }
+
+
+# gap jumps and pools for the first three worlds (their files are hand-made, so only "features" is replaced)
+EXTRAS = {
+    "redrock": {"gaps": [gap("frontier-chasm", "chasm", "frontier-loop", 0.15, 1, 26), gap("mesa-chasm", "chasm", "mesa-run", 0.5, -1, 30, 3.6),
+                         gap("wash-gap", "water", "wash-link", 0.5, 1, 24)],
+                "pools": [pool("quarry-tar", "tar", 900, 350, 36, 26, 0.5), pool("ruins-tar", "tar", -150, -650, 30, 22, 1.2)]},
+    "pinecrest": {"gaps": [gap("creek-gap", "water", "lake-loop", 0.5, -1, 24), gap("timber-gap", "water", "timber-run", 0.5, -1, 28, 3.4),
+                           gap("ridge-chasm", "chasm", "summit-climb", 0.35, 1, 26)],
+                  "pools": [pool("bog", "water", -1250, -300, 34, 24, 0.4)]},
+    "frostpeak": {"gaps": [gap("crevasse-1", "ice", "frost-summit-climb", 0.5, 1, 24), gap("crevasse-2", "ice", "frost-timber-run", 0.1, -1, 28, 3.4),
+                           gap("crevasse-3", "ice", "frost-lake-loop", 0.7, -1, 30, 3.6), gap("frost-chasm", "chasm", "frost-ridge-link", 0.5, -1, 26)]},
+}
 
 
 if __name__ == "__main__":
@@ -139,4 +249,10 @@ if __name__ == "__main__":
         entry = {"id": w["id"], "name": w["name"], "file": f"{w['id']}.json", "areaKm2": round(w["size"] ** 2 / 1e6, 2)}
         manifest["worlds"] = [x for x in manifest["worlds"] if x["id"] != w["id"]] + [entry]
         print("wrote", w["id"])
+    for wid, feats in EXTRAS.items():
+        f = OUT / f"{wid}.json"
+        d = json.loads(f.read_text())
+        d["features"] = feats
+        f.write_text(json.dumps(d, indent=2) + "\n")
+        print("features for", wid)
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")

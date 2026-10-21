@@ -116,6 +116,98 @@ export function buildTerrain(world) {
    if(ok&&line.length===5){ line.forEach((r,i)=>ramps.push({...r,id:'park-'+parks.length+'-'+i})); parks.push({pad:pad.id,start:[px+sx*150,pz+sz*150],heading:h,ramps:line}); break; }
   }
  }
+ // ---------------------------------------------------------------- gap jumps, pools and boost pads
+ // A gap jump: a run-in, a kicker, a pit (lava, water, a freezing crevasse or a bottomless chasm) and a landing
+ // ramp on the far side. Fall in and you crash (and get another go from the run-in). Each one is placed near its
+ // anchor (beside a trail) on the nearest clear, flattish ground. Pools are open lava, tar or water.
+ const F=world.features||{}, features=[], gaps=[], pools=[], boosts=[];
+ const anchorOf=a=>{ if(a.near)return a.near; const route=world.routes.find(r=>r.id===a.route),p=routePoint(route,routeLength(route)*a.at),side=a.side||1; return [p.x+Math.cos(p.heading)*80*side,p.z-Math.sin(p.heading)*80*side]; };
+ const headingNear=(x,z)=>{ let best=null,min=Infinity; for(const s of segments){ const d=segDist(x,z,s.a,s.b); if(d<min){min=d;best=Math.atan2(s.dx,s.dz);} } return best??0; };
+ const GAP={lava:{depth:7,fluid:2.2},water:{depth:7,fluid:1.8},ice:{depth:9,fluid:2.6},chasm:{depth:30,fluid:9}};
+ const clearOfFeatures=(x,z,r)=>!features.some(f=>Math.hypot(x-f.cx,z-f.cz)<f.reach+r)&&!ramps.some(q=>Math.hypot(x-q.position[0],z-q.position[1])<q.length/2+r);
+ for(const g of F.gaps||[]) {
+  const kind=GAP[g.kind]?g.kind:'lava',G=g.gap||28,H=g.height||3.2,W=g.width||24,run=g.run||110,K=H*4.8,deck=6,L=82,end=G+deck+L,[ax,az]=anchorOf(g),along0=headingNear(ax,az);
+  let placed=null;
+  // (it may run gently up or down hill: the ground is fitted with a straight slope along the jump)
+  search: for(let d=0;d<=540;d+=30) for(let k=0;k<(d?16:1);k++) for(const turn of [0,Math.PI,.4,-.4,Math.PI+.4,Math.PI-.4]) {
+   const h=along0+turn,sx=Math.sin(h),sz=Math.cos(h),cx=ax+Math.cos(k*.3927)*d,cz=az+Math.sin(k*.3927)*d;
+   // (cx, cz) is the middle of the footprint; the lip is (end - run) / 2 before it
+   const mid=(end-run)/2,lx=cx-sx*mid,lz=cz-sz*mid,pts=[];let ok=true;
+   for(let e=-run-12;e<=end+12&&ok;e+=8) for(const side of [-W/2-8,0,W/2+8]) {
+    const ex=lx+sx*e+sz*side,ez=lz+sz*e-sx*side;
+    if(!inBounds(ex,ez,rimWidth+70)||routeDist(ex,ez)<42||wet(ex,ez,70)||world.spots.some(s=>Math.hypot(ex-s.position[0],ez-s.position[1])<95)||pads.some(p=>Math.hypot(ex-p.position[0],ez-p.position[1])<110)||!clearOfFeatures(ex,ez,30)){ok=false;break;}
+    pts.push([e,rawHeight(ex,ez)]);
+   }
+   if(!ok)continue;
+   const n=pts.length,me=pts.reduce((a,p)=>a+p[0],0)/n,my=pts.reduce((a,p)=>a+p[1],0)/n,tilt=pts.reduce((a,p)=>a+(p[0]-me)*(p[1]-my),0)/pts.reduce((a,p)=>a+(p[0]-me)**2,0),base=my-tilt*me;
+   if(Math.abs(tilt)<.1&&pts.every(p=>Math.abs(p[1]-base-tilt*p[0])<7)){ placed={lx,lz,h,sx,sz,base,tilt,cx,cz}; break search; }
+  }
+  if(!placed) continue;
+  const spec=GAP[kind],gap={id:g.id,kind,x:placed.lx,z:placed.lz,heading:placed.h,s:placed.sx,c:placed.sz,base:placed.base,tilt:placed.tilt,gap:G,height:H,width:W,run,K,deck,L,end,land:H*.8,depth:spec.depth,
+   level:placed.base+placed.tilt*G/2-spec.fluid,cx:placed.cx,cz:placed.cz,reach:Math.hypot((end+run)/2,W/2)+24,
+   retry:{position:[placed.lx-placed.sx*(run-6),placed.lz-placed.sz*(run-6)],heading:placed.h}};
+  gaps.push(gap);features.push(gap);
+ }
+ for(const p of F.pools||[]) {
+  const [rx,rz]=p.radius,turn=p.turn||0,kind=p.kind||'lava',reach=Math.max(rx,rz);let spot=null;
+  search: for(let d=0;d<=300;d+=25) for(let k=0;k<(d?12:1);k++) {
+   const cx=p.position[0]+Math.cos(k*.5236)*d,cz=p.position[1]+Math.sin(k*.5236)*d;let lo=Infinity,hi=-Infinity,ok=inBounds(cx,cz,rimWidth+reach+40)&&clearOfFeatures(cx,cz,reach+20);
+   for(let a=0;a<6.28&&ok;a+=.52) for(const f of [0,.6,1.25]) {
+    const ex=cx+Math.cos(a)*rx*f*1.2,ez=cz+Math.sin(a)*rz*f*1.2;
+    if(routeDist(ex,ez)<(p.trail??30)||wet(ex,ez,40)||world.spots.some(s=>Math.hypot(ex-s.position[0],ez-s.position[1])<80)||pads.some(q=>Math.hypot(ex-q.position[0],ez-q.position[1])<90)){ok=false;break;}
+    const y=rawHeight(ex,ez);lo=Math.min(lo,y);hi=Math.max(hi,y);
+   }
+   if(ok&&hi-lo<14){ spot={cx,cz,base:(lo+hi)/2}; break search; }
+  }
+  if(!spot) continue;
+  const depth=p.depth||5,pool={id:p.id,kind,pool:true,x:spot.cx,z:spot.cz,cx:spot.cx,cz:spot.cz,rx,rz,turn,c:Math.cos(turn),s:Math.sin(turn),base:spot.base,depth,level:spot.base-(kind==='lava'?1.4:1),reach:reach*1.7};
+  pools.push(pool);features.push(pool);
+ }
+ const featureGrid=new Map(); for(const f of features) insert(featureGrid,f,f.cx-f.reach,f.cx+f.reach,f.cz-f.reach,f.cz+f.reach);
+ const FLAT={flat:0,base:0,dy:0,weight:0,hazard:null};
+ /** What a gap jump or pool does to the ground at (x, z): flatten it towards base (flat 0..1), then add dy;
+     weight = how much it looks like a dirt jump; hazard = the pit's fluid there ({kind, level, retry}) or null. */
+ function featureAt(x,z) {
+  const list=featureGrid.get(Math.floor(x/cell)+','+Math.floor(z/cell)); if(!list) return FLAT;
+  for(const f of list) {
+   if(f.pool) {
+    const dx=x-f.x,dz=z-f.z,a=(dx*f.c-dz*f.s)/f.rx,b=(dx*f.s+dz*f.c)/f.rz,d=Math.hypot(a,b); if(d>1.7) continue;
+    const wob=d*(1+.08*(noise(x/14,z/14,seed+401)-.5));
+    let dy=-f.depth*(1-smooth((wob-.78)/.24));
+    if(f.kind==='lava') dy+=1.1*Math.exp(-(((wob-1.07)/.09)**2));   // (a cooled crust round the edge)
+    return {flat:1-smooth((d-1.15)/.5),base:f.base,dy,weight:0,hazard:wob<.9?{kind:f.kind,level:f.level,id:f.id}:null};
+   }
+   const dx=x-f.x,dz=z-f.z,along=dx*f.s+dz*f.c,across=Math.abs(dx*f.c-dz*f.s);
+   const out=Math.max(-f.run-along,along-f.end,0); if(out>18||across>f.width/2+22) continue;
+   const flat=(1-smooth((across-f.width/2-4)/16))*(1-smooth(out/16)),base=f.base+f.tilt*clamp(along,-f.run,f.end);
+   const side=1-smooth((across-f.width/2+3)/3);
+   let dy=0,weight=0,hazard=null;
+   if(along>-f.K&&along<=0){ const t=(along+f.K)/f.K; dy=f.height*t*t*side; weight=side; }                               // the kicker
+   else if(along>0&&along<f.gap){                                                                                          // the pit
+    const near=smooth(along/1.6),far=smooth((along-f.gap+1.6)/1.6);   // (steep walls: down from the lip, up to the landing)
+    dy=(f.height+(-f.depth-f.height)*near+(f.land+f.depth)*far)*side;
+    if(across<f.width/2-1&&along>.4&&along<f.gap-.4) hazard={kind:f.kind,level:f.level,id:f.id,retry:f.retry};
+   }
+   else if(along>=f.gap&&along<f.gap+f.deck){ dy=f.land*side; weight=side; }                                              // the landing deck
+   else if(along>=f.gap+f.deck&&along<f.end){ dy=f.land*(1-smooth((along-f.gap-f.deck)/f.L))*side; weight=side; }         // and its long downslope
+   else if(along>-f.run&&along<=-f.K) weight=side*.85;                                                                   // the run-in track
+   return {flat,base,dy,weight,hazard};
+  }
+  return FLAT;
+ }
+ // Boost pads: glowing strips on the straights of the trails that kick you forward.
+ for(const route of world.routes) {
+  const len=routeLength(route);
+  for(let d=420;d<len-200;d+=720) {
+   const p=routePoint(route,d),q=routePoint(route,d+30),o=routePoint(route,d-30);
+   if(Math.abs(Math.atan2(Math.sin(q.heading-o.heading),Math.cos(q.heading-o.heading)))>.2||wet(p.x,p.z,30)||!inBounds(p.x,p.z,rimWidth*.7))continue;
+   if(ramps.some(r=>Math.hypot(p.x-r.position[0],p.z-r.position[1])<r.length/2+40))continue;
+   boosts.push({x:p.x,z:p.z,heading:p.heading,s:Math.sin(p.heading),c:Math.cos(p.heading),length:12,width:Math.min(8,route.width-2)});
+  }
+ }
+ /** The boost pad under (x, z) (its heading, as sin s and cos c) or null. */
+ function boostAt(x,z){ for(const p of boosts){ const dx=x-p.x,dz=z-p.z; if(Math.abs(dx)>10||Math.abs(dz)>10)continue; if(Math.abs(dx*p.s+dz*p.c)<p.length/2&&Math.abs(dx*p.c-dz*p.s)<p.width/2)return p; } return null; }
+
  const rampGrid=new Map();
  for(const r of ramps){ r.s=Math.sin(r.heading); r.c=Math.cos(r.heading); const reach=r.length/2+r.width; insert(rampGrid,r,r.position[0]-reach,r.position[0]+reach,r.position[1]-reach,r.position[1]+reach); }
  /** How much ramp is under (x, z): its height and a 0..1 "this is a dirt jump" weight. */
@@ -130,6 +222,7 @@ export function buildTerrain(world) {
     y+=ramp.height*k*side; weight=Math.max(weight,Math.min(1,k*3)*side);
    }
   }
+  if(features.length) weight=Math.max(weight,featureAt(x,z).weight);
   return {y,weight};
  }
 
@@ -146,6 +239,7 @@ export function buildTerrain(world) {
   for(const p of pads) m=Math.min(m,smooth((Math.hypot(x-p.position[0],z-p.position[1])-140)/110));
   for(const s of world.spots) m=Math.min(m,smooth((Math.hypot(x-s.position[0],z-s.position[1])-110)/90));
   if(m>0)for(const r of ramps) m=Math.min(m,smooth((Math.hypot(x-r.position[0],z-r.position[1])-r.length/2-24)/60));
+  if(m>0)for(const f of features) m=Math.min(m,smooth((Math.hypot(x-f.cx,z-f.cz)-f.reach)/60));
   if(lake) m=Math.min(m,smooth((lakeDist(x,z)-1.35)/.55));
   if(river) m=Math.min(m,smooth((riverDist(x,z)-river.width*1.6)/120));
   mask[j*nx+i]=m;
@@ -228,14 +322,24 @@ export function buildTerrain(world) {
   let y=rawHeight(x,z); const road=roadAt(x,z); if(road) y+=(road.height-y)*road.weight;
   for(const p of pads) { const d=Math.hypot(x-p.position[0],z-p.position[1]), weight=1-smooth((d-p.radius)/(p.radius*3)); if(weight>0)y+=(p.height-y)*weight; }
   y+=rampAt(x,z).y;
+  if(features.length){ const f=featureAt(x,z); if(f.flat>0) y+=(f.base-y)*f.flat+f.dy; }
   const w=wild(x,z); if(w>0) y+=landform(x,z)*w;
   return y+cliffRise(x,z);
  }
  function surfaceAt(x,z) {
+  if(features.length&&featureAt(x,z).weight>.5) return {kind:'trail',grip:.96,roll:.01};   // (gap jumps are packed dirt, whatever's round them)
   for(const s of world.surfaceZones) if(Math.hypot(x-s.position[0],z-s.position[1])<s.radius) return {kind:s.surface,grip:s.grip,roll:s.roll};
   const road=roadAt(x,z), jump=road?.trail?0:rampAt(x,z).weight;
   if(jump>.5) return {kind:'trail',grip:.96,roll:.01};
   return {kind:road?.trail?'trail':theme==='desert'?'sand':theme==='snow'?'snow':'grass',grip:road?.trail ? .96 : .82,roll:road?.trail ? .01 : .02};
+ }
+ /** The fluid (or drop) the bike is over at (x, z): { kind: lava | water | ice | chasm, level, retry? } or null.
+     Lakes and rivers count too (deep water only: you can splash through the shallows). */
+ function hazardAt(x,z) {
+  if(features.length){ const h=featureAt(x,z).hazard; if(h) return h; }
+  if(lake&&!lake.frozen&&lakeDist(x,z)<1) return {kind:lake.lava?'lava':'water',level:lake.lava?lake.level:lake.level-.9};
+  if(river&&riverDist(x,z)<river.width*.45) return {kind:river.lava?'lava':'water',level:river.lava?river.level:river.level-.9};
+  return null;
  }
  function normalAt(x,z,epsilon=.5) { const nx=heightAt(x-epsilon,z)-heightAt(x+epsilon,z),nz=heightAt(x,z-epsilon)-heightAt(x,z+epsilon),ny=2*epsilon,l=Math.hypot(nx,ny,nz); return {x:nx/l,y:ny/l,z:nz/l}; }
  function inBounds(x,z,margin=0) { return Math.abs(x)<=W/2-margin&&Math.abs(z)<=D/2-margin; }
@@ -246,5 +350,6 @@ export function buildTerrain(world) {
   for(let i=0;i<=count;i++) { const p=routePoint(route,len*i/count); gates.push({...p,y:heightAt(p.x,p.z),radius:race.gateRadius,index:i}); }
   return gates;
  }
- return {world,rawHeight,cliffRise,heightAt,roadAt,rampAt,surfaceAt,normalAt,inBounds,nearestSafePad,gatesFor,wild,ramps,parks,mesas,routeDist,buildings,arches,obstacles,obstacleAt};
+ return {world,rawHeight,cliffRise,heightAt,roadAt,rampAt,surfaceAt,normalAt,inBounds,nearestSafePad,gatesFor,wild,ramps,parks,mesas,routeDist,buildings,arches,obstacles,obstacleAt,
+  featureAt,hazardAt,boostAt,gaps,pools,boosts};
 }

@@ -805,5 +805,65 @@
         282
       ]
     }
-  ]
+  ],
+  "features": {
+    "gaps": [
+      {
+        "id": "slot-canyon",
+        "kind": "chasm",
+        "route": "rim-loop",
+        "at": 0.12,
+        "side": -1,
+        "gap": 47,
+        "height": 3.7,
+        "width": 28
+      },
+      {
+        "id": "rim-chasm",
+        "kind": "chasm",
+        "route": "butte-climb",
+        "at": 0.5,
+        "side": -1,
+        "gap": 58,
+        "height": 4.4,
+        "width": 28
+      },
+      {
+        "id": "arch-chasm",
+        "kind": "chasm",
+        "route": "arch-run",
+        "at": 0.45,
+        "side": 1,
+        "gap": 50,
+        "height": 3.7,
+        "width": 28
+      },
+      {
+        "id": "mine-gap",
+        "kind": "water",
+        "route": "mine-ring",
+        "at": 0.4,
+        "side": -1,
+        "gap": 40,
+        "height": 3.4,
+        "width": 28
+      }
+    ],
+    "pools": [
+      {
+        "id": "outpost-tar",
+        "kind": "tar",
+        "position": [
+          -700,
+          1250
+        ],
+        "radius": [
+          32,
+          24
+        ],
+        "turn": 0.4,
+        "trail": 30
+      }
+    ]
+  }
 }

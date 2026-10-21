@@ -20,6 +20,14 @@
     {"id": "canyon-tricks", "world": "canyonrun", "kind": "tricks", "name": "Trick Jam", "emoji": "🌟", "at": "park", "limit": 120,
      "about": "Two minutes at the jump park. Supermans, no-handers, whips, 360s and flips all score: land them!"},
     {"id": "dunes-air", "world": "golddunes", "kind": "air", "name": "Dune Launch", "emoji": "🏜️", "at": "park", "limit": 90,
-     "about": "90 seconds to find the biggest air at the Oasis jump park."}
+     "about": "90 seconds to find the biggest air at the Oasis jump park."},
+    {"id": "magma-escape", "world": "magmaisle", "kind": "race", "name": "Escape the Volcano", "emoji": "🌋", "from": "rim", "to": "camp", "limit": 240,
+     "about": "From the Crater Rim down to Ash Camp. Mind the lava pools on the way: first one out wins."},
+    {"id": "magma-air", "world": "magmaisle", "kind": "air", "name": "Lava Leap", "emoji": "🔥", "at": "park", "limit": 90,
+     "about": "90 seconds at the Hot Springs jump park. Your single longest jump counts."},
+    {"id": "bay-dash", "world": "emeraldbay", "kind": "race", "name": "Peak to Beach", "emoji": "🏝️", "from": "peak", "to": "shack", "limit": 240,
+     "about": "From the top of Parrot Peak down to the Surf Shack. Any line you like, but not through the lagoon."},
+    {"id": "bay-flips", "world": "emeraldbay", "kind": "flips", "name": "Splash Flips", "emoji": "🤸", "at": "park", "limit": 120,
+     "about": "Two minutes at the beach jump park to land as many flips as you can."}
   ]
 }
