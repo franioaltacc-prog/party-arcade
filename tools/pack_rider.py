@@ -1,8 +1,10 @@
 """Packs a rigged character glTF binary (.glb) for the web: drops its animation clips and shape keys (the game
 poses the skeleton itself), re-saves every texture as a JPEG no bigger than MAX pixels (with macOS `sips`), and
 writes a fresh .glb with only the data still used. The mesh, skin and skeleton are kept as they are.
-Used for the motocross rider (public/models/moto/rider.glb):
-    python3 tools/pack_rider.py 80s_mystery_biker.glb public/models/moto/rider.glb 512"""
+Used for the motocross rider and the free-ride supercars (public/models/moto/rider.glb, revuelto.glb, aventador.glb):
+    python3 tools/pack_rider.py 80s_mystery_biker.glb public/models/moto/rider.glb 512
+    python3 tools/pack_rider.py free_lamborghini_revuelto.glb public/models/moto/revuelto.glb 512
+    python3 tools/pack_rider.py lamborghini_aventador.glb public/models/moto/aventador.glb 1024"""
 import json, struct, sys, subprocess, tempfile, os
 
 src, dst, MAX = sys.argv[1], sys.argv[2], int(sys.argv[3])

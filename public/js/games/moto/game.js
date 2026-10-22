@@ -11,6 +11,8 @@ import {buildRideWorld} from './open-world/ride-world.mjs';
 import {createTrial,stepTrial,trialBestKey} from './open-world/trials.mjs';
 import * as Coins from './coins.js';
 import { createMap } from './map.js';
+import * as Car from './car.js';
+import { makeCar, poseCar, disposeCar, preloadCar, CAR_PAINTS, CAR_MODELS, paintable } from './car-model.js';
 
 const { $, h, fill, Net, Sfx, UI, store, Account, Unlocks } = PA;
 const FX = PA.FX || {};
@@ -22,7 +24,7 @@ let DATA = null; let WORLDS = []; let CHALLENGES = [];
 const builtTracks = new Map();
 const trackDef = (id) => DATA.tracks.find((t) => t.id === id) || DATA.tracks[0];
 const physicsTrack = (def) => { if (!builtTracks.has(def.id)) builtTracks.set(def.id, C.build(def)); return builtTracks.get(def.id); };
-const prefs = Object.assign({ cam: 'chase', quality: 'auto', livery: 'factory', mode: 'solo', track: 'desert', minimap: 'on' }, store.get('moto_prefs', {}));
+const prefs = Object.assign({ cam: 'chase', quality: 'auto', livery: 'factory', mode: 'solo', track: 'desert', minimap: 'on', vehicle: 'bike', carModel: 'revuelto', carPaint: 'arancio' }, store.get('moto_prefs', {}));
 const savePrefs = () => store.set('moto_prefs', prefs);
 const bestOf = (id) => store.get('moto_best_' + id, null);
 // medals: how close you get to the robot's time
@@ -113,6 +115,7 @@ function loadWorld(def) {
 
 // ------------------------------------------------------------------ the ride
 const R = {
+  V: C, car: false,   // (the physics: MotoCore's bike, or car.js's supercar in free ride)
   running: false, mode: 'solo', def: null, T: null, bike: null, model: null, prev: null, cur: null,
   goAt: 0, acc: 0, last: 0, finished: false, spectate: false, lane: 0, camMode: prefs.cam,
   cam: { pos: new THREE.Vector3(), look: new THREE.Vector3(), fov: 60, shake: 0, init: false },
@@ -130,6 +133,7 @@ function snap(b) {
     x: b.x, y: b.y, a: b.a, wf: [f.x, f.y, f.ang], wr: [r.x, r.y, r.ang], rx: b.rx, ry: b.ry, lean: b.lean, px: b.px, pz: b.pz, h: b.h, s: b.s,
     boost: b.boost, crashed: b.crashed, ragdoll: b.rider ? { hip: { x: b.rider.hip.x, y: b.rider.hip.y }, head: { x: b.rider.head.x, y: b.rider.head.y } } : null,
     tk: b.tk, tp: b.pose, wh: b.whip, sp: b.spin,
+    car: b.car ? { p: b.pitch, r: b.roll, st: b.steer, w: [b.wspin[0], b.wspin[1]], c: [...b.comp] } : null,
   };
 }
 const lerpA = (p, q, t) => { let d = q - p; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return p + d * t; };
@@ -140,6 +144,7 @@ function mix(p, q, t) {
     px: L(p.px, q.px), pz: L(p.pz, q.pz), h: lerpA(p.h, q.h, t), s: L(p.s, q.s),
     wf: [L(p.wf[0], q.wf[0]), L(p.wf[1], q.wf[1]), L(p.wf[2], q.wf[2])], wr: [L(p.wr[0], q.wr[0]), L(p.wr[1], q.wr[1]), L(p.wr[2], q.wr[2])],
     tk: q.tk, tp: L(p.tp || 0, q.tp || 0), wh: L(p.wh || 0, q.wh || 0), sp: q.sp ? (p.sp && p.sp <= q.sp ? L(p.sp, q.sp) : q.sp) : 0,
+    car: q.car && p.car ? { p: L(p.car.p, q.car.p), r: L(p.car.r, q.car.r), st: L(p.car.st, q.car.st), w: [L(p.car.w[0], q.car.w[0]), L(p.car.w[1], q.car.w[1])], c: q.car.c.map((v, i) => L(p.car.c[i], v)) } : q.car,
     boost: q.boost, crashed: q.crashed, ragdoll: q.ragdoll && p.ragdoll ? { hip: { x: L(p.ragdoll.hip.x, q.ragdoll.hip.x), y: L(p.ragdoll.hip.y, q.ragdoll.hip.y) }, head: { x: L(p.ragdoll.head.x, q.ragdoll.head.x), y: L(p.ragdoll.head.y, q.ragdoll.head.y) } } : q.ragdoll,
   };
 }
@@ -187,7 +192,8 @@ function begin(def, mode, goAt) {
     R.lane = mode === 'online' ? laneFor(Net.id) : 0;   // (your slot in the start gate)
     R.bike = C.newBike(R.T, R.T.start, R.lane);
     R.prev = R.cur = snap(R.bike);
-    if (R.model) disposeBike(R.model);
+    if (R.model) disposeModel(R.model);
+    R.V = C; R.car = false;
     R.model = makeBike(myLook());
     R.model.root.visible = !R.spectate;
     world.scene.add(R.model.root);
@@ -264,7 +270,7 @@ function physicsStep(now) {
   const inp = R.spectate || R.finished ? { gas: 0, brake: R.finished ? 1 : 0, lean: 0, nitro: false } : R.override ? R.override(R.T, b) : controls();
   if (b.hold > 0) { b.hold -= DT; b.t += DT; }
   const before={x:b.px,y:b.y,z:b.pz}; const xBefore=b.x;
-  const ev = C.step(T, b, { ...inp, hold: holding });
+  const ev = R.V.step(T, b, { ...inp, hold: holding });
   if(R.trial && !holding && !b.crashed){
     const event=stepTrial(R.trial,before,{x:b.px,y:b.y,z:b.pz},DT);
     if(event==='finish'){
@@ -290,12 +296,12 @@ function physicsStep(now) {
     if(R.mode==='free'){R.trial=null;updateTrialMarker();}
     // in a challenge you go back to where you last were on your wheels (a safe pad could be a shortcut)
     let where;
-    if (R.challenge) { const sp = R.challenge.safe; C.place(T, b, { position: [sp.x, sp.z], heading: sp.h }); where = 'where you were'; }
+    if (R.challenge) { const sp = R.challenge.safe; R.V.place(T, b, { position: [sp.x, sp.z], heading: sp.h }); where = 'where you were'; }
     else if (R.mode === 'free') {
       // free ride: another go at the gap you fell into, else where you were riding a few seconds ago (R and the
       // world edge go to a safe pad)
       const back = R.toPad ? null : R.retry ? { ...R.retry, gap: true } : R.safeTrail.findLast((p) => p.t < now - C.P.CRASH_TIME * 1000 - 2500);
-      C.respawn(T, b, 0, back ? { position: back.position || [back.x, back.z], heading: back.heading ?? back.h } : null);
+      R.V.respawn(T, b, 0, back ? { position: back.position || [back.x, back.z], heading: back.heading ?? back.h } : null);
       where = back ? (back.gap ? 'the run-in: have another go!' : 'where you were riding') : 'a safe riding pad';
       R.retry = null; R.toPad = false; R.safeTrail.length = 0;
     } else { C.respawn(T, b); where = b.cp >= 0 ? `checkpoint ${b.cp + 1}` : 'the start'; }
@@ -423,11 +429,14 @@ function placer(sn) {
   return (x, y, out) => out.set(sn.px + c * (x - sn.x), y, sn.pz + n * (x - sn.x));
 }
 const clampN = (v, a, b) => (v < a ? a : v > b ? b : v);
+const disposeModel = (m) => (m.car ? disposeCar(m) : disposeBike(m));
 function render(now, dt, alpha) {
   const w = world; const b = R.bike;
   const s = mix(R.prev, R.cur, alpha);
   const place = placer(s);
   const speed = Math.hypot(b.vx, b.vy);
+  if (R.car) poseCar(R.model, s);
+  else {
   // lean into turns like a real bike: tan(lean) = sideways acceleration / gravity
   const want = b.crashed || !(b.wh[0].ct || b.wh[1].ct) ? 0 : Math.atan(b.vx * b.yaw / C.P.G);
   R.roll += (clampN(want, -0.85, 0.85) - R.roll) * (1 - Math.exp(-dt * 8));
@@ -438,6 +447,7 @@ function render(now, dt, alpha) {
   R.steerVis = (R.steerVis || 0) + (steerTo - (R.steerVis || 0)) * (1 - Math.exp(-dt * 12));
   s.st = R.steerVis;
   poseBike(R.model, s, place, s.h, now / 1000);
+  }
   R.model.root.visible = !R.spectate;
   // gates drop at GO
   if (R.gateDown) for (const gg of w.gates) gg.rotation.z = Math.min(Math.PI / 2 * 0.95, gg.rotation.z + dt * 7);
@@ -486,8 +496,9 @@ function updateCamera(s, dt, speed, place) {
     look = P.clone().addScaledVector(D, 5).add(UPV.clone().multiplyScalar(0.9));
   } else {
     // Cork7-style chase: behind and above, looking ahead
-    want = P.clone().addScaledVector(D, -5).add(UPV.clone().multiplyScalar(2.0 + air * 0.3));
-    look = P.clone().addScaledVector(D, 5).add(UPV.clone().multiplyScalar(1.0 + air * 0.2));
+    const far = R.car ? 2 : 1;   // (the car is longer and wider: sit further back and higher)
+    want = P.clone().addScaledVector(D, -5 * far).add(UPV.clone().multiplyScalar((2.0 + air * 0.3) * (R.car ? 1.6 : 1)));
+    look = P.clone().addScaledVector(D, 5 * far).add(UPV.clone().multiplyScalar(1.0 + air * 0.2));
   }
   // keep the camera out of the ground
   want.y = Math.max(want.y, groundUnder(want.x, want.z, s.s) + 1.1);
@@ -540,7 +551,7 @@ function effects(s, dt, place) {
   if (b.crashed && speed > 2 && Math.random() < 0.5) emitAt(b.x, b.y - 0.3, 2, 'puff', 0.8);
   // exhaust
   if (Math.random() < 0.18 + b.thr * 0.3) {
-    const ex = R.model.root.localToWorld(tmpV.set(-0.82, 0.4, 0.17));
+    const ex = R.model.root.localToWorld(R.car ? tmpV.set(-2.36, -0.32, Math.random() < 0.5 ? -0.24 : 0.24) : tmpV.set(-0.82, 0.4, 0.17));
     fx.puff(ex.x, ex.y, ex.z, -D[0] * 0.6, 0.25, -D[1] * 0.6, { life: 0.8, size: 0.12, grow: 0.7, alpha: b.boost ? 0 : 0.12, drag: 1, color: fx.colors.smoke });
   }
 }
@@ -636,9 +647,9 @@ async function startFree(entry, opts = {}){
   fill($('#hud-center'),h('div',{class:'mx-loading'},'Building '+entry.name+'…'));$('#hud-time').closest('.mx-tr').hidden=true;
   try{
     const response=await fetch('/js/games/moto/open-world/'+entry.file);if(!response.ok)throw new Error('World unavailable');
-    const def=await response.json();await preloadBike(myLook().model);if(!riding||R.ride!==ride)return;
+    const def=await response.json();await preloadBike(myLook().model);if(prefs.vehicle==='car')await preloadCar(prefs.carModel);if(!riding||R.ride!==ride)return;
     for(const o of R.others.values())dropOther(o);R.others.clear();
-    if(R.model){disposeBike(R.model);R.model=null;}
+    if(R.model){disposeModel(R.model);R.model=null;}
     for(const sb of stage.bikes.values()){sb.model.root.removeFromParent();sb.tag?.removeFromParent();}
     if(world)world.dispose();world=null;worldKey=null;
     const q=QUALITY[qualityLevel()];world=buildRideWorld(def,q.scenery,renderer,q.shadows);worldKey='free:'+def.id;
@@ -653,8 +664,10 @@ async function startFree(entry, opts = {}){
       spawn={...pad,heading:park?park.heading:Math.atan2(-pad.position[0],-pad.position[1])};
       engine=Coins.engineOf().stats;   // (bought engine upgrades only work in free ride)
     }
-    R.T=C.groundTrack(world.ground,spawn,engine);R.bike=C.newBike(R.T);
-    R.model=makeBike(myLook());world.scene.add(R.model.root);
+    // the bike, or (free ride on your own) the supercar
+    R.car=!ch&&prefs.vehicle==='car';R.V=R.car?Car:C;
+    R.T=C.groundTrack(world.ground,spawn,engine);R.bike=R.V.newBike(R.T);
+    R.model=R.car?makeCar(prefs.carModel,prefs.carPaint):makeBike(myLook());world.scene.add(R.model.root);
     if(opts.online&&state.race){fillOthers(state.race);for(const o of R.others.values())addOtherModel(o);}
     R.prev=R.cur=snap(R.bike);R.acc=0;R.last=performance.now();R.finished=false;R.cam.init=false;R.stuck=0;R.emitAcc=0;R.roll=0;R.best=null;R.beeped=0;R.safeTrail=[];R.retry=null;R.toPad=false;
     R.goAt=ch?Math.max(opts.goAt||0,performance.now()+(opts.online?600:3200)):0;R.gateDown=!ch;
@@ -786,7 +799,7 @@ function updateTrialMarker(){
 }
 function beginTrial(race){
   R.trial=createTrial(world.ground,race);const gate=R.trial.gates[0];
-  C.place(R.T,R.bike,{position:[gate.x-Math.sin(gate.heading)*8,gate.z-Math.cos(gate.heading)*8],heading:gate.heading});
+  R.V.place(R.T,R.bike,{position:[gate.x-Math.sin(gate.heading)*8,gate.z-Math.cos(gate.heading)*8],heading:gate.heading});
   R.bike.hold=0;R.prev=R.cur=snap(R.bike);R.cam.init=false;R.goAt=performance.now()+3000;R.gateDown=false;R.beeped=0;R.acc=0;
   updateTrialMarker();showMessage('Ride through the green gates in order','small',3000);
 }
@@ -831,7 +844,7 @@ const map = createMap({
   // fast travel: free ride on your own only (not in a challenge or a mini race, where it'd be a shortcut)
   canTravel: () => R.mode === 'free' && !R.challenge && !R.trial && !!R.bike && !R.bike.crashed,
   travel: (go, place) => {
-    C.respawn(R.T, R.bike, 0, { position: go.position, heading: go.heading });
+    R.V.respawn(R.T, R.bike, 0, { position: go.position, heading: go.heading });
     R.bike.hold = 0; R.prev = R.cur = snap(R.bike); R.cam.init = false; R.safeTrail = [];
     showMessage(`🚀 ${place.name}`, 'small', 1600);
   },
@@ -1278,6 +1291,8 @@ async function init() {
     MODELS, RIDERS, KITS, HELMETS, get style() { return prefs.style; }, setStyle,
     setCam: (k) => { prefs.cam = R.camMode = k; savePrefs(); },
     setMinimap: (k) => { prefs.minimap = k; savePrefs(); showMinimap(); },
+    CAR_PAINTS, CAR_MODELS, paintable, setVehicle: (k) => { prefs.vehicle = k; savePrefs(); Sfx.play('click'); if (k === 'car') preloadCar(prefs.carModel); },
+    setCarModel: (k) => { prefs.carModel = k; savePrefs(); Sfx.play('click'); preloadCar(k); }, setCarPaint: (k) => { prefs.carPaint = k; savePrefs(); Sfx.play('click'); },
     setQuality: (k) => { prefs.quality = k; savePrefs(); worldKey = null; resize(); if (stage.trackId) stageTrack(stage.trackId); },
     stage: { solo: stageSolo, room: stageRoom },
   });

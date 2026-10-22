@@ -41,6 +41,8 @@
     ['🔋', '“Stark Varg SM” by Hari Yojuta (CC BY 4.0, Sketchfab)', 'the Stark Varg bike in Motocross (made lighter for the web)'],
     ['🧡', '“HCR2 Motocross” by oakar258 (CC BY 4.0, Sketchfab)', 'the Hill Racer bike in Motocross'],
     ['🧥', '“80’s mystery biker” by thomasdonovan26 (CC BY 4.0, Sketchfab)', 'the Mystery Biker rider in Motocross (smaller textures for the web)'],
+    ['🧡', '“Free Lamborghini Revuelto” by ALIEEEN (CC BY 4.0, Sketchfab)', 'the Revuelto supercar in Motocross free ride (smaller textures for the web)'],
+    ['💛', '“Lamborghini Aventador” by Arion Digital (CC BY 4.0, Sketchfab)', 'the Aventador supercar in Motocross free ride'],
     ['🟢', 'GSAP by GreenSock', 'animations'],
     ['🔤', 'Bungee by David Jonathan Ross', 'title font (Google Fonts)'],
     ['🔤', 'Fredoka by Milena Brandão', 'text font (Google Fonts)'],

@@ -106,6 +106,12 @@ export function createMenus(ctx) {
         h('div',{class:'mx-ticket'},h('div',{class:'grow'},h('span',{class:'lab'},'Your free-ride bike'),
           h('div',{class:'nm'},h('small',{},'🪙 '+wl.coins.toLocaleString('en-US')+' COINS'),h('b',{},`${eng.emoji} ${eng.name}`)),
           h('div',{class:'acts'},h('button',{class:'mx-link',type:'button',onclick:()=>{garageTab='engine';show('garage');}},'⚡ Upgrade the engine ↗'))),h('span',{class:'mx-barcode'})),
+        // ride the bike or the supercar (free ride on your own only)
+        h('div',{class:'mx-vehicle'},
+          h('div',{class:'mx-seg'},[['bike','🏍️ Dirt bike'],['car','🏎️ Supercar']].map(([k,label])=>h('button',{class:'mx-sb'+(ctx.prefs.vehicle===k?' on':''),type:'button',onclick:()=>{ctx.setVehicle(k);show('worlds');}},label))),
+          ctx.prefs.vehicle==='car'?h('div',{class:'mx-seg'},Object.entries(ctx.CAR_MODELS).map(([k,c])=>h('button',{class:'mx-sb'+((ctx.prefs.carModel||'revuelto')===k?' on':''),type:'button',title:c.about,onclick:()=>{ctx.setCarModel(k);show('worlds');}},c.emoji+' '+c.name))):null,
+          ctx.prefs.vehicle==='car'&&ctx.paintable(ctx.prefs.carModel||'revuelto')?h('div',{class:'mx-paints'},Object.entries(ctx.CAR_PAINTS).map(([k,p])=>h('button',{class:'mx-paint'+(ctx.prefs.carPaint===k?' on':''),type:'button',title:p.name,'aria-label':p.name,style:{'--c':p.color},onclick:()=>{ctx.setCarPaint(k);show('worlds');}}))):null,
+          h('small',{},ctx.prefs.vehicle==='car'?'W/S drive · A/D steer · Q handbrake (drift) · Space turbo · Q/E tip the nose in the air':'Challenges and races always use the bike')),
         // all the worlds at once, in a grid (no scrolling down a long list)
         h('div',{class:'mx-wgrid'},list.map(w=>{const [c,e]=WORLD_LOOK[w.id]||['green','🗺️'];
           return card2(c,e,w.name,what(w),()=>ctx.startFree(w),{on:w===sel,sticker:w===sel?'LAST RIDDEN':NEW_WORLDS.includes(w.id)?'NEW':null,stickerCls:w===sel?'dark':null});})),

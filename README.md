@@ -200,6 +200,14 @@ places, gap jumps, pools, parks and mini-race starts can be set as the waypoint 
 or ridden to (fast travel: solo free ride only). Lakes have a shore (`terrain.rawHeight` keeps the ground just
 outside a lake above its water, and `shore()`, the last step of `heightAt`, does the same for every lake and river bank)
 and `tintAt` colours ground under water.
+**Supercar** (free ride on your own, `prefs.vehicle = 'car'`): `moto/car.js` is a raycast-style car on the world's
+ground (four springs along the ground's normal, pitch and roll from their forces, grip-limited steering, a
+handbrake that lets the tail out, seven automatic gears, turbo, air pitch on Q / E, crashes on its roof, in a hazard,
+into a building or off the world). It keeps the bike's field names (`px`, `pz`, `y`, `h`, `vx`, `wh`, `crashed`…), so
+`game.js` drives it as `R.V` with the same camera, coins, hazards, respawns and map. `moto/car-model.js` builds the
+car: the Revuelto (ALIEEEN) or Aventador (Arion Digital) model files (CC BY, `public/models/moto`, packed with
+`tools/pack_rider.py`), fitted by their `Wheel_*` nodes onto the physics axles (each wheel on its own pivot, the
+Revuelto's `Body` material repainted), or the wedge built from code (also shown while a file loads).
 
 `MotoCore.groundTrack(terrain, spawn)` is the free-ride adapter: `slice()` samples world-space ground
 along the bike's heading; it bypasses track berms, fences, wrong-way checks and track-based finish

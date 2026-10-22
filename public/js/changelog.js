@@ -6,6 +6,12 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.10.0', date: '2026-10-22', emoji: '🏎️', title: 'Motocross: drive a supercar in free ride', items: [
+      'Pick 🏎️ Supercar in Free ride: a Lamborghini Revuelto, an Aventador or a wedge supercar, in eight paint colours',
+      'Real suspension on all four wheels: it flies off the ramps, clears the lava gaps (with a run-up) and lands on its springs',
+      'Q is the handbrake: throw it into a drift. Space for turbo, and Q / E tip the nose in the air',
+      'Coins, hoops, boost pads, the map, waypoints and fast travel all work in the car. Races and challenges still use the bike',
+    ] },
     { v: '3.9.2', date: '2026-10-22', emoji: '🌊', title: 'Motocross: proper shores on every lake and river', items: [
       'Every free-ride world’s lakes and rivers now have real banks: you can’t ride along below the water any more, and the water’s edge never hangs in the air',
       'That includes the rivers in Redrock Frontier and Canyon Run and the lava river on Magma Isle',

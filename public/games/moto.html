@@ -54,6 +54,12 @@
     .mx-col { width: min(440px, 100%); display: grid; gap: 12px; align-content: start; }
     /* screens with long lists use more of the screen (in grids) instead of one long column */
     .mx-col.mid { width: min(560px, 100%); }
+    .mx-vehicle { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 12px; border-radius: 14px; background: var(--glass); border: 1px solid var(--line); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+    .mx-vehicle .mx-seg { margin: 0; }
+    .mx-vehicle small { flex-basis: 100%; font: 600 .74rem var(--kanit); opacity: .8; }
+    .mx-paints { display: flex; gap: 6px; flex-wrap: wrap; }
+    .mx-paint { width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(255,255,255,.35); background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--c) 60%, #fff), var(--c) 60%); cursor: pointer; padding: 0; }
+    .mx-paint.on { border-color: #fff; box-shadow: 0 0 0 2px rgba(255,255,255,.35); }
     .mx-col.wide { width: min(900px, 66vw); }
     .mx-wgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
     .mx-wgrid .mx-card2 { min-height: 84px; padding: 34px 12px 10px; }
