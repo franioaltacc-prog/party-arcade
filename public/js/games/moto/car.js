@@ -85,16 +85,17 @@ export function step(T, b, inp) {
   for (let i = 0; i < 4; i++) {
     const [fo, lo] = WHEELS[i];
     const ax = b.px + f[0] * fo + r[0] * lo + u[0] * MOUNT; const ay = b.y + f[1] * fo + r[1] * lo + u[1] * MOUNT; const az = b.pz + f[2] * fo + r[2] * lo + u[2] * MOUNT;
-    const gy = g.heightAt(ax, az);
-    const len = ay - gy - R;
-    const comp = REST - len;
+    // the spring runs along the car's own down axis to the slope under it (measuring straight down squashes the
+    // springs on a steep hill, and the wheels then rise up into the body)
+    const gy = g.heightAt(ax, az); const nm = g.normalAt(ax, az);
+    const un = Math.max(0.35, u[0] * nm.x + u[1] * nm.y + u[2] * nm.z);
+    const comp = REST - ((ay - gy) * nm.y - R) / un;
     if (comp <= 0) { b.comp[i] = Math.max(0, b.comp[i] - DT * 2); continue; }
-    n++;
+    n++; nx += nm.x; ny += nm.y; nz += nm.z;
     b.comp[i] = Math.min(comp, 0.32);
-    const vAttach = b.vel[1] + b.pr * fo + b.rr * lo;   // (roll: + lifts the right side)
+    const vAttach = b.vel[0] * nm.x + b.vel[1] * nm.y + b.vel[2] * nm.z + (b.pr * fo + b.rr * lo) * nm.y;   // (roll: + lifts the right side)
     let force = Math.max(0, K * comp - C * vAttach);
     if (comp > 0.3) force += (comp - 0.3) * 400 + Math.max(0, -vAttach) * 8;   // (bottoming out)
-    const nm = g.normalAt(ax, az); nx += nm.x; ny += nm.y; nz += nm.z;
     acc[0] += nm.x * force; acc[1] += nm.y * force; acc[2] += nm.z * force;
     tp += force * fo; tr += force * lo;
     grip += g.surfaceAt(ax, az).grip;

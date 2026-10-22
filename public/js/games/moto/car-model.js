@@ -61,7 +61,7 @@ export const carsLoaded = () => ready;
     (Wheel_FL, Wheel_BR, Wheel_RR…: F is the front), left and right by where they are. */
 function fitCar(scene) {
   scene.updateMatrixWorld(true);
-  const wheelOf = (o) => { for (let p = o; p; p = p.parent) { const m = /^Wheel_([A-Z])([A-Z])/i.exec(p.name || ''); if (m) return p; } return null; };
+  const wheelOf = (o) => { for (let p = o; p; p = p.parent) if (/^Wheel_[A-Z]{2}$/i.test(p.name || '')) return p; return null; };   // (the wheel's own node, so all its parts turn about one centre)
   const meshes = []; const groups = new Map();
   scene.traverse((o) => { if (!o.isMesh) return; const w = wheelOf(o); meshes.push({ o, w }); if (w) { if (!groups.has(w)) groups.set(w, new THREE.Box3()); groups.get(w).expandByObject(o); } });
   const wheels = [...groups.entries()].map(([node, box]) => ({ node, box, c: box.getCenter(new THREE.Vector3()), front: /^Wheel_F/i.test(node.name) }));
@@ -180,7 +180,7 @@ export function poseCar(m, s) {
   m.root.position.set(s.px, s.y, s.pz);
   m.root.rotation.set(c.r, -s.h, c.p);
   m.wheels.forEach((wh, i) => {
-    wh.g.position.y = -0.2 - (0.34 - c.c[i]) + (wh.lift || 0);   // (the spring mount, less the spring's length now; a bigger wheel sits higher)
+    wh.g.position.y = -0.2 - (0.34 - Math.min(c.c[i], 0.2)) + (wh.lift || 0);   // (the spring mount, less the spring's length now, but only a little way up into the arch; a bigger wheel sits higher)
     wh.g.rotation.y = i < 2 ? -c.st * 0.55 : 0;
     wh.spinG.rotation.z = -c.w[i < 2 ? 0 : 1];
   });

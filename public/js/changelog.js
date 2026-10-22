@@ -6,6 +6,10 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.10.1', date: '2026-10-22', emoji: '🔧', title: 'Motocross: the supercar’s wheels stay in their arches', items: [
+      'Driving up a steep hill no longer squashes the car’s springs flat, so the front tyres stop poking up through the bonnet',
+      'Each wheel’s tyre, rim and brake now turn together about the wheel’s own centre',
+    ] },
     { v: '3.10.0', date: '2026-10-22', emoji: '🏎️', title: 'Motocross: drive a supercar in free ride', items: [
       'Pick 🏎️ Supercar in Free ride: a Lamborghini Revuelto, an Aventador or a wedge supercar, in eight paint colours',
       'Real suspension on all four wheels: it flies off the ramps, clears the lava gaps (with a run-up) and lands on its springs',
