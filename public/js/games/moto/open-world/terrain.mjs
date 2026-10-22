@@ -321,13 +321,20 @@ export function buildTerrain(world) {
  /** A solid thing the bike can't ride through at (x, z): { x, z, r, top } or null. */
  function obstacleAt(x,z){ for(const o of obstacles){ if(Math.abs(x-o.x)<o.r&&Math.abs(z-o.z)<o.r&&Math.hypot(x-o.x,z-o.z)<o.r) return {...o,top:(o.top??=heightAt(o.x,o.z)+o.tall)}; } return null; }
 
+ /** Water's edge: the ground right next to a lake or river is never lower than its water (or you could ride along
+     beneath the surface, and see the water's edge hanging in the air). Lava, deep in its crater or channel, too. */
+ function shore(x,z,y) {
+  if(lake&&!lake.frozen){ const d=lakeDist(x,z); if(d>.95&&d<1.75) y=Math.max(y,lake.level-.5+2.1*smooth((d-.95)/.15)-60*smooth((d-1.5)/.25)); }
+  if(river){ const d=riverDist(x,z),w=river.width; if(d>w*.42&&d<w*1.6) y=Math.max(y,river.level-.5+2.1*smooth((d-w*.42)/(w*.12))-60*smooth((d-w*1.3)/(w*.3))); }
+  return y;
+ }
  function heightAt(x,z) {
   let y=rawHeight(x,z); const road=roadAt(x,z); if(road) y+=(road.height-y)*road.weight;
   for(const p of pads) { const d=Math.hypot(x-p.position[0],z-p.position[1]), weight=1-smooth((d-p.radius)/(p.radius*3)); if(weight>0)y+=(p.height-y)*weight; }
   y+=rampAt(x,z).y;
   if(features.length){ const f=featureAt(x,z); if(f.flat>0) y+=(f.base-y)*f.flat+f.dy; }
   const w=wild(x,z); if(w>0) y+=landform(x,z)*w;
-  return y+cliffRise(x,z);
+  return shore(x,z,y+cliffRise(x,z));
  }
  function surfaceAt(x,z) {
   if(features.length&&featureAt(x,z).weight>.5) return {kind:'trail',grip:.96,roll:.01};   // (gap jumps are packed dirt, whatever's round them)

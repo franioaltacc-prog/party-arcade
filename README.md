@@ -198,7 +198,8 @@ straight away, then a sharp 512² a few rows a frame), with arrows on the rim to
 or the next mini-race gate; in races it's the track. M or a tap opens the big map (drag, wheel / pinch zoom), where
 places, gap jumps, pools, parks and mini-race starts can be set as the waypoint (a beam, and the distance on the HUD)
 or ridden to (fast travel: solo free ride only). Lakes have a shore (`terrain.rawHeight` keeps the ground just
-outside a lake above its water) and `tintAt` colours ground under water.
+outside a lake above its water, and `shore()`, the last step of `heightAt`, does the same for every lake and river bank)
+and `tintAt` colours ground under water.
 
 `MotoCore.groundTrack(terrain, spawn)` is the free-ride adapter: `slice()` samples world-space ground
 along the bike's heading; it bypasses track berms, fences, wrong-way checks and track-based finish

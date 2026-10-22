@@ -22,7 +22,7 @@ let DATA = null; let WORLDS = []; let CHALLENGES = [];
 const builtTracks = new Map();
 const trackDef = (id) => DATA.tracks.find((t) => t.id === id) || DATA.tracks[0];
 const physicsTrack = (def) => { if (!builtTracks.has(def.id)) builtTracks.set(def.id, C.build(def)); return builtTracks.get(def.id); };
-const prefs = Object.assign({ cam: 'chase', quality: 'auto', livery: 'factory', mode: 'solo', track: 'desert' }, store.get('moto_prefs', {}));
+const prefs = Object.assign({ cam: 'chase', quality: 'auto', livery: 'factory', mode: 'solo', track: 'desert', minimap: 'on' }, store.get('moto_prefs', {}));
 const savePrefs = () => store.set('moto_prefs', prefs);
 const bestOf = (id) => store.get('moto_best_' + id, null);
 // medals: how close you get to the robot's time
@@ -815,6 +815,9 @@ let riding = false;
 let menus = null;
 // the minimap and the big map (M, or tap the minimap)
 let wayMarker = null;
+/** The minimap in the corner can be switched off in the settings (M still opens the big map). */
+const showMinimap = () => { $('#hud-mini').hidden = prefs.minimap === 'off'; };
+showMinimap();
 const map = createMap({
   h, Sfx,
   rider: () => ({ x: R.bike ? R.bike.px : 0, z: R.bike ? R.bike.pz : 0, h: R.bike ? R.bike.h : 0 }),
@@ -1274,6 +1277,7 @@ async function init() {
     watchRace: () => { if (state.race) startRace(state.race, 0, true); },
     MODELS, RIDERS, KITS, HELMETS, get style() { return prefs.style; }, setStyle,
     setCam: (k) => { prefs.cam = R.camMode = k; savePrefs(); },
+    setMinimap: (k) => { prefs.minimap = k; savePrefs(); showMinimap(); },
     setQuality: (k) => { prefs.quality = k; savePrefs(); worldKey = null; resize(); if (stage.trackId) stageTrack(stage.trackId); },
     stage: { solo: stageSolo, room: stageRoom },
   });

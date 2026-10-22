@@ -142,6 +142,7 @@ export function createMap(ctx) {
   function drawMini() {
     if (!mode) return;
     work();
+    if (mini.hidden) return;   // (switched off in the settings: the big map still works)
     const free = mode === 'free';
     mini.classList.toggle('track', !free);
     const w = mini.clientWidth || 180; const hh = mini.clientHeight || 180;

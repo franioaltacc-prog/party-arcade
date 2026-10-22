@@ -328,6 +328,7 @@
     /* the minimap: round and following you in free ride, a wide track view in races; tap it (or M) for the big map */
     .mx-mini { position: relative; display: block; width: clamp(130px, 17vw, 210px); aspect-ratio: 1; padding: 0; border: 0; background: none; border-radius: 50%; cursor: pointer; pointer-events: auto; filter: drop-shadow(0 6px 14px rgba(0,0,0,.45)); transition: transform .15s; }
     .mx-mini:hover { transform: scale(1.04); }
+    .mx-mini[hidden] { display: none; }
     .mx-mini.track { width: clamp(180px, 22vw, 280px); aspect-ratio: 2 / 1; border-radius: 14px; background: rgba(8,12,20,.35); }
     .mx-mini canvas { width: 100%; height: 100%; display: block; }
     .mx-minik { position: absolute; right: 2%; bottom: 2%; font: 700 .62rem var(--kanit); font-style: normal; padding: 2px 6px; border-radius: 6px; background: rgba(0,0,0,.6); border: 1px solid rgba(255,255,255,.4); color: #fff; text-shadow: none; }

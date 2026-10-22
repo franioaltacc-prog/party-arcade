@@ -271,6 +271,7 @@ export function createMenus(ctx) {
           glass('Settings', null,
             h('div', { class: 'mx-lab' }, 'CAMERA'), seg([['chase', '🎥 Chase'], ['side', '📺 Side'], ['close', '🎬 Close']], ctx.prefs.cam, ctx.setCam),
             h('div', { class: 'mx-lab' }, 'GRAPHICS'), seg([['auto', 'Auto'], ['high', 'High'], ['medium', 'Medium'], ['low', 'Low (faster)']], ctx.prefs.quality, ctx.setQuality),
+            h('div', { class: 'mx-lab' }, 'MINIMAP'), seg([['on', '🗺️ On'], ['off', 'Off']], ctx.prefs.minimap === 'off' ? 'off' : 'on', ctx.setMinimap),
             h('div', { class: 'mx-lab' }, 'SOUND'), seg([['on', '🔊 On'], ['off', '🔇 Off']], PA.Sfx.muted ? 'off' : 'on', (k) => PA.Sfx.setMuted(k === 'off'))),
           glass('How to ride', null, h('ul', { class: 'mx-tips' },
             h('li', {}, 'Slow down for corners or you slide wide. The banked berms help you round them.'),

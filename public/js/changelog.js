@@ -6,6 +6,11 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.9.2', date: '2026-10-22', emoji: '🌊', title: 'Motocross: proper shores on every lake and river', items: [
+      'Every free-ride world’s lakes and rivers now have real banks: you can’t ride along below the water any more, and the water’s edge never hangs in the air',
+      'That includes the rivers in Redrock Frontier and Canyon Run and the lava river on Magma Isle',
+      'The minimap can be switched off in Controls → Settings (M still opens the big map)',
+    ] },
     { v: '3.9.1', date: '2026-10-22', emoji: '🗺️', title: 'Motocross: a real map, real water and no more floating', items: [
       'A proper minimap in free ride: it follows you, turns with you and shows the land, trails, water, lava and jumps around you',
       'Tap the minimap or press M for the big map: drag, zoom, and click a place to set a waypoint (a glowing beam) or ride straight there',
