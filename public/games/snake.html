@@ -176,6 +176,8 @@
     $('#go').addEventListener('click', start);
     snake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }]; dir = { x: 1, y: 0 }; apple = { x: 15, y: 10 };
     resize();
+    // testing on your own computer only: set up a snake (the home page's picture is taken from a long one)
+    if (location.hostname === 'localhost') window.__snake = { set(body, d, a, s) { snake = body; dir = d; apple = a; score = s; $('#score').textContent = s; draw(); } };
   })();
   </script>
 </body>

@@ -79,9 +79,14 @@ messages; its announcements and calendar rows stay without a name (`team_chat`, 
   The home page lists open rooms and **📺 Live games** (rooms where a game is running).
 - **Home page catalogue** (`public/js/hub.js`): `GAMES` has one entry per game, with its `modes` (online / solo
   links; the first is where the tile itself goes), `cats` (which category chips it's under) and an optional `spot`
-  (a slide in the spotlight at the top). The search box matches titles, taglines and categories (press `/`).
-  The chosen chip and the last 6 games played ("Jump back in") are kept in localStorage (`pa_cat`, `pa_recent`).
-  A new game needs an entry there and card art in `ART`.
+  (the line under its name in the featured slideshow; `FEATURED` picks which games are in it, in order). The search
+  box matches titles, taglines and categories (press `/`). The chosen chip and the last 6 games played ("Jump back
+  in") are kept in localStorage (`pa_cat`, `pa_recent`). Every card and slide shows a real in-game picture,
+  `public/assets/shots/<game>.webp` (1280×720) and `<game>-sm.webp` (640×360), listed in `SHOTS`; a game without
+  one falls back to its drawn art in `ART`. **The pictures are taken by `tools/game_shots.py`** (with the server
+  running): it drives a headless Chrome through `tools/cdp.py` (DevTools protocol, standard library only), with a
+  recipe per game that gets it to a good moment, opening extra tabs as extra players for the multiplayer games.
+  Run it again after a game changes: `python3 tools/game_shots.py golf moto`.
 - **Play-again vote:** when a game ends (`Game.finished(groups)`, called by every online game), players vote
   🔁 again or 🎮 new game for 20 s; “new” starts a second vote on which game, and the whole room moves there with the
   same code (`room:goto`). The host pressing start still works and ends the vote.

@@ -6,6 +6,14 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.9.0', date: '2026-10-21', emoji: '🖼️', title: 'A brand-new home page', items: [
+      'Every game now shows a real picture from the game itself instead of a drawing',
+      'A big featured slideshow at the top, with a picker of the featured games beside it',
+      'Cleaner game cards: hover for Play, plus the ways to play each game underneath',
+      'Join a room by code, the live numbers and the event are now one tidy bar',
+      'Jump back in shows pictures of the games you played last',
+      'No more news pop-up across the top of the page',
+    ] },
     { v: '3.8.1', date: '2026-10-21', emoji: '🗂️', title: 'Motocross: roomier menus', items: [
       'Free ride shows every world at once in a grid, with how many gap jumps and pools each one has (no more scrolling down a long list)',
       'Challenges: the one you picked and its buttons sit beside a grid of all of them, so Ride it solo is always in reach',
