@@ -24,8 +24,12 @@ let DATA = null; let WORLDS = []; let CHALLENGES = [];
 const builtTracks = new Map();
 const trackDef = (id) => DATA.tracks.find((t) => t.id === id) || DATA.tracks[0];
 const physicsTrack = (def) => { if (!builtTracks.has(def.id)) builtTracks.set(def.id, C.build(def)); return builtTracks.get(def.id); };
-const prefs = Object.assign({ cam: 'chase', quality: 'auto', livery: 'factory', mode: 'solo', track: 'desert', minimap: 'on', vehicle: 'bike', carModel: 'revuelto', carPaint: 'arancio' }, store.get('moto_prefs', {}));
+const prefs = Object.assign({ cam: 'chase', quality: 'auto', livery: 'factory', mode: 'solo', track: 'desert', minimap: 'on', physics: 'og', vehicle: 'bike', carModel: 'revuelto', carPaint: 'arancio' }, store.get('moto_prefs', {}));
 const savePrefs = () => store.set('moto_prefs', prefs);
+// OG physics: a tumble plays out until you land on your wheels or your head. NEW: over on your side or roof is a
+// crash straight away, the wreck stops bouncing about and you're back riding sooner
+const calm = () => prefs.physics === 'new';
+const crashTime = () => (calm() ? 0.8 : C.P.CRASH_TIME);
 const bestOf = (id) => store.get('moto_best_' + id, null);
 // medals: how close you get to the robot's time
 const MEDALS = [['🥇', 'Gold', 1.06], ['🥈', 'Silver', 1.2], ['🥉', 'Bronze', 1.45]];
@@ -62,9 +66,10 @@ const myLivery = () => (Account.user && Account.user.look && Account.user.look.b
 // your bike style, rider kit, helmet and race number (free to pick; only looks)
 prefs.style = Object.assign({ model: 'mx4', rider: 'biker', kit: 'match', helmet: 'match', number: null }, prefs.style);
 const myLook = () => ({ ...prefs.style, livery: myLivery() });
+const netStyle = () => ({ ...prefs.style, car: prefs.carModel, paint: prefs.carPaint });   // (what the room sees: bike, rider and supercar)
 function setStyle(patch) {
   prefs.style = { ...prefs.style, ...patch }; savePrefs();
-  if (window.Room && Room.code) Net.send('g:style', { style: prefs.style });   // (so the others see it)
+  if (window.Room && Room.code) Net.send('g:style', { style: netStyle() });   // (so the others see it)
   Sfx.play('click');
   menus.refresh();
   if (patch.model || patch.rider) preloadBike(prefs.style.model).then(() => placeStage());   // (a model-file bike or rider shows as soon as it has loaded)
@@ -119,7 +124,7 @@ const R = {
   running: false, mode: 'solo', def: null, T: null, bike: null, model: null, prev: null, cur: null,
   goAt: 0, acc: 0, last: 0, finished: false, spectate: false, lane: 0, camMode: prefs.cam,
   cam: { pos: new THREE.Vector3(), look: new THREE.Vector3(), fov: 60, shake: 0, init: false },
-  audio: null, others: new Map(), sentAt: 0, beeped: 0, gateDown: false, prScale: 1, slowFrames: 0,
+  audio: null, freeOnline: false, others: new Map(), sentAt: 0, beeped: 0, gateDown: false, prScale: 1, slowFrames: 0,
   stuck: 0, hudAt: 0, trickTimer: null, lastLand: 0, emitAcc: 0, roll: 0, safeTrail: [], retry: null, toPad: false,
 };
 const keys = {};
@@ -144,7 +149,7 @@ function mix(p, q, t) {
     px: L(p.px, q.px), pz: L(p.pz, q.pz), h: lerpA(p.h, q.h, t), s: L(p.s, q.s),
     wf: [L(p.wf[0], q.wf[0]), L(p.wf[1], q.wf[1]), L(p.wf[2], q.wf[2])], wr: [L(p.wr[0], q.wr[0]), L(p.wr[1], q.wr[1]), L(p.wr[2], q.wr[2])],
     tk: q.tk, tp: L(p.tp || 0, q.tp || 0), wh: L(p.wh || 0, q.wh || 0), sp: q.sp ? (p.sp && p.sp <= q.sp ? L(p.sp, q.sp) : q.sp) : 0,
-    car: q.car && p.car ? { p: L(p.car.p, q.car.p), r: L(p.car.r, q.car.r), st: L(p.car.st, q.car.st), w: [L(p.car.w[0], q.car.w[0]), L(p.car.w[1], q.car.w[1])], c: q.car.c.map((v, i) => L(p.car.c[i], v)) } : q.car,
+    car: q.car && p.car ? { p: lerpA(p.car.p, q.car.p, t), r: lerpA(p.car.r, q.car.r, t), st: L(p.car.st, q.car.st), w: [L(p.car.w[0], q.car.w[0]), L(p.car.w[1], q.car.w[1])], c: q.car.c.map((v, i) => L(p.car.c[i], v)) } : q.car,
     boost: q.boost, crashed: q.crashed, ragdoll: q.ragdoll && p.ragdoll ? { hip: { x: L(p.ragdoll.hip.x, q.ragdoll.hip.x), y: L(p.ragdoll.hip.y, q.ragdoll.hip.y) }, head: { x: L(p.ragdoll.head.x, q.ragdoll.head.x), y: L(p.ragdoll.head.y, q.ragdoll.head.y) } } : q.ragdoll,
   };
 }
@@ -181,7 +186,7 @@ function begin(def, mode, goAt) {
   stopRide();
   setRiding(true);
   R.mode = mode; R.def = def; R.T = physicsTrack(def); R.ride = (R.ride || 0) + 1;
-  R.trial=null; R.challenge=null; $('#mx-trials').hidden=true;$('.mx-nlab').textContent='NITRO'; $('#hud-coins').hidden=true;
+  R.trial=null; R.challenge=null; R.freeOnline=false; $('#mx-trials').hidden=true;$('.mx-nlab').textContent='NITRO'; $('#hud-coins').hidden=true;
   if (mode === 'solo') { R.spectate = false; for (const o of R.others.values()) dropOther(o); R.others.clear(); }
   fill($('#hud-center'), h('div', { class: 'mx-loading' }, h('div', { class: 'mx-spin' }), 'Building the track…'));
   resize();
@@ -220,6 +225,8 @@ function stopRide() {
   for (const k of Object.keys(touch)) touch[k] = false;
 }
 const LANES = [0, -1.15, 1.15, -2.3, 2.3, -3.45, 3.45];   // the start gate's slots
+/** Riding with the room: a race, a challenge, or a free ride together. */
+const online = () => R.mode === 'online' || !!R.challenge?.online || R.freeOnline;
 const laneFor = (id) => {
   const ids = state.race ? Object.keys(state.race.runners).sort() : [id];
   const i = Math.max(0, ids.indexOf(id));
@@ -270,7 +277,7 @@ function physicsStep(now) {
   const inp = R.spectate || R.finished ? { gas: 0, brake: R.finished ? 1 : 0, lean: 0, nitro: false } : R.override ? R.override(R.T, b) : controls();
   if (b.hold > 0) { b.hold -= DT; b.t += DT; }
   const before={x:b.px,y:b.y,z:b.pz}; const xBefore=b.x;
-  const ev = R.V.step(T, b, { ...inp, hold: holding });
+  const ev = R.V.step(T, b, { ...inp, hold: holding, calm: calm() });
   if(R.trial && !holding && !b.crashed){
     const event=stepTrial(R.trial,before,{x:b.px,y:b.y,z:b.pz},DT);
     if(event==='finish'){
@@ -292,7 +299,7 @@ function physicsStep(now) {
     }
     if (R.challenge) challengeStep(b, now);
   }
-  if (b.crashed > C.P.CRASH_TIME) {
+  if (b.crashed > crashTime()) {
     if(R.mode==='free'){R.trial=null;updateTrialMarker();}
     // in a challenge you go back to where you last were on your wheels (a safe pad could be a shortcut)
     let where;
@@ -300,7 +307,7 @@ function physicsStep(now) {
     else if (R.mode === 'free') {
       // free ride: another go at the gap you fell into, else where you were riding a few seconds ago (R and the
       // world edge go to a safe pad)
-      const back = R.toPad ? null : R.retry ? { ...R.retry, gap: true } : R.safeTrail.findLast((p) => p.t < now - C.P.CRASH_TIME * 1000 - 2500);
+      const back = R.toPad ? null : R.retry ? { ...R.retry, gap: true } : R.safeTrail.findLast((p) => p.t < now - crashTime() * 1000 - 2500);
       R.V.respawn(T, b, 0, back ? { position: back.position || [back.x, back.z], heading: back.heading ?? back.h } : null);
       where = back ? (back.gap ? 'the run-in: have another go!' : 'where you were riding') : 'a safe riding pad';
       R.retry = null; R.toPad = false; R.safeTrail.length = 0;
@@ -318,7 +325,7 @@ function physicsStep(now) {
 function respawnNow() {
   const b = R.bike;
   if (!R.running || R.finished || !b || performance.now() < R.goAt || b.hold > 0) return;
-  if (!b.crashed) { b.crashes++; b.crashed = C.P.CRASH_TIME + 1; }
+  if (!b.crashed) { b.crashes++; b.crashed = crashTime() + 1; }
   R.toPad = true;
 }
 
@@ -346,7 +353,7 @@ function onEvent(k, d) {
     R.cam.shake = C.P.CAM_CRASH_SHAKE;
     showMessage('CRASHED!', 'bad', 1300);
     burst(b.x, b.y, 26, 'puff', 1.4);
-    if (R.mode === 'online' || R.challenge?.online) sendPos(true);
+    if (online()) sendPos(true);
   } else if (k === 'land') {
     const strength = Math.min(1.5, d.air * 0.8);
     if (R.audio) R.audio.land(strength);
@@ -464,13 +471,13 @@ function render(now, dt, alpha) {
   } else w.update(R.model.root.position, dt, camera);
   if (R.audio) {
     R.audio.update(b, dt, { scrub: b.scrub, surface: b.G ? C.surfaceAt(b.G, b.x) : 0 });
-    if (R.mode === 'online' || R.challenge?.online) R.audio.others(otherSounds(b));
+    if (online()) R.audio.others(otherSounds(b));
   }
   // gold coins (free ride and challenges)
   if (w.collect && !R.spectate && !b.crashed) { const got = w.collect(b.px, b.y, b.pz, performance.now(), () => showMessage('⭕ THROUGH THE HOOP! +15', 'cp', 1200)); if (got) { payCoins(got); Sfx.play('coin'); } }
   renderer.render(w.scene, camera);
   if (now - R.hudAt > 60) { R.hudAt = now; hud(now); }
-  if ((R.mode === 'online' || R.challenge?.online) && now - R.sentAt > 80) sendPos(false);
+  if (online() && now - R.sentAt > 80) sendPos(false);
 }
 
 /** The ground height under a point in the world (near the track). */
@@ -599,7 +606,7 @@ function hud(now) {
   if (wp) { const d = Math.hypot(b.px - wp.x, b.pz - wp.z); $('#hud-sub').textContent = d < 40 ? `${wp.icon} ${wp.name.toUpperCase()} · YOU’RE HERE!` : `${wp.icon} ${wp.name.toUpperCase()} · ${d > 950 ? (d / 1000).toFixed(1) + ' KM' : Math.round(d / 10) * 10 + ' M'}`; }
   map.drawMini();
   $('#hud-wrong').classList.toggle('on', !!b.wrong && !R.spectate && !R.finished);
-  if (R.mode === 'online' || R.challenge?.online) drawBoard();
+  if (online()) drawBoard();
 }
 
 // ------------------------------------------------------------------ solo: finishing a time trial
@@ -643,7 +650,7 @@ async function startFree(entry, opts = {}){
   const ch=opts.challenge||null;
   if(!opts.online&&inRoom()){UI.toast('Leave the online race room before riding on your own','bad');return;}
   stopRide();setRiding(true);clearTimeout(stage.timer);
-  const ride=R.ride=(R.ride||0)+1;R.mode='free';R.trial=null;R.spectate=false;R.challenge=null;
+  const ride=R.ride=(R.ride||0)+1;R.mode='free';R.trial=null;R.spectate=false;R.challenge=null;R.freeOnline=!!(opts.online&&!ch);
   fill($('#hud-center'),h('div',{class:'mx-loading'},'Building '+entry.name+'…'));$('#hud-time').closest('.mx-tr').hidden=true;
   try{
     const response=await fetch('/js/games/moto/open-world/'+entry.file);if(!response.ok)throw new Error('World unavailable');
@@ -662,13 +669,14 @@ async function startFree(entry, opts = {}){
     }else{
       const pad=def.spawnPads[0],park=world.ground.parks[0];   // (start facing the jump park, not the edge of the world)
       spawn={...pad,heading:park?park.heading:Math.atan2(-pad.position[0],-pad.position[1])};
+      if(R.freeOnline){const side=laneFor(Net.id)*3;spawn.position=[pad.position[0]+Math.cos(spawn.heading)*side,pad.position[1]-Math.sin(spawn.heading)*side];}   // (riding together: side by side)
       engine=Coins.engineOf().stats;   // (bought engine upgrades only work in free ride)
     }
     // the bike, or (free ride on your own) the supercar
     R.car=!ch&&prefs.vehicle==='car';R.V=R.car?Car:C;
     R.T=C.groundTrack(world.ground,spawn,engine);R.bike=R.V.newBike(R.T);
     R.model=R.car?makeCar(prefs.carModel,prefs.carPaint):makeBike(myLook());world.scene.add(R.model.root);
-    if(opts.online&&state.race){fillOthers(state.race);for(const o of R.others.values())addOtherModel(o);}
+    if(opts.online&&state.race){fillOthers(state.race);if(ch)for(const o of R.others.values())addOtherModel(o);}   // (free ride: each rider's bike or car appears with their first message)
     R.prev=R.cur=snap(R.bike);R.acc=0;R.last=performance.now();R.finished=false;R.cam.init=false;R.stuck=0;R.emitAcc=0;R.roll=0;R.best=null;R.beeped=0;R.safeTrail=[];R.retry=null;R.toPad=false;
     R.goAt=ch?Math.max(opts.goAt||0,performance.now()+(opts.online?600:3200)):0;R.gateDown=!ch;
     R.trialMarker=null;R.finishMarker=finish?finishBeacon(finish):null;R.audio=createAudio();$('.mx-nlab').textContent='TURBO · SPACE / SHIFT';$('#mx-trials').hidden=!!ch;
@@ -677,7 +685,7 @@ async function startFree(entry, opts = {}){
     const url=new URL(location.href);url.searchParams.delete('solo');url.searchParams.delete('track');
     if(ch){url.searchParams.delete('free');url.searchParams.delete('world');history.replaceState(null,'',url);showMessage(ch.about,'small',5000);}
     else{prefs.world=def.id;savePrefs();url.searchParams.set('free','1');url.searchParams.set('world',def.id);history.replaceState(null,'',url);
-      showMessage('FREE RIDE · Collect the gold coins · Space / Shift turbo · R resets','small',4500);}
+      showMessage(R.freeOnline?'FREE RIDE TOGETHER · Esc goes back to the room':'FREE RIDE · Collect the gold coins · Space / Shift turbo · R resets','small',4500);}
   }catch(error){console.error(error);UI.toast('Could not load that world','bad');quit();}
 }
 
@@ -849,7 +857,7 @@ const map = createMap({
     showMessage(`🚀 ${place.name}`, 'small', 1600);
   },
   pause: (on) => {
-    if (R.mode === 'online' || R.challenge?.online) return;   // (the others keep riding)
+    if (online()) return;   // (the others keep riding)
     R.paused = on;
     for (const k of Object.keys(keys)) keys[k] = false;
     for (const k of Object.keys(touch)) touch[k] = false;
@@ -995,8 +1003,16 @@ function stageFrame(now, dt) {
 }
 
 // ------------------------------------------------------------------ buttons and keys
+/** Out of the room's free ride (back in the room). */
+function leftFreeRide() {
+  R.freeOnline = false;
+  const url = new URL(location.href); url.searchParams.delete('free'); url.searchParams.delete('world'); history.replaceState(null, '', url);
+}
 function quit() {
-  if ((R.mode === 'online' || R.challenge?.online) && window.Room && Room.code) { setRiding(false); menus.show('room'); return; }
+  if (online() && window.Room && Room.code) {
+    if (R.freeOnline) { Net.send('g:part'); leftFreeRide(); }   // (out of the free ride, back to the room: Join the ride gets you back in)
+    setRiding(false); menus.show('room'); return;
+  }
   const wasChallenge = !!R.challenge; R.challenge = null;
   setRiding(false);
   menus.show(wasChallenge ? 'challenges' : R.mode==='free'?'worlds':'tracks');
@@ -1089,8 +1105,30 @@ function addOtherModel(o) {
   o.tag = nameTag(o.name, o.color);
   world.scene.add(o.tag);
 }
+/** Someone who hopped into the free ride after you. */
+function addRider(id) {
+  const p = playerOf(id);
+  R.others.set(id, { id, buf: [], x: null, lane: 0, name: p.name, color: p.color || '#888888', model: null, tag: null, ang: [0, 0], done: false });
+  if (state.race && !state.race.runners[id]) state.race.runners[id] = { done: false, x: 0, cp: -1 };
+}
+/** Free ride together: another rider's own bike or supercar (as their last message says), made when they first show up
+    or switch, and drawn solid in their paint (in races the others are see-through). */
+function ensureOtherModel(o, m) {
+  const st = state.styles[o.id] || {};
+  const carId = CAR_MODELS[st.car] ? st.car : 'revuelto';
+  const kind = m.v === 1 ? `car:${carId}:${st.paint || ''}` : 'bike';
+  if (o.kind === kind && o.model) return;
+  dropOther(o); o.kind = kind;
+  if (m.v === 1) {
+    o.model = makeCar(carId, st.paint || 'arancio');
+    // (the model file may still be loading: it shows as the wedge until then, and is swapped in once it's here)
+    if (CAR_MODELS[carId].file && !o.model.file) preloadCar(carId).then((ok) => { if (ok && o.kind === kind) o.kind = null; });
+  } else o.model = makeBike({ ...st, livery: playerOf(o.id).bike });
+  world.scene.add(o.model.root);
+  o.tag = nameTag(o.name, o.color); world.scene.add(o.tag);
+}
 function dropOther(o) {
-  if (o.model) { disposeBike(o.model); o.model = null; }
+  if (o.model) { disposeModel(o.model); o.model = null; }
   if (o.tag) { if (o.tag.parent) o.tag.parent.remove(o.tag); o.tag.material.map.dispose(); o.tag.material.dispose(); o.tag = null; }
 }
 function nameTag(name, color) {
@@ -1129,19 +1167,28 @@ function sampleOther(o, now) {
   const k = Math.max(0, Math.min(1.2, (t - a.at) / (b.at - a.at)));
   const L = (p, q) => p + (q - p) * k;
   const out = { ...b };
-  for (const f of ['x', 'y', 'rx', 'ry', 'c0', 'c1', 'l', 's', 'px', 'pz', 'ro', 'tp', 'wh']) out[f] = L(a[f] || 0, b[f] || 0);
+  for (const f of ['x', 'y', 'rx', 'ry', 'c0', 'c1', 'c2', 'c3', 'st', 'l', 's', 'px', 'pz', 'ro', 'tp', 'wh']) out[f] = L(a[f] || 0, b[f] || 0);
   out.a = lerpA(a.a, b.a, k); out.h = lerpA(a.h, b.h, k);
   return out;
 }
 function drawOthers(now, dt) {
-  if (!(R.mode === 'online' || R.challenge?.online) || !world) return null;
+  if (!online() || !world) return null;
   let leader = null;
   for (const o of R.others.values()) {
+    const last = o.buf[o.buf.length - 1];
+    if (R.freeOnline && last) ensureOtherModel(o, last);
     if (!o.model) continue;
     const m = sampleOther(o, now);
-    o.model.root.visible = !!m; if (o.tag) o.tag.visible = !!m;
-    if (!m) continue;
+    const show = !!m && !(R.freeOnline && now - last.at > 4000);   // (free ride: someone who stopped sending, e.g. in a menu, fades out)
+    o.model.root.visible = show; if (o.tag) o.tag.visible = show;
+    if (!show) continue;
     o.ang[0] += (m.s / 3.6 / 0.35) * dt; o.ang[1] += (m.s / 3.6 / 0.34) * dt;
+    if (o.model.car) {
+      poseCar(o.model, { px: m.px, pz: m.pz, y: m.y, h: m.h, car: { p: m.a, r: m.ro, st: m.st || 0, w: o.ang, c: [m.c0, m.c1, m.c2 || 0, m.c3 || 0] } });
+      o.tag.position.copy(o.model.root.position).add(tmpV.set(0, 2.1, 0));
+      o.snap = { px: m.px, pz: m.pz, y: m.y, h: m.h, s: m.x };
+      continue;
+    }
     const s = otherSnap(m, o);
     o.place = placer(s);
     poseBike(o.model, s, o.place, s.h, now / 1000);
@@ -1161,6 +1208,7 @@ function sendPos(force) {
   const msg = { x: r2(b.s), px: r2(b.px), pz: r2(b.pz), h: r2(b.h), ro: r2(R.roll), y: r2(b.y), a: r2(b.a), rx: r2(b.rx - b.x), ry: r2(b.ry - b.y),
     c0: r2(b.wh[0].c), c1: r2(b.wh[1].c), l: r2(b.lean), tk: b.tk, tp: r2(b.pose), wh: r2(b.whip), sp: r2(b.spin),
     s: Math.round(Math.hypot(b.vx, b.vy) * 36) / 10, r: Math.round(b.rpm), th: r2(b.thr), k: b.crashed ? 1 : 0, b: b.boost ? 1 : 0, cp: b.cp };
+  if (R.car) Object.assign(msg, { v: 1, ro: r2(b.roll), st: r2(b.steer), c0: r2(b.comp[0]), c1: r2(b.comp[1]), c2: r2(b.comp[2]), c3: r2(b.comp[3]) });   // (the supercar)
   if (b.crashed && b.rider) msg.rg = [r2(b.rider.hip.x - b.x), r2(b.rider.hip.y), r2(b.rider.head.x - b.x), r2(b.rider.head.y)];
   Net.send('g:pos', msg);
 }
@@ -1190,13 +1238,13 @@ function drawBoard() {
     const o = R.others.get(r.id);
     const k = state.race && state.race.challenge && state.race.kind;
     const extra = k && k !== 'race' ? (r.score ? ` · ${fmtScore(k, r.score)}` : '') : r.done ? ' 🏁' : '';   // (timed challenges: everyone's best so far)
-    return h('div', { class: r.id === Net.id ? 'me' : '' }, h('i', { style: { background: (o && o.color) || p.color || '#888' } }), `${i + 1}. ${p.name}`, extra);
+    return h('div', { class: r.id === Net.id ? 'me' : '' }, h('i', { style: { background: (o && o.color) || p.color || '#888' } }), R.freeOnline ? p.name : `${i + 1}. ${p.name}`, extra);
   }));
 }
 function otherSounds(b) {
   return [...R.others.values()].filter((o) => o.buf.length && o.model).map((o) => {
     const m = o.buf[o.buf.length - 1];
-    return { id: o.id, rpm: m.r, thr: m.th, dist: m.x - b.s, lane: 0 };
+    return { id: o.id, rpm: m.r, thr: m.th, dist: R.mode === 'free' ? Math.hypot(m.px - b.px, m.pz - b.pz) : m.x - b.s, lane: 0 };
   }).sort((p, q) => Math.abs(p.dist) - Math.abs(q.dist));
 }
 function onlineFinish(t) {
@@ -1207,13 +1255,24 @@ function onlineFinish(t) {
 
 const inRoom = () => !!(window.Room && Room.code);
 let pendingChallenge = null;   // a room made from the challenges screen starts on that challenge
+let pendingFree = null;        // ...and one made from the free-ride screen on that world
+/** The room's free ride started (or you hopped into it). */
+function startFreeRoom(race) {
+  state.race = race; state.phase = 'racing'; state.results = null;
+  const entry = WORLDS.find((w) => w.id === race.free);
+  if (!entry || !race.runners[Net.id]) { if (menus) menus.roomUpdate(); return; }
+  if (riding && R.freeOnline && R.def?.id === race.free) return;   // (already riding it)
+  startFree(entry, { online: true });
+}
 Lobby.on('joined', (m) => {
   Object.assign(state, m.state);
-  Net.send('g:style', { style: prefs.style });
+  Net.send('g:style', { style: netStyle() });
   const url = new URL(location.href); url.searchParams.delete('solo'); url.searchParams.delete('track'); history.replaceState(null, '', url);
   if (Room.isHost && pendingChallenge) Net.send('g:settings', { mode: 'challenge', challenge: pendingChallenge });   // (made from the challenges screen)
-  pendingChallenge = null;
-  if (state.phase === 'racing' && state.race && state.race.challenge) { setRiding(false); menus.show('room'); }   // (wait for the next one)
+  if (Room.isHost && pendingFree) Net.send('g:settings', { mode: 'free', world: pendingFree });   // (made from the free-ride screen)
+  pendingChallenge = null; pendingFree = null;
+  if (state.phase === 'racing' && state.race && state.race.free) { setRiding(false); menus.show('room'); Net.send('g:hop'); }   // (a free ride is on: ride straight in)
+  else if (state.phase === 'racing' && state.race && state.race.challenge) { setRiding(false); menus.show('room'); }   // (wait for the next one)
   else if (state.phase === 'racing' && state.race) startRace(state.race, Math.max(0, -state.race.elapsed));
   else { setRiding(false); menus.show('room'); }
 });
@@ -1228,13 +1287,29 @@ Lobby.on('entry', () => {
 });
 Net.on('error', () => { if (menus && menus.screen === 'joining' && !inRoom()) menus.show('online'); });
 Net.on('g:lobby', (m) => {
-  state.settings = m.settings; state.ready = m.ready || {}; if (m.styles) state.styles = m.styles; if (m.phase !== 'racing') state.phase = m.phase;
+  state.settings = m.settings; state.ready = m.ready || {}; if (m.styles) state.styles = m.styles; if (m.min) state.min = m.min; if (m.phase !== 'racing') state.phase = m.phase;
   menus.roomUpdate();
 });
-Net.on('g:start', (m) => { if (m.race.challenge) startChallenge(m.race, m.countdown); else startRace(m.race, m.countdown); });
+Net.on('g:start', (m) => { if (m.race.free) startFreeRoom(m.race); else if (m.race.challenge) startChallenge(m.race, m.countdown); else startRace(m.race, m.countdown); });
+Net.on('g:hop', (m) => {
+  if (state.race && state.race.free && !state.race.runners[m.id]) state.race.runners[m.id] = { done: false, x: 0, cp: -1 };
+  if (R.freeOnline && m.id !== Net.id && !R.others.has(m.id)) { addRider(m.id); UI.toast(`🏍️ ${playerOf(m.id).name} rode in`, '', 1800); }
+  menus.roomUpdate();
+});
+Net.on('g:part', (m) => {
+  if (state.race && state.race.runners) delete state.race.runners[m.id];
+  const o = R.others.get(m.id); if (o) { dropOther(o); R.others.delete(m.id); }
+  menus.roomUpdate();
+});
+Net.on('g:freeEnd', () => {
+  state.race = null; state.phase = 'lobby';
+  if (riding && R.freeOnline) { setRiding(false); leftFreeRide(); menus.show('room'); if (!Room.isHost) UI.toast('The host ended the free ride', '', 2500); }
+  else menus.roomUpdate();
+});
 Net.on('g:score', (m) => { if (state.race && state.race.runners[m.id]) state.race.runners[m.id].score = m.score; });
 Net.on('g:pos', (m) => {
-  if (R.mode !== 'online' && !R.challenge?.online) return;
+  if (!online()) return;
+  if (R.freeOnline && !R.others.has(m.id) && m.id !== Net.id) addRider(m.id);   // (someone who hopped in after you)
   const o = R.others.get(m.id); if (!o) return;
   m.at = performance.now();
   o.buf.push(m); if (o.buf.length > 14) o.buf.shift();
@@ -1255,7 +1330,7 @@ Net.on('g:toast', (m) => UI.toast(m.text, 'bad', 3500));
 const resultText = (res, r) => (res.challenge && res.kind !== 'race' ? (r.done ? fmtScore(res.kind, r.score) : 'No score') : r.done ? fmt(r.time / 1000) : 'DNF');
 Net.on('g:results', (m) => {
   state.results = m.results; state.wins = m.wins || {}; state.phase = 'results';
-  const racing = riding && (R.mode === 'online' || R.challenge?.online);
+  const racing = riding && online();
   const res = m.results;
   if (res.challenge) {   // coins for taking part, more for a podium
     const mine = res.rows.find((r) => r.id === Net.id);
@@ -1292,7 +1367,10 @@ async function init() {
     setCam: (k) => { prefs.cam = R.camMode = k; savePrefs(); },
     setMinimap: (k) => { prefs.minimap = k; savePrefs(); showMinimap(); },
     CAR_PAINTS, CAR_MODELS, paintable, setVehicle: (k) => { prefs.vehicle = k; savePrefs(); Sfx.play('click'); if (k === 'car') preloadCar(prefs.carModel); },
-    setCarModel: (k) => { prefs.carModel = k; savePrefs(); Sfx.play('click'); preloadCar(k); }, setCarPaint: (k) => { prefs.carPaint = k; savePrefs(); Sfx.play('click'); },
+    setPhysics: (k) => { prefs.physics = k; savePrefs(); },
+    setCarModel: (k) => { prefs.carModel = k; savePrefs(); Sfx.play('click'); preloadCar(k); if (inRoom()) Net.send('g:style', { style: netStyle() }); },
+    setCarPaint: (k) => { prefs.carPaint = k; savePrefs(); Sfx.play('click'); if (inRoom()) Net.send('g:style', { style: netStyle() }); },
+    rideWithFriends: (w) => { pendingFree = w.id; },
     setQuality: (k) => { prefs.quality = k; savePrefs(); worldKey = null; resize(); if (stage.trackId) stageTrack(stage.trackId); },
     stage: { solo: stageSolo, room: stageRoom },
   });

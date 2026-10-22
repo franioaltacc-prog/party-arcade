@@ -60,6 +60,13 @@ export function createMenus(ctx) {
       big ? h('span', { class: 'best' }, best != null ? `Best ${ctx.fmtScore(c.kind, best)}` : 'Not tried yet') : null);
   }
 
+  /** A free-ride world to pick for the room. */
+  function worldChip(w, on, onClick) {
+    const [, e] = WORLD_LOOK[w.id] || ['green', '🗺️'];
+    return h('button', { class: 'mx-chal' + (on ? ' on' : ''), type: 'button', onclick: onClick, disabled: !onClick, title: w.name },
+      h('span', { class: 'e' }, e), h('span', { class: 'tx' }, h('b', {}, w.name), h('small', {}, `${w.areaKm2.toFixed(1)} km²${w.gaps ? ` · ${w.gaps} gap jumps` : ''}`)));
+  }
+
   // ---------------------------------------------------------------- screens
   const SCREENS = {
     home() {
@@ -105,7 +112,8 @@ export function createMenus(ctx) {
       return h('div',{class:'mx-col wide'},backBtn('Free ride'),
         h('div',{class:'mx-ticket'},h('div',{class:'grow'},h('span',{class:'lab'},'Your free-ride bike'),
           h('div',{class:'nm'},h('small',{},'🪙 '+wl.coins.toLocaleString('en-US')+' COINS'),h('b',{},`${eng.emoji} ${eng.name}`)),
-          h('div',{class:'acts'},h('button',{class:'mx-link',type:'button',onclick:()=>{garageTab='engine';show('garage');}},'⚡ Upgrade the engine ↗'))),h('span',{class:'mx-barcode'})),
+          h('div',{class:'acts'},h('button',{class:'mx-link',type:'button',onclick:()=>{garageTab='engine';show('garage');}},'⚡ Upgrade the engine ↗'),
+            sel?h('button',{class:'mx-link',type:'button',title:'Make a room: everyone rides the same world, and friends can join any time',onclick:async()=>{ctx.rideWithFriends(sel);await create();}},`📡 Ride ${sel.name.split(' ')[0]} with friends ↗`):null)),h('span',{class:'mx-barcode'})),
         // ride the bike or the supercar (free ride on your own only)
         h('div',{class:'mx-vehicle'},
           h('div',{class:'mx-seg'},[['bike','🏍️ Dirt bike'],['car','🏎️ Supercar']].map(([k,label])=>h('button',{class:'mx-sb'+(ctx.prefs.vehicle===k?' on':''),type:'button',onclick:()=>{ctx.setVehicle(k);show('worlds');}},label))),
@@ -277,6 +285,8 @@ export function createMenus(ctx) {
           glass('Settings', null,
             h('div', { class: 'mx-lab' }, 'CAMERA'), seg([['chase', '🎥 Chase'], ['side', '📺 Side'], ['close', '🎬 Close']], ctx.prefs.cam, ctx.setCam),
             h('div', { class: 'mx-lab' }, 'GRAPHICS'), seg([['auto', 'Auto'], ['high', 'High'], ['medium', 'Medium'], ['low', 'Low (faster)']], ctx.prefs.quality, ctx.setQuality),
+            h('div', { class: 'mx-lab' }, 'PHYSICS'), seg([['og', '🤸 OG'], ['new', '🧱 NEW']], ctx.prefs.physics === 'new' ? 'new' : 'og', ctx.setPhysics),
+            h('small', { class: 'mx-hint' }, ctx.prefs.physics === 'new' ? 'NEW: roll over and it’s a crash straight away, then you’re straight back riding' : 'OG: tumbles play out: bounce, roll and maybe land on your wheels again'),
             h('div', { class: 'mx-lab' }, 'MINIMAP'), seg([['on', '🗺️ On'], ['off', 'Off']], ctx.prefs.minimap === 'off' ? 'off' : 'on', ctx.setMinimap),
             h('div', { class: 'mx-lab' }, 'SOUND'), seg([['on', '🔊 On'], ['off', '🔇 Off']], PA.Sfx.muted ? 'off' : 'on', (k) => PA.Sfx.setMuted(k === 'off'))),
           glass('How to ride', null, h('ul', { class: 'mx-tips' },
@@ -330,7 +340,7 @@ export function createMenus(ctx) {
       h('div', { class: 'mx-h' }, 'Riders', h('span', { class: 'n' }, `${riders.length} / 6${racing ? '' : ` · ${readyCount} ready`}${watchers ? ` · 👀 ${watchers}` : ''}`)),
       h('div', { class: 'mx-riders' }, riders.map((p) => {
         const pt = paint(p.id === Net.id ? ctx.myLivery() : ctx.LIVERIES[p.bike] ? p.bike : 'factory');
-        const status = racing ? (st.race.runners[p.id] ? h('span', { class: 'st' }, 'RACING') : h('span', { class: 'st off' }, 'NEXT RACE'))
+        const status = racing ? (st.race.runners[p.id] ? h('span', { class: 'st' }, st.race.free ? 'RIDING' : 'RACING') : h('span', { class: 'st off' }, st.race.free ? 'IN THE ROOM' : 'NEXT RACE'))
           : st.ready[p.id] ? h('span', { class: 'st ok' }, '✔ READY') : h('span', { class: 'st' }, 'NOT READY');
         return h('div', { class: 'mx-rider' + (p.id === Net.id ? ' me' : '') + (p.acct ? ' click' : ''), title: p.acct ? `See ${p.acct}'s profile` : '',
           onclick: p.acct ? () => UI.profileCard(p.acct) : null },
@@ -341,12 +351,15 @@ export function createMenus(ctx) {
       riders.length < st.min ? note(`You need at least ${st.min} riders. Send a friend the code!`) : null);
 
     // a track race or a challenge (the host picks)
-    const sel = st.settings.track; const isCh = st.settings.mode === 'challenge'; const can = host && !racing;
-    const seg = h('div', { class: 'mx-seg' }, [['race', '🏁 Track race'], ['challenge', '🎯 Challenge']].map(([k, label]) => h('button', {
-      class: 'mx-sb' + ((k === 'challenge') === isCh ? ' on' : ''), type: 'button', disabled: !can,
-      onclick: () => { if ((k === 'challenge') !== isCh) { Net.send('g:settings', { mode: k }); Sfx.play('click'); } } }, label)));
-    fill(roomEls.track, h('div', { class: 'mx-h' }, isCh ? 'Challenge' : 'Track', h('span', { class: 'n' }, host ? 'you pick' : 'the host picks')), seg,
-      isCh
+    const sel = st.settings.track; const mode = ['challenge', 'free'].includes(st.settings.mode) ? st.settings.mode : 'race'; const isCh = mode === 'challenge'; const can = host && !racing;
+    const seg = h('div', { class: 'mx-seg' }, [['race', '🏁 Track race'], ['challenge', '🎯 Challenge'], ['free', '🌍 Free ride']].map(([k, label]) => h('button', {
+      class: 'mx-sb' + (k === mode ? ' on' : ''), type: 'button', disabled: !can,
+      onclick: () => { if (k !== mode) { Net.send('g:settings', { mode: k }); Sfx.play('click'); } } }, label)));
+    fill(roomEls.track, h('div', { class: 'mx-h' }, isCh ? 'Challenge' : mode === 'free' ? 'World' : 'Track', h('span', { class: 'n' }, host ? 'you pick' : 'the host picks')), seg,
+      mode === 'free'
+        ? h('div', { class: 'mx-chlist' }, ctx.worlds.map((w) => worldChip(w, st.settings.world === w.id,
+          can ? () => { if (st.settings.world !== w.id) { Net.send('g:settings', { world: w.id }); Sfx.play('click'); } } : null)))
+        : isCh
         ? h('div', { class: 'mx-chlist' }, ctx.challenges.map((c) => challengeChip(c, st.settings.challenge === c.id,
           can ? () => { if (st.settings.challenge !== c.id) { Net.send('g:settings', { challenge: c.id }); Sfx.play('click'); } } : null)))
         : h('div', { class: 'mx-tchips' }, [...tracks(), { id: 'random', name: 'Surprise', emoji: '🎲' }].map((t) => trackCard(t, sel === t.id,
@@ -354,14 +367,19 @@ export function createMenus(ctx) {
 
     // ready up (or watch the race that's on)
     let btn;
-    if (racing && st.race.challenge) btn = go('Challenge on', 'You can ready up for the next one when it’s over', () => {}, { disabled: true });
+    if (racing && st.race.free) {
+      // a free ride is on: ride in (or back in), and the host can end it for everyone
+      const w = ctx.worlds.find((x) => x.id === st.race.free);
+      btn = h('div', {}, meIn ? go(st.race.runners[Net.id] ? 'Back to the ride' : 'Join the ride', `${w ? w.name : 'Free ride'} · ${Object.keys(st.race.runners).length} riding`, () => { Net.send('g:hop'); Sfx.play('pop'); }) : null,
+        host ? h('button', { class: 'mx-sb', type: 'button', style: { marginTop: '8px', width: '100%' }, onclick: () => { Net.send('g:stop'); Sfx.play('click'); } }, '⏹ End the free ride for everyone') : null);
+    } else if (racing && st.race.challenge) btn = go('Challenge on', 'You can ready up for the next one when it’s over', () => {}, { disabled: true });
     else if (racing) btn = go('Watch the race', 'You can ready up for the next one when it’s over', () => ctx.watchRace());
     else if (!meIn) btn = go('Join in', 'You’re just watching', () => { Net.send('room:watch', { watch: false }); Sfx.play('pop'); });
     else if (mine) {
       const waiting = riders.length - readyCount;
       btn = go('Ready ✔', riders.length < st.min ? `Waiting for more riders (${st.min} needed)` : waiting ? `Waiting for ${waiting} more…` : 'Here we go!',
         () => { Net.send('g:ready', { ready: false }); Sfx.play('click'); }, { on: true });
-    } else btn = go('I’m ready', riders.length < st.min ? 'The race starts when everyone is ready' : 'The race starts when everyone is ready: 3, 2, 1… GO!', () => { Net.send('g:ready', { ready: true }); Sfx.play('coin'); });
+    } else btn = go(mode === 'free' ? 'Let’s ride' : 'I’m ready', mode === 'free' ? 'The ride starts when everyone is ready, and friends can join in any time' : riders.length < st.min ? 'The race starts when everyone is ready' : 'The race starts when everyone is ready: 3, 2, 1… GO!', () => { Net.send('g:ready', { ready: true }); Sfx.play('coin'); });
     fill(roomEls.go, btn);
 
     // invite, watch, party mode and the rest (from the lobby), and leaving

@@ -72,7 +72,9 @@ function axes(b) {
   return basis;
 }
 
-/** One physics step (1/120 s). inp: { gas, brake, steer, lean, nitro, hold }. Returns events like MotoCore.step. */
+/** One physics step (1/120 s). inp: { gas, brake, steer, lean, nitro, hold, calm }. Returns events like MotoCore.step.
+    calm (the NEW physics setting): a car that goes over on its side or roof crashes there and then, instead of
+    tumbling on until it lands on its wheels again, and the wreck stops bouncing about. */
 export function step(T, b, inp) {
   const ev = []; const g = T.terrain; const out = !!b.crashed; const Pc = P();
   const gas = out || inp.hold ? 0 : clamp(+inp.gas || 0, 0, 1); const brake = out || inp.hold ? 0 : clamp(+inp.brake || 0, 0, 1);
@@ -140,6 +142,7 @@ export function step(T, b, inp) {
   b.pr += (tp / IP) * DT; b.rr += (tr / IR) * DT;
   b.pr *= 1 - DT * (ground ? 2.5 : 0.4); b.rr *= 1 - DT * (ground ? 3 : 0.4);
   b.pitch += b.pr * DT; b.roll += b.rr * DT;
+  b.pitch = Math.atan2(Math.sin(b.pitch), Math.cos(b.pitch)); b.roll = Math.atan2(Math.sin(b.roll), Math.cos(b.roll));   // (after a few flips)
   // ---- move
   for (let k = 0; k < 3; k++) b.vel[k] += acc[k] * DT;
   if (inp.hold) { b.vel[0] *= 0.5; b.vel[2] *= 0.5; b.vel[1] = Math.min(b.vel[1], 0); }
@@ -149,7 +152,8 @@ export function step(T, b, inp) {
   b.x += moved * DT;
   // the body never sinks into the ground
   const under = g.heightAt(b.px, b.pz);
-  if (b.y - 0.36 < under) { b.y = under + 0.36; if (b.vel[1] < 0) b.vel[1] *= -0.2; }
+  const thud = b.y - 0.36 < under ? -b.vel[1] : 0;   // (how hard the body hit the ground)
+  if (b.y - 0.36 < under) { b.y = under + 0.36; if (b.vel[1] < 0) b.vel[1] *= inp.calm ? 0 : -0.2; }
   // ---- speed, gears and the engine note
   v = moved; b.vx = v; b.vy = b.vel[1];
   const speed = Math.hypot(b.vel[0], b.vel[1], b.vel[2]);
@@ -175,8 +179,9 @@ export function step(T, b, inp) {
   }
   // ---- crashing: on its roof or side, into lava or deep water, a wall, the edge of the world
   if (!out && !inp.hold) {
-    b.upside = u[1] < 0.3 && (ground || b.y - under < 1.2) ? b.upside + DT : 0;
-    if (b.upside > 0.35) crash(b, ev);
+    const over = inp.calm ? u[1] < 0.4 : u[1] < 0.3;
+    b.upside = over && (ground || b.y - under < 1.2) ? b.upside + DT : 0;
+    if (b.upside > (inp.calm ? 0.1 : 0.35) || (inp.calm && thud > 6 && u[1] < 0.8)) crash(b, ev);
     const hz = g.hazardAt ? g.hazardAt(b.px, b.pz) : null;
     if (!b.crashed && hz && b.y - 0.5 < hz.level + (hz.kind === 'lava' || hz.kind === 'tar' ? 0.5 : hz.kind === 'chasm' ? 0 : -0.3)) { crash(b, ev); b.vel = b.vel.map((k) => k * 0.3); ev.push(['hazard', hz]); }
     const o = g.obstacleAt ? g.obstacleAt(b.px, b.pz) : null;
@@ -194,7 +199,10 @@ export function step(T, b, inp) {
       b.padT = 0.4;
     } else if (b.padT > 0) b.padT -= DT;
   }
-  if (b.crashed) { b.crashed += DT; b.vel[0] *= 1 - DT * 1.2; b.vel[2] *= 1 - DT * 1.2; }
+  if (b.crashed) {
+    b.crashed += DT; const k = inp.calm ? 4 : 1.2; b.vel[0] *= 1 - DT * k; b.vel[2] *= 1 - DT * k;
+    if (inp.calm) { b.pr *= 1 - DT * 6; b.rr *= 1 - DT * 6; }   // (the wreck settles instead of rolling on)
+  }
   sync(b);
   return ev;
 }

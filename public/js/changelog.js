@@ -6,6 +6,11 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.11.0', date: '2026-10-22', emoji: '🌍', title: 'Motocross: free ride with friends, and OG or NEW physics', items: [
+      'Free ride together: make a room, pick 🌍 Free ride and a world, and everyone rides it at once, on their bike or in their supercar',
+      'No race and no end: friends who join the room ride straight in, Esc takes you back to the room, and the host can end it for everyone',
+      'Controls → Settings → Physics: OG lets a tumble play out (bounce, roll and maybe land it), NEW calls it a crash straight away and gets you riding again sooner',
+    ] },
     { v: '3.10.2', date: '2026-10-22', emoji: '⛰️', title: 'Motocross: the supercar sits flat on a hillside', items: [
       'Driving across a slope, the car now leans with the hill instead of half sinking into it with the other side in the air',
       'Respawning or fast-travelling onto a hillside puts the car down level with the ground, so it no longer tips over',

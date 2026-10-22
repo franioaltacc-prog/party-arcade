@@ -595,7 +595,7 @@
   }
 
   /** One game step (1/120 s). inp = { gas 0..1, brake 0..1, steer -1 (left) .. 1 (right), lean -1 (back) .. 1 (forward),
-      nitro, hold (stand at the gate), assist: false (no levelling in the air) }.
+      nitro, hold (stand at the gate), assist: false (no levelling in the air), calm (NEW physics: crash sooner, settle faster) }.
       Returns a list of events: ['land', {...}], ['crash'], ['cp', i], ['finish', time], ['shift', gear], ['fence']. */
   function step(T, b, inp) {
     const ev = [];
@@ -722,11 +722,13 @@
     // crashing: your body hits the ground, or the bike lies upside down
     if (!b.crashed && !inp.hold) {
       const rel = Math.atan2(Math.sin(b.a - slope(G, b.x)), Math.cos(b.a - slope(G, b.x)));
-      if (b.bodyHit || (b.scrape && Math.abs(rel) > 1.75)) crash(T, b, ev);
+      // (inp.calm, the NEW physics setting: the bike scraping along past ~70° is already a crash)
+      if (b.bodyHit || (b.scrape && Math.abs(rel) > (inp.calm ? 1.2 : 1.75))) crash(T, b, ev);
     }
     if (b.crashed) {
       b.crashed += DT;
       riderStep(G, b);
+      if (inp.calm) { b.w *= 1 - DT * 4; b.vx *= 1 - DT * 2; }   // (the bike slides to a stop instead of cartwheeling on)
     }
     // checkpoints (in order, however you get there) and the finish
     if (!b.crashed && b.finished == null && !inp.hold) {

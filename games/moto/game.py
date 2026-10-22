@@ -1,10 +1,14 @@
-"""Motocross: 2–6 riders race the same track at once.
+"""Motocross: 2–6 riders race the same track at once (or ride a free-ride world together).
 
 Everyone presses Ready in the lobby; when the whole room is ready the race starts after a 3-2-1
 countdown. Each browser rides its own bike (public/js/games/moto/) and sends where it is (in 3D, and how far
 along the track) a few times a second; the server passes that on so everyone sees the others as see-through bikes, keeps the live
 order, checks finish times, decides the places and saves the results. The tracks are data
-(public/js/games/moto/tracks.json), so a track added there can be raced here too."""
+(public/js/games/moto/tracks.json), so a track added there can be raced here too.
+
+Free ride together: the host picks a world and everyone rides it at once, on their bike or in their supercar, with
+no race and no end. People can hop in and out while it's on (and someone joining the room rides straight in);
+the host ends it, or it ends when the last rider leaves."""
 import json
 import random
 import time
@@ -48,6 +52,16 @@ def load_challenges():
 
 
 CHALLENGES = load_challenges()
+
+
+def load_worlds():
+    try:
+        return [w["id"] for w in json.loads((WORLD_DIR / "manifest.json").read_text(encoding="utf-8"))["worlds"]]
+    except (OSError, ValueError, KeyError):
+        return []
+
+
+WORLDS = load_worlds()
 TOP_SCORE = {"air": 30.0, "flips": 80, "speed": 420.0, "tricks": 3000}   # more than anyone can do with the stock engine
 FASTEST_MS = 105.0     # nobody crosses a challenge course quicker than this many metres a second
 MIN_PLAYERS = 2
@@ -60,7 +74,7 @@ def clean_style(st):
     """Someone's bike style, rider, rider kit, helmet and race number, tidied up (the browser draws whatever ids it knows)."""
     st = st if isinstance(st, dict) else {}
     out = {}
-    for k in ("model", "rider", "kit", "helmet"):
+    for k in ("model", "rider", "kit", "helmet", "car", "paint"):   # (car and paint: the free-ride supercar)
         v = str(st.get(k) or "")[:12]
         if v.isalnum() and v.isascii():
             out[k] = v.lower()
@@ -76,7 +90,8 @@ class Moto(Game):
 
     def __init__(self, room):
         super().__init__(room)
-        self.settings = {"track": next(iter(TRACKS), "desert"), "mode": "race", "challenge": next(iter(CHALLENGES), "")}
+        self.settings = {"track": next(iter(TRACKS), "desert"), "mode": "race", "challenge": next(iter(CHALLENGES), ""),
+                         "world": WORLDS[0] if WORLDS else ""}
         self.ready = {}
         self.styles = {}   # uid -> how their bike and rider look (bike style, kit, helmet, number): looks only
         self.race = None
@@ -87,7 +102,13 @@ class Moto(Game):
         self.hurry_at = None
 
     def listed(self):
-        return self.phase in ("lobby", "results")
+        return self.phase in ("lobby", "results") or self.free_ride()   # (a free ride can be hopped into)
+
+    def free_ride(self):
+        return self.phase == "racing" and bool(self.race) and bool(self.race.get("free"))
+
+    def min_players(self):
+        return 1 if self.settings.get("mode") == "free" else MIN_PLAYERS   # (start riding, friends join in)
 
     # -- state -----------------------------------------------------------------
     def race_public(self):
@@ -97,14 +118,16 @@ class Moto(Game):
         out = {"id": r["id"], "track": r["track"], "elapsed": time.time() - r["start"], "runners": r["runners"]}
         if r.get("challenge"):
             out.update(challenge=r["challenge"], kind=r["kind"], limit=r["limit"])
+        if r.get("free"):
+            out.update(free=r["free"], kind="free")
         return out
 
     def state_for(self, m):
         return {"phase": self.phase, "settings": self.settings, "ready": self.ready, "race": self.race_public(),
-                "results": self.results, "wins": self.wins, "styles": self.styles, "min": MIN_PLAYERS}
+                "results": self.results, "wins": self.wins, "styles": self.styles, "min": self.min_players()}
 
     def push_lobby(self):
-        self.broadcast("lobby", settings=self.settings, ready=self.ready, phase=self.phase, styles=self.styles)
+        self.broadcast("lobby", settings=self.settings, ready=self.ready, phase=self.phase, styles=self.styles, min=self.min_players())
 
     # -- messages --------------------------------------------------------------
     def on_message(self, m, t, msg):
@@ -113,10 +136,12 @@ class Moto(Game):
             tr = msg.get("track")
             if tr == "random" or tr in TRACKS:
                 self.settings["track"] = tr
-            if msg.get("mode") in ("race", "challenge"):
+            if msg.get("mode") in ("race", "challenge", "free"):
                 self.settings["mode"] = msg["mode"]
             if msg.get("challenge") in CHALLENGES:
                 self.settings["challenge"] = msg["challenge"]
+            if msg.get("world") in WORLDS:
+                self.settings["world"] = msg["world"]
             self.push_lobby()
         elif t == "ready" and self.phase in ("lobby", "results") and m.plays:
             self.ready[m.uid] = bool(msg.get("ready"))
@@ -130,9 +155,13 @@ class Moto(Game):
             self.styles[m.uid] = clean_style(msg.get("style"))
             self.push_lobby()
         elif t == "stop" and host and self.phase == "racing":
-            self.end()
+            self.end_free() if self.free_ride() else self.end()
         elif t == "pos" and self.phase == "racing":
             self.position(m, msg)
+        elif t == "hop" and self.free_ride() and m.plays:   # hop into the free ride that's on
+            self.hop_in(m)
+        elif t == "part" and self.free_ride():               # ...and back out to the room
+            self.hop_out(m)
         elif t == "finish" and self.phase == "racing":
             self.finish(m, msg)
         elif t == "score" and self.phase == "racing":
@@ -153,24 +182,27 @@ class Moto(Game):
 
     def not_ready_reason(self):
         riders = self.riders()
-        if len(riders) < MIN_PLAYERS:
+        if len(riders) < self.min_players():
             return f"You need at least {MIN_PLAYERS} riders to race (or ride solo)!"
         waiting = [u.name for u in riders if not self.ready.get(u.uid)]
         return "Waiting for " + ", ".join(waiting[:3]) + (" and more" if len(waiting) > 3 else "") + " to get ready."
 
     def maybe_start(self):
         riders = self.riders()
-        if self.phase in ("lobby", "results") and len(riders) >= MIN_PLAYERS and all(self.ready.get(u.uid) for u in riders):
+        if self.phase in ("lobby", "results") and len(riders) >= self.min_players() and all(self.ready.get(u.uid) for u in riders):
             self.start()
             return True
         return False
 
     def restart(self, host):
         """Party mode and the "play again?" vote skip the ready-up."""
-        if self.phase != "racing" and len(self.riders()) >= MIN_PLAYERS:
+        if self.phase != "racing" and len(self.riders()) >= self.min_players():
             self.start()
 
     def start(self):
+        if self.settings.get("mode") == "free" and self.settings.get("world") in WORLDS:
+            self.start_free(self.settings["world"])
+            return
         if self.settings.get("mode") == "challenge" and self.settings.get("challenge") in CHALLENGES:
             self.start_challenge(CHALLENGES[self.settings["challenge"]])
             return
@@ -206,6 +238,41 @@ class Moto(Game):
         self.end_timer = self.room.later(COUNTDOWN + c["limit"] + 2, self.end)
         self.hurry_at = None
 
+    def start_free(self, world):
+        """Everyone rides the same free-ride world, for as long as they like."""
+        self.phase = "racing"
+        self.results = None
+        self.ready = {}
+        runners = {u.uid: {"done": False, "time": None, "place": None, "x": 0.0, "cp": -1, "crashes": 0, "flips": 0}
+                   for u in self.riders()}
+        self.race = {"id": (self.race["id"] + 1) if self.race else 1, "track": None, "free": world,
+                     "start": time.time(), "runners": runners, "finished": 0}
+        self.broadcast("start", race=self.race_public(), countdown=0)
+        self.room.cancel(self.end_timer)
+        self.hurry_at = None
+
+    def hop_in(self, m):
+        runners = self.race["runners"]
+        if m.uid not in runners:
+            runners[m.uid] = {"done": False, "time": None, "place": None, "x": 0.0, "cp": -1, "crashes": 0, "flips": 0}
+            self.broadcast("hop", id=m.uid)
+        self.send(m, "start", race=self.race_public(), countdown=0)
+
+    def hop_out(self, m):
+        if self.race["runners"].pop(m.uid, None) is not None:
+            self.broadcast("part", id=m.uid)
+        if not any((mm := self.room.members.get(uid)) and mm.online for uid in self.race["runners"]):
+            self.end_free()
+
+    def end_free(self):
+        """The free ride is over: everyone goes back to the room."""
+        if not self.free_ride():
+            return
+        self.phase = "lobby"
+        self.race = None
+        self.broadcast("freeEnd")
+        self.push_lobby()
+
     def score(self, m, msg):
         """A rider's best so far in a timed challenge (kept if it's better and believable)."""
         r = self.race
@@ -232,6 +299,10 @@ class Moto(Game):
         # x: how far along the track; px/pz/h: where the bike is (seen from above) and which way it points;
         # the rest is its pose: height, pitch, rider, suspension, lean, roll and speed
         out = {k: round(num(msg.get(k), 0, -1e4, 1e4), 3) for k in ("px", "pz", "h", "ro", "y", "a", "rx", "ry", "c0", "c1", "l", "s")}
+        if self.race.get("free") and msg.get("v") == 1:   # (in the supercar: its steering and the other two springs)
+            out["v"] = 1
+            for k in ("st", "c2", "c3"):
+                out[k] = round(num(msg.get(k), 0, -2, 2), 3)
         out["x"] = run["x"]
         out["r"] = int(num(msg.get("r"), 1700, 0, 16000))
         out["th"] = round(num(msg.get("th"), 0, 0, 1), 2)
@@ -289,7 +360,9 @@ class Moto(Game):
 
     def on_offline(self, m):
         self.ready.pop(m.uid, None)
-        if self.phase == "racing" and self.everyone_done():
+        if self.free_ride():
+            self.hop_out(m)
+        elif self.phase == "racing" and self.everyone_done():
             self.room.cancel(self.end_timer)
             self.end_timer = self.room.later(1.0, self.end)
         elif self.phase in ("lobby", "results"):
@@ -299,6 +372,9 @@ class Moto(Game):
     on_leave = on_offline
 
     def end(self):
+        if self.free_ride():
+            self.end_free()
+            return
         if self.phase != "racing":
             return
         self.room.cancel(self.end_timer)
@@ -363,6 +439,9 @@ class Moto(Game):
             self.record(r["id"], "win" if won else ("loss" if n >= 2 else "play"), stats, detail, xp=40 if won else 20 if r["done"] else 12)
 
     def on_admin(self, m, action, msg):
+        if action == "end" and self.free_ride():
+            self.end_free()
+            return "🏁 Free ride ended."
         if action == "end" and self.phase == "racing":
             self.end()
             return "🏁 Race ended."

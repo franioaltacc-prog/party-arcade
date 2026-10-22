@@ -178,6 +178,46 @@ async def main():
     a.send({"t": "g:finish", "time": 3000}); toast = await a.wait("g:toast")
     check("didn't look right" in toast["text"], "a downhill time faster than possible doesn't count")
     a.send({"t": "g:stop"}); await a.wait("g:results")
+
+    # ---------------------------------------------------------------- free ride together: no race, hop in and out
+    a.send({"t": "g:settings", "mode": "free", "world": "frostpeak"}); await asyncio.sleep(0.3)
+    lob = [m for m in a.drain() if m["t"] == "g:lobby"]
+    check(lob and lob[-1]["settings"]["mode"] == "free" and lob[-1]["settings"]["world"] == "frostpeak" and lob[-1]["min"] == 1,
+          "the host switches the room to a free ride on Frostpeak (one rider is enough)")
+    a.send({"t": "g:settings", "world": "atlantis"}); await asyncio.sleep(0.2)
+    lob = [m for m in a.drain() if m["t"] == "g:lobby"]
+    check(not lob or lob[-1]["settings"]["world"] == "frostpeak", "an unknown world can't be picked")
+    a.send({"t": "g:style", "style": {"model": "retro", "car": "aventador", "paint": "verde"}}); await asyncio.sleep(0.2)
+    a.send({"t": "g:ready", "ready": True}); b.send({"t": "g:ready", "ready": True})
+    st5 = await a.wait("g:start")
+    check(st5["race"].get("free") == "frostpeak" and st5["race"].get("kind") == "free" and set(st5["race"]["runners"]) == {a.uid, b.uid},
+          "everyone ready: the free ride starts for both")
+    b.drain()
+    a.send({"t": "g:pos", "x": 12, "px": 5, "pz": 6, "h": 1, "ro": 0.3, "y": 400, "a": 0.2, "c0": 0.1, "c1": 0.12, "s": 80,
+            "v": 1, "st": 0.5, "c2": 0.13, "c3": 9})
+    p = await b.wait("g:pos")
+    check(p["v"] == 1 and p["st"] == 0.5 and p["c2"] == 0.13 and p["c3"] == 2 and p["ro"] == 0.3, "a supercar's pose (steering, all four springs) reaches the others")
+    nc = "MotoC" + U
+    c = await player("mbotC" + U + "x", nc)
+    c.send({"t": "room:join", "code": j["code"], "game": "moto"}); jc = await c.wait("room:joined")
+    check(jc["state"]["phase"] == "racing" and jc["state"]["race"].get("free") == "frostpeak", "someone joining the room sees the free ride that's on")
+    check(jc["state"]["styles"].get(a.uid, {}).get("car") == "aventador", "and which supercar the others drive")
+    c.send({"t": "g:hop"})
+    sc = await c.wait("g:start"); hop = await a.wait("g:hop")
+    check(c.uid in sc["race"]["runners"] and hop["id"] == c.uid, "they hop straight in, and the others hear about it")
+    b.send({"t": "g:part"}); part = await a.wait("g:part")
+    check(part["id"] == b.uid, "a rider going back to the room leaves the ride")
+    b.send({"t": "g:stop"}); await asyncio.sleep(0.3)
+    check(not [m for m in a.drain() if m["t"] == "g:freeEnd"], "only the host can end the free ride")
+    a.send({"t": "g:stop"}); await c.wait("g:freeEnd")
+    lob = await c.wait("g:lobby")
+    check(lob["phase"] == "lobby", "the host ends it: everyone is back in the room")
+    a.send({"t": "g:ready", "ready": True}); b.send({"t": "g:ready", "ready": True}); c.send({"t": "g:ready", "ready": True})
+    await a.wait("g:start")
+    a.send({"t": "g:part"}); b.send({"t": "g:part"}); c.send({"t": "g:part"})
+    await a.wait("g:freeEnd")
+    check(True, "the free ride ends by itself when the last rider leaves")
+    c.send({"t": "room:leave"})
     a.send({"t": "room:leave"}); b.send({"t": "room:leave"}); await asyncio.sleep(0.2)
     print("FAILED:", check.failed)
 
