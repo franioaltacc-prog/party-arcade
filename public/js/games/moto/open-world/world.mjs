@@ -78,7 +78,7 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
  for(let i=0;i<pos.count;i++) {
   const x=pos.getX(i),z=pos.getZ(i),h=terrain.heightAt(x,z); pos.setY(i,h); minHeight=Math.min(minHeight,h);maxHeight=Math.max(maxHeight,h);
   trailWeights[i]=Math.max(terrain.roadAt(x,z)?.weight||0,terrain.rampAt(x,z).weight);
-  const k=.91+Math.sin(x*.037+z*.013)*.035+Math.cos(z*.025)*.025; colors[i*3]=colors[i*3+1]=colors[i*3+2]=k;
+  const k=.91+Math.sin(x*.037+z*.013)*.035+Math.cos(z*.025)*.025, t=terrain.tintAt(x,z,h)||[1,1,1]; colors[i*3]=k*t[0];colors[i*3+1]=k*t[1];colors[i*3+2]=k*t[2];
  }
  // Jumps are far smaller than the coarse ground's cells, so each one (tabletops, gap jumps, pools) gets its own
  // detailed piece of ground that is always there (no ramp popping up in front of you at speed). Under the pits
@@ -103,7 +103,7 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
   for(let j=0;j<=nv;j++)for(let i=0;i<=nu;i++){
    const al=a0+(a1-a0)*i/nu,ac=-w+2*w*j/nv,x=f.x+al*f.s+ac*f.c,z=f.z+al*f.c-ac*f.s;
    p.push(x,terrain.heightAt(x,z)+.12,z);tw.push(Math.max(terrain.roadAt(x,z)?.weight||0,terrain.rampAt(x,z).weight));
-   const k=.91+Math.sin(x*.037+z*.013)*.035+Math.cos(z*.025)*.025;col.push(k,k,k);
+   const k=.91+Math.sin(x*.037+z*.013)*.035+Math.cos(z*.025)*.025,tn=terrain.tintAt(x,z,p[p.length-2]-.12)||[1,1,1];col.push(k*tn[0],k*tn[1],k*tn[2]);
    if(i<nu&&j<nv){const a=j*(nu+1)+i;idx.push(a,a+nu+1,a+1,a+1,a+nu+1,a+nu+2);}
   }
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));g.setAttribute('trailWeight',new THREE.Float32BufferAttribute(tw,1));g.setIndex(idx);g.computeVertexNormals();g.computeBoundingSphere();
@@ -130,13 +130,17 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
  // ---------------------------------------------------------------- water
  const lake=map.terrain.lake, river=map.terrain.river;
  const lavaTex=lavaTexture(map.seed),lavaMat=new THREE.MeshBasicMaterial({map:lavaTex,color:'#ffffff'});lavaTex.repeat.set(1/24,1/24);disposables.push(lavaTex,lavaMat);
- const waterMat=new THREE.MeshStandardMaterial({color:map.palette.water,roughness:lake?.frozen ? .35 : .08,metalness:lake?.frozen ? .1 : .35,transparent:true,opacity:lake?.frozen ? .95 : .82});disposables.push(waterMat);
- if(lake) {const g=new THREE.CircleGeometry(1,96);g.rotateX(-Math.PI/2);if(lake.lava){const uv=g.attributes.uv,q=g.attributes.position;for(let i=0;i<uv.count;i++)uv.setXY(i,q.getX(i)*lake.radius[0],q.getZ(i)*lake.radius[1]);}
+ // water with small moving ripples (a tiling normal map drawn here), so it isn't a flat sheet
+ const rip=document.createElement('canvas');rip.width=rip.height=128;{const g=rip.getContext('2d'),img=g.createImageData(128,128),H=(u,v)=>Math.sin(u*6.283*3+Math.sin(v*6.283*2)*1.3)*.5+Math.sin(v*6.283*4+u*6.283)*.35+Math.sin((u+v)*6.283*5)*.2;
+  for(let y=0;y<128;y++)for(let x=0;x<128;x++){const u=x/128,v=y/128,dx=(H(u+1/128,v)-H(u-1/128,v))*6,dy=(H(u,v+1/128)-H(u,v-1/128))*6,l=Math.hypot(dx,dy,1),i=(y*128+x)*4;img.data[i]=(-dx/l*.5+.5)*255;img.data[i+1]=(-dy/l*.5+.5)*255;img.data[i+2]=(1/l*.5+.5)*255;img.data[i+3]=255;}g.putImageData(img,0,0);}
+ const ripTex=new THREE.CanvasTexture(rip);ripTex.wrapS=ripTex.wrapT=THREE.RepeatWrapping;ripTex.repeat.set(1,1);
+ const waterMat=new THREE.MeshStandardMaterial({color:map.palette.water,roughness:lake?.frozen ? .35 : .12,metalness:lake?.frozen ? .1 : .3,transparent:true,opacity:lake?.frozen ? .95 : .88,normalMap:lake?.frozen?null:ripTex,normalScale:new THREE.Vector2(.5,.5)});disposables.push(waterMat,ripTex);
+ if(lake) {const g=new THREE.CircleGeometry(1,96);g.rotateX(-Math.PI/2);{const uv=g.attributes.uv,q=g.attributes.position,f=lake.lava?1:1/9;for(let i=0;i<uv.count;i++)uv.setXY(i,q.getX(i)*lake.radius[0]*f,q.getZ(i)*lake.radius[1]*f);}
   const w=new THREE.Mesh(g,lake.lava?lavaMat:waterMat);w.position.set(lake.position[0],lake.level+(lake.frozen ? .12 : 0),lake.position[1]);w.scale.set(lake.radius[0]*1.03,1,lake.radius[1]*1.03);w.receiveShadow=true;group.add(w);disposables.push(g);}
  if(river) {
   const vertices=[],indices=[];for(let i=0;i<=180;i++) {const z=-D/2+D*i/180,cx=river.x+Math.sin(z/river.wavelength)*river.amplitude;vertices.push(cx-river.width*.45,river.level,z,cx+river.width*.45,river.level,z);if(i<180){const a=i*2;indices.push(a,a+2,a+1,a+1,a+2,a+3);}}
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setIndex(indices);g.computeVertexNormals();
-  if(river.lava){const uv=[];for(let i=0;i<vertices.length;i+=3)uv.push(vertices[i],vertices[i+2]);g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));}
+  {const uv=[],f=river.lava?1:1/9;for(let i=0;i<vertices.length;i+=3)uv.push(vertices[i]*f,vertices[i+2]*f);g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));}
   group.add(new THREE.Mesh(g,river.lava?lavaMat:waterMat));disposables.push(g);
  }
  const lakeDist=(x,z)=>lake?Math.hypot((x-lake.position[0])/lake.radius[0],(z-lake.position[1])/lake.radius[1]):Infinity;
@@ -290,7 +294,7 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
  }
  let animAt=performance.now();
  /** Lava flows and the pad arrows run. */
- function animate(){const now=performance.now(),dt=Math.min(.1,(now-animAt)/1000);animAt=now;lavaTex.offset.x+=dt*.008;lavaTex.offset.y+=dt*.013;padTex.offset.y+=dt*1.6;}
+ function animate(){const now=performance.now(),dt=Math.min(.1,(now-animAt)/1000);animAt=now;lavaTex.offset.x+=dt*.008;lavaTex.offset.y+=dt*.013;ripTex.offset.x+=dt*.02;ripTex.offset.y+=dt*.012;padTex.offset.y+=dt*1.6;}
  const instanced=(geo,material,list,matrixFor)=>{if(!list.length)return;const im=new THREE.InstancedMesh(geo,material,list.length);list.forEach((it,i)=>{matrixFor(it);dummy.updateMatrix();im.setMatrixAt(i,dummy.matrix);});im.computeBoundingSphere();im.castShadow=true;im.receiveShadow=true;group.add(im);disposables.push(geo);};
  dummy.scale.set(1,1,1);dummy.rotation.set(0,0,0);
  instanced(stakeGeometry(accent),buildMat,stakes,([x,z])=>{dummy.position.set(x,terrain.heightAt(x,z)-.3,z);dummy.rotation.set(0,0,0);});

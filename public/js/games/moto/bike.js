@@ -660,6 +660,7 @@ const TRICK_POSES = [
 ];
 const FORK_AXIS = V(FORK_U.x, FORK_U.y, 0).normalize(); const Z_AXIS = V(0, 0, 1);
 const qSteer = new THREE.Quaternion(); const qSpin = new THREE.Quaternion();
+const qLean = new THREE.Quaternion(); const qUp = new THREE.Quaternion(); const eUp = new THREE.Euler(); const vLean = new THREE.Vector3(); const vLean2 = new THREE.Vector3();
 const tA = new THREE.Vector3(); const tB = new THREE.Vector3(); const tC = new THREE.Vector3(); const tD = new THREE.Vector3();
 const hipC = new THREE.Vector3(); const sho = new THREE.Vector3(); const headP = new THREE.Vector3();
 const poleArm = [V(-0.55, -0.5, -0.65), V(-0.55, -0.5, 0.65)];
@@ -674,6 +675,14 @@ export function poseBike(m, s, place, heading, t) {
   // air tricks: the 360 turns the whole bike round, the whip throws it sideways
   const whip = s.wh || 0;
   root.rotation.set((s.roll || 0) + whip * 0.85, -heading + (s.sp || 0) + whip * 0.35, s.a);
+  // lean round where the tyres touch the ground, not round the middle of the bike (or the wheels lift off it
+  // and the bike looks like it's floating through the turn)
+  if (s.roll) {
+    const hc = s.y - Math.min(s.wf[1], s.wr[1]) + 0.35;   // from the middle of the bike down to the ground
+    qLean.setFromEuler(root.rotation);
+    eUp.set(whip * 0.85, root.rotation.y, s.a, 'YZX'); qUp.setFromEuler(eUp);
+    root.position.add(vLean.set(0, -hc, 0).applyQuaternion(qUp)).sub(vLean2.set(0, -hc, 0).applyQuaternion(qLean));
+  }
   const ca = Math.cos(-s.a); const sa = Math.sin(-s.a);
   const local = (x, y, out) => { const dx = x - s.x; const dy = y - s.y; return out.set(dx * ca - dy * sa, dx * sa + dy * ca, 0); };
   // wheels

@@ -191,7 +191,14 @@ the coarse ground's cells, so `world.mjs` gives every tabletop, gap and pool its
 under the pits down; `ride-world.update(point, dt, camera, ahead)` centres the detailed patch up to 30 m ahead of a
 fast bike. **Steering**: the front end of the drawn bikes (bars, clamps, fork tubes, mudguard, plate) is its own
 group turning on the fork axis with the front wheel and fork legs (`s.st`, shown a little more than the physics'
-angle at speed); the hands follow the grips. Model bikes turn just their front wheel.
+angle at speed); the hands follow the grips. Model bikes turn just their front wheel. Leaning pivots on the tyres'
+contact (`poseBike` moves the bike so the ground point stays put). **Maps** (`moto/map.js`): the minimap is a round,
+heading-up view round you over a top-down picture of the world (drawn by `map.js` from the terrain: a rough 128²
+straight away, then a sharp 512² a few rows a frame), with arrows on the rim to your waypoint, a challenge finish
+or the next mini-race gate; in races it's the track. M or a tap opens the big map (drag, wheel / pinch zoom), where
+places, gap jumps, pools, parks and mini-race starts can be set as the waypoint (a beam, and the distance on the HUD)
+or ridden to (fast travel: solo free ride only). Lakes have a shore (`terrain.rawHeight` keeps the ground just
+outside a lake above its water) and `tintAt` colours ground under water.
 
 `MotoCore.groundTrack(terrain, spawn)` is the free-ride adapter: `slice()` samples world-space ground
 along the bike's heading; it bypasses track berms, fences, wrong-way checks and track-based finish

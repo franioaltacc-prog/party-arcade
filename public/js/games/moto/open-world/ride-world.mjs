@@ -107,9 +107,9 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false){
    if(!teleport&&job.i%64===0&&performance.now()>deadline)break;
    const i=job.i,lx=local[i*3],lz=local[i*3+2],wx=job.x+lx,wz=job.z+lz,blend=Math.max(0,Math.min(1,(Math.max(Math.abs(lx),Math.abs(lz))-inner)/(half-inner)));
    const key=wx+','+wz;let sample=samples.get(key);
-   if(!sample){sample={x:wx,z:wz,y:built.terrain.heightAt(wx,wz),trail:Math.max(built.terrain.roadAt(wx,wz)?.weight||0,built.terrain.rampAt(wx,wz).weight),shade:.91+Math.sin(wx*.037+wz*.013)*.035+Math.cos(wz*.025)*.025};samples.set(key,sample);}
+   if(!sample){sample={x:wx,z:wz,y:built.terrain.heightAt(wx,wz),trail:Math.max(built.terrain.roadAt(wx,wz)?.weight||0,built.terrain.rampAt(wx,wz).weight),shade:.91+Math.sin(wx*.037+wz*.013)*.035+Math.cos(wz*.025)*.025};sample.tint=built.terrain.tintAt(wx,wz,sample.y);samples.set(key,sample);}
    const y=sample.y+(coarse(wx,wz)-sample.y)*blend;backPos[i*3]=wx;backPos[i*3+1]=y;backPos[i*3+2]=wz;backTrail[i]=sample.trail;
-   backColor[i*3]=backColor[i*3+1]=backColor[i*3+2]=sample.shade;job.min=Math.min(job.min,y);job.max=Math.max(job.max,y);
+   const tn=sample.tint;backColor[i*3]=sample.shade*(tn?tn[0]:1);backColor[i*3+1]=sample.shade*(tn?tn[1]:1);backColor[i*3+2]=sample.shade*(tn?tn[2]:1);job.min=Math.min(job.min,y);job.max=Math.max(job.max,y);
   }
   if(job.i<pos.count)return;
   const old={x0:cx-half-2,x1:cx+half+2,z0:cz-half-2,z1:cz+half+2};

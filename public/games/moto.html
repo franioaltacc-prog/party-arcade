@@ -325,7 +325,35 @@
     .mx-coins .pop { position: absolute; left: 100%; top: 0; margin-left: 6px; color: #ffe27a; font-style: normal; animation: coin-pop .9s ease-out forwards; }
     @keyframes coin-pop { from { opacity: 1; transform: translateY(0) scale(1.1); } to { opacity: 0; transform: translateY(-22px) scale(.9); } }
     .mx-bl { position: absolute; left: clamp(14px, 3vw, 34px); bottom: clamp(14px, 4vh, 34px); }
-    #hud-map { width: clamp(150px, 22vw, 260px); height: auto; display: block; filter: drop-shadow(0 2px 6px rgba(0,0,0,.4)); }
+    /* the minimap: round and following you in free ride, a wide track view in races; tap it (or M) for the big map */
+    .mx-mini { position: relative; display: block; width: clamp(130px, 17vw, 210px); aspect-ratio: 1; padding: 0; border: 0; background: none; border-radius: 50%; cursor: pointer; pointer-events: auto; filter: drop-shadow(0 6px 14px rgba(0,0,0,.45)); transition: transform .15s; }
+    .mx-mini:hover { transform: scale(1.04); }
+    .mx-mini.track { width: clamp(180px, 22vw, 280px); aspect-ratio: 2 / 1; border-radius: 14px; background: rgba(8,12,20,.35); }
+    .mx-mini canvas { width: 100%; height: 100%; display: block; }
+    .mx-minik { position: absolute; right: 2%; bottom: 2%; font: 700 .62rem var(--kanit); font-style: normal; padding: 2px 6px; border-radius: 6px; background: rgba(0,0,0,.6); border: 1px solid rgba(255,255,255,.4); color: #fff; text-shadow: none; }
+    .mx-mini.track .mx-minik { right: 6px; bottom: 6px; }
+    /* the big map */
+    .mx-bigmap { position: fixed; inset: 0; z-index: 40; background: #0b0e13; font-family: var(--kanit); color: #fff; }
+    .mx-mapcv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+    .mx-maphead { position: absolute; left: 16px; right: 16px; top: 14px; display: flex; align-items: center; gap: 14px; pointer-events: none; }
+    .mx-maphead b { font: 1.5rem var(--marker); white-space: nowrap; text-transform: uppercase; text-shadow: 0 2px 10px rgba(0,0,0,.6); }
+    .mx-maphead small { opacity: .8; font-size: .85rem; }
+    .mx-mapx { margin-left: auto; pointer-events: auto; width: 42px; height: 42px; border-radius: 12px; border: 1px solid rgba(255,255,255,.3); background: rgba(10,12,20,.6); color: #fff; font-size: 1.1rem; cursor: pointer; }
+    .mx-mapzoom { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); display: grid; gap: 6px; }
+    .mx-mapzoom button { width: 42px; height: 42px; border-radius: 12px; border: 1px solid rgba(255,255,255,.3); background: rgba(10,12,20,.6); color: #fff; font-size: 1.3rem; cursor: pointer; }
+    .mx-mapzoom button:hover, .mx-mapx:hover { background: rgba(30,40,60,.85); }
+    .mx-maplegend { position: absolute; left: 16px; bottom: 54px; display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: .8rem; padding: 6px 10px; border-radius: 10px; background: rgba(0,0,0,.5); pointer-events: none; }
+    .mx-mapcard { position: absolute; right: 70px; bottom: 20px; width: min(320px, calc(100vw - 32px)); padding: 14px; border-radius: 16px; background: rgba(13,19,31,.92); border: 1px solid rgba(255,255,255,.16); box-shadow: 0 20px 40px -16px rgba(0,0,0,.8); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+    .mx-mapcard[hidden] { display: none; }
+    .mx-mapcard .top { display: flex; gap: 10px; align-items: center; }
+    .mx-mapcard .e { font-size: 1.8rem; }
+    .mx-mapcard b { display: block; font-size: 1.05rem; }
+    .mx-mapcard small { opacity: .75; font-size: .8rem; }
+    .mx-mapcard p { margin: 8px 0 10px; font-size: .88rem; opacity: .9; }
+    .mx-mapcard .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+    .mx-mapcard .mx-sb.go { background: linear-gradient(90deg, #f97316, #facc15); color: #1a1205; border-color: transparent; font-weight: 700; }
+    .mx-mapcard .why { display: block; margin-top: 8px; }
+    @media (max-width: 640px) { .mx-mapcard { right: 16px; left: 16px; width: auto; bottom: 16px; } .mx-maplegend { display: none; } .mx-maphead small { display: none; } }
     .mx-left { font-weight: 800; font-size: clamp(.8rem, 1.7vw, 1rem); letter-spacing: .1em; margin-top: 4px; }
     .mx-btns { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; z-index: 3; }
     .mx-btns button { width: 36px; height: 36px; border-radius: 12px; border: 1px solid rgba(255,255,255,.25); background: rgba(10,12,20,.4); color: #fff; font-size: 1rem; cursor: pointer; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
@@ -408,7 +436,7 @@
     <div class="mx-hud">
       <div class="mx-tl"><div class="mx-track" id="hud-track"></div><div class="mx-sub" id="hud-sub"></div><div class="mx-coins" id="hud-coins" hidden><span>🪙</span><b>0</b></div><div class="mx-board" id="hud-board"></div></div>
       <div class="mx-tr"><div class="mx-lab">TIME</div><div class="mx-time" id="hud-time">0:00.00</div><div class="mx-split" id="hud-split"></div></div>
-      <div class="mx-bl"><canvas id="hud-map" width="520" height="130"></canvas><div class="mx-left" id="hud-left"></div></div>
+      <div class="mx-bl"><button class="mx-mini" id="hud-mini" type="button" title="Map (M)" aria-label="Open the map"><canvas id="hud-map"></canvas><span class="mx-minik">M</span></button><div class="mx-left" id="hud-left"></div></div>
       <div class="mx-br"><div class="mx-lab">SPEED</div><div class="mx-speed"><span id="hud-speed">0</span><small>KM/H</small></div><div class="mx-gear" id="hud-gear">1</div><div class="mx-nitro"><i id="hud-nitro"></i></div><div class="mx-nlab">NITRO</div></div>
       <div class="mx-msg" id="hud-msg"></div>
       <div class="mx-trick" id="hud-trick"></div>

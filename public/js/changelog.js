@@ -6,6 +6,14 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.9.1', date: '2026-10-22', emoji: '🗺️', title: 'Motocross: a real map, real water and no more floating', items: [
+      'A proper minimap in free ride: it follows you, turns with you and shows the land, trails, water, lava and jumps around you',
+      'Tap the minimap or press M for the big map: drag, zoom, and click a place to set a waypoint (a glowing beam) or ride straight there',
+      'Click anywhere on the map to drop a pin. The distance to your waypoint shows at the top',
+      'Lakes have real shores now: no more riding along under the water at Emerald Bay. The water ripples, and the lake bed looks like it’s under water',
+      'Leaning into a turn now pivots on the tyres, so the bike doesn’t float off the ground',
+      'M opens the map while riding (sound on/off is the 🔊 button)',
+    ] },
     { v: '3.9.0', date: '2026-10-21', emoji: '🖼️', title: 'A brand-new home page', items: [
       'Every game now shows a real picture from the game itself instead of a drawing',
       'A big featured slideshow at the top, with a picker of the featured games beside it',

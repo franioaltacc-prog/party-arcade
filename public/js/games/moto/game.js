@@ -10,6 +10,7 @@ import { createMenus } from './menus.js';
 import {buildRideWorld} from './open-world/ride-world.mjs';
 import {createTrial,stepTrial,trialBestKey} from './open-world/trials.mjs';
 import * as Coins from './coins.js';
+import { createMap } from './map.js';
 
 const { $, h, fill, Net, Sfx, UI, store, Account, Unlocks } = PA;
 const FX = PA.FX || {};
@@ -205,6 +206,7 @@ function begin(def, mode, goAt) {
   return true;
 }
 function stopRide() {
+  map.reset(); wayMarker = null;
   if(R.trialMarker){R.trialMarker.removeFromParent();R.trialMarker.geometry.dispose();R.trialMarker.material.dispose();R.trialMarker=null;}
   dropFinishMarker();
   R.running = false;R.paused=false;
@@ -553,42 +555,10 @@ function burst(x, y, n, kind, power, color = null) {
 }
 
 // ------------------------------------------------------------------ HUD
-let mapBase = null;
-/** The track seen from above, turned so it runs left to right, with the checkpoints and the finish. */
+/** Set the maps up for this ride (the world's top-down picture, or the track). */
 function drawMapBase() {
-  const cv = $('#hud-map'); const T = R.T;
-  const W = cv.width; const H = cv.height;
-  mapBase = document.createElement('canvas'); mapBase.width = W; mapBase.height = H;
-  const g = mapBase.getContext('2d');
-  if(R.mode==='free'){
-    const def=R.def, scale=Math.min((W-16)/def.size[0],(H-16)/def.size[1]);
-    R.mapPt=(x,z)=>[W/2+x*scale,H/2+z*scale];
-    g.strokeStyle='#dfc28d';g.lineWidth=2;
-    for(const route of def.routes){g.beginPath();route.points.forEach((p,i)=>{const xy=R.mapPt(...p);i?g.lineTo(...xy):g.moveTo(...xy);});g.stroke();}
-    // places (white) and jump parks (orange)
-    const mark=(x,z,c,r)=>{const [px,py]=R.mapPt(x,z);g.fillStyle=c;g.strokeStyle='rgba(0,0,0,.6)';g.lineWidth=1.5;g.beginPath();g.arc(px,py,r,0,7);g.fill();g.stroke();};
-    for(const s of def.spots)mark(...s.position,'#ffffff',3.5);
-    for(const p of world.ground.parks)mark(p.ramps[2].position[0],p.ramps[2].position[1],'#ff8a1f',4);
-    // gap jumps and pools: red for lava, blue for water, grey for a chasm
-    const HUE={lava:'#ff4a1a',water:'#3aa0ff',ice:'#9ad7ff',chasm:'#8a8f99',tar:'#2a2a2a'};
-    for(const f of [...world.ground.gaps,...world.ground.pools])mark(f.cx,f.cz,HUE[f.kind]||'#ff4a1a',f.pool?3:4);
-    return;
-  }
-  const a = C.pathAt(T, T.start); const z = C.pathAt(T, T.finish);
-  const ang = Math.atan2(z.z - a.z, z.x - a.x); const c = Math.cos(-ang); const sn = Math.sin(-ang);
-  const rot = (x, y) => [(x - a.x) * c - (y - a.z) * sn, (x - a.x) * sn + (y - a.z) * c];
-  let x0 = Infinity; let x1 = -Infinity; let y0 = Infinity; let y1 = -Infinity;
-  for (let s = T.start - 10; s <= T.finish + 10; s += 4) { const p = C.pathAt(T, s); const [x, y] = rot(p.x, p.z); x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
-  const k = Math.min((W - 16) / (x1 - x0 || 1), (H - 16) / (y1 - y0 || 1));
-  const ox = (W - (x1 - x0) * k) / 2 - x0 * k; const oy = (H - (y1 - y0) * k) / 2 - y0 * k;
-  R.mapPt = (x, y) => { const [u, v] = rot(x, y); return [ox + u * k, oy + v * k]; };
-  g.lineWidth = 7; g.strokeStyle = 'rgba(10,12,20,.35)'; g.lineJoin = 'round'; g.lineCap = 'round';
-  const line = () => { g.beginPath(); for (let s = T.start; s <= T.finish; s += 2) { const p = C.pathAt(T, s); const [x, y] = R.mapPt(p.x, p.z); if (s === T.start) g.moveTo(x, y); else g.lineTo(x, y); } g.stroke(); };
-  line(); g.lineWidth = 3; g.strokeStyle = 'rgba(255,255,255,.9)'; line();
-  for (const s of [...T.cps, T.finish]) {
-    const p = C.pathAt(T, s); const [x, y] = R.mapPt(p.x, p.z);
-    g.fillStyle = s === T.finish ? '#fde047' : '#ffffff'; g.beginPath(); g.arc(x, y, s === T.finish ? 5 : 3.5, 0, 7); g.fill();
-  }
+  if (R.mode === 'free') map.setFree(R.def, world.ground);
+  else map.setTrack(R.T, C.pathAt);
 }
 function hud(now) {
   const b = R.bike; const T = R.T;
@@ -613,14 +583,10 @@ function hud(now) {
       : k === 'air' ? `BEST AIR ${ch.score.toFixed(2)} S` : k === 'flips' ? `${ch.score} FLIP${ch.score === 1 ? '' : 'S'}` : k === 'tricks' ? `${ch.score} TRICK POINTS` : `TOP ${Math.round(ch.score)} KM/H`;
     $('#hud-left').textContent = ch.online && state.race ? `P${myPlace()} / ${Object.keys(state.race.runners).length} · ${k === 'race' ? 'FOLLOW THE GREEN BEAM' : 'TIME LEFT TOP RIGHT'}` : k === 'race' ? 'RIDE TO THE GREEN BEAM · ANY LINE YOU LIKE' : ch.def.about.toUpperCase();
   }
-  // minimap: you and the others on the track seen from above
-  const cv = $('#hud-map'); const g = cv.getContext('2d');
-  g.clearRect(0, 0, cv.width, cv.height); g.drawImage(mapBase, 0, 0);
-  const dot = (x, z, col, r) => { const [px, py] = R.mapPt(x, z); g.fillStyle = col; g.beginPath(); g.arc(px, py, r, 0, 7); g.fill(); g.strokeStyle = 'rgba(0,0,0,.55)'; g.lineWidth = 1.5; g.stroke(); };
-  if(R.trial){const gate=R.trial.gates[R.trial.next];if(gate)dot(gate.x,gate.z,'#5affb6',5);}
-  if(R.challenge?.finish)dot(R.challenge.finish[0],R.challenge.finish[1],'#7dffb5',6);
-  for (const o of R.others.values()) if (o.snap) dot(o.snap.px, o.snap.pz, o.color, 5);
-  dot(b.px, b.pz, '#ffd21a', 7);
+  // the waypoint you set on the big map: how far, on the line under the world's name
+  const wp = R.mode === 'free' && !ch && !R.trial ? map.waypoint : null;
+  if (wp) { const d = Math.hypot(b.px - wp.x, b.pz - wp.z); $('#hud-sub').textContent = d < 40 ? `${wp.icon} ${wp.name.toUpperCase()} · YOU’RE HERE!` : `${wp.icon} ${wp.name.toUpperCase()} · ${d > 950 ? (d / 1000).toFixed(1) + ' KM' : Math.round(d / 10) * 10 + ' M'}`; }
+  map.drawMini();
   $('#hud-wrong').classList.toggle('on', !!b.wrong && !R.spectate && !R.finished);
   if (R.mode === 'online' || R.challenge?.online) drawBoard();
 }
@@ -739,12 +705,12 @@ function challengeStart(ch, ground, def, lane) {
   return { spawn: { position: [pos[0] + Math.cos(head) * off, pos[1] - Math.sin(head) * off], heading: head }, finish };
 }
 /** A tall glowing column over the finish pad, seen from far away. */
-function finishBeacon([x, z]) {
+function finishBeacon([x, z], color = '#7dffb5') {
   const y = world.ground.heightAt(x, z);
   const g = new THREE.Group();
-  const beam = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, 260, 24, 1, true), new THREE.MeshBasicMaterial({ color: '#7dffb5', transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, 260, 24, 1, true), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide, fog: false }));
   beam.position.set(x, y + 130, z);
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(40, 0.8, 8, 64).rotateX(Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#7dffb5' }));
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(40, 0.8, 8, 64).rotateX(Math.PI / 2), new THREE.MeshBasicMaterial({ color }));
   ring.position.set(x, y + 0.6, z);
   g.add(beam, ring); world.scene.add(g);
   return g;
@@ -847,6 +813,36 @@ const app = $('#mx');
 const chatEl = h('div', { class: 'mx-glass mx-chat' });   // (made once, so the chat keeps its messages)
 let riding = false;
 let menus = null;
+// the minimap and the big map (M, or tap the minimap)
+let wayMarker = null;
+const map = createMap({
+  h, Sfx,
+  rider: () => ({ x: R.bike ? R.bike.px : 0, z: R.bike ? R.bike.pz : 0, h: R.bike ? R.bike.h : 0 }),
+  others: () => [...R.others.values()].filter((o) => o.snap).map((o) => ({ x: o.snap.px, z: o.snap.pz, color: o.color, name: o.name })),
+  targets: () => {
+    const t = [];
+    if (R.trial) { const g = R.trial.gates[R.trial.next]; if (g) t.push({ x: g.x, z: g.z, color: '#5affb6' }); }
+    if (R.challenge?.finish) t.push({ x: R.challenge.finish[0], z: R.challenge.finish[1], color: '#7dffb5' });
+    return t;
+  },
+  // fast travel: free ride on your own only (not in a challenge or a mini race, where it'd be a shortcut)
+  canTravel: () => R.mode === 'free' && !R.challenge && !R.trial && !!R.bike && !R.bike.crashed,
+  travel: (go, place) => {
+    C.respawn(R.T, R.bike, 0, { position: go.position, heading: go.heading });
+    R.bike.hold = 0; R.prev = R.cur = snap(R.bike); R.cam.init = false; R.safeTrail = [];
+    showMessage(`🚀 ${place.name}`, 'small', 1600);
+  },
+  pause: (on) => {
+    if (R.mode === 'online' || R.challenge?.online) return;   // (the others keep riding)
+    R.paused = on;
+    for (const k of Object.keys(keys)) keys[k] = false;
+    for (const k of Object.keys(touch)) touch[k] = false;
+  },
+  onWaypoint: (wp) => {
+    if (wayMarker) { wayMarker.traverse((o) => { o.geometry?.dispose(); o.material?.dispose(); }); wayMarker.removeFromParent(); wayMarker = null; }
+    if (wp && world?.free) wayMarker = finishBeacon([wp.x, wp.z], '#ffd84a');
+  },
+});
 const stage = { shot: 'home', list: [], bikes: new Map(), trackId: null, cam: { pos: new THREE.Vector3(), look: new THREE.Vector3(), init: false }, off: 0, last: 0, raf: 0, timer: null };
 // where the camera sits for each menu: distance, height, angle from the bike's heading (0 = in front, π/2 = beside),
 // how far it drifts and how fast, and how far the bikes are pushed right (to make room for the menus)
@@ -1017,6 +1013,7 @@ addEventListener('keydown', (e) => {
     return;
   }
   if(document.querySelector('.modal-backdrop'))return;
+  if (map.isOpen) { if (e.code === 'Escape' || e.code === 'KeyM') map.close(); return; }
   if (e.code === 'Escape' && !typing) { quit(); return; }
   if (!R.running) return;
   if (R.audio && R.audio.ctx.state === 'suspended') R.audio.ctx.resume();   // (browsers only allow sound after a key press or tap)
@@ -1025,7 +1022,7 @@ addEventListener('keydown', (e) => {
   keys[e.code] = true;
   if (e.code === 'KeyR') respawnNow();
   else if (e.code === 'KeyC' && !e.repeat) camBtn.click();
-  else if (e.code === 'KeyM' && !e.repeat) muteBtn.click();
+  else if (e.code === 'KeyM' && !e.repeat) map.open();   // (mute is the 🔊 button while riding)
   else if (e.code === 'Enter' && R.mode === 'solo' && (R.finished || performance.now() > R.goAt)) startSolo(R.def);
   else if (e.code === 'Enter' && R.challenge && R.challenge.done && !R.challenge.online) startChallengeSolo(R.challenge.def);
 });

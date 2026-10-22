@@ -265,7 +265,7 @@ export function createMenus(ctx) {
             key(['Q'], 'Lean back (backflip in the air)'), key(['E'], 'Lean forward (frontflip)'), key(['Space', 'Shift'], 'Nitro / free-ride turbo'),
             key(['1', '2', '3'], 'Air tricks: Superman, No-Hander, Can-Can (hold)'), key(['4', '5', '6'], 'Nac-Nac, Heel Clicker, Cliffhanger (hold)'),
             key(['Z'], 'Whip the bike sideways (hold)'), key(['X'], '360 spin (tap)'),
-            key(['R'], 'Reset to checkpoint / free-ride safe pad'), key(['C'], 'Change camera'), key(['M'], 'Sound on/off'), key(['Esc'], 'Back to the menu'))),
+            key(['R'], 'Reset to checkpoint / free-ride safe pad'), key(['C'], 'Change camera'), key(['M'], 'Map (in the menus: sound on/off)'), key(['Esc'], 'Back to the menu'))),
           note('Gamepads work too: triggers for gas and brake, left stick to steer, right stick to lean, A for nitro, X / Y / bumpers for tricks, B for a 360.')),
         h('div', { class: 'mx-col' },
           glass('Settings', null,

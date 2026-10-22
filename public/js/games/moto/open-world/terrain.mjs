@@ -42,7 +42,10 @@ export function buildTerrain(world) {
   y+=spec.noise*(noise(x/spec.scale,z/spec.scale,seed)-.5)*2;
   y+=spec.noise*.22*(noise(x/65,z/65,seed+51)-.5)*2;
   if(river) { const d=riverDist(x,z); y-=river.depth*Math.exp(-((d/river.width)**2)); }
-  if(lake) { const d=lakeDist(x,z); y=y*(smooth((d-.7)/.55))+(lake.frozen?lake.level:lake.level-lake.depth)*(1-smooth((d-.7)/.55)); }
+  if(lake) { const d=lakeDist(x,z); y=y*(smooth((d-.7)/.55))+(lake.frozen?lake.level:lake.level-lake.depth)*(1-smooth((d-.7)/.55));
+   // a real shore: the water is the lowest thing round it, so just outside the shoreline the ground is above it
+   // (no riding along below the water's surface beside a lake); the rule fades out further away
+   if(!lake.frozen&&d>.95&&d<1.6) y=Math.max(y,lake.level-.5+2.1*smooth((d-.95)/.15)-60*smooth((d-1.4)/.2)); }
   return y;
  }
  /** Mountain ranges round the edge: rideable foothills up to the edge of the world, then the real peaks rising
@@ -341,6 +344,14 @@ export function buildTerrain(world) {
   if(river&&riverDist(x,z)<river.width*.45) return {kind:river.lava?'lava':'water',level:river.lava?river.level:river.level-.9};
   return null;
  }
+ /** How the ground looks under water at (x, z) and height y: colour multipliers [r, g, b] (deeper is bluer), or null. */
+ function tintAt(x,z,y) {
+  let depth=0;
+  if(lake&&!lake.frozen&&!lake.lava&&lakeDist(x,z)<1.05) depth=lake.level-y;
+  if(river&&!river.lava&&riverDist(x,z)<river.width*.6) depth=Math.max(depth,river.level-y);
+  if(depth<=0) return null;
+  const k=Math.min(1,.25+depth/5); return [1-.55*k,1-.32*k,1-.12*k];
+ }
  function normalAt(x,z,epsilon=.5) { const nx=heightAt(x-epsilon,z)-heightAt(x+epsilon,z),nz=heightAt(x,z-epsilon)-heightAt(x,z+epsilon),ny=2*epsilon,l=Math.hypot(nx,ny,nz); return {x:nx/l,y:ny/l,z:nz/l}; }
  function inBounds(x,z,margin=0) { return Math.abs(x)<=W/2-margin&&Math.abs(z)<=D/2-margin; }
  function nearestSafePad(x,z) { const pad=pads.reduce((a,b)=>Math.hypot(x-a.position[0],z-a.position[1])<Math.hypot(x-b.position[0],z-b.position[1])?a:b); return {...pad,position:pad.riderPosition||pad.position,heading:roadAt(...(pad.riderPosition||pad.position))?.heading ?? world.spawnHeading}; }
@@ -351,5 +362,5 @@ export function buildTerrain(world) {
   return gates;
  }
  return {world,rawHeight,cliffRise,heightAt,roadAt,rampAt,surfaceAt,normalAt,inBounds,nearestSafePad,gatesFor,wild,ramps,parks,mesas,routeDist,buildings,arches,obstacles,obstacleAt,
-  featureAt,hazardAt,boostAt,gaps,pools,boosts};
+  featureAt,hazardAt,boostAt,tintAt,gaps,pools,boosts};
 }
