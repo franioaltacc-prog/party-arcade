@@ -6,6 +6,10 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.10.2', date: '2026-10-22', emoji: '⛰️', title: 'Motocross: the supercar sits flat on a hillside', items: [
+      'Driving across a slope, the car now leans with the hill instead of half sinking into it with the other side in the air',
+      'Respawning or fast-travelling onto a hillside puts the car down level with the ground, so it no longer tips over',
+    ] },
     { v: '3.10.1', date: '2026-10-22', emoji: '🔧', title: 'Motocross: the supercar’s wheels stay in their arches', items: [
       'Driving up a steep hill no longer squashes the car’s springs flat, so the front tyres stop poking up through the bonnet',
       'Each wheel’s tyre, rim and brake now turn together about the wheel’s own centre',

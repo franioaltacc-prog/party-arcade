@@ -39,8 +39,9 @@ export function place(T, b, spot) {
   b.px = spot.position[0]; b.pz = spot.position[1]; b.h = Math.PI / 2 - (spot.heading || 0);
   const c = Math.cos(b.h); const s = Math.sin(b.h);
   const front = g.heightAt(b.px + c * 1.3, b.pz + s * 1.3); const back = g.heightAt(b.px - c * 1.3, b.pz - s * 1.3);
-  b.pitch = Math.atan2(front - back, 2.6); b.roll = 0; b.pr = b.rr = 0;
-  b.y = (front + back) / 2 + R + REST - 0.12 - MOUNT;
+  const left = g.heightAt(b.px + s * TRACK, b.pz - c * TRACK); const right = g.heightAt(b.px - s * TRACK, b.pz + c * TRACK);
+  b.pitch = Math.atan2(front - back, 2.6); b.roll = Math.atan2(right - left, 2 * TRACK); b.pr = b.rr = 0;   // (sitting level with the ground, a side slope too)
+  b.y = (front + back) / 2 + (R + REST - 0.12 - MOUNT) / Math.max(0.3, Math.cos(b.pitch) * Math.cos(b.roll));   // (the springs stand square to a tilted ground)
   b.vel = [0, 0, 0]; b.yaw = 0; b.vx = b.vy = 0; b.steer = 0;
   b.crashed = 0; b.air = 0; b.upside = 0; b.boost = false; b.comp = [0.12, 0.12, 0.12, 0.12];
   sync(b);

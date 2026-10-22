@@ -178,7 +178,7 @@ function makeWedge(paintId = 'arancio', ghost = null) {
 export function poseCar(m, s) {
   const c = s.car || { p: 0, r: 0, st: 0, w: [0, 0], c: [0.12, 0.12, 0.12, 0.12] };
   m.root.position.set(s.px, s.y, s.pz);
-  m.root.rotation.set(c.r, -s.h, c.p);
+  m.root.rotation.set(-c.r, -s.h, c.p, 'YZX');   // (heading, then pitch, then roll about the car's own length)
   m.wheels.forEach((wh, i) => {
     wh.g.position.y = -0.2 - (0.34 - Math.min(c.c[i], 0.2)) + (wh.lift || 0);   // (the spring mount, less the spring's length now, but only a little way up into the arch; a bigger wheel sits higher)
     wh.g.rotation.y = i < 2 ? -c.st * 0.55 : 0;
