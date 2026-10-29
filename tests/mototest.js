@@ -187,24 +187,30 @@ const flat = C.build({ id: 'flat', name: 'Flat', course: ['flat 20', 'start', 'f
  check(C.groundTrack(flat,pad).engine===null&&ENGINES[0].stats===null,'without an engine (races and challenges) the bike is stock');
 }
 
-// Unrevvd's mountain bike: pedal power instead of an engine. About 37 km/h on the flat, it climbs steep hills
-// slowly, coasts much faster downhill, stops without going over the bars, and each upgrade's listed speeds are true.
+// Unrevvd's mountain bike: pedal power instead of an engine (and no nitro). About 47 km/h on the flat, it climbs steep
+// hills slowly, coasts much faster downhill, wheelies when you lean back, stops without going over the bars, and each
+// upgrade's listed speed is true.
 {
  const PARTS=Function(readFile('public/js/games/moto/coins.js').replace('const { store } = PA;','const store={get(){return null;},set(){}};').replace(/export /g,'')+'; return MTB_PARTS;')();
  const pad={position:[0,0],heading:Math.PI/2};
  const slope=(g)=>({heightAt:(x)=>x*g,normalAt:()=>{const n=Math.hypot(g,1);return{x:-g/n,y:1/n,z:0};},surfaceAt:()=>({kind:'trail',grip:.96,roll:.01}),inBounds:()=>true,nearestSafePad:()=>pad});
  const ride=(g,inp,secs,stats={})=>{const T=C.groundTrack(slope(g),pad,null,stats),b=C.newBike(T);let crashed=false;for(let i=0;i<120*secs;i++){C.step(T,b,inp);if(b.crashed)crashed=true;}return{kmh:Math.hypot(b.vx,b.vy)*3.6,b,crashed};};
  const flat=ride(0,{gas:1},40),up=ride(.2,{gas:1},30),down=ride(-.3,{},40);
- check(flat.kmh>33&&flat.kmh<41&&!flat.crashed,`a mountain bike pedals to ${flat.kmh.toFixed(0)} km/h on the flat`);
- check(up.b.vx>2&&up.kmh<16&&!up.crashed,`it climbs a 20% hill slowly (${up.kmh.toFixed(0)} km/h)`);
+ check(flat.kmh>43&&flat.kmh<51&&!flat.crashed,`a mountain bike pedals to ${flat.kmh.toFixed(0)} km/h on the flat`);
+ {const T=C.groundTrack(slope(0),pad,null,{}),b=C.newBike(T);for(let i=0;i<120*5;i++)C.step(T,b,{gas:1,nitro:true});check(!b.boost&&Math.abs(b.vx*3.6-ride(0,{gas:1},5).kmh)<.01,'holding nitro on a mountain bike does nothing');}
+ {const T=C.groundTrack(slope(0),pad,null,{}),b=C.newBike(T);for(let i=0;i<120*4;i++)C.step(T,b,{gas:1});let up=0,low=9,crashed=false;
+  for(let i=0;i<120*5;i++){C.step(T,b,{gas:1,lean:-1});if(i>120){up=Math.max(up,b.a);low=Math.min(low,b.a);}if(b.crashed)crashed=true;}
+  for(let i=0;i<120*3;i++){C.step(T,b,{gas:1});if(b.crashed)crashed=true;}
+  check(low>.6&&up<.95&&b.wh[0].ct&&!crashed,`leaning back pulls a wheelie it holds (${low.toFixed(2)}–${up.toFixed(2)} rad), and letting go puts the front down`);}
+ check(up.b.vx>2&&up.kmh<flat.kmh*.6&&!up.crashed,`it climbs a 20% hill, slower than on the flat (${up.kmh.toFixed(0)} km/h)`);
  check(down.kmh>70&&!down.crashed,`coasting down a steep hill it reaches ${down.kmh.toFixed(0)} km/h`);
  check(C.groundTrack(slope(0),pad,{power:9},{}).engine===null&&C.groundTrack(slope(0),pad).mtb===null,'a mountain bike has no engine upgrade, and a dirt bike no pedals');
  {const T=C.groundTrack(slope(0),pad,null,{}),b=C.newBike(T);for(let i=0;i<120*30;i++)C.step(T,b,{gas:1});const x=b.x;for(let i=0;i<120*8&&b.vx>.3;i++)C.step(T,b,{brake:1});check(!b.crashed&&b.x-x<20,`full brakes stop it in ${(b.x-x).toFixed(0)} m without going over the bars`);}
  let last=0,ok=true,why='';
  for(const e of PARTS){
-  const tops=[false,true].map((sp)=>{const T=C.groundTrack(slope(0),pad,null,e.stats),b=C.newBike(T);let top=0;for(let i=0;i<120*60;i++){C.step(T,b,{gas:1,nitro:sp});if(sp)b.nitro=1;top=Math.max(top,Math.hypot(b.vx,b.vy)*3.6);if(b.crashed){ok=false;why=e.id+' crashed';}}return top;});
+  const tops=[false].map(()=>{const T=C.groundTrack(slope(0),pad,null,e.stats),b=C.newBike(T);let top=0;for(let i=0;i<120*60;i++){C.step(T,b,{gas:1});top=Math.max(top,Math.hypot(b.vx,b.vy)*3.6);if(b.crashed){ok=false;why=e.id+' crashed';}}return top;});
   if(!(tops[0]>last+2)){ok=false;why=e.id+' is not faster';}
-  if(Math.abs(tops[0]-e.top[0])>2||Math.abs(tops[1]-e.top[1])>2){ok=false;why=e.id+' tops '+tops.map(t=>t.toFixed(0))+' vs listed '+e.top;}
+  if(Math.abs(tops[0]-e.top[0])>2){ok=false;why=e.id+' tops '+tops.map(t=>t.toFixed(0))+' vs listed '+e.top;}
   last=tops[0];
  }
  check(ok,'each mountain bike upgrade is faster and its listed top speeds are true'+(why?' ('+why+')':''));

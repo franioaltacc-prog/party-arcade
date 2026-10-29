@@ -204,7 +204,7 @@ export function createMenus(ctx) {
         card2('purple', '📡', 'Ride with friends', 'Make a room: mountain bikes and dirt bikes ride free together', async () => { ctx.rideWithFriends(wild, 'mtb'); await create(); }, { wide: true }),
         go('Ride Wildwood', `${bike.emoji} ${bike.name} · ${part.emoji} ${part.name}`, () => wild && ctx.startMtbFree(wild)),
         card2('green', '🛠️', 'Bike shop', `${Object.keys(ctx.MTB_MODELS).length} bikes · ${C.items.length - 1} upgrades`, () => show('mtbgarage'), { wide: true, sticker: bike.name, stickerCls: 'dark' }),
-        note('W pedals: easy on the flat, hard work up a hill, and downhill you fly. Space / Shift sprints (it refills when you let go). Q / E lean and flip, 1–6 for tricks. Unrevvd has its own coins: earn them riding and spend them in the bike shop.'));
+        note('W pedals: easy on the flat, hard work up a hill, and downhill you fly. Lean back (Q) on the ground for a wheelie. Q / E lean and flip in the air, 1–6 for tricks. Unrevvd has its own coins: earn them riding and spend them in the bike shop.'));
     },
 
     /** Unrevvd's bike shop: which mountain bike, and the upgrades (bought with Unrevvd coins, free ride only). */
@@ -213,9 +213,9 @@ export function createMenus(ctx) {
       const C = ctx.Coins.MTB; let panel; let name; let sub = '';
       const TABS = [['bike', '🚵 Bike'], ['parts', '⚡ Upgrades']];
       if (shopTab === 'parts') {
-        panel = shopPanel(C, 'Bike upgrades', (e) => `${e.about} · ${e.top[0]} km/h on the flat (${e.top[1]} sprinting)`,
+        panel = shopPanel(C, 'Bike upgrades', (e) => `${e.about} · ${e.top[0]} km/h on the flat`,
           'Upgrades only work in free ride. Unrevvd challenges use stock legs so nobody can buy a win. Earn Unrevvd coins by grabbing the gold coins, riding, landing flips and in challenges.');
-        const eq = C.current(); name = `${eq.emoji} ${eq.name}`; sub = `${eq.top[0]} KM/H · ${eq.top[1]} SPRINTING`;
+        const eq = C.current(); name = `${eq.emoji} ${eq.name}`; sub = `${eq.top[0]} KM/H ON THE FLAT`;
       } else {
         const id = ctx.MTB_MODELS[ctx.prefs.mtbModel] ? ctx.prefs.mtbModel : Object.keys(ctx.MTB_MODELS)[0];
         panel = glass('Mountain bikes', 'only looks: they all ride the same', h('div', { class: 'mx-liveries' }, Object.entries(ctx.MTB_MODELS).map(([k, m]) => h('button', {
@@ -363,7 +363,7 @@ export function createMenus(ctx) {
             h('li', {}, 'Hold a trick key in the air, then let go before you land: still in a trick when you touch down and you bail. Chain tricks and flips in one jump for a combo.'),
             h('li', {}, 'Land on your head or upside down and you crash: reset to a checkpoint or free-ride safe pad.'),
             h('li', {}, 'Clean landings and flips fill nitro. Free-ride turbo also recharges when released.'),
-            h('li', {}, 'Unrevvd (mountain bikes): W pedals, Space / Shift sprints. Climbing is hard work, so the map’s fast travel can take you up the hill.')))),
+            h('li', {}, 'Unrevvd (mountain bikes): W pedals and Q (lean back) pulls a wheelie. No nitro: it’s a bicycle. Climbing is hard work, so the map’s fast travel can take you up the hill.')))),
       ];
     },
   };

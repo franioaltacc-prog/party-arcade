@@ -315,10 +315,11 @@ with an import map), everything else is drawn and synthesised in code (no model,
 **v3.14.0: Unrevvd (mountain bikes) and the Big Drop.** The 🚵 **Unrevvd** tab is Revvd on mountain bikes: free ride
 (the new Wildwood Bike Park, plus every other world), seven Unrevvd challenges (`"vehicle": "mtb"` in
 `challenges.json`), its own coins and upgrades, and riding free with dirt bikes in a room.
-- **Physics:** `MotoCore.groundTrack(terrain, spawn, null, mtb)` with `mtb` = `{ power, drag, sprint, regen }`
+- **Physics:** `MotoCore.groundTrack(terrain, spawn, null, mtb)` with `mtb` = `{ power, drag }`
   multipliers (`{}` = stock). The rider's legs push the back wheel with up to `P.MTB.FMAX` newtons and no more than
-  `P.MTB.POWER` watts (about 37 km/h on the flat, 12 km/h up a 20% hill, 85 km/h coasting down a steep one), with its
-  own air drag; Space sprints from a meter that refills. Same frame, suspension, tricks and crashes as the dirt bike.
+  `P.MTB.POWER` watts (about 47 km/h on the flat, 21 km/h up a 20% hill, 85 km/h coasting down a steep one), with its
+  own air drag. No nitro. Leaning back on the ground pulls a wheelie the rider balances (`P.MTB.WHEELIE`, v3.14.1). Same
+  frame, suspension, tricks and crashes as the dirt bike.
 - **Coins:** `coins.js` keeps two wallets: Revvd's (`moto_coins_v1`, `ENGINES`) and Unrevvd's (`MTB`, `mtb_coins_v1`,
   `MTB_PARTS`); `tests/mototest.js` checks the mountain bike's speeds and each upgrade's listed top speeds.
 - **Bikes:** `public/models/mtb/downhill.glb` and `tyax.glb` (CC BY, see the credits), made with

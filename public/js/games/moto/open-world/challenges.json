@@ -34,7 +34,7 @@
     {"id": "wild-send", "world": "wildwood", "kind": "race", "name": "Summit Send", "emoji": "🚵", "from": "summit", "to": "trailhead", "limit": 300, "vehicle": "mtb",
      "about": "From the Summit Hut down to the Trailhead. The flow trail, the rock garden or straight through the trees: first one down wins."},
     {"id": "wild-grind", "world": "wildwood", "kind": "race", "name": "The Grind", "emoji": "⛰️", "from": "trailhead", "to": "summit", "limit": 600, "vehicle": "mtb",
-     "about": "Pedal from the Trailhead all the way up to the Summit Hut. Pace yourself: your sprint refills when you let go of it."},
+     "about": "Pedal from the Trailhead all the way up to the Summit Hut. No engine, no nitro: just your legs."},
     {"id": "wild-air", "world": "wildwood", "kind": "air", "name": "Bike Park Air", "emoji": "🚀", "at": "park", "limit": 90, "vehicle": "mtb",
      "about": "90 seconds at the bike park's jump line. Your single longest jump counts (land it!)."},
     {"id": "wild-flips", "world": "wildwood", "kind": "flips", "name": "Backflip Bonanza", "emoji": "🤸", "at": "park", "limit": 120, "vehicle": "mtb",

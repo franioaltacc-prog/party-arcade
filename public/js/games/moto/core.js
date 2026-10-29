@@ -36,9 +36,10 @@
     FREE_BOOST_PAD: 16,       // a boost pad's push (m/s²) while your wheels are on it (it fills your turbo too)
     FREE_WHEELIE: [.06, .22], // with all that power the rider leans over the bars from this pitch, and eases off from this one (lean back to wheelie)
     // Unrevvd's mountain bike (free ride only): the rider's legs push the back wheel with up to FMAX newtons, and no
-    // more than POWER watts once it's rolling (about 40 km/h on the flat, slow up a steep hill, quick down one); Space
-    // sprints (SPRINT times the push) from a meter that empties and refills; DRAG is its air drag (upright rider)
-    MTB: { POWER: 1500, FMAX: 650, DRAG: 1.0, SPRINT: 1.7, SPRINT_USE: 0.22, SPRINT_REGEN: 0.1 },
+    // more than POWER watts once it's rolling (about 45 km/h on the flat, slower up a steep hill, quick down one); DRAG
+    // is its air drag (upright rider). No nitro: it's a bicycle. Lean back on the ground to pop a wheelie: the rider
+    // lifts the front to WHEELIE (radians, more the further back you lean) and balances it there
+    MTB: { POWER: 2800, FMAX: 900, DRAG: 1.0, WHEELIE: [0.45, 0.75] },
     G: 10.5,                 // gravity (a touch above real, so jumps don't feel floaty)
     M: 104, I: 17,           // the bike's frame: mass (kg) and how hard it is to spin (the wheels and the rider come on top)
     MR: 70,                  // the rider: a body on springy legs and arms, so bumps aren't passed straight into the bike
@@ -382,10 +383,10 @@
 
   /** World adapter: deliberately separate from the existing track schema/progression. */
   /** engine (free ride only): { power, drag, turbo, regen, gear } multipliers from a bought upgrade; null = stock.
-      mtb: ride a mountain bike instead ({ power, drag, sprint, regen } multipliers from Unrevvd upgrades, {} = stock). */
+      mtb: ride a mountain bike instead ({ power, drag } multipliers from Unrevvd upgrades, {} = stock). */
   function groundTrack(terrain, spawn, engine = null, mtb = null) {
     if (!terrain || !terrain.heightAt || !terrain.surfaceAt || !terrain.normalAt || !terrain.inBounds || !terrain.nearestSafePad) throw new Error('Incomplete world ground adapter');
-    return { terrain, engine: mtb ? null : engine, mtb: mtb ? { power: 1, drag: 1, sprint: 1, regen: 1, ...mtb } : null,
+    return { terrain, engine: mtb ? null : engine, mtb: mtb ? { power: 1, drag: 1, ...mtb } : null,
       spawn: spawn || { position: terrain.world.spawn, heading: terrain.world.spawnHeading }, start: 0, finish: Infinity, cps: [] };
   }
 
@@ -428,7 +429,7 @@
       scrape: 0, slide: 0, bodyHit: false, lastLand: null,
     };
     place(T, b, T.terrain ? (s || T.spawn) : s == null ? T.start : s, u);
-    if(T.terrain)b.nitro=T.mtb?1:P.FREE_START_TURBO;
+    if(T.terrain)b.nitro=T.mtb?0:P.FREE_START_TURBO;
     return b;
   }
 
@@ -617,15 +618,15 @@
     const leanRate = onGround ? 6 : 12;
     b.lean += clamp(lean - b.lean, -DT * leanRate, DT * leanRate);
     // nitro
-    b.boost = !!(inp.nitro && b.nitro > 0 && !out && !inp.hold && b.finished == null);
-    if (b.boost) b.nitro = Math.max(0, b.nitro - (T.mtb?P.MTB.SPRINT_USE:T.terrain?P.FREE_TURBO_USE:P.NITRO_USE) * DT);
-    else if(T.terrain&&!inp.nitro&&!out&&!inp.hold)b.nitro=Math.min(1,b.nitro+(T.mtb?P.MTB.SPRINT_REGEN*T.mtb.regen:P.FREE_TURBO_REGEN*(T.engine?T.engine.regen:1))*DT);
+    b.boost = !!(inp.nitro && b.nitro > 0 && !out && !inp.hold && b.finished == null && !T.mtb);   // (a bicycle has no nitro)
+    if (b.boost) b.nitro = Math.max(0, b.nitro - (T.terrain?P.FREE_TURBO_USE:P.NITRO_USE) * DT);
+    else if(T.terrain&&!T.mtb&&!inp.nitro&&!out&&!inp.hold)b.nitro=Math.min(1,b.nitro+P.FREE_TURBO_REGEN*(T.engine?T.engine.regen:1)*DT);
     const rear = b.wh[1];
     let engine = 0;
     if (T.mtb) {
       // a bicycle: the rider's legs push the back wheel (hard from a standstill, power-limited once rolling)
-      const up = T.mtb; const v = Math.max(1, rear.sp * P.R[1]); const sprint = b.boost ? P.MTB.SPRINT * up.sprint : 1;
-      if (rear.ct && !inp.hold) engine = b.thr * Math.min(P.MTB.FMAX * up.power * sprint, P.MTB.POWER * up.power * sprint / v) * P.R[1];
+      const up = T.mtb; const v = Math.max(1, rear.sp * P.R[1]);
+      if (rear.ct && !inp.hold) engine = b.thr * Math.min(P.MTB.FMAX * up.power, P.MTB.POWER * up.power / v) * P.R[1];
       b.rpm = b.thr > 0.15 ? 60 + Math.min(50, v * 4) : 0; b.limiter = false; b.shift = 0;   // (rpm: the pedalling cadence)
       b.gear = clamp(1 + Math.floor(Math.max(0, b.vx) / 1.6), 1, 12);                         // (the gear you'd be in: just for show)
     } else {
@@ -680,6 +681,12 @@
         frontBrake *= clamp(1 - (-rel - stoppie) * 4, 0, 1);
         leanTq += Math.min(1, (-rel - stoppie) * 3) * P.LEAN_GROUND * 1.4;
       }
+    }
+    // a mountain bike: lean back on the ground for a wheelie, lifted to and balanced at a pitch that goes with how far back
+    if (T.mtb && !flying && !inp.hold && b.lean < -0.3) {
+      const rel = b.a - slope(G, b.x); const [lo, hi] = P.MTB.WHEELIE;
+      const want = lo + (hi - lo) * clamp((-b.lean - 0.3) / 0.7, 0, 1);
+      leanTq += clamp((want - rel) * 5 - b.w * 1.2, -2.5, 2.5) * P.LEAN_GROUND * 3;
     }
     // no lean held in the air: the rider levels the bike for the landing
     if (flying && Math.abs(lean) < 0.05 && inp.assist !== false && !out) {

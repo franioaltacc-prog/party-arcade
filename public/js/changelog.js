@@ -6,6 +6,11 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.14.1', date: '2026-10-30', emoji: '🚵', title: 'Unrevvd: wheelies, and faster bikes', items: [
+      'Lean back (Q) on the ground to pull a wheelie: the further back, the higher. Let go to put the front down',
+      'Mountain bikes are much quicker now: about 47 km/h on the flat, and up to 30 km/h in under 4 seconds (the upgrades are faster too)',
+      'No more nitro on mountain bikes: they’re bicycles. Dirt bikes keep their turbo',
+    ] },
     { v: '3.14.0', date: '2026-10-29', emoji: '🚵', title: 'Unrevvd: mountain bikes, and the Big Drop', items: [
       'New in Revvd: the 🚵 Unrevvd tab. Ride a mountain bike: no engine, just your legs (W pedals, Space sprints), slow up the hills and fast down them',
       'Two bikes to pick from, the Downhill Pro and the Trail Hardtail, with a rider who really pedals: the cranks turn and the feet go round with them',

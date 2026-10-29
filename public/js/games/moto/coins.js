@@ -13,14 +13,14 @@ export const ENGINES = [
   { id: 'twin', name: 'Twin turbo', emoji: '🔥', price: 2000, about: 'Two turbos: a much bigger boost that refills faster', top: [428, 474], stats: { power: 2.0, drag: 0.78, turbo: 1.4, regen: 1.5, gear: 1.36 } },
   { id: 'rocket', name: 'Rocket bike', emoji: '🚀', price: 4500, about: 'Why is there a rocket on this bike', top: [488, 540], stats: { power: 2.6, drag: 0.7, turbo: 1.6, regen: 1.8, gear: 1.55 } },
 ];
-/** Unrevvd's mountain bike upgrades. stats multiply the rider's pedal power, air drag, sprint and how fast the sprint
-    refills ({} = stock). top: flat-ground top speed pedalling / sprinting (from tests/mototest.js). */
+/** Unrevvd's mountain bike upgrades. stats multiply the rider's pedal power and air drag ({} = stock).
+    top: flat-ground top speed pedalling (from tests/mototest.js). */
 export const MTB_PARTS = [
-  { id: 'stock', name: 'Trail legs', emoji: '🦵', price: 0, about: 'Your own two legs', top: [37, 46], stats: {} },
-  { id: 'clips', name: 'Clipless pedals', emoji: '👟', price: 250, about: 'Clipped in: every pedal stroke counts', top: [40, 49], stats: { power: 1.2, regen: 1.1 } },
-  { id: 'carbon', name: 'Carbon wheels', emoji: '⚙️', price: 700, about: 'Lighter, stiffer, faster', top: [44, 55], stats: { power: 1.4, drag: 0.92, sprint: 1.1, regen: 1.2 } },
-  { id: 'pro', name: 'Pro legs', emoji: '💪', price: 1600, about: 'A season of training: a big sprint that refills fast', top: [48, 64], stats: { power: 1.75, drag: 0.86, sprint: 1.25, regen: 1.5 } },
-  { id: 'ebike', name: 'E-bike motor', emoji: '🔋', price: 4000, about: 'A little motor helps every stroke. Shh', top: [56, 76], stats: { power: 2.5, drag: 0.82, sprint: 1.35, regen: 2 } },
+  { id: 'stock', name: 'Trail legs', emoji: '🦵', price: 0, about: 'Your own two legs', top: [47], stats: {} },
+  { id: 'clips', name: 'Clipless pedals', emoji: '👟', price: 250, about: 'Clipped in: every pedal stroke counts', top: [51], stats: { power: 1.2 } },
+  { id: 'carbon', name: 'Carbon wheels', emoji: '⚙️', price: 700, about: 'Lighter, stiffer, faster', top: [55], stats: { power: 1.4, drag: 0.92 } },
+  { id: 'pro', name: 'Pro legs', emoji: '💪', price: 1600, about: 'A season of training', top: [61], stats: { power: 1.75, drag: 0.86 } },
+  { id: 'ebike', name: 'E-bike motor', emoji: '🔋', price: 4000, about: 'A little motor helps every stroke. Shh', top: [71], stats: { power: 2.5, drag: 0.82 } },
 ];
 
 /** A wallet kept in this browser under key, with the upgrades in items to buy. */

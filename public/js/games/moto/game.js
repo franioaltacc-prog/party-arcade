@@ -14,7 +14,7 @@ import { createMap } from './map.js';
 import * as Car from './car.js';
 import { makeCar, poseCar, disposeCar, preloadCar, CAR_PAINTS, CAR_MODELS, paintable } from './car-model.js';
 
-const { $, h, fill, Net, Sfx, UI, store, Account, Unlocks } = PA;
+const { $, $$, h, fill, Net, Sfx, UI, store, Account, Unlocks } = PA;
 const FX = PA.FX || {};
 const C = window.MotoCore;
 const DT = C.DT;
@@ -196,7 +196,7 @@ function begin(def, mode, goAt) {
   stopRide();
   setRiding(true);
   R.mode = mode; R.def = def; R.T = physicsTrack(def); R.ride = (R.ride || 0) + 1;
-  R.trial=null; R.challenge=null; R.freeOnline=false; $('#mx-trials').hidden=true;$('.mx-nlab').textContent='NITRO'; $('#hud-coins').hidden=true;
+  R.trial=null; R.challenge=null; R.freeOnline=false; $('#mx-trials').hidden=true;$('.mx-nlab').textContent='NITRO';for(const el of $$('.mx-nitro, .mx-nlab'))el.style.display=''; $('#hud-coins').hidden=true;
   if (mode === 'solo') { R.spectate = false; for (const o of R.others.values()) dropOther(o); R.others.clear(); }
   fill($('#hud-center'), h('div', { class: 'mx-loading' }, h('div', { class: 'mx-spin' }), 'Building the track…'));
   resize();
@@ -599,7 +599,7 @@ function hud(now) {
   $('#hud-nitro').parentNode.classList.toggle('on', b.boost);
   $('#hud-nitro').parentNode.classList.toggle('full', b.nitro >= 0.999);
   $('#hud-sub').textContent = R.spectate ? 'WATCHING THE LEADER' : R.mode === 'online' && state.race ? `P${myPlace()} / ${Object.keys(state.race.runners).length}  ·  CP ${b.cp + 1}/${T.cps.length}` : `CHECKPOINT ${b.cp + 1} / ${T.cps.length}`;
-  $('#hud-left').textContent = R.mode==='free' ? R.trial ? `${R.trial.race.name} · LAP ${R.trial.lap}/${R.trial.race.laps}` : R.mtb ? 'UNREVVD · SPACE SPRINT · R SAFE PAD' : 'FREE RIDE · SPACE TURBO · R SAFE PAD' : `${Math.max(0, Math.round(T.finish - b.s))} M LEFT`;
+  $('#hud-left').textContent = R.mode==='free' ? R.trial ? `${R.trial.race.name} · LAP ${R.trial.lap}/${R.trial.race.laps}` : R.mtb ? 'UNREVVD · Q WHEELIE · R SAFE PAD' : 'FREE RIDE · SPACE TURBO · R SAFE PAD' : `${Math.max(0, Math.round(T.finish - b.s))} M LEFT`;
   if(R.mode==='free')$('#hud-sub').textContent=R.trial?`GATE ${Math.min(R.trial.next+1,R.trial.gates.length)} / ${R.trial.gates.length}`:'EXPLORE AT YOUR OWN PACE';
   const ch = R.challenge;
   if (ch) {
@@ -691,13 +691,13 @@ async function startFree(entry, opts = {}){
     if(opts.online&&state.race){fillOthers(state.race);if(ch)for(const o of R.others.values())addOtherModel(o);}   // (free ride: each rider's bike or car appears with their first message)
     R.prev=R.cur=snap(R.bike);R.acc=0;R.last=performance.now();R.finished=false;R.cam.init=false;R.stuck=0;R.emitAcc=0;R.roll=0;R.best=null;R.beeped=0;R.safeTrail=[];R.retry=null;R.toPad=false;
     R.goAt=ch?Math.max(opts.goAt||0,performance.now()+(opts.online?600:3200)):0;R.gateDown=!ch;
-    R.trialMarker=null;R.finishMarker=finish?finishBeacon(finish):null;R.audio=createAudio({pedal:mtb});$('.mx-nlab').textContent=mtb?'SPRINT · SPACE / SHIFT':'TURBO · SPACE / SHIFT';$('#mx-trials').hidden=!!ch;
+    R.trialMarker=null;R.finishMarker=finish?finishBeacon(finish):null;R.audio=createAudio({pedal:mtb});$('.mx-nlab').textContent='TURBO · SPACE / SHIFT';for(const el of $$('.mx-nitro, .mx-nlab'))el.style.display=mtb?'none':'';   // (a bicycle has no nitro)$('#mx-trials').hidden=!!ch;
     $('#hud-track').textContent=ch?`${ch.emoji} ${ch.name}`:def.name;
     fill($('#hud-center'));resize();drawMapBase();coinHud(purse().wallet().coins,0);R.running=true;requestAnimationFrame(frame);
     const url=new URL(location.href);url.searchParams.delete('solo');url.searchParams.delete('track');
     if(ch){url.searchParams.delete('free');url.searchParams.delete('world');history.replaceState(null,'',url);showMessage(ch.about,'small',5000);}
     else{if(mtb)prefs.mtbWorld=def.id;else prefs.world=def.id;savePrefs();url.searchParams.set('free','1');url.searchParams.set('world',def.id);if(mtb&&!R.freeOnline)url.searchParams.set('mtb','1');else url.searchParams.delete('mtb');history.replaceState(null,'',url);
-      showMessage(R.freeOnline?'FREE RIDE TOGETHER · Esc goes back to the room':mtb?'UNREVVD · W pedals · Space / Shift sprint · R resets':'FREE RIDE · Collect the gold coins · Space / Shift turbo · R resets','small',4500);}
+      showMessage(R.freeOnline?'FREE RIDE TOGETHER · Esc goes back to the room':mtb?'UNREVVD · W pedals · Q pops a wheelie · R resets':'FREE RIDE · Collect the gold coins · Space / Shift turbo · R resets','small',4500);}
   }catch(error){console.error(error);UI.toast('Could not load that world','bad');quit();}
 }
 
