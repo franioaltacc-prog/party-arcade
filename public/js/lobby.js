@@ -22,7 +22,7 @@
     front: { title: 'Front Wars', emoji: '🌍' },
     prophunt: { title: 'Prop Hunt', emoji: '🔫' },
     poly: { title: 'Poly Racer', emoji: '🏎️' },
-    moto: { title: 'Motocross', emoji: '🏍️' },
+    moto: { title: 'Revvd', emoji: '🏍️' },
     flappy: { title: 'Neon Flappy', emoji: '🐤' },
     golf: { title: 'Mini Golf', emoji: '⛳' },
   };
