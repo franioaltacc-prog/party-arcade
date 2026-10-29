@@ -1382,9 +1382,9 @@ GAME_TITLES = {"dash": "Neon Dash", "life": "Family Life", "doodle": "Doodle Gue
                "golf-beach": "Mini Golf · Tropical Cove", "golfbeach": "Mini Golf · Tropical Cove",
                "golf-volcano": "Mini Golf · Volcano Isle", "golfvolcano": "Mini Golf · Volcano Isle",
                "eightball": "Magic 8-Ball", "wyr": "Would You Rather", "wheel": "Spin the Wheel", "tour": "Tournament",
-               "moto": "Motocross"}
+               "moto": "Revvd"}
 for _t in MOTO_TRACKS:
-    GAME_TITLES[f"moto-{_t['id']}"] = GAME_TITLES[f"moto{_t['id']}"] = f"Motocross · {_t['name']}"
+    GAME_TITLES[f"moto-{_t['id']}"] = GAME_TITLES[f"moto{_t['id']}"] = f"Revvd · {_t['name']}"
 
 hub = Hub()
 

@@ -32,7 +32,7 @@
     ['Prop Hunt', '🔫', '#f43f5e', [['Games', 'prophunt.games'], ['Wins', 'prophunt.wins'], ['Total points', 'prophunt.points'], ['Best game', 'prophunt.best'],
       ['Catches as killer', 'prophunt.catches'], ['Caught everyone', 'prophunt.aces'], ['Rounds survived', 'prophunt.survived']]],
     ['Poly Racer', '🏎️', '#0ea5e9', [['Races', 'poly.races'], ['Wins', 'poly.wins'], ['Top 3', 'poly.podiums'], ['🌱 First Lap', 'poly1.best', secs], ['⛰️ Hill Climb', 'poly2.best', secs], ['🌀 Hairpins', 'poly3.best', secs], ['🚀 Big Air', 'poly4.best', secs], ['☁️ Sky Highway', 'poly5.best', secs], ['🌋 Chaos', 'poly6.best', secs]]],
-    ['Motocross', '🏍️', '#f97316', [['Races', 'moto.races'], ['Wins', 'moto.wins'], ['Top 3', 'moto.podiums'], ['Finishes', 'moto.finishes'], ['Flips landed', 'moto.flips'],
+    ['Revvd', '🏍️', '#f97316', [['Races', 'moto.races'], ['Wins', 'moto.wins'], ['Top 3', 'moto.podiums'], ['Finishes', 'moto.finishes'], ['Flips landed', 'moto.flips'],
       ['🏜️ Desert Dunes', 'motodesert.best', secs], ['🌲 Forest Mud', 'motoforest.best', secs], ['🏔️ Snow Ridge', 'motosnow.best', secs]]],
     ['Neon Flappy', '🐤', '#facc15', [['Best score', 'flappy.best'], ['Royale games', 'flappy.games'], ['Royale wins', 'flappy.wins'], ['Best Royale round', 'flappy.best_online']]],
     ['Mini Golf', '⛳', '#4ade80', [['Games', 'golf.games'], ['Wins', 'golf.wins'], ['Holes played', 'golf.holes'], ['Holes in one', 'golf.aces'], ['Best 9 online', 'golf.best', (v) => `${v} strokes`],
@@ -47,7 +47,7 @@
   // achievements (and the rewards they unlock) come from /data/unlocks.json, shared with the server
 
   const GAME_EMOJI = { dash: '🟪', life: '🏡', doodle: '🎨', songs: '🎧', volley: '🏐', blitz: '⚡', connect4: '🔴', billiards: '🎱', poolspeed: '⏱️', poolcpu: '🤖', casino: '🎰', impostor: '🕵️', slope: '🛝', front: '🌍', frontsolo: '🤖', mines: '💣', mines_easy: '💣', mines_medium: '💣', mines_hard: '💣', snake: '🐍', 2048: '🔢', memory: '🃏', dashsolo: '🟦', party: '🎉', prophunt: '🔫', tour: '🏆', poly: '🏎️', poly1: '🏁', poly2: '🏁', poly3: '🏁', poly4: '🏁', poly5: '🏁', poly6: '🏁', flappy: '🐤', golf: '⛳', golfclassic: '⛳', golfspooky: '🎃', golfdesert: '🌵', golffrost: '❄️', golfbeach: '🏝️', golfvolcano: '🌋', moto: '🏍️', motodesert: '🏜️', motoforest: '🌲', motosnow: '🏔️' };
-  const GAME_NAME = { dash: 'Neon Dash', life: 'Family Life', doodle: 'Doodle Guess', songs: 'Song Rush', volley: 'Screen Volley', blitz: 'Party Blitz', connect4: 'Connect 4', billiards: 'Billiards', poolspeed: 'Billiards speed clear', poolcpu: 'Billiards vs CPU', casino: 'Casino Night', impostor: 'Impostor', slope: 'Slope', front: 'Front Wars', frontsolo: 'Front Wars solo', mines: 'Minesweeper', mines_easy: 'Minesweeper Easy', mines_medium: 'Minesweeper Medium', mines_hard: 'Minesweeper Hard', snake: 'Neon Snake', 2048: '2048', memory: 'Memory Flip', dashsolo: 'Dash practice', party: 'Party mode', prophunt: 'Prop Hunt', tour: 'Tournament', poly: 'Poly Racer', poly1: 'Poly Racer · First Lap', poly2: 'Poly Racer · Hill Climb', poly3: 'Poly Racer · Hairpins', poly4: 'Poly Racer · Big Air', poly5: 'Poly Racer · Sky Highway', poly6: 'Poly Racer · Chaos', flappy: 'Neon Flappy', golf: 'Mini Golf', golfclassic: 'Mini Golf · Classic Meadow', golfspooky: 'Mini Golf · Spooky Hollow', golfdesert: 'Mini Golf · Cactus Canyon', golffrost: 'Mini Golf · Frosty Peaks', golfbeach: 'Mini Golf · Tropical Cove', golfvolcano: 'Mini Golf · Volcano Isle', moto: 'Motocross', motodesert: 'Motocross · Desert Dunes', motoforest: 'Motocross · Forest Mud', motosnow: 'Motocross · Snow Ridge' };
+  const GAME_NAME = { dash: 'Neon Dash', life: 'Family Life', doodle: 'Doodle Guess', songs: 'Song Rush', volley: 'Screen Volley', blitz: 'Party Blitz', connect4: 'Connect 4', billiards: 'Billiards', poolspeed: 'Billiards speed clear', poolcpu: 'Billiards vs CPU', casino: 'Casino Night', impostor: 'Impostor', slope: 'Slope', front: 'Front Wars', frontsolo: 'Front Wars solo', mines: 'Minesweeper', mines_easy: 'Minesweeper Easy', mines_medium: 'Minesweeper Medium', mines_hard: 'Minesweeper Hard', snake: 'Neon Snake', 2048: '2048', memory: 'Memory Flip', dashsolo: 'Dash practice', party: 'Party mode', prophunt: 'Prop Hunt', tour: 'Tournament', poly: 'Poly Racer', poly1: 'Poly Racer · First Lap', poly2: 'Poly Racer · Hill Climb', poly3: 'Poly Racer · Hairpins', poly4: 'Poly Racer · Big Air', poly5: 'Poly Racer · Sky Highway', poly6: 'Poly Racer · Chaos', flappy: 'Neon Flappy', golf: 'Mini Golf', golfclassic: 'Mini Golf · Classic Meadow', golfspooky: 'Mini Golf · Spooky Hollow', golfdesert: 'Mini Golf · Cactus Canyon', golffrost: 'Mini Golf · Frosty Peaks', golfbeach: 'Mini Golf · Tropical Cove', golfvolcano: 'Mini Golf · Volcano Isle', moto: 'Revvd', motodesert: 'Revvd · Desert Dunes', motoforest: 'Revvd · Forest Mud', motosnow: 'Revvd · Snow Ridge' };
   const OUTCOME = { win: ['WIN', 'win'], loss: ['LOSS', 'loss'], draw: ['DRAW', 'draw'], play: ['PLAYED', 'play'] };
 
   function message(emoji, title, text, ...kids) {
@@ -84,8 +84,8 @@
     document.title = `${p.name} · Party Arcade`;
     const games = st.games || 0;
     const wins = st.wins || 0;
-    // Motocross tracks added later (tracks.json) show up with their id
-    const moto = SECTIONS.find(([t]) => t === 'Motocross');
+    // Revvd tracks added later (tracks.json) show up with their id
+    const moto = SECTIONS.find(([t]) => t === 'Revvd');
     for (const k of Object.keys(st)) if (/^moto[a-z0-9_]+\.best$/.test(k) && !moto[3].some(([, kk]) => kk === k)) moto[3].push([`🏍️ ${k.slice(4, -5)}`, k, secs]);
     const sections = SECTIONS.filter(([, , , items]) => items.some(([, key]) => st[key]));
     const unlocked = U.achievements.filter((a) => have.achievements.has(a.id)).length;

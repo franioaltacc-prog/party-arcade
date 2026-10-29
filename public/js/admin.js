@@ -4,7 +4,7 @@
   const { $, h, fill, Net, UI, Account, on, icon } = PA;
   const FX = PA.FX || {};
   const root = $('#admin');
-  const GAMES = { dash: ['🟪', 'Neon Dash'], life: ['🏡', 'Family Life'], doodle: ['🎨', 'Doodle Guess'], songs: ['🎧', 'Song Rush'], volley: ['🏐', 'Screen Volley'], blitz: ['⚡', 'Party Blitz'], connect4: ['🔴', 'Connect 4'], billiards: ['🎱', 'Billiards'], casino: ['🎰', 'Casino Night'], impostor: ['🕵️', 'Impostor'], mines: ['💣', 'Minesweeper'], flappy: ['🐤', 'Neon Flappy'], golf: ['⛳', 'Mini Golf'], poly: ['🏎️', 'Poly Racer'], moto: ['🏍️', 'Motocross'], prophunt: ['🔫', 'Prop Hunt'], front: ['🌍', 'Front Wars'] };
+  const GAMES = { dash: ['🟪', 'Neon Dash'], life: ['🏡', 'Family Life'], doodle: ['🎨', 'Doodle Guess'], songs: ['🎧', 'Song Rush'], volley: ['🏐', 'Screen Volley'], blitz: ['⚡', 'Party Blitz'], connect4: ['🔴', 'Connect 4'], billiards: ['🎱', 'Billiards'], casino: ['🎰', 'Casino Night'], impostor: ['🕵️', 'Impostor'], mines: ['💣', 'Minesweeper'], flappy: ['🐤', 'Neon Flappy'], golf: ['⛳', 'Mini Golf'], poly: ['🏎️', 'Poly Racer'], moto: ['🏍️', 'Revvd'], prophunt: ['🔫', 'Prop Hunt'], front: ['🌍', 'Front Wars'] };
   let timer = null;
   let mode = null;
   let lastQuery = '';

@@ -1,5 +1,5 @@
 {
-  "_about": "Achievements and the rewards they unlock (auras, avatar animations, Slope ball skins, site themes and Motocross bike paint jobs). The server checks these rules before you can wear a reward, and the website shows them. Rules: {\"level\": n}, {\"ach\": id}, {\"achs\": [ids]} (all of them), or a stat test like {\"stat\": \"dash.wins\", \"gte\": 1} (gte, gt, lte; \"stat\" can be a list, which is summed). Events count the stats in their \"track\" map separately while they're on (as ev.<event>.<name>), with the same add/max/min the game uses.",
+  "_about": "Achievements and the rewards they unlock (auras, avatar animations, Slope ball skins, site themes and Revvd bike paint jobs). The server checks these rules before you can wear a reward, and the website shows them. Rules: {\"level\": n}, {\"ach\": id}, {\"achs\": [ids]} (all of them), or a stat test like {\"stat\": \"dash.wins\", \"gte\": 1} (gte, gt, lte; \"stat\" can be a list, which is summed). Events count the stats in their \"track\" map separately while they're on (as ev.<event>.<name>), with the same add/max/min the game uses.",
   "events": [
     {"id": "halloween26", "name": "Halloween", "emoji": "🎃", "from": "2026-10-11", "until": "2026-11-03",
      "about": "Limited-time Halloween rewards: earn them before the event ends and keep them forever.",
@@ -49,14 +49,14 @@
     {"id": "snake", "emoji": "🐍", "name": "Snake charmer", "desc": "Score 40 in Snake", "rule": {"stat": "snake.best", "gte": 40}},
     {"id": "tiles", "emoji": "🔢", "name": "Tile master", "desc": "Score 20,000 in 2048", "rule": {"stat": "2048.best", "gte": 20000}},
     {"id": "memory", "emoji": "🧠", "name": "Elephant memory", "desc": "Beat Memory Flip (Normal) in under 30s", "rule": {"stat": "memory.best", "gt": 0, "lte": 30000}},
-    {"id": "moto-finish", "emoji": "🏍️", "name": "First lap", "desc": "Finish a Motocross track", "rule": {"stat": "moto.finishes", "gte": 1}},
-    {"id": "moto-flips", "emoji": "🤸", "name": "Flipping out", "desc": "Land 10 flips in Motocross", "rule": {"stat": "moto.flips", "gte": 10}},
-    {"id": "moto-desert", "emoji": "🏜️", "name": "Sand blaster", "desc": "Finish Desert Dunes in Motocross", "rule": {"stat": "motodesert.best", "gt": 0}},
-    {"id": "moto-forest", "emoji": "🌲", "name": "Mud plugger", "desc": "Finish Forest Mud in Motocross", "rule": {"stat": "motoforest.best", "gt": 0}},
-    {"id": "moto-snow", "emoji": "🏔️", "name": "Snow rider", "desc": "Finish Snow Ridge in Motocross", "rule": {"stat": "motosnow.best", "gt": 0}},
-    {"id": "moto-win", "emoji": "🏁", "name": "Holeshot", "desc": "Win an online Motocross race", "rule": {"stat": "moto.wins", "gte": 1}},
-    {"id": "moto-five", "emoji": "🥇", "name": "Podium regular", "desc": "Win 5 online Motocross races", "rule": {"stat": "moto.wins", "gte": 5}},
-    {"id": "moto-legend", "emoji": "👑", "name": "Motocross legend", "desc": "Win 10 online Motocross races", "rule": {"stat": "moto.wins", "gte": 10}}
+    {"id": "moto-finish", "emoji": "🏍️", "name": "First lap", "desc": "Finish a Revvd track", "rule": {"stat": "moto.finishes", "gte": 1}},
+    {"id": "moto-flips", "emoji": "🤸", "name": "Flipping out", "desc": "Land 10 flips in Revvd", "rule": {"stat": "moto.flips", "gte": 10}},
+    {"id": "moto-desert", "emoji": "🏜️", "name": "Sand blaster", "desc": "Finish Desert Dunes in Revvd", "rule": {"stat": "motodesert.best", "gt": 0}},
+    {"id": "moto-forest", "emoji": "🌲", "name": "Mud plugger", "desc": "Finish Forest Mud in Revvd", "rule": {"stat": "motoforest.best", "gt": 0}},
+    {"id": "moto-snow", "emoji": "🏔️", "name": "Snow rider", "desc": "Finish Snow Ridge in Revvd", "rule": {"stat": "motosnow.best", "gt": 0}},
+    {"id": "moto-win", "emoji": "🏁", "name": "Holeshot", "desc": "Win an online Revvd race", "rule": {"stat": "moto.wins", "gte": 1}},
+    {"id": "moto-five", "emoji": "🥇", "name": "Podium regular", "desc": "Win 5 online Revvd races", "rule": {"stat": "moto.wins", "gte": 5}},
+    {"id": "moto-legend", "emoji": "👑", "name": "Revvd legend", "desc": "Win 10 online Revvd races", "rule": {"stat": "moto.wins", "gte": 10}}
   ],
   "auras": [
     {"id": "glow", "name": "Soft glow", "rule": {"level": 2}},

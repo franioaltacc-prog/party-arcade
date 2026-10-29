@@ -58,8 +58,8 @@ You can delete your own messages and announcements; admins can delete anyone's. 
 messages; its announcements and calendar rows stay without a name (`team_chat`, `team_news` tables).
 
 ## Games
-- **Online:** Motocross (realistic 3D dirt bikes, 2–6 riders, ready-up and a start gate), Song Rush (name the song from a 30-second preview), Screen Volley (two laptops side by side, one ball), Neon Dash (mini Geometry Dash race), Family Life (multiplayer BitLife with siblings), Doodle Guess, Impostor, Minesweeper (Race / Battle), Front Wars (OpenFront-style territory war: free-for-all with alliances or teams, bots, ports, warships, nukes and replays), Prop Hunt (top-down hide and seek with a killer), Poly Racer (low-poly 3D racing), Billiards (8-ball / 9-ball pool, winner stays on), Flappy Royale (Neon Flappy with everyone flying the same pipes), Mini Golf (3D, everyone on the same hole with ghost balls), Party Blitz, Connect 4
-- **Solo:** Motocross time trial (three tracks, medals, unlockable paint jobs), Mini Golf (Classic Meadow and Spooky Hollow, 9 holes each), Neon Flappy (medals, unlockable birds), Billiards (vs CPU, Speed Clear, practice), Poly Racer time trial, Neon Dash practice, Neon Dash level editor + community levels (beat your level to verify it, then post it: an admin approves it first, 3 posts a day; hosts can race community levels online), Minesweeper (Easy / Medium / Hard), Front Wars vs bots, Slope (3D, three.js), Snake, 2048, Memory Flip
+- **Online:** Revvd (motocross: realistic 3D dirt bikes, 2–6 riders, ready-up and a start gate), Song Rush (name the song from a 30-second preview), Screen Volley (two laptops side by side, one ball), Neon Dash (mini Geometry Dash race), Family Life (multiplayer BitLife with siblings), Doodle Guess, Impostor, Minesweeper (Race / Battle), Front Wars (OpenFront-style territory war: free-for-all with alliances or teams, bots, ports, warships, nukes and replays), Prop Hunt (top-down hide and seek with a killer), Poly Racer (low-poly 3D racing), Billiards (8-ball / 9-ball pool, winner stays on), Flappy Royale (Neon Flappy with everyone flying the same pipes), Mini Golf (3D, everyone on the same hole with ghost balls), Party Blitz, Connect 4
+- **Solo:** Revvd time trial (three tracks, medals, unlockable paint jobs), Mini Golf (Classic Meadow and Spooky Hollow, 9 holes each), Neon Flappy (medals, unlockable birds), Billiards (vs CPU, Speed Clear, practice), Poly Racer time trial, Neon Dash practice, Neon Dash level editor + community levels (beat your level to verify it, then post it: an admin approves it first, 3 posts a day; hosts can race community levels online), Minesweeper (Easy / Medium / Hard), Front Wars vs bots, Slope (3D, three.js), Snake, 2048, Memory Flip
 - **Fun:** Spin the Wheel, Would You Rather (global votes), Magic 8-Ball
 - **Casino Night (fake coins only):** every match everyone starts with the same coins; most coins at the end wins.
   - VS HOUSE: Roulette, Lucky Dice, Blackjack, Slots. VS PLAYERS: Texas Hold'em, Coinflip, High Card and Dice duels.
@@ -125,7 +125,7 @@ runs online races (each browser drives its own car; the server relays positions 
 - Solo times are saved per track (`poly1.best`…); times more than 25% faster than the author time are refused, and online
   finish times must match how long the race has actually been going.
 
-## Motocross
+## Revvd (the motocross game)
 **v3.4.0: Free ride worlds.** Choose **Free ride** in `/games/moto`, then Redrock Frontier (12.96 km²),
 Pinecrest Highlands (10.24 km²) or Frostpeak Expedition (16 km²). All three use the actual bike,
 chase camera, keyboard/touch/gamepad controls and speed/turbo HUD. Six open-world gears build to about
@@ -541,12 +541,12 @@ It starts a throwaway server (temporary SQLite database, test admin code `test-a
   Prop Hunt, tournaments, Poly Racer, Minesweeper, Front Wars, Billiards, Flappy Royale, Mini Golf, the Dash level
   editor (posting limit, admin review), themes and Halloween quests, cheats and rewards, roles and the update calendar, the Family Life shop and casino,
   Song Rush (both modes, scoring, private chat once you know the answer), Screen Volley (serves, passes, points, forfeits)
-  and Motocross (solo times, paint jobs, ready-up, positions, finish checks, results).
+  and Revvd (solo times, paint jobs, ready-up, positions, finish checks, results).
 - In-process tests of the Prop Hunt rules and tournament brackets, the pool physics (Python vs JS, bit for bit), and
   Song Rush's answer checking, song list, hints and scoring, and Screen Volley's physics.
 - If JavaScriptCore (macOS) or Node is installed, an autopilot drives every Poly Racer track, every Neon Flappy
   test level is checked to be flyable, every Mini Golf hole is solved within par + 1, and a robot rider rides every
-  Motocross track from the start and from every checkpoint.
+  Revvd track from the start and from every checkpoint.
 
 To run one bot on its own: start a server (`DATA_DIR=/tmp/x ADMIN_CODE=test-admin-code-123 PORT=8012 python3 server.py`),
 then `PORT=8012 python3 tests/gamesbot.py`. `accbot` expects a fresh database. The Doodle "show me the word" cheat check
@@ -560,7 +560,7 @@ fails now and then (a known flaky test) and is reported as a warning.
 - `games/`: one module per online game (server side)
 - `games/songs/`: Song Rush: the game, answer checking, the playlists and the iTunes build script
 - `games/volley.py` + `public/js/games/volley-core.js`: Screen Volley's server and its shared ball physics
-- `games/moto/` + `public/js/games/moto/`: Motocross: the online races, and the physics, 3D world, bike, sound and tracks
+- `games/moto/` + `public/js/games/moto/`: Revvd (motocross): the online races, and the physics, 3D world, bike, sound and tracks
 - `games/casino/`: casino server. `match.py` runs the match (coins, scores, win conditions); every game is its own module
   built on the shared bases in `tables.py`: `HouseTable` (vs house), `PlayersTable` (vs players) and `RoundTable` (shared betting round).
   To add a game: subclass one of them, decorate it with `@register`, import it in `match.py`, and add a matching

@@ -568,7 +568,7 @@ export function buildWorld(renderer, T, opts = {}) {
     scene.add(new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: th.fence === '#ffffff' ? '#ff3b3b' : '#ffffff', roughness: 0.5 })));
   }
   // banners on the fence
-  const bannerWords = ['PARTY ARCADE', 'SEND IT', 'MX', 'NITRO', 'FULL GAS', 'PARTY ARCADE MX', 'HOLESHOT', 'BRAAAP'];
+  const bannerWords = ['PARTY ARCADE', 'SEND IT', 'MX', 'NITRO', 'FULL GAS', 'REVVD', 'HOLESHOT', 'BRAAAP'];
   const bannerCols = [[th.arch, '#ffffff'], ['#16181c', '#ffd21a'], ['#ffffff', '#16181c'], ['#d61f2c', '#ffffff'], ['#1747c9', '#ffffff']];
   const bannerMats = bannerWords.map((wd, i) => {
     const [bg, fg] = bannerCols[i % bannerCols.length];
@@ -666,12 +666,12 @@ export function buildWorld(renderer, T, opts = {}) {
     for (const y of [0.45, 0.95]) { const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 5.2, 8), railMat); rail.rotation.z = Math.PI / 2; rail.position.set(-2.55, y, z); rail.castShadow = true; gate.add(rail); }
     for (const x of [-2.6, -5.1]) { const p2 = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 1.05, 8).translate(0, 0.52, 0), railMat); p2.position.set(x, 0, z); gate.add(p2); }
   }
-  const board = new THREE.Mesh(new THREE.PlaneGeometry(8.4, 1.6), label('PARTY ARCADE MX', th.arch, '#ffffff'));
+  const board = new THREE.Mesh(new THREE.PlaneGeometry(8.4, 1.6), label('REVVD', th.arch, '#ffffff'));
   board.position.set(-7.5, 2.3, 0); board.rotation.y = Math.PI / 2; board.castShadow = true; gate.add(board);   // (facing the gate)
   for (const z of [-3.9, 3.9]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 3.1, 8).translate(0, 1.55, 0), gateMat); leg.position.set(-7.55, 0, z); gate.add(leg); }
   const sp0 = place(T.start + 1.1, trackY(T.start + 1.1), 0); gate.position.copy(sp0); gate.rotation.y = -headingAt(T.start);
   scene.add(gate);
-  arch(T.start + 6, 'START', archMat, label('PARTY ARCADE MX', '#16181c', '#ffffff'));
+  arch(T.start + 6, 'START', archMat, label('REVVD', '#16181c', '#ffffff'));
   // lamp posts (snow track at dusk)
   const glows = [];
   if (th.lamps) {

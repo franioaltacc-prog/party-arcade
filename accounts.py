@@ -120,7 +120,7 @@ SOLO = {
 FASTEST = {"memory", "dash-solo", "mines-easy", "mines-medium", "mines-hard", "pool-speed", "golf-classic", "golf-spooky",
            "golf-desert", "golf-frost", "golf-beach", "golf-volcano"} | {f"poly-{i}" for i in range(1, 7)}   # solo games where a lower time wins
 
-# Motocross tracks are data (public/js/games/moto/tracks.json): each one gets a best-time board and a
+# Revvd (motocross) tracks are data (public/js/games/moto/tracks.json): each one gets a best-time board and a
 # solo score, and nobody can beat the robot rider's time by more than 30%.
 MOTO_FILE = Path(__file__).resolve().parent / "public" / "js" / "games" / "moto" / "tracks.json"
 try:
@@ -128,10 +128,10 @@ try:
 except (OSError, ValueError, KeyError):
     MOTO_TRACKS = []
 MOTO_FASTEST = 0.7
-BOARDS["moto"] = ("🏍️ Motocross wins", "moto.wins", "desc", "int")
-BOARDS["moto_flips"] = ("🤸 Motocross flips landed", "moto.flips", "desc", "int")
+BOARDS["moto"] = ("🏍️ Revvd wins", "moto.wins", "desc", "int")
+BOARDS["moto_flips"] = ("🤸 Revvd flips landed", "moto.flips", "desc", "int")
 for _t in MOTO_TRACKS:
-    BOARDS[f"moto_{_t['id']}"] = (f"{_t.get('emoji', '🏍️')} Motocross: {_t['name']}", f"moto{_t['id']}.best", "asc", "time")
+    BOARDS[f"moto_{_t['id']}"] = (f"{_t.get('emoji', '🏍️')} Revvd: {_t['name']}", f"moto{_t['id']}.best", "asc", "time")
     SOLO[f"moto-{_t['id']}"] = (f"moto{_t['id']}", int(_t["robot"] * MOTO_FASTEST * 1000), 3_600_000)
     FASTEST.add(f"moto-{_t['id']}")
 

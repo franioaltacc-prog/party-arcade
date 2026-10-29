@@ -273,7 +273,7 @@
       <circle cx="58" cy="66" r="6" fill="none" stroke="#ff4fd8" stroke-width="2.5"/>
       ${emoji(112, 22, 22, '🏐')}${emoji(166, 98, 14, '💥')}${emoji(20, 100, 13, '⚡')}`, '#1e1b4b', '#0e7490');
 
-  // Motocross: a rider mid-backflip over a dirt double at dusk, dust behind the takeoff
+  // Revvd (motocross): a rider mid-backflip over a dirt double at dusk, dust behind the takeoff
   const dirtBike = (wheel, plastic) => `<g fill="none" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="-17" cy="8" r="8.5" stroke="${wheel}" stroke-width="3.2" stroke-dasharray="2 1.4"/><circle cx="17" cy="8" r="8.5" stroke="${wheel}" stroke-width="3.2" stroke-dasharray="2 1.4"/>
       <path d="M-17 8 L-4 2 L8 2 M17 8 L10 -8 M8 2 L10 -8 M-4 2 L-2 -4" stroke="#e5e7eb" stroke-width="2"/>
@@ -297,7 +297,7 @@
   // One entry per game. modes: where each way of playing it starts (the first one is where the tile goes).
   // cats: the category chips it shows under. spot: a slide in the spotlight at the top.
   const GAMES = [
-    { key: 'moto', title: 'Motocross', icon: '🏍️', tag: 'Realistic 3D dirt bikes: races, time trials, challenges, air tricks and eight huge free-ride worlds.', desc: 'Jump lava pits and canyons, pull Supermans, whips and backflips, collect coins in eight huge open worlds and buy faster engines, then take on downhill, big air and trick challenges with your friends.', players: '1–6', glow: 'rgba(249,115,22,.7)', isNew: true, cats: ['racing', 'sports'],
+    { key: 'moto', title: 'Revvd', icon: '🏍️', tag: 'Realistic 3D dirt bikes: races, time trials, challenges, air tricks and eight huge free-ride worlds.', desc: 'Jump lava pits and canyons, pull Supermans, whips and backflips, collect coins in eight huge open worlds and buy faster engines, then take on downhill, big air and trick challenges with your friends.', players: '1–6', glow: 'rgba(249,115,22,.7)', isNew: true, cats: ['racing', 'sports'],
       modes: [['online', '/games/moto', '🌐 Race'], ['solo', '/games/moto?solo=1', '🏁 Trial'], ['solo', '/games/moto?free=1&world=redrock', '🗺️ Free ride']], spot: 'New: volcano world & lava jumps' },
     { key: 'songs', title: 'Song Rush', icon: '🎧', tag: 'A song starts… name it before everyone else! 60s to now, Disney and K-pop.', desc: 'Type the title and the artist, or pick from four. Hits from the 2020s back to the 60s, Disney, K-pop, party songs and spooky Halloween tunes.', players: '1–16', glow: 'rgba(236,72,153,.7)', isNew: true, cats: ['party'], modes: [['online', '/games/songs', '🌐 Play']], spot: 'Music quiz with friends' },
     { key: 'volley', title: 'Screen Volley', icon: '🏐', tag: 'Two laptops side by side: punch the ball from your screen onto your friend’s.', desc: 'Your cursor is your hand and fast reflexes win. No second laptop? Practice against the robot.', players: '2', glow: 'rgba(34,211,238,.7)', isNew: true, cats: ['sports', 'arcade'], modes: [['online', '/games/volley', '🌐 Play']] },

@@ -5,7 +5,7 @@
 
   // The site's version. Bump it with every update, together with a new entry at the
   // top of public/js/changelog.js (the /changelog page).
-  const VERSION = '3.12.0';
+  const VERSION = '3.13.0';
 
   // ---------------------------------------------------------------- helpers
   const $ = (s, r = document) => r.querySelector(s);
@@ -341,7 +341,7 @@
       Account.save(r.user);
       return r.user;
     },
-    /** Save a solo high score (snake, 2048, memory, dash-solo) if logged in. extra: game-specific numbers (Motocross: { flips }). */
+    /** Save a solo high score (snake, 2048, memory, dash-solo) if logged in. extra: game-specific numbers (Revvd: { flips }). */
     async submit(game, value, extra) {
       if (!Account.user) {
         if (!Account.hinted) { Account.hinted = true; setTimeout(() => UI.toast('💡 Log in to save your scores on the leaderboards!', '', 3500), 1200); }

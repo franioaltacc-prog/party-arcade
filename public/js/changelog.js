@@ -6,6 +6,12 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.13.0', date: '2026-10-29', emoji: '🏍️', title: 'Motocross is now Revvd', items: [
+      'The motocross game has a new name: Revvd, with a new logo on the menu, the start arch and the trackside banners',
+      'Team branding on every bike: the Revvd logo on the radiator shrouds and a number plate with the logo on the side panels',
+      'Riders wear it too: a Revvd jersey with your number across the back, the logo on the helmet, and a Factory Racing patch on the Mystery Biker’s jacket',
+      'Your wins, best times, coins and paint jobs all carry over',
+    ] },
     { v: '3.12.0', date: '2026-10-24', emoji: '🔒', title: 'Public or code-only rooms', items: [
       'Hosts can switch a room between 🌍 Public and 🔒 Code only, in every game',
       'A code-only room stays out of the open rooms list and quick play: friends join with the code, the invite link or an invite',

@@ -1,4 +1,4 @@
-/* Settings: site theme, sound, motion, rewards (auras / animated avatars / Slope ball skins / Motocross paint), account, data. */
+/* Settings: site theme, sound, motion, rewards (auras / animated avatars / Slope ball skins / Revvd paint), account, data. */
 (() => {
   'use strict';
   const { $, h, fill, UI, Net, Sfx, Account, Profile, Settings, Unlocks, store, on } = PA;
@@ -120,7 +120,7 @@
     const count = (slot, list) => `${list.filter((x) => have && have[slot].has(x.id)).length}/${list.length} unlocked`;
     return h('section', { class: 'panel', id: 'rewards' },
       h('h2', {}, '✨ Rewards'),
-      h('p', { class: 'muted small', style: { marginBottom: '10px' } }, 'Level up and earn achievements to unlock auras, animated avatars, Slope ball skins and Motocross bike paint jobs. Everyone sees your aura and animation in rooms, chat and on your profile, and your bike in Motocross races.'),
+      h('p', { class: 'muted small', style: { marginBottom: '10px' } }, 'Level up and earn achievements to unlock auras, animated avatars, Slope ball skins and Revvd bike paint jobs. Everyone sees your aura and animation in rooms, chat and on your profile, and your bike in Revvd races.'),
       Account.user
         ? h('div', { class: 'rw-preview' }, UI.avatar(p, 'xl'), h('div', { class: 'ballp lg b-' + (look.ball || 'classic'), style: { '--c': p.color } }),
           h('div', {}, h('b', {}, p.name), h('div', { class: 'small muted' }, `Level ${Account.user.level}`), h('a', { class: 'small', href: '/profile' }, 'See your achievements →')))
@@ -132,7 +132,7 @@
       h('div', { class: 'rw-grid' }, none('anim', 'Still'), anims.map((a) => tile('anim', a, look.anim, UI.avatar({ ...p, aura: null, anim: a.id }, 'lg')))),
       h('h3', {}, '🛝 Slope ball skins', h('small', {}, count('ball', balls))),
       h('div', { class: 'rw-grid' }, none('ball', 'Classic'), balls.map((b) => tile('ball', b, look.ball, h('div', { class: 'ballp b-' + b.id, style: { '--c': p.color } })))),
-      h('h3', {}, '🏍️ Motocross bike paint', h('small', {}, count('bike', bikes))),
+      h('h3', {}, '🏍️ Revvd bike paint', h('small', {}, count('bike', bikes))),
       h('div', { class: 'rw-grid' }, none('bike', 'Factory Red'), bikes.map((b) => tile('bike', b, look.bike, bikeSwatch(b)))));
   }
 

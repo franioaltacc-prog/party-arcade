@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DecalGeometry } from 'three/addons/geometries/DecalGeometry.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 // paint jobs; the ids match the "bikes" rewards in /data/unlocks.json
@@ -102,7 +103,7 @@ function canvasTex(w, h, draw) {
   return t;
 }
 
-/** The graphics on the side panels: stripes, a number and the Party Arcade name. */
+/** The graphics on the side panels: stripes, a number and the Revvd logo. */
 function graphics(lv) {
   return canvasTex(1024, 512, (g, w, h) => {
     g.fillStyle = lv.plastic; g.fillRect(0, 0, w, h);
@@ -121,18 +122,104 @@ function graphics(lv) {
     g.fillStyle = lv.accent === '#ffffff' || lv.accent === '#ffd21a' || lv.accent === '#39ff88' || lv.accent === '#b6d330' ? lv.dark : '#ffffff';
     g.font = `italic 900 ${h * 0.5}px Kanit, Arial Black, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText(String(lv.number), w * 0.73, h * 0.43);
-    g.fillStyle = lv.dark; g.font = `italic 800 ${h * 0.11}px Kanit, Arial Black, sans-serif`; g.textAlign = 'left';
-    g.fillText('PARTY ARCADE', w * 0.05, h * 0.86);
+    // the logo where the radiator shroud shows it (the panels take this picture 1:1 in metres, so it's drawn twice as wide)
+    g.save(); g.translate(w * 0.06, h * 0.62); g.scale(2, 1); revvdLogo(g, 0, 0, h * 0.1, ...inkOn(lv.plastic)); g.restore();
   });
+}
+/** The rear side panels: a number plate with the logo over the number. */
+function sidePlate(lv) {
+  return canvasTex(512, 256, (g, w, h) => {
+    const bg = lv.accent === '#ffffff' ? lv.plastic : '#ffffff';
+    g.fillStyle = lv.plastic; g.fillRect(0, 0, w, h);
+    g.fillStyle = bg; roundRect(g, w * 0.17, h * 0.2, w * 0.58, h * 0.54, 34); g.fill();
+    revvdLogo(g, w * 0.46, h * 0.36, h * 0.13, ...inkOn(bg), true);
+    g.fillStyle = lv.accent === '#ffffff' ? '#ffffff' : lv.dark;
+    g.font = `italic 900 ${h * 0.34}px Kanit, Arial Black, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+    g.fillText(String(lv.number), w * 0.46, h * 0.68);
+  });
+}
+/** A copy of a panel material whose picture is placed by u = x * a + b, v = y * c + d (x, y in metres on the panel). */
+function placed(mat, a, b, c = 1, d = 0) {
+  const m = mat.clone(); m.map = mat.map.clone(); m.map.repeat.set(a, c); m.map.offset.set(b, d); m.map.needsUpdate = true;
+  return m;
 }
 function roundRect(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
 
+// ------------------------------------------------------------------ Revvd branding
+const REVVD_HOT = '#ff7a1a';
+const lum = (c) => { const n = parseInt(c.slice(1), 16); return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255; };
+/** [letters, outline] that stand out on a background colour. */
+const inkOn = (bg) => (lum(bg) > 0.55 ? ['#16181c', '#ffffff'] : ['#ffffff', '#16181c']);
+/** The Revvd wordmark: italic REVVD (the two Vs in Revvd orange) over a slanted orange speed bar, outlined so it reads
+    on any paint. (x, y) is the left end of the baseline (its middle when center); h is the font size. Returns its width. */
+function revvdLogo(g, x, y, h, ink = '#ffffff', edge = '#16181c', center = false) {
+  g.save();
+  g.font = `italic 900 ${h}px Kanit, Arial Black, sans-serif`; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  const bits = [['RE', ink], ['VV', REVVD_HOT], ['D', ink]];
+  const w = bits.reduce((s, [t]) => s + g.measureText(t).width, 0);
+  if (center) x -= w / 2;
+  g.lineJoin = 'round'; g.lineWidth = h * 0.1; g.strokeStyle = edge;
+  const bar = () => { g.beginPath(); g.moveTo(x + h * 0.02, y + h * 0.06); g.lineTo(x + w + h * 0.08, y + h * 0.06); g.lineTo(x + w - h * 0.02, y + h * 0.19); g.lineTo(x - h * 0.08, y + h * 0.19); g.closePath(); };
+  bar(); g.stroke(); g.fillStyle = REVVD_HOT; g.fill();
+  let cx = x; for (const [t] of bits) { g.strokeText(t, cx, y); cx += g.measureText(t).width; }
+  cx = x; for (const [t, c] of bits) { g.fillStyle = c; g.fillText(t, cx, y); cx += g.measureText(t).width; }
+  g.restore();
+  return w;
+}
+/** A see-through sticker: just the logo (for the model-file bikes and the rider's jacket). */
+let stickerMat = null;
+function revvdSticker() {
+  if (!stickerMat) {
+    stickerMat = new THREE.MeshStandardMaterial({ map: canvasTex(512, 176, (g, w, h) => revvdLogo(g, w / 2, h * 0.68, h * 0.62, '#ffffff', '#16181c', true)),
+      transparent: true, alphaTest: 0.3, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, roughness: 0.45 });
+  }
+  return stickerMat;
+}
+/** The back patch on the Mystery Biker's jacket: a team badge. */
+let patchMat = null;
+function revvdPatch() {
+  if (!patchMat) {
+    patchMat = new THREE.MeshStandardMaterial({ roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -4, map: canvasTex(256, 256, (g, w, h) => {
+      g.fillStyle = REVVD_HOT; roundRect(g, 0, 0, w, h, 46); g.fill();
+      g.fillStyle = '#16181c'; roundRect(g, 10, 10, w - 20, h - 20, 38); g.fill();
+      revvdLogo(g, w / 2, h * 0.52, h * 0.27, '#ffffff', '#16181c', true);
+      g.fillStyle = '#ffffff'; g.font = `italic 800 ${h * 0.085}px Kanit, Arial Black, sans-serif`; g.textAlign = 'center';
+      g.fillText('FACTORY  RACING', w / 2, h * 0.78);
+      g.fillStyle = REVVD_HOT; g.fillText('★  ★  ★', w / 2, h * 0.27);
+    }) });
+  }
+  return patchMat;
+}
+/** The rider's helmet shell: its colour with the logo on each side (a sphere's texture wraps round it: the
+    rider's right side is a quarter of the way across, the left three quarters; both sit a little to the back). */
+function helmetTex(lv) {
+  return canvasTex(1024, 512, (g, w, h) => {
+    g.fillStyle = lv.helmet; g.fillRect(0, 0, w, h);
+    for (const u of [0.14, 0.86]) revvdLogo(g, w * u, h * 0.6, h * 0.085, ...inkOn(lv.helmet), true);
+  });
+}
+/** The jersey: the logo on the chest, and REVVD over the rider's number on the back. */
+function crestTex(lv) {
+  return canvasTex(256, 128, (g, w, h) => revvdLogo(g, w / 2, h * 0.66, h * 0.5, ...inkOn(lv.jersey2), true));
+}
+function backTex(lv) {
+  return canvasTex(384, 256, (g, w, h) => {
+    const [ink, edge] = inkOn(lv.jersey);
+    revvdLogo(g, w / 2, h * 0.27, h * 0.24, ink, edge, true);
+    g.font = `italic 900 ${h * 0.62}px Kanit, Arial Black, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+    g.lineJoin = 'round'; g.lineWidth = h * 0.05; g.strokeStyle = edge; g.strokeText(String(lv.number), w / 2, h * 0.9);
+    g.fillStyle = ink; g.fillText(String(lv.number), w / 2, h * 0.9);
+  });
+}
+
 function numberPlate(lv) {
   return canvasTex(256, 256, (g, w, h) => {
-    g.fillStyle = lv.accent === '#ffffff' ? lv.plastic : '#ffffff'; roundRect(g, 0, 0, w, h, 40); g.fill();
+    const bg = lv.accent === '#ffffff' ? lv.plastic : '#ffffff';
+    g.fillStyle = bg; roundRect(g, 0, 0, w, h, 40); g.fill();
+    revvdLogo(g, w / 2, h * 0.24, h * 0.17, ...inkOn(bg), true);
     g.fillStyle = lv.accent === '#ffffff' ? '#ffffff' : lv.dark;
-    g.font = `italic 900 ${h * 0.62}px Kanit, Arial Black, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText(String(lv.number), w / 2, h * 0.55);
+    g.font = `italic 900 ${h * 0.54}px Kanit, Arial Black, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(String(lv.number), w / 2, h * 0.62);
   });
 }
 
@@ -146,9 +233,15 @@ function materials(lv, ghost) {
     : lv.metal ? new THREE.MeshPhysicalMaterial({ color: lv.plastic, metalness: 0.85, roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.1 })
       : paint(lv.plastic, lv.glow ? { emissive: lv.plastic, emissiveIntensity: 0.15 } : {});
   const gfx = graphics(lv);
+  const graphicsR = lv.chrome || lv.metal ? Object.assign(plastic.clone(), { color: new THREE.Color('#ffffff'), map: gfx }) : paint('#ffffff', { map: gfx });
+  // the side panels: the right side reads front to back as x grows, the left side (seen from the other way) mirrored
+  const side = paint('#ffffff', { map: sidePlate(lv) });
   return {
     plastic,
-    graphics: lv.chrome || lv.metal ? plastic : paint('#ffffff', { map: gfx }),
+    graphics: graphicsR,
+    graphicsL: placed(graphicsR, -1, 0.48),
+    sideR: placed(side, 1 / 0.6, 0.86 / 0.6, 1 / 0.25, -0.2 / 0.25),
+    sideL: placed(side, -1 / 0.6, -0.26 / 0.6, 1 / 0.25, -0.2 / 0.25),
     accent: paint(lv.accent),
     plate: std('#ffffff', { map: numberPlate(lv), roughness: 0.45 }),
     dark: std(lv.dark, { roughness: 0.55 }),
@@ -172,6 +265,9 @@ function materials(lv, ghost) {
     boots: std(lv.boots, { roughness: 0.55 }),
     helmet: paint(lv.helmet),
     helmet2: paint(lv.helmet2),
+    helmetLogo: paint('#ffffff', { map: helmetTex(lv) }),
+    crest: std('#ffffff', { map: crestTex(lv), transparent: true, alphaTest: 0.3, roughness: 0.82 }),
+    back: std('#ffffff', { map: backTex(lv), transparent: true, alphaTest: 0.3, roughness: 0.82 }),
     lens: new THREE.MeshPhysicalMaterial({ color: lv.lens || '#ffb02e', metalness: 1, roughness: 0.05, iridescence: 1 }),
     glow: new THREE.MeshStandardMaterial({ color: lv.plastic, emissive: lv.plastic, emissiveIntensity: 1.6 }),
     light: new THREE.MeshStandardMaterial({ color: '#fffbe8', emissive: '#fff1c2', emissiveIntensity: 1.3 }),
@@ -324,7 +420,32 @@ function fit(f, scene) {
     return { geometry: o.geometry, material: o.material, matrix: mat, wheel };
   });
   const pt = ([y, z]) => { const v = new THREE.Vector3(0, y, z).applyMatrix4(F); return V(v.x, v.y); };
-  return { parts, grips: pt(f.grips), pegs: pt(f.pegs) };
+  return { parts, grips: pt(f.grips), pegs: pt(f.pegs), decals: revvdDecals(parts) };
+}
+/** Revvd stickers for a model-file bike: looked for from each side where the built bikes have their radiator shroud
+    and their rear side panel, and pressed onto whatever bodywork is there (so they follow its curves). */
+function revvdDecals(parts) {
+  const solid = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
+  const body = parts.filter((p) => p.wheel < 0 && p.geometry.attributes.normal).map((p) => {
+    const o = new THREE.Mesh(p.geometry, solid); o.matrixAutoUpdate = false; o.matrix.copy(p.matrix); o.matrixWorld.copy(p.matrix);
+    if (!p.geometry.boundingBox) p.geometry.computeBoundingBox();
+    o.userData.box = p.geometry.boundingBox.clone().applyMatrix4(p.matrix);
+    return o;
+  });
+  const ray = new THREE.Raycaster(); const out = [];
+  for (const [x, y, size] of [[0.17, 0.34, 0.22], [-0.46, 0.3, 0.24]]) {
+    for (const side of [1, -1]) {
+      ray.set(V(x, y, side * 2), V(0, 0, -side));
+      const hit = ray.intersectObjects(body, false)[0];
+      if (!hit || hit.point.z * side < 0.04) continue;
+      const dims = V(size, size * 0.36, 0.12);
+      const reach = new THREE.Box3().setFromCenterAndSize(hit.point, V(size, size, 0.12));
+      const turn = new THREE.Euler(0, side > 0 ? 0 : Math.PI, 0);
+      const geos = body.filter((o) => o.userData.box.intersectsBox(reach)).map((o) => new DecalGeometry(o, hit.point, turn, dims)).filter((g) => g.attributes.position.count);
+      if (geos.length) out.push(mergeGeometries(geos));
+    }
+  }
+  return out;
 }
 /** Swap a built bike's own parts for a model file's (the rider, the nitro flame and the moving-part groups stay). */
 function dress(m, part, M, ghost) {
@@ -340,6 +461,7 @@ function dress(m, part, M, ghost) {
     if (ghost) o.renderOrder = 2;
     (p.wheel === 0 ? m.frontWheel : p.wheel === 1 ? m.rearWheel : m.body).add(o);
   }
+  if (!ghost) for (const g of part.decals) { const o = new THREE.Mesh(g, revvdSticker()); o.userData.shared = true; m.body.add(o); }
   m.grips = part.grips; m.pegs = part.pegs;
 }
 
@@ -421,8 +543,17 @@ function prepRider(scene) {
   }
   const ankle = at('CC_Base_L_Foot'); const ball = at('CC_Base_L_ToeBase');
   const dims = { torso: at('CC_Base_L_Upperarm').y - at('CC_Base_Hip').y, arm: limbs.arm0.l1 + limbs.arm0.l2, foot: [ankle.x - ball.x, ankle.y - ball.y + 0.03] };
+  // a Revvd team patch on the jacket's back: placed on it here in the T-pose, then carried by the upper spine
+  top.updateMatrixWorld(true);
+  const skins = []; scene.traverse((o) => { if (o.isSkinnedMesh) skins.push(o); });
+  const hit = new THREE.Raycaster(V(-2, at('CC_Base_Spine02').y + 0.04, 0), V(1, 0, 0)).intersectObjects(skins, false)[0];
+  let patch = null;
+  if (hit) {
+    patch = new THREE.PlaneGeometry(0.27, 0.27).rotateY(-Math.PI / 2).translate(hit.point.x - 0.014, hit.point.y + 0.012, 0)
+      .applyMatrix4(bones.CC_Base_Spine02.matrixWorld.clone().invert());
+  }
   root.remove(scene);
-  return { scene, k, rest, limbs, curls, dims };
+  return { scene, k, rest, limbs, curls, dims, patch };
 }
 /** Put a copy of the rider model on a built bike in place of the drawn rider. */
 function addRider(m, M, ghost) {
@@ -437,6 +568,7 @@ function addRider(m, M, ghost) {
     }
   });
   for (const c of src.curls) bones[c.n].quaternion.multiply(cQ.setFromAxisAngle(c.axis, c.ang));
+  if (src.patch && !ghost) { const o = new THREE.Mesh(src.patch, revvdPatch()); o.userData.shared = true; bones.CC_Base_Spine02.add(o); }
   for (const p of Object.values(m.parts)) p.visible = false;
   m.rider.add(root);
   m.fig = { top: m.rider, bones, rest: src.rest, limbs: src.limbs, dims: src.dims, hinge: {} };
@@ -550,8 +682,8 @@ export function makeBike(opts = {}) {
   // plastics: shrouds and side panels (oval number plates on the retro), seat, fenders, number plates
   if (!retro) {
     for (const side of [-1, 1]) {
-      body.add(mesh(extrudeSide([[0.44, 0.44], [0.2, 0.56, 0.02, 0.5], [-0.06, 0.36], [0.02, 0.16, 0.14, 0.14], [0.38, 0.18], [0.46, 0.3]], 0.012), M.graphics, 0, 0, side * 0.16));
-      body.add(mesh(extrudeSide([[-0.26, 0.4], [-0.84, 0.45], [-0.86, 0.34], [-0.6, 0.2, -0.34, 0.2]], 0.012), M.graphics, 0, 0, side * 0.115));
+      body.add(mesh(extrudeSide([[0.44, 0.44], [0.2, 0.56, 0.02, 0.5], [-0.06, 0.36], [0.02, 0.16, 0.14, 0.14], [0.38, 0.18], [0.46, 0.3]], 0.012), side > 0 ? M.graphics : M.graphicsL, 0, 0, side * 0.16));
+      body.add(mesh(extrudeSide([[-0.26, 0.4], [-0.84, 0.45], [-0.86, 0.34], [-0.6, 0.2, -0.34, 0.2]], 0.012), side > 0 ? M.sideR : M.sideL, 0, 0, side * 0.115));
     }
   } else {
     for (const side of [-1, 1]) { const ov = mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.012, 32), M.plate, -0.42, 0.3, side * 0.12); ov.rotation.x = Math.PI / 2; ov.scale.set(1.25, 1, 0.9); body.add(ov); }
@@ -631,7 +763,7 @@ export function makeBike(opts = {}) {
   };
   parts.chest.scale.set(1, 1, 1);
   const hel = parts.helmet;
-  const shell = mesh(new THREE.SphereGeometry(0.135, 32, 22), M.helmet); shell.scale.set(1.18, 1.02, 0.94); hel.add(shell);
+  const shell = mesh(new THREE.SphereGeometry(0.135, 32, 22), M.helmetLogo); shell.scale.set(1.18, 1.02, 0.94); hel.add(shell);
   const stripe = mesh(new THREE.SphereGeometry(0.137, 32, 22, 0, Math.PI * 2, 0, 0.75), M.helmet2); stripe.scale.set(1.18, 1.02, 0.42); stripe.rotation.z = -0.25; hel.add(stripe);
   // MX helmet: a long chin bar sticking forward, a peak over the eyes, goggles
   const chinBar = mesh(extrudeSide([[0.04, -0.02], [0.2, -0.04, 0.21, -0.12], [0.16, -0.15], [0.06, -0.15, 0.0, -0.12]], 0.15, 0.03), M.helmet2); hel.add(chinBar);
@@ -640,6 +772,11 @@ export function makeBike(opts = {}) {
   const strap = mesh(new THREE.TorusGeometry(0.135, 0.011, 6, 36), M.dark); strap.rotation.y = Math.PI / 2; strap.position.y = 0.015; strap.scale.set(1.0, 1.0, 1.2); hel.add(strap);
   R.add(parts.pelvis, parts.torso, parts.chest, parts.neck, hel, ...parts.upperArm, ...parts.foreArm, ...parts.hand, ...parts.thigh, ...parts.shin, ...parts.boot, ...parts.knee);
   hel.traverse((o) => { o.castShadow = true; });
+  if (!opts.ghost) {
+    // team kit: the logo on the chest, and REVVD over the number across the back (a strip of cylinder hugging the torso)
+    const crest = mesh(new THREE.PlaneGeometry(0.19, 0.095), M.crest, 0.102, 0.015, 0); crest.rotation.y = Math.PI / 2; parts.chest.add(crest);
+    const back = mesh(new THREE.CylinderGeometry(0.154, 0.154, 0.19, 16, 1, true, Math.PI * 1.5 - 0.85, 1.7), M.back, 0, 0.03, 0); parts.torso.add(back);
+  }
 
   if (opts.ghost) root.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.renderOrder = 2; } });
   const m = { root, body, bars, steers: true, forkLower, frontWheel, rearWheel, swing, spring, shockBody, flame, flame2, rider: R, parts, livery: lv, ghost: !!opts.ghost, materials: M, grips: GRIPS, pegs: PEGS };

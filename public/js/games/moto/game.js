@@ -1376,7 +1376,7 @@ async function init() {
     stage: { solo: stageSolo, room: stageRoom },
   });
   const qs = new URLSearchParams(location.search);
-  window.Lobby.init({ game: 'moto', title: 'Motocross', emoji: '🏍️' });
+  window.Lobby.init({ game: 'moto', title: 'Revvd', emoji: '🏍️' });
   // your account and friends: the buttons from the site's top bar move into the game's
   const icons = $('#mx-icons');
   const friendsBtn = $('.topbar .friends-btn'); const chip = $('.topbar .profile-chip');
