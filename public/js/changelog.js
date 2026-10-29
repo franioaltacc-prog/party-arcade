@@ -6,6 +6,14 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.14.0', date: '2026-10-29', emoji: '🚵', title: 'Unrevvd: mountain bikes, and the Big Drop', items: [
+      'New in Revvd: the 🚵 Unrevvd tab. Ride a mountain bike: no engine, just your legs (W pedals, Space sprints), slow up the hills and fast down them',
+      'Two bikes to pick from, the Downhill Pro and the Trail Hardtail, with a rider who really pedals: the cranks turn and the feet go round with them',
+      'The Wildwood Bike Park: a new world made for mountain bikes, with a big climb, a flow trail, a rock garden and a jump garden. Every other world is rideable on a mountain bike too',
+      'Seven Unrevvd challenges (downhills, a climb, big air, flips and top speed), solo or with friends, and Unrevvd has its own coins and bike upgrades, up to an e-bike motor',
+      'Free ride with friends: everyone picks a dirt bike, a mountain bike or a supercar, and you all ride the same world together',
+      'New Revvd challenge, The Big Drop: race your friends from the top of a 400 m cliff in the new Sheerwall Mesa world. Take the cliff road, or send it off the edge',
+    ] },
     { v: '3.13.0', date: '2026-10-29', emoji: '🏍️', title: 'Motocross is now Revvd', items: [
       'The motocross game has a new name: Revvd, with a new logo on the menu, the start arch and the trackside banners',
       'Team branding on every bike: the Revvd logo on the radiator shrouds and a number plate with the logo on the side panels',

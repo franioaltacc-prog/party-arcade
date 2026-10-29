@@ -86,8 +86,9 @@ function makeLoop(ctx, out, type, freq, q) {
   return { f, g, set(v, freqTo) { const t = ctx.currentTime; g.gain.setTargetAtTime(v, t, 0.05); if (freqTo) f.frequency.setTargetAtTime(freqTo, t, 0.05); }, stop() { try { src.stop(); } catch { /* done */ } } };
 }
 
-/** Start the sound for a ride. Returns null if there's no audio. */
-export function createAudio() {
+/** Start the sound for a ride (pedal: a mountain bike, with no engine: tyres, wind and the freewheel ticking
+    when you coast). Returns null if there's no audio. */
+export function createAudio({ pedal = false } = {}) {
   const ctx = Sfx.ac && Sfx.ac();
   if (!ctx) return null;
   const master = ctx.createGain(); master.gain.value = Sfx.muted ? 0 : 1;
@@ -97,6 +98,16 @@ export function createAudio() {
   const wind = makeLoop(ctx, master, 'bandpass', 700, 0.5);
   const scrub = makeLoop(ctx, master, 'bandpass', 2400, 0.8);
   const nitro = makeLoop(ctx, master, 'highpass', 1800, 0.7);
+  // a bicycle: knobbly tyres humming on the dirt, and the freewheel's quick clicks when you stop pedalling
+  const tyres = pedal ? makeLoop(ctx, master, 'lowpass', 240, 0.8) : null;
+  let tick = null;
+  if (pedal) {
+    const o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = 20;
+    const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 2600;
+    const g = ctx.createGain(); g.gain.value = 0;
+    o.connect(f).connect(g).connect(master); o.start();
+    tick = { o, g, stop() { try { o.stop(); } catch { /* done */ } } };
+  }
   const others = new Map();
   let lastSpeed=0,load=0;
   const shot = (fn) => { if (!Sfx.muted) { try { fn(); } catch { /* audio unavailable */ } } };
@@ -118,11 +129,18 @@ export function createAudio() {
       const acceleration=Math.max(0,(speed-lastSpeed)/Math.max(.001,dt));lastSpeed=speed;
       const tune=window.MotoCore.P;
       load+=(Math.min(1,acceleration/tune.SOUND_ACCEL_SCALE)*b.thr-load)*(1-Math.exp(-dt*tune.SOUND_RESPONSE));
-      engine.set(b.crashed ? 1700 : b.rpm, b.crashed ? 0 : Math.min(1,b.thr*tune.SOUND_BASE_LOAD+load*tune.SOUND_ACCEL), b.limiter && !b.crashed, 1, 0, dt);
+      engine.set(b.crashed || pedal ? 1700 : b.rpm, b.crashed ? 0 : Math.min(1,b.thr*tune.SOUND_BASE_LOAD+load*tune.SOUND_ACCEL), b.limiter && !b.crashed, pedal ? 0 : 1, 0, dt);
+      if (pedal) {
+        const rolling = !b.crashed && (b.wh[0].ct || b.wh[1].ct);
+        tyres.set(rolling ? Math.min(0.2, speed * 0.012) : 0, 160 + speed * 14);
+        const t = ctx.currentTime; const coast = rolling && b.thr < 0.1 && speed > 1;
+        tick.g.gain.setTargetAtTime(coast ? Math.min(0.03, 0.008 + speed * 0.002) : 0, t, 0.05);
+        tick.o.frequency.setTargetAtTime(Math.max(8, Math.min(320, speed * 16)), t, 0.05);
+      }
       wind.set(Math.min(0.35, speed * speed * 0.00035), 500 + speed * 25);
       const slip = b.crashed ? 0 : Math.max(b.wh[1].ct ? b.wh[1].slip : 0, b.wh[0].ct ? b.wh[0].slip * 0.6 : 0, (extra.scrub || 0) * 0.6, b.slide || 0);
       scrub.set(Math.min(0.22, Math.max(0, slip - 0.6) * 0.05), extra.surface === 2 ? 3800 : extra.surface === 1 ? 900 : 2200);
-      nitro.set(b.boost ? 0.16 : 0, b.boost ? 2600 : 1800);
+      nitro.set(b.boost && !pedal ? 0.16 : 0, b.boost ? 2600 : 1800);   // (a bicycle's sprint is just legs)
     },
     /** Other riders: id -> { rpm, thr, dist (m, signed: + ahead), lane } — only the closest few are heard. */
     others(list) {
@@ -142,7 +160,7 @@ export function createAudio() {
     beep(go) { shot(() => Sfx.tone(go ? 880 : 440, go ? 0.45 : 0.18, 'square', 0.06)); },
     gate() { shot(() => { Sfx.noise(0.12, 0.2, 0, 1200); Sfx.tone(300, 0.08, 'square', 0.05, -100); }); },
     stop() {
-      engine.stop(); wind.stop(); scrub.stop(); nitro.stop();
+      engine.stop(); wind.stop(); scrub.stop(); nitro.stop(); if (tyres) tyres.stop(); if (tick) tick.stop();
       for (const e of others.values()) e.stop();
       others.clear();
       setTimeout(() => { try { master.disconnect(); } catch { /* gone */ } }, 600);

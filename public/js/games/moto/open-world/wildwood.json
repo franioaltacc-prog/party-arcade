@@ -1,0 +1,929 @@
+{
+  "schemaVersion": 1,
+  "id": "wildwood",
+  "name": "Wildwood Bike Park",
+  "tagline": "Earn the climb. Send the descent.",
+  "theme": "alpine",
+  "seed": 7717,
+  "size": [
+    2400,
+    2400
+  ],
+  "baseHeight": 40,
+  "spawn": [
+    -700,
+    800
+  ],
+  "spawnHeading": 2.422763,
+  "palette": {
+    "sky": "#cfe3d6",
+    "low": "#4f7a3a",
+    "high": "#c8d6a0",
+    "trail": "#9a7350",
+    "water": "#3f8f95",
+    "accent": "#39d98a"
+  },
+  "look": {
+    "flora": [
+      "pine",
+      "broadleaf",
+      "rock",
+      "shrub",
+      "log"
+    ],
+    "sky": {
+      "sun": [
+        38,
+        150
+      ],
+      "turbidity": 4,
+      "rayleigh": 1.6,
+      "mie": 0.006,
+      "exposure": 1.25,
+      "fog": 0.28,
+      "fogColor": "#cfe0d4",
+      "sunColor": "#fff1d6"
+    },
+    "grass": [
+      [
+        62,
+        112,
+        46
+      ],
+      [
+        140,
+        178,
+        84
+      ]
+    ],
+    "dirt": [
+      [
+        120,
+        86,
+        58
+      ],
+      [
+        184,
+        146,
+        104
+      ]
+    ]
+  },
+  "terrain": {
+    "noise": 7,
+    "scale": 220,
+    "hills": [
+      [
+        0,
+        -350,
+        230,
+        520,
+        480
+      ],
+      [
+        -750,
+        650,
+        40,
+        420,
+        380
+      ],
+      [
+        800,
+        650,
+        60,
+        420,
+        380
+      ],
+      [
+        -850,
+        -650,
+        90,
+        380,
+        360
+      ]
+    ],
+    "lake": {
+      "position": [
+        -650,
+        250
+      ],
+      "radius": [
+        170,
+        120
+      ],
+      "level": 46,
+      "depth": 10
+    }
+  },
+  "regions": [
+    {
+      "name": "Trailhead",
+      "position": [
+        -700,
+        800
+      ]
+    },
+    {
+      "name": "Summit Hut",
+      "position": [
+        0,
+        -350
+      ]
+    },
+    {
+      "name": "Jump Garden",
+      "position": [
+        600,
+        750
+      ]
+    },
+    {
+      "name": "Wildwood Lake",
+      "position": [
+        -650,
+        470
+      ]
+    },
+    {
+      "name": "Old Mill",
+      "position": [
+        820,
+        -180
+      ]
+    },
+    {
+      "name": "Fire Tower",
+      "position": [
+        -850,
+        -650
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "id": "climb",
+      "name": "The Grind",
+      "points": [
+        [
+          -700,
+          800
+        ],
+        [
+          -235,
+          57
+        ],
+        [
+          -381,
+          -113
+        ],
+        [
+          -425,
+          -322
+        ],
+        [
+          -368,
+          -517
+        ],
+        [
+          -233,
+          -653
+        ],
+        [
+          -59,
+          -706
+        ],
+        [
+          109,
+          -671
+        ],
+        [
+          231,
+          -567
+        ],
+        [
+          285,
+          -426
+        ],
+        [
+          266,
+          -288
+        ],
+        [
+          189,
+          -184
+        ],
+        [
+          81,
+          -135
+        ],
+        [
+          -27,
+          -144
+        ],
+        [
+          -108,
+          -199
+        ],
+        [
+          -147,
+          -278
+        ],
+        [
+          -142,
+          -355
+        ],
+        [
+          -104,
+          -410
+        ],
+        [
+          0,
+          -350
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "flow",
+      "name": "Flow Line",
+      "points": [
+        [
+          0,
+          -350
+        ],
+        [
+          250,
+          -180
+        ],
+        [
+          120,
+          20
+        ],
+        [
+          380,
+          200
+        ],
+        [
+          160,
+          400
+        ],
+        [
+          -150,
+          520
+        ],
+        [
+          -450,
+          700
+        ],
+        [
+          -700,
+          800
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "rock-garden",
+      "name": "Rock Garden",
+      "points": [
+        [
+          0,
+          -350
+        ],
+        [
+          -180,
+          -170
+        ],
+        [
+          -330,
+          20
+        ],
+        [
+          -500,
+          200
+        ],
+        [
+          -650,
+          470
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "valley-loop",
+      "name": "Valley Loop",
+      "points": [
+        [
+          -700,
+          800
+        ],
+        [
+          -1000,
+          400
+        ],
+        [
+          -1000,
+          -200
+        ],
+        [
+          -850,
+          -650
+        ],
+        [
+          -350,
+          -900
+        ],
+        [
+          300,
+          -900
+        ],
+        [
+          820,
+          -650
+        ],
+        [
+          1000,
+          -180
+        ],
+        [
+          1000,
+          300
+        ],
+        [
+          600,
+          750
+        ],
+        [
+          0,
+          950
+        ],
+        [
+          -700,
+          800
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20,
+      "closed": true
+    },
+    {
+      "id": "east-descent",
+      "name": "Mill Run",
+      "points": [
+        [
+          0,
+          -350
+        ],
+        [
+          380,
+          -380
+        ],
+        [
+          820,
+          -180
+        ],
+        [
+          880,
+          220
+        ],
+        [
+          600,
+          750
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "jump-loop",
+      "name": "Jump Garden Loop",
+      "points": [
+        [
+          600,
+          750
+        ],
+        [
+          820,
+          640
+        ],
+        [
+          860,
+          450
+        ],
+        [
+          660,
+          400
+        ],
+        [
+          460,
+          560
+        ],
+        [
+          600,
+          750
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20,
+      "closed": true
+    },
+    {
+      "id": "tower-link",
+      "name": "Ridge Trail",
+      "points": [
+        [
+          -850,
+          -650
+        ],
+        [
+          -450,
+          -520
+        ],
+        [
+          0,
+          -350
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    }
+  ],
+  "spots": [
+    {
+      "id": "trailhead",
+      "name": "Trailhead",
+      "position": [
+        -700,
+        800
+      ],
+      "kind": "camp",
+      "radius": 24,
+      "about": "Shared spawn: bike racks, trail maps and the start of the climb."
+    },
+    {
+      "id": "summit",
+      "name": "Summit Hut",
+      "position": [
+        0,
+        -350
+      ],
+      "kind": "lookout",
+      "radius": 24,
+      "about": "The top of the mountain. Every trail goes down from here."
+    },
+    {
+      "id": "garden",
+      "name": "Jump Garden",
+      "position": [
+        600,
+        750
+      ],
+      "kind": "yard",
+      "radius": 24,
+      "about": "Dirt jumps and a quick loop."
+    },
+    {
+      "id": "lake",
+      "name": "Wildwood Lake",
+      "position": [
+        -650,
+        470
+      ],
+      "kind": "dock",
+      "radius": 24,
+      "about": "A jetty on the lake at the bottom of the rock garden."
+    },
+    {
+      "id": "mill",
+      "name": "Old Mill",
+      "position": [
+        820,
+        -180
+      ],
+      "kind": "cabin",
+      "radius": 24,
+      "about": "A cabin halfway down the east side."
+    },
+    {
+      "id": "tower",
+      "name": "Fire Tower",
+      "position": [
+        -850,
+        -650
+      ],
+      "kind": "tower",
+      "radius": 24,
+      "about": "A fire lookout on the west ridge."
+    }
+  ],
+  "races": [
+    {
+      "id": "wild-flow",
+      "name": "Flow Line",
+      "route": "flow",
+      "type": "downhill",
+      "difficulty": "medium",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    },
+    {
+      "id": "wild-climb",
+      "name": "The Grind",
+      "route": "climb",
+      "type": "hillclimb",
+      "difficulty": "hard",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    },
+    {
+      "id": "wild-rock",
+      "name": "Rock Garden",
+      "route": "rock-garden",
+      "type": "downhill",
+      "difficulty": "hard",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    },
+    {
+      "id": "wild-jumps",
+      "name": "Jump Garden Laps",
+      "route": "jump-loop",
+      "type": "circuit",
+      "difficulty": "easy",
+      "laps": 3,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    }
+  ],
+  "interactions": [
+    {
+      "id": "board",
+      "name": "Trailhead race board",
+      "position": [
+        -660,
+        800
+      ],
+      "kind": "race-board",
+      "radius": 18,
+      "event": "race.offer",
+      "about": "Choose a mini race and invite nearby friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "jam",
+      "name": "Old Mill trick jam",
+      "position": [
+        770,
+        -200
+      ],
+      "kind": "trick-zone",
+      "radius": 18,
+      "event": "trick.land",
+      "about": "Share a two-minute trick score with friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "camera",
+      "name": "Summit Hut photo perch",
+      "position": [
+        0,
+        -350
+      ],
+      "kind": "photo",
+      "radius": 18,
+      "event": "photo.capture",
+      "about": "Get the whole group into a summit picture.",
+      "cooldownSeconds": 10
+    }
+  ],
+  "ramps": [
+    {
+      "id": "trail-double",
+      "position": [
+        -480,
+        760
+      ],
+      "heading": 2.0,
+      "length": 40,
+      "width": 12,
+      "height": 2.4
+    },
+    {
+      "id": "garden-table",
+      "position": [
+        760,
+        560
+      ],
+      "heading": 0.6,
+      "length": 46,
+      "width": 14,
+      "height": 3
+    }
+  ],
+  "surfaceZones": [
+    {
+      "id": "lake-mud",
+      "position": [
+        -650,
+        380
+      ],
+      "radius": 70,
+      "surface": "mud",
+      "grip": 0.72,
+      "roll": 0.025
+    },
+    {
+      "id": "root-mud",
+      "position": [
+        -260,
+        -60
+      ],
+      "radius": 110,
+      "surface": "mud",
+      "grip": 0.78,
+      "roll": 0.02
+    }
+  ],
+  "quests": [
+    {
+      "id": "wildwood-welcome",
+      "name": "Welcome to Wildwood Bike Park",
+      "start": "trailhead",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "garden",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "mill",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "trailhead",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "wildwood-summit",
+      "name": "Top of the World",
+      "start": "trailhead",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "summit",
+          "count": 1
+        },
+        {
+          "event": "photo.capture",
+          "target": "camera",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    }
+  ],
+  "coordinateSystem": {
+    "units": "metres",
+    "horizontal": [
+      "x",
+      "z"
+    ],
+    "up": "y",
+    "heading": "radians: 0 points +z; positive rotates towards +x"
+  },
+  "status": "Made by tools/make_worlds.py.",
+  "boundary": {
+    "softMargin": 100,
+    "policy": "warn-and-respawn",
+    "respawn": "last-safe-pad",
+    "cliffWidth": 240,
+    "cliffHeight": 420,
+    "sceneryApron": 1600
+  },
+  "spawnPads": [
+    {
+      "id": "spawn-1",
+      "position": [
+        -724,
+        782
+      ],
+      "heading": 2.422763
+    },
+    {
+      "id": "spawn-2",
+      "position": [
+        -719,
+        782
+      ],
+      "heading": 2.422763
+    },
+    {
+      "id": "spawn-3",
+      "position": [
+        -714,
+        782
+      ],
+      "heading": 2.422763
+    },
+    {
+      "id": "spawn-4",
+      "position": [
+        -724,
+        776
+      ],
+      "heading": 2.422763
+    },
+    {
+      "id": "spawn-5",
+      "position": [
+        -719,
+        776
+      ],
+      "heading": 2.422763
+    },
+    {
+      "id": "spawn-6",
+      "position": [
+        -714,
+        776
+      ],
+      "heading": 2.422763
+    }
+  ],
+  "safePads": [
+    {
+      "id": "trailhead",
+      "position": [
+        -700,
+        800
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -724,
+        782
+      ]
+    },
+    {
+      "id": "summit",
+      "position": [
+        0,
+        -350
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -24,
+        -368
+      ]
+    },
+    {
+      "id": "garden",
+      "position": [
+        600,
+        750
+      ],
+      "radius": 32,
+      "riderPosition": [
+        576,
+        732
+      ]
+    },
+    {
+      "id": "lake",
+      "position": [
+        -650,
+        470
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -674,
+        452
+      ]
+    },
+    {
+      "id": "mill",
+      "position": [
+        820,
+        -180
+      ],
+      "radius": 32,
+      "riderPosition": [
+        796,
+        -198
+      ]
+    },
+    {
+      "id": "tower",
+      "position": [
+        -850,
+        -650
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -874,
+        -668
+      ]
+    }
+  ],
+  "features": {
+    "gaps": [
+      {
+        "id": "creek-gap",
+        "kind": "water",
+        "route": "valley-loop",
+        "at": 0.15,
+        "side": 1,
+        "gap": 7,
+        "height": 2.0,
+        "width": 14
+      },
+      {
+        "id": "rock-drop",
+        "kind": "chasm",
+        "route": "valley-loop",
+        "at": 0.45,
+        "side": -1,
+        "gap": 8,
+        "height": 2.2,
+        "width": 14
+      },
+      {
+        "id": "mill-gap",
+        "kind": "water",
+        "route": "valley-loop",
+        "at": 0.7,
+        "side": -1,
+        "gap": 8,
+        "height": 2.2,
+        "width": 14
+      }
+    ],
+    "pools": [
+      {
+        "id": "bog",
+        "kind": "water",
+        "position": [
+          350,
+          1000
+        ],
+        "radius": [
+          30,
+          22
+        ],
+        "turn": 0.4,
+        "trail": 30
+      }
+    ]
+  },
+  "bike": true
+}

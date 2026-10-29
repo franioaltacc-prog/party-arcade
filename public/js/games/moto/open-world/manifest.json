@@ -64,6 +64,23 @@
       "areaKm2": 10.24,
       "gaps": 5,
       "pools": 2
+    },
+    {
+      "id": "wildwood",
+      "name": "Wildwood Bike Park",
+      "file": "wildwood.json",
+      "areaKm2": 5.76,
+      "bike": true,
+      "gaps": 3,
+      "pools": 1
+    },
+    {
+      "id": "sheerwall",
+      "name": "Sheerwall Mesa",
+      "file": "sheerwall.json",
+      "areaKm2": 12.96,
+      "gaps": 2,
+      "pools": 1
     }
   ]
 }

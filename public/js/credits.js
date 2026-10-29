@@ -31,7 +31,7 @@
   const GAMES = [
     ['🟪', 'Neon Dash'], ['🏡', 'Family Life'], ['🎨', 'Doodle Guess'], ['🎧', 'Song Rush'], ['🏐', 'Screen Volley'], ['🕵️', 'Impostor'], ['💣', 'Minesweeper'],
     ['⚡', 'Party Blitz'], ['🎰', 'Casino Night'], ['🔴', 'Connect 4'], ['🎱', 'Billiards'], ['🐍', 'Neon Snake'], ['🔢', '2048'],
-    ['🃏', 'Memory Flip'], ['🛝', 'Slope'], ['🌍', 'Front Wars'], ['🔫', 'Prop Hunt'], ['🏎️', 'Poly Racer'], ['🏍️', 'Revvd'], ['🐤', 'Neon Flappy'], ['⛳', 'Mini Golf'], ['🎡', 'Spin the Wheel'], ['🤔', 'Would You Rather'], ['🎱', 'Magic 8-Ball'],
+    ['🃏', 'Memory Flip'], ['🛝', 'Slope'], ['🌍', 'Front Wars'], ['🔫', 'Prop Hunt'], ['🏎️', 'Poly Racer'], ['🏍️', 'Revvd'], ['🚵', 'Unrevvd'], ['🐤', 'Neon Flappy'], ['⛳', 'Mini Golf'], ['🎡', 'Spin the Wheel'], ['🤔', 'Would You Rather'], ['🎱', 'Magic 8-Ball'],
   ];
 
   const TOOLS = [
@@ -43,6 +43,8 @@
     ['🧥', '“80’s mystery biker” by thomasdonovan26 (CC BY 4.0, Sketchfab)', 'the Mystery Biker rider in Revvd (smaller textures for the web)'],
     ['🧡', '“Free Lamborghini Revuelto” by ALIEEEN (CC BY 4.0, Sketchfab)', 'the Revuelto supercar in Revvd free ride (smaller textures for the web)'],
     ['💛', '“Lamborghini Aventador” by Arion Digital (CC BY 4.0, Sketchfab)', 'the Aventador supercar in Revvd free ride'],
+    ['🚵', '“Low- Poly Bicycle # 5” by Sidra (CC BY 4.0, Sketchfab)', 'the Downhill Pro mountain bike in Unrevvd (split into moving parts)'],
+    ['🌲', '“MTB Mongoose Tyax” by Saushkin (CC BY 4.0, Sketchfab)', 'the Trail Hardtail mountain bike in Unrevvd (split into moving parts, made lighter for the web)'],
     ['🟢', 'GSAP by GreenSock', 'animations'],
     ['🔤', 'Bungee by David Jonathan Ross', 'title font (Google Fonts)'],
     ['🔤', 'Fredoka by Milena Brandão', 'text font (Google Fonts)'],

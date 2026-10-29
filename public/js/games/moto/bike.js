@@ -38,11 +38,22 @@ export const MODELS = {
   varg: { name: 'Stark Varg', emoji: '🔋', about: 'Detailed electric MX bike (model by Hari Yojuta, CC BY)', file: true },
   hcr2: { name: 'Hill Racer', emoji: '🧡', about: 'Chunky cartoon dirt bike (model by oakar258, CC BY)', file: true },
 };
+// Unrevvd's mountain bikes (model files too; only looks: they all pedal the same)
+export const MTB_MODELS = {
+  dh: { name: 'Downhill Pro', emoji: '🚵', about: 'Full-suspension downhill bike (model by Sidra, CC BY)' },
+  tyax: { name: 'Trail Hardtail', emoji: '🌲', about: 'Hardtail trail bike (model by Saushkin, CC BY)' },
+};
 // the model files: which way the bike faces along the model's z (+1 = front wheel at +z), which parts are the
-// wheels (node names), and where its grips and footpegs are ([y, z] in the model's own units)
+// wheels (node names), and where its grips and footpegs are ([y, z] in the model's own units). A bicycle also has
+// cranks (the parts that turn round the bottom bracket bb, with the right pedal at pedal), a saddle, and a rider
+// drawn a little bigger (rider: the bikes are bigger than life, so their wheels sit on the same axles as a dirt bike's)
 const FILES = {
   varg: { file: '/models/moto/stark-varg.glb', dir: -1, front: /^(Wheel-F|F-Dic|F-Hub|Spoke)/, rear: /^(Wheel-R|R-Wheel|Sprocket001)/, grips: [2.41, -0.42], pegs: [0.82, 0.36] },
   hcr2: { file: '/models/moto/hcr2-motocross.glb', dir: 1, front: /Front_Wheel/, rear: /Rear_Wheel/, grips: [1.78, 0.26], pegs: [0.55, -0.2] },
+  dh: { file: '/models/mtb/downhill.glb', dir: 1, front: /^Wheel_F/, rear: /^Wheel_B/, crank: /^Pedal/, grips: [0.695, 0.25], pegs: [0.2225, -0.035],
+    bb: [0.2225, -0.035], pedal: [0.17, 0.04], saddle: [0.64, -0.09], rider: 1.1 },
+  tyax: { file: '/models/mtb/tyax.glb', dir: 1, front: /^Wheel_F/, rear: /^Wheel_R/, crank: /^Crank/, grips: [88, -29], pegs: [-5.3, -86.1],
+    bb: [-5.3, -86.1], pedal: [-5.4, -65.2], saddle: [76, -110], rider: 1.2 },
 };
 export const KITS = {
   match: { name: 'Match my bike' },
@@ -401,25 +412,31 @@ export const bikesLoaded = () => modelsReady;
 function fit(f, scene) {
   scene.updateMatrixWorld(true);
   const nameOf = (o) => { for (let p = o; p; p = p.parent) if (p.name && !/^Object_/.test(p.name)) return p.name; return ''; };
-  const meshes = []; scene.traverse((o) => { if (o.isMesh) meshes.push({ o, wheel: f.front.test(nameOf(o)) ? 0 : f.rear.test(nameOf(o)) ? 1 : -1 }); });
+  const meshes = []; scene.traverse((o) => { if (o.isMesh) meshes.push({ o, wheel: f.front.test(nameOf(o)) ? 0 : f.rear.test(nameOf(o)) ? 1 : f.crank && f.crank.test(nameOf(o)) ? 2 : -1 }); });
   const M0 = new THREE.Matrix4().set(0, 0, f.dir, 0, 0, 1, 0, 0, -f.dir, 0, 0, 0, 0, 0, 0, 1);   // model → bike axes (forward +X, up +Y)
   const box = [new THREE.Box3(), new THREE.Box3()];
-  for (const m of meshes) if (m.wheel >= 0) box[m.wheel].union(new THREE.Box3().setFromObject(m.o));
+  for (const m of meshes) if (m.wheel === 0 || m.wheel === 1) box[m.wheel].union(new THREE.Box3().setFromObject(m.o));
   const C = box.map((b) => b.getCenter(V(0, 0)).applyMatrix4(M0)); const rad = box.map((b) => (b.max.y - b.min.y) / 2);
   const s = AXLE_F.distanceTo(AXLE_R) / Math.hypot(C[0].x - C[1].x, C[0].y - C[1].y);
   const pitch = Math.atan2(AXLE_F.y - AXLE_R.y, AXLE_F.x - AXLE_R.x) - Math.atan2(C[0].y - C[1].y, C[0].x - C[1].x);
   const F = new THREE.Matrix4().makeTranslation(AXLE_R.x, AXLE_R.y, 0).multiply(new THREE.Matrix4().makeRotationZ(pitch))
     .multiply(new THREE.Matrix4().makeScale(s, s, s)).multiply(new THREE.Matrix4().makeTranslation(-C[1].x, -C[1].y, -C[1].z)).multiply(M0);
+  const pt = ([y, z]) => { const v = new THREE.Vector3(0, y, z).applyMatrix4(F); return V(v.x, v.y); };
+  const bb = f.bb ? pt(f.bb) : null;
   const parts = meshes.map(({ o, wheel }) => {
     let mat;
-    if (wheel < 0) mat = F.clone().multiply(o.matrixWorld);
+    if (wheel === 2) mat = new THREE.Matrix4().makeTranslation(-bb.x, -bb.y, 0).multiply(F).multiply(o.matrixWorld);   // (the cranks turn round the bottom bracket)
+    else if (wheel < 0) mat = F.clone().multiply(o.matrixWorld);
     else {
       const k = [0.35, 0.34][wheel] / rad[wheel];
       mat = new THREE.Matrix4().makeScale(k, k, k).multiply(new THREE.Matrix4().makeTranslation(-C[wheel].x, -C[wheel].y, -C[wheel].z)).multiply(M0).multiply(o.matrixWorld);
     }
     return { geometry: o.geometry, material: o.material, matrix: mat, wheel };
   });
-  const pt = ([y, z]) => { const v = new THREE.Vector3(0, y, z).applyMatrix4(F); return V(v.x, v.y); };
+  if (bb) {
+    const ped = pt(f.pedal).sub(bb);
+    return { parts, grips: pt(f.grips), pegs: pt(f.pegs), decals: [], crank: { bb, len: ped.length(), phase: Math.atan2(ped.y, ped.x), saddle: pt(f.saddle) }, rider: f.rider || 1 };
+  }
   return { parts, grips: pt(f.grips), pegs: pt(f.pegs), decals: revvdDecals(parts) };
 }
 /** Revvd stickers for a model-file bike: looked for from each side where the built bikes have their radiator shroud
@@ -454,12 +471,18 @@ function dress(m, part, M, ghost) {
   m.frontWheel.clear(); m.rearWheel.clear();
   m.forkLower.visible = m.swing.visible = m.spring.visible = m.shockBody.visible = m.bars.visible = false;
   m.steers = false;   // (only its front wheel turns: the model's bars are part of its frame)
+  if (part.crank) {
+    // a bicycle: the cranks turn round the bottom bracket, and the rider is drawn a little bigger to match the bike
+    m.crank = new THREE.Group(); m.crank.position.set(part.crank.bb.x, part.crank.bb.y, 0); m.body.add(m.crank);
+    m.pedal = { ...part.crank, ang: 0, seat: 0, t: null };
+    m.rider.scale.setScalar(part.rider);
+  }
   for (const p of part.parts) {
     const o = new THREE.Mesh(p.geometry, ghost ? M.plastic : p.material);
     o.matrixAutoUpdate = false; o.matrix.copy(p.matrix);
     o.castShadow = !ghost; o.receiveShadow = !ghost; o.userData.shared = !ghost;   // (the geometry and materials belong to every bike made from this file)
     if (ghost) o.renderOrder = 2;
-    (p.wheel === 0 ? m.frontWheel : p.wheel === 1 ? m.rearWheel : m.body).add(o);
+    (p.wheel === 0 ? m.frontWheel : p.wheel === 1 ? m.rearWheel : p.wheel === 2 ? m.crank : m.body).add(o);
   }
   if (!ghost) for (const g of part.decals) { const o = new THREE.Mesh(g, revvdSticker()); o.userData.shared = true; m.body.add(o); }
   m.grips = part.grips; m.pegs = part.pegs;
@@ -569,7 +592,7 @@ function addRider(m, M, ghost) {
   });
   for (const c of src.curls) bones[c.n].quaternion.multiply(cQ.setFromAxisAngle(c.axis, c.ang));
   if (src.patch && !ghost) { const o = new THREE.Mesh(src.patch, revvdPatch()); o.userData.shared = true; bones.CC_Base_Spine02.add(o); }
-  for (const p of Object.values(m.parts)) p.visible = false;
+  for (const p of Object.values(m.parts)) for (const o of [].concat(p)) o.visible = false;   // (the arms and legs come in pairs)
   m.rider.add(root);
   m.fig = { top: m.rider, bones, rest: src.rest, limbs: src.limbs, dims: src.dims, hinge: {} };
 }
@@ -806,6 +829,7 @@ const poleLeg = [V(1, 0.15, -0.35), V(1, 0.15, 0.35)];
 /** Move a bike to a physics snapshot. s: { x, y, a, roll, wf: [x, y, ang], wr: [...], rx, ry, lean, boost, crashed, ragdoll: { hip, head } | null }
     (positions in the side-on plane), place(x, y, out) turns a plane point into world space (its lane is built in),
     heading: the track's direction there. */
+const grips = V(0, 0); const pegs = [V(0, 0), V(0, 0)];
 export function poseBike(m, s, place, heading, t) {
   const root = m.root;
   place(s.x, s.y, root.position);
@@ -846,12 +870,24 @@ export function poseBike(m, s, place, heading, t) {
   m.flame.visible = m.flame2.visible = !!s.boost;
   if (s.boost) { const f = 0.8 + Math.sin(t * 60) * 0.15 + Math.random() * 0.15; m.flame.scale.set(1, f, 1); m.flame2.scale.set(1, f * 0.9, 1); }
 
-  // the rider
-  const P = m.parts; const fig = m.fig;
+  // the rider (on a bicycle the rider is drawn bigger: points on the bike are divided by k to get the rider's own)
+  const P = m.parts; const fig = m.fig; const k = m.rider.scale.x; const pd = m.pedal;
+  if (pd) {
+    // pedalling: sit on the saddle and turn the cranks, faster the faster you go; coasting: stand up on level
+    // pedals with the hips free over the bike, like a downhill racer
+    const dt = pd.t == null ? 0 : Math.min(0.1, Math.max(0, t - pd.t)); pd.t = t;
+    const pedalling = !s.crashed && (s.th || 0) > 0.15;
+    pd.seat += ((pedalling ? 1 : 0) - pd.seat) * Math.min(1, dt * 5);
+    if (pedalling) pd.ang += Math.max(2.5, Math.min(11, (s.v || 0) / 0.84)) * dt;
+    else { const level = pd.phase + Math.round((pd.ang - pd.phase) / Math.PI) * Math.PI; pd.ang += (level - pd.ang) * Math.min(1, dt * 6); }
+    m.crank.rotation.z = -pd.ang;
+    for (let i = 0; i < 2; i++) { const a = pd.phase - pd.ang + (i ? 0 : Math.PI); pegs[i].set((pd.bb.x + Math.cos(a) * pd.len) / k, (pd.bb.y + Math.sin(a) * pd.len) / k, 0); }
+  } else pegs[0].copy(pegs[1].copy(m.pegs));
+  grips.copy(m.grips).divideScalar(k);
   if (s.crashed && s.ragdoll) {
     // thrown off: hips and head from the ragdoll, arms and legs flailing
     const rg = s.ragdoll;
-    local(rg.hip.x, rg.hip.y, hipC); local(rg.head.x, rg.head.y, headP);
+    local(rg.hip.x, rg.hip.y, hipC); local(rg.head.x, rg.head.y, headP); hipC.divideScalar(k); headP.divideScalar(k);
     tA.copy(headP).sub(hipC).normalize();
     sho.copy(hipC).addScaledVector(tA, fig ? fig.dims.torso : 0.5);
     headP.copy(sho).addScaledVector(tA, 0.26);
@@ -872,6 +908,8 @@ export function poseBike(m, s, place, heading, t) {
   }
   local(s.rx, s.ry, hipC);
   hipC.y += 0.16;   // (the physics point is the rider's weight; the hips sit a little above it, standing on the pegs)
+  if (pd && pd.seat > 0.01) hipC.lerp(tA.set(pd.saddle.x - 0.04, pd.saddle.y + 0.07, 0), pd.seat);   // (sat on the saddle)
+  hipC.divideScalar(k);
   // a held air trick moves the hips (and below, the hands and feet) towards its pose
   const tk = s.tp > 0 ? TRICK_POSES[s.tk] : null; const tp = tk ? s.tp * s.tp * (3 - 2 * s.tp) : 0;
   if (tk) hipC.add(tA.set(tk.hip[0] * tp, tk.hip[1] * tp, 0));
@@ -880,7 +918,7 @@ export function poseBike(m, s, place, heading, t) {
   const torso = fig ? fig.dims.torso : 0.5; const arm = fig ? fig.dims.arm : 0.6;
   for (let k = 0; k < 6; k++) {
     sho.set(hipC.x + Math.sin(lean) * torso, hipC.y + Math.cos(lean) * torso, 0);
-    const reach = Math.hypot(m.grips.x - sho.x, m.grips.y - sho.y);
+    const reach = Math.hypot(grips.x - sho.x, grips.y - sho.y);
     if (reach > arm * 0.93) lean += 0.08; else if (reach < arm * 0.5) lean -= 0.06; else break;
   }
   headP.set(sho.x + Math.sin(lean * 0.55) * 0.23, sho.y + Math.cos(lean * 0.55) * 0.23, 0);
@@ -889,7 +927,7 @@ export function poseBike(m, s, place, heading, t) {
     const z = i ? 1 : -1;
     // arms: shoulder → elbow (out and up, MX style) → grip
     tB.set(sho.x - 0.02, sho.y - 0.03, z * 0.2);
-    tD.set(m.grips.x, m.grips.y, z * 0.36);
+    tD.set(grips.x, grips.y, z * 0.36);
     if (m.steers) tD.sub(FORK_0).applyQuaternion(qSteer).add(FORK_0);   // (the grips turn with the bars)
     if (tk && tk.hand) tD.lerp(tA.set(sho.x + tk.hand[0], sho.y + tk.hand[1], z * tk.hand[2]), tp);
     if (fig) figLimb(fig, `arm${i}`, tC, tD, poleArm[i]);
@@ -900,11 +938,12 @@ export function poseBike(m, s, place, heading, t) {
     }
     // legs: hip → knee (forward, gripping the bike) → ankle over the peg
     tB.set(hipC.x, hipC.y - 0.03, z * 0.1);
-    tD.set(m.pegs.x - 0.02, m.pegs.y + 0.12, z * 0.2);
+    const peg = pegs[i]; const fz = pd ? 0.13 : 0.2;   // (a bicycle's pedals are closer together than footpegs)
+    tD.set(peg.x - 0.02, peg.y + 0.12, z * fz);
     const foot = tk && (tk.feet || (i === 0 ? tk.foot : null));
     if (foot) tD.lerp(tA.set(foot[0], foot[1], foot[2] * (tk.feet ? z : 1)), tp);
     if (fig) {
-      if (!foot) tD.set(m.pegs.x + fig.dims.foot[0], m.pegs.y + fig.dims.foot[1], z * 0.2);   // (the ball of the foot on the peg)
+      if (!foot) tD.set(peg.x + fig.dims.foot[0], peg.y + fig.dims.foot[1], z * fz);   // (the ball of the foot on the peg)
       figLimb(fig, `leg${i}`, tC, tD, poleLeg[i]); if (!foot) figFootFlat(fig, i);
       continue;
     }
@@ -912,7 +951,7 @@ export function poseBike(m, s, place, heading, t) {
     placeLimb(P.thigh[i], tB, tC); placeLimb(P.shin[i], tC, tD);
     P.knee[i].position.copy(tC).add(V(0.04, 0, 0)); P.knee[i].quaternion.copy(P.shin[i].quaternion);
     if (foot) P.boot[i].position.copy(tD).add(tA.set(0.04, -0.07, 0));
-    else P.boot[i].position.set(m.pegs.x + 0.02, m.pegs.y + 0.05, z * 0.2);
+    else P.boot[i].position.set(peg.x + 0.02, peg.y + 0.05, z * fz);
     P.boot[i].rotation.set(0, 0, 0);
   }
 }

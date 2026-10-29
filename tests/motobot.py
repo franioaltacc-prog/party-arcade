@@ -197,6 +197,12 @@ async def main():
             "v": 1, "st": 0.5, "c2": 0.13, "c3": 9})
     p = await b.wait("g:pos")
     check(p["v"] == 1 and p["st"] == 0.5 and p["c2"] == 0.13 and p["c3"] == 2 and p["ro"] == 0.3, "a supercar's pose (steering, all four springs) reaches the others")
+    b.send({"t": "g:style", "style": {"model": "mx4", "mtb": "tyax"}})
+    st_ = await a.wait("g:lobby")
+    b.send({"t": "g:pos", "x": 3, "px": 1, "pz": 2, "h": 0.5, "y": 300, "a": 0.1, "c0": 0.1, "c1": 0.1, "s": 30, "th": 1, "v": 2})
+    p = await a.wait("g:pos")
+    check(p.get("v") == 2 and p["th"] == 1 and st_["styles"].get(b.uid, {}).get("mtb") == "tyax",
+          "a mountain bike rides the free ride with the dirt bikes: the others see it (and which one), pedalling")
     nc = "MotoC" + U
     c = await player("mbotC" + U + "x", nc)
     c.send({"t": "room:join", "code": j["code"], "game": "moto"}); jc = await c.wait("room:joined")

@@ -35,6 +35,10 @@
     FREE_LAND_SPEED: 8, FREE_LAND_ANGLE: .65, // extra impact absorption for upright cliff landings
     FREE_BOOST_PAD: 16,       // a boost pad's push (m/s²) while your wheels are on it (it fills your turbo too)
     FREE_WHEELIE: [.06, .22], // with all that power the rider leans over the bars from this pitch, and eases off from this one (lean back to wheelie)
+    // Unrevvd's mountain bike (free ride only): the rider's legs push the back wheel with up to FMAX newtons, and no
+    // more than POWER watts once it's rolling (about 40 km/h on the flat, slow up a steep hill, quick down one); Space
+    // sprints (SPRINT times the push) from a meter that empties and refills; DRAG is its air drag (upright rider)
+    MTB: { POWER: 1500, FMAX: 650, DRAG: 1.0, SPRINT: 1.7, SPRINT_USE: 0.22, SPRINT_REGEN: 0.1 },
     G: 10.5,                 // gravity (a touch above real, so jumps don't feel floaty)
     M: 104, I: 17,           // the bike's frame: mass (kg) and how hard it is to spin (the wheels and the rider come on top)
     MR: 70,                  // the rider: a body on springy legs and arms, so bumps aren't passed straight into the bike
@@ -352,7 +356,7 @@
   const SLICE_N = 41;
   function slice(T, b) {
     const G = b.G || (b.G = { x0: 0, dx: 0.25, n: SLICE_N, ys: new Float32Array(SLICE_N), gr: new Float32Array(SLICE_N), kd: new Uint8Array(SLICE_N), rr: new Float32Array(SLICE_N), s: new Float32Array(SLICE_N) });
-    G.free = !!T.terrain; G.engine = T.engine || null;
+    G.free = !!T.terrain; G.engine = T.engine || null; G.mtb = T.mtb || null;
     G.x0 = b.x - (SLICE_N - 1) / 2 * G.dx;
     const c = Math.cos(b.h); const sn = Math.sin(b.h);
     let hint = b.s;
@@ -377,10 +381,12 @@
   }
 
   /** World adapter: deliberately separate from the existing track schema/progression. */
-  /** engine (free ride only): { power, drag, turbo, regen, gear } multipliers from a bought upgrade; null = stock. */
-  function groundTrack(terrain, spawn, engine = null) {
+  /** engine (free ride only): { power, drag, turbo, regen, gear } multipliers from a bought upgrade; null = stock.
+      mtb: ride a mountain bike instead ({ power, drag, sprint, regen } multipliers from Unrevvd upgrades, {} = stock). */
+  function groundTrack(terrain, spawn, engine = null, mtb = null) {
     if (!terrain || !terrain.heightAt || !terrain.surfaceAt || !terrain.normalAt || !terrain.inBounds || !terrain.nearestSafePad) throw new Error('Incomplete world ground adapter');
-    return { terrain, engine, spawn: spawn || { position: terrain.world.spawn, heading: terrain.world.spawnHeading }, start: 0, finish: Infinity, cps: [] };
+    return { terrain, engine: mtb ? null : engine, mtb: mtb ? { power: 1, drag: 1, sprint: 1, regen: 1, ...mtb } : null,
+      spawn: spawn || { position: terrain.world.spawn, heading: terrain.world.spawnHeading }, start: 0, finish: Infinity, cps: [] };
   }
 
   /** The ground point nearest to a circle (cx, cy, r) if it touches: { pen, nx, ny } or null. */
@@ -422,7 +428,7 @@
       scrape: 0, slide: 0, bodyHit: false, lastLand: null,
     };
     place(T, b, T.terrain ? (s || T.spawn) : s == null ? T.start : s, u);
-    if(T.terrain)b.nitro=P.FREE_START_TURBO;
+    if(T.terrain)b.nitro=T.mtb?1:P.FREE_START_TURBO;
     return b;
   }
 
@@ -481,7 +487,7 @@
     const ca = Math.cos(b.a); const sa = Math.sin(b.a);
     let fx = 0; let fy = -P.M * P.G; let tq = 0;
     const speed = Math.hypot(b.vx, b.vy);
-    const drag=P.DRAG*(T.free?P.FREE_DRAG*(T.engine?T.engine.drag:1):1);
+    const drag=T.mtb?P.MTB.DRAG*T.mtb.drag:P.DRAG*(T.free?P.FREE_DRAG*(T.engine?T.engine.drag:1):1);
     fx -= drag * speed * b.vx; fy -= drag * speed * b.vy;
     for (let k = 0; k < 2; k++) {
       const s = P.SUS[k]; const w = b.wh[k]; const r = P.R[k];
@@ -612,33 +618,41 @@
     b.lean += clamp(lean - b.lean, -DT * leanRate, DT * leanRate);
     // nitro
     b.boost = !!(inp.nitro && b.nitro > 0 && !out && !inp.hold && b.finished == null);
-    if (b.boost) b.nitro = Math.max(0, b.nitro - (T.terrain?P.FREE_TURBO_USE:P.NITRO_USE) * DT);
-    else if(T.terrain&&!inp.nitro&&!out&&!inp.hold)b.nitro=Math.min(1,b.nitro+P.FREE_TURBO_REGEN*(T.engine?T.engine.regen:1)*DT);
-    // engine: rpm from the rear wheel through the gearbox, with a slipping clutch at low speed
+    if (b.boost) b.nitro = Math.max(0, b.nitro - (T.mtb?P.MTB.SPRINT_USE:T.terrain?P.FREE_TURBO_USE:P.NITRO_USE) * DT);
+    else if(T.terrain&&!inp.nitro&&!out&&!inp.hold)b.nitro=Math.min(1,b.nitro+(T.mtb?P.MTB.SPRINT_REGEN*T.mtb.regen:P.FREE_TURBO_REGEN*(T.engine?T.engine.regen:1))*DT);
     const rear = b.wh[1];
-    const gears=T.terrain?P.FREE_GEARS:P.GEARS;
-    const ratio = gears[b.gear - 1] / (T.engine ? T.engine.gear : 1);   // (a free-ride engine upgrade gears up for more top speed)
-    const wheelRpm = Math.max(0, rear.sp) * ratio * 60 / TAU;
-    const limit = b.boost ? P.NITRO_LIMIT : P.LIMIT;
-    let target = wheelRpm;
-    let clutch = 1;
-    if (inp.hold) { target = P.IDLE + b.thr * (limit - P.IDLE) * 0.85; clutch = 0; }
-    else if (b.gear === 1 && wheelRpm < P.LAUNCH) { target = Math.max(wheelRpm, P.IDLE + b.thr * (P.LAUNCH - P.IDLE)); clutch = P.CLUTCH_MIN + (1-P.CLUTCH_MIN) * wheelRpm / P.LAUNCH; }
-    else if (!rear.ct && b.thr > 0.1) target = Math.max(wheelRpm, b.rpm);   // in the air the wheel spins up with the engine
-    b.rpm += (Math.max(P.IDLE, target) - b.rpm) * Math.min(1, DT * 14);
-    b.limiter = b.rpm >= limit - 40 && b.thr > 0.5;
-    if (b.shift > 0) b.shift -= DT;
-    else if (!inp.hold && rear.ct) {
-      if (b.rpm > P.UP && b.gear < gears.length && b.thr > 0.3) { b.gear++; b.shift = T.terrain?P.FREE_SHIFT:P.SHIFT; ev.push(['shift', b.gear]); }
-      else if (b.rpm < P.DOWN && b.gear > 1) { b.gear--; b.shift = (T.terrain?P.FREE_SHIFT:P.SHIFT) * 0.6; ev.push(['shift', b.gear]); }
-    }
     let engine = 0;
-    if (b.shift <= 0 && clutch > 0 && b.rpm < limit) {
-      const up = T.engine || { power: 1, turbo: 1 };
-      engine = P.TQ * (T.terrain?P.FREE_TORQUE*up.power:1) * torqueCurve(b.rpm) * b.thr * ratio * clutch * (b.boost ? (T.terrain?P.FREE_TURBO_POWER*up.turbo:P.NITRO_TQ) : 1);
+    if (T.mtb) {
+      // a bicycle: the rider's legs push the back wheel (hard from a standstill, power-limited once rolling)
+      const up = T.mtb; const v = Math.max(1, rear.sp * P.R[1]); const sprint = b.boost ? P.MTB.SPRINT * up.sprint : 1;
+      if (rear.ct && !inp.hold) engine = b.thr * Math.min(P.MTB.FMAX * up.power * sprint, P.MTB.POWER * up.power * sprint / v) * P.R[1];
+      b.rpm = b.thr > 0.15 ? 60 + Math.min(50, v * 4) : 0; b.limiter = false; b.shift = 0;   // (rpm: the pedalling cadence)
+      b.gear = clamp(1 + Math.floor(Math.max(0, b.vx) / 1.6), 1, 12);                         // (the gear you'd be in: just for show)
+    } else {
+      // engine: rpm from the rear wheel through the gearbox, with a slipping clutch at low speed
+      const gears=T.terrain?P.FREE_GEARS:P.GEARS;
+      const ratio = gears[b.gear - 1] / (T.engine ? T.engine.gear : 1);   // (a free-ride engine upgrade gears up for more top speed)
+      const wheelRpm = Math.max(0, rear.sp) * ratio * 60 / TAU;
+      const limit = b.boost ? P.NITRO_LIMIT : P.LIMIT;
+      let target = wheelRpm;
+      let clutch = 1;
+      if (inp.hold) { target = P.IDLE + b.thr * (limit - P.IDLE) * 0.85; clutch = 0; }
+      else if (b.gear === 1 && wheelRpm < P.LAUNCH) { target = Math.max(wheelRpm, P.IDLE + b.thr * (P.LAUNCH - P.IDLE)); clutch = P.CLUTCH_MIN + (1-P.CLUTCH_MIN) * wheelRpm / P.LAUNCH; }
+      else if (!rear.ct && b.thr > 0.1) target = Math.max(wheelRpm, b.rpm);   // in the air the wheel spins up with the engine
+      b.rpm += (Math.max(P.IDLE, target) - b.rpm) * Math.min(1, DT * 14);
+      b.limiter = b.rpm >= limit - 40 && b.thr > 0.5;
+      if (b.shift > 0) b.shift -= DT;
+      else if (!inp.hold && rear.ct) {
+        if (b.rpm > P.UP && b.gear < gears.length && b.thr > 0.3) { b.gear++; b.shift = T.terrain?P.FREE_SHIFT:P.SHIFT; ev.push(['shift', b.gear]); }
+        else if (b.rpm < P.DOWN && b.gear > 1) { b.gear--; b.shift = (T.terrain?P.FREE_SHIFT:P.SHIFT) * 0.6; ev.push(['shift', b.gear]); }
+      }
+      if (b.shift <= 0 && clutch > 0 && b.rpm < limit) {
+        const up = T.engine || { power: 1, turbo: 1 };
+        engine = P.TQ * (T.terrain?P.FREE_TORQUE*up.power:1) * torqueCurve(b.rpm) * b.thr * ratio * clutch * (b.boost ? (T.terrain?P.FREE_TURBO_POWER*up.turbo:P.NITRO_TQ) : 1);
+      }
+      // in the air the wheel can't spin faster than the engine lets it
+      if (!rear.ct && rear.sp * ratio * 60 / TAU > limit) engine = Math.min(engine, 0);
     }
-    // in the air the wheel can't spin faster than the engine lets it
-    if (!rear.ct && rear.sp * ratio * 60 / TAU > limit) engine = Math.min(engine, 0);
     const spin = b.w;
     const flying = !onGround && b.air > 0.12;   // (a wheel just popping off the ground isn't flying yet)
     let leanTq = -b.lean * (flying ? P.LEAN_AIR : P.LEAN_GROUND);

@@ -6,7 +6,7 @@ along the track) a few times a second; the server passes that on so everyone see
 order, checks finish times, decides the places and saves the results. The tracks are data
 (public/js/games/moto/tracks.json), so a track added there can be raced here too.
 
-Free ride together: the host picks a world and everyone rides it at once, on their bike or in their supercar, with
+Free ride together: the host picks a world and everyone rides it at once, on their dirt bike, mountain bike or supercar, with
 no race and no end. People can hop in and out while it's on (and someone joining the room rides straight in);
 the host ends it, or it ends when the last rider leaves."""
 import json
@@ -74,7 +74,7 @@ def clean_style(st):
     """Someone's bike style, rider, rider kit, helmet and race number, tidied up (the browser draws whatever ids it knows)."""
     st = st if isinstance(st, dict) else {}
     out = {}
-    for k in ("model", "rider", "kit", "helmet", "car", "paint"):   # (car and paint: the free-ride supercar)
+    for k in ("model", "rider", "kit", "helmet", "car", "paint", "mtb"):   # (car and paint: the free-ride supercar; mtb: the mountain bike)
         v = str(st.get(k) or "")[:12]
         if v.isalnum() and v.isascii():
             out[k] = v.lower()
@@ -303,6 +303,8 @@ class Moto(Game):
             out["v"] = 1
             for k in ("st", "c2", "c3"):
                 out[k] = round(num(msg.get(k), 0, -2, 2), 3)
+        elif (self.race.get("free") or CHALLENGES.get(self.race.get("challenge"), {}).get("vehicle") == "mtb") and msg.get("v") == 2:
+            out["v"] = 2   # (on a mountain bike: free ride, or an Unrevvd challenge)
         out["x"] = run["x"]
         out["r"] = int(num(msg.get("r"), 1700, 0, 16000))
         out["th"] = round(num(msg.get("th"), 0, 0, 1), 2)

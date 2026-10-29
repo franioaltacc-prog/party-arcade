@@ -1,6 +1,8 @@
 {
-  "about": "Motocross challenges in the open worlds, played solo or by a whole room at once (games/moto/game.py reads this too). kind: race = first to the finish pad (from/to are safe-pad ids); air = longest single jump in seconds; flips = most flips landed; tricks = most trick points; speed = highest speed in km/h. at = a safe-pad id or 'park' (the send-it jump park). limit = seconds.",
+  "about": "Revvd challenges in the open worlds, played solo or by a whole room at once (games/moto/game.py reads this too). kind: race = first to the finish pad (from/to are safe-pad ids); air = longest single jump in seconds; flips = most flips landed; tricks = most trick points; speed = highest speed in km/h. at = a safe-pad id or 'park' (the send-it jump park). limit = seconds. vehicle: 'mtb' = an Unrevvd challenge, ridden on mountain bikes (the rest are on dirt bikes).",
   "challenges": [
+    {"id": "big-drop", "world": "sheerwall", "kind": "race", "name": "The Big Drop", "emoji": "🪂", "from": "top", "to": "river", "limit": 180,
+     "about": "Race from the top of Sheerwall's 400 m cliff down to the valley floor. Take the cliff road, or send it straight off the edge and land it."},
     {"id": "frost-downhill", "world": "frostpeak", "kind": "race", "name": "Summit Downhill", "emoji": "⛷️", "from": "frost-summit", "to": "frost-lake", "limit": 240,
      "about": "From the Frostpeak summit down to the frozen lake. Any line you like: first one down wins."},
     {"id": "red-mesa-dash", "world": "redrock", "kind": "race", "name": "Mesa Dash", "emoji": "🏜️", "from": "mesa", "to": "camp", "limit": 240,
@@ -28,6 +30,20 @@
     {"id": "bay-dash", "world": "emeraldbay", "kind": "race", "name": "Peak to Beach", "emoji": "🏝️", "from": "peak", "to": "shack", "limit": 240,
      "about": "From the top of Parrot Peak down to the Surf Shack. Any line you like, but not through the lagoon."},
     {"id": "bay-flips", "world": "emeraldbay", "kind": "flips", "name": "Splash Flips", "emoji": "🤸", "at": "park", "limit": 120,
-     "about": "Two minutes at the beach jump park to land as many flips as you can."}
+     "about": "Two minutes at the beach jump park to land as many flips as you can."},
+    {"id": "wild-send", "world": "wildwood", "kind": "race", "name": "Summit Send", "emoji": "🚵", "from": "summit", "to": "trailhead", "limit": 300, "vehicle": "mtb",
+     "about": "From the Summit Hut down to the Trailhead. The flow trail, the rock garden or straight through the trees: first one down wins."},
+    {"id": "wild-grind", "world": "wildwood", "kind": "race", "name": "The Grind", "emoji": "⛰️", "from": "trailhead", "to": "summit", "limit": 600, "vehicle": "mtb",
+     "about": "Pedal from the Trailhead all the way up to the Summit Hut. Pace yourself: your sprint refills when you let go of it."},
+    {"id": "wild-air", "world": "wildwood", "kind": "air", "name": "Bike Park Air", "emoji": "🚀", "at": "park", "limit": 90, "vehicle": "mtb",
+     "about": "90 seconds at the bike park's jump line. Your single longest jump counts (land it!)."},
+    {"id": "wild-flips", "world": "wildwood", "kind": "flips", "name": "Backflip Bonanza", "emoji": "🤸", "at": "park", "limit": 120, "vehicle": "mtb",
+     "about": "Two minutes on the jump line to land as many flips as you can on a mountain bike."},
+    {"id": "wild-speed", "world": "wildwood", "kind": "speed", "name": "Terminal Velocity", "emoji": "⚡", "at": "summit", "limit": 60, "vehicle": "mtb",
+     "about": "One minute from the top of the mountain to hit your top speed. Point it downhill and hold on. Stock legs only!"},
+    {"id": "pine-mtb", "world": "pinecrest", "kind": "race", "name": "Cloudbreak on Two Wheels", "emoji": "🌲", "from": "summit", "to": "ranger", "limit": 420, "vehicle": "mtb",
+     "about": "The Cloudbreak Descent on a mountain bike: from the lookout tower down to Ranger Valley."},
+    {"id": "frost-mtb", "world": "frostpeak", "kind": "race", "name": "Snow Shredder", "emoji": "❄️", "from": "frost-summit", "to": "frost-lake", "limit": 480, "vehicle": "mtb",
+     "about": "Bomb down from the Frostpeak summit to the frozen lake on a mountain bike. Mind the ice!"}
   ]
 }

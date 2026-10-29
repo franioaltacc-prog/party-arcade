@@ -312,6 +312,28 @@ with an import map), everything else is drawn and synthesised in code (no model,
   On localhost, `window.__moto.advance(seconds, controls)` drives the game by hand and `window.__moto.drawMenu()` draws
   one frame of the menu scene (the browser pane used for testing barely runs animation frames).
 
+**v3.14.0: Unrevvd (mountain bikes) and the Big Drop.** The 🚵 **Unrevvd** tab is Revvd on mountain bikes: free ride
+(the new Wildwood Bike Park, plus every other world), seven Unrevvd challenges (`"vehicle": "mtb"` in
+`challenges.json`), its own coins and upgrades, and riding free with dirt bikes in a room.
+- **Physics:** `MotoCore.groundTrack(terrain, spawn, null, mtb)` with `mtb` = `{ power, drag, sprint, regen }`
+  multipliers (`{}` = stock). The rider's legs push the back wheel with up to `P.MTB.FMAX` newtons and no more than
+  `P.MTB.POWER` watts (about 37 km/h on the flat, 12 km/h up a 20% hill, 85 km/h coasting down a steep one), with its
+  own air drag; Space sprints from a meter that refills. Same frame, suspension, tricks and crashes as the dirt bike.
+- **Coins:** `coins.js` keeps two wallets: Revvd's (`moto_coins_v1`, `ENGINES`) and Unrevvd's (`MTB`, `mtb_coins_v1`,
+  `MTB_PARTS`); `tests/mototest.js` checks the mountain bike's speeds and each upgrade's listed top speeds.
+- **Bikes:** `public/models/mtb/downhill.glb` and `tyax.glb` (CC BY, see the credits), made with
+  `tools/split_bike.py` (bakes, turns the bike to face +Z, splits the wheels and cranks into their own parts, merges
+  close vertices) and then `tools/pack_rider.py` (smaller textures). In `bike.js` their `FILES` entries also give the
+  bottom bracket, a pedal, the saddle and a bigger rider (`rider: 1.1–1.2`): the cranks turn round the bottom bracket,
+  the feet follow the pedals, and the rider sits on the saddle while pedalling and stands up on level pedals to coast.
+- **Multiplayer:** in a free ride each rider picks 🏍️ / 🚵 / 🏎️ in the room; a mountain bike's `g:pos` has `v: 2` and
+  its model is the `mtb` style key. Unrevvd challenges are ridden by everyone on mountain bikes.
+- **Worlds:** `tools/make_worlds.py` writes **Wildwood Bike Park** (`"bike": true`; a forested mountain with a long
+  climb, a flow trail, a rock garden, a jump garden and bike-sized gap jumps) and **Sheerwall Mesa**: a 420 m cliff
+  (`terrain.scarp` in `terrain.mjs`: a wall across the map, the high ground to the north) with a road cut down its
+  face. Its challenge, **The Big Drop** (dirt bikes), races from the Cliff Top to the valley floor: take the road, or
+  ride off the edge (the free-ride landing absorbs an upright landing).
+
 ## Billiards
 Top-down pool with real physics (spin, banks, kisses, rattling jaws). `public/js/games/pool-core.js` is the table, the
 physics and the 8-ball / 9-ball rules with no drawing; `games/pool_core.py` is a line-by-line Python port that gives

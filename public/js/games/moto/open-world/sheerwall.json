@@ -1,0 +1,869 @@
+{
+  "schemaVersion": 1,
+  "id": "sheerwall",
+  "name": "Sheerwall Mesa",
+  "tagline": "One way down. Make it quick.",
+  "theme": "desert",
+  "seed": 9137,
+  "size": [
+    3600,
+    3600
+  ],
+  "baseHeight": 30,
+  "spawn": [
+    -1100,
+    1100
+  ],
+  "spawnHeading": 2.356194,
+  "palette": {
+    "sky": "#e8c7a4",
+    "low": "#a85a3a",
+    "high": "#e9b483",
+    "trail": "#d9a77a",
+    "water": "#3b8e8a",
+    "accent": "#ff6a3c"
+  },
+  "look": {
+    "sky": {
+      "sun": [
+        32,
+        200
+      ],
+      "turbidity": 6,
+      "rayleigh": 2.4,
+      "mie": 0.008,
+      "exposure": 1.1,
+      "fog": 0.3,
+      "fogColor": "#e6c3a0"
+    },
+    "rock": [
+      [
+        126,
+        52,
+        40
+      ],
+      [
+        222,
+        132,
+        92
+      ]
+    ],
+    "dirt": [
+      [
+        168,
+        98,
+        64
+      ],
+      [
+        228,
+        166,
+        120
+      ]
+    ]
+  },
+  "terrain": {
+    "noise": 9,
+    "scale": 260,
+    "hills": [
+      [
+        -1000,
+        -1150,
+        60,
+        500,
+        400
+      ],
+      [
+        1000,
+        -1100,
+        80,
+        520,
+        420
+      ],
+      [
+        900,
+        1000,
+        90,
+        480,
+        420
+      ],
+      [
+        -1050,
+        950,
+        50,
+        460,
+        420
+      ]
+    ],
+    "scarp": {
+      "z": -150,
+      "amplitude": 140,
+      "wavelength": 640,
+      "height": 420,
+      "edge": 160
+    }
+  },
+  "regions": [
+    {
+      "name": "Valley Camp",
+      "position": [
+        -1100,
+        1100
+      ]
+    },
+    {
+      "name": "Cliff Top",
+      "position": [
+        0,
+        -380
+      ]
+    },
+    {
+      "name": "Eagle Point",
+      "position": [
+        -1150,
+        -950
+      ]
+    },
+    {
+      "name": "Valley Floor",
+      "position": [
+        0,
+        650
+      ]
+    },
+    {
+      "name": "Dust Ranch",
+      "position": [
+        1100,
+        900
+      ]
+    },
+    {
+      "name": "Mesa Ruins",
+      "position": [
+        1100,
+        -1050
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "id": "cliff-road",
+      "name": "Cliff Road",
+      "points": [
+        [
+          -1450,
+          -560
+        ],
+        [
+          -1350,
+          -390
+        ],
+        [
+          -1200,
+          -390
+        ],
+        [
+          -1050,
+          -383
+        ],
+        [
+          -900,
+          -368
+        ],
+        [
+          -750,
+          -346
+        ],
+        [
+          -600,
+          -316
+        ],
+        [
+          -450,
+          -281
+        ],
+        [
+          -300,
+          -240
+        ],
+        [
+          -150,
+          -196
+        ],
+        [
+          0,
+          -150
+        ],
+        [
+          150,
+          -104
+        ],
+        [
+          300,
+          -60
+        ],
+        [
+          450,
+          -19
+        ],
+        [
+          600,
+          16
+        ],
+        [
+          750,
+          46
+        ],
+        [
+          900,
+          68
+        ],
+        [
+          1050,
+          83
+        ],
+        [
+          1200,
+          90
+        ],
+        [
+          1350,
+          90
+        ],
+        [
+          1450,
+          450
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "mesa-loop",
+      "name": "Mesa Loop",
+      "points": [
+        [
+          -1450,
+          -560
+        ],
+        [
+          -1300,
+          -1150
+        ],
+        [
+          -700,
+          -1400
+        ],
+        [
+          0,
+          -1300
+        ],
+        [
+          700,
+          -1400
+        ],
+        [
+          1300,
+          -1150
+        ],
+        [
+          1400,
+          -560
+        ],
+        [
+          700,
+          -700
+        ],
+        [
+          0,
+          -650
+        ],
+        [
+          -700,
+          -720
+        ],
+        [
+          -1450,
+          -560
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20,
+      "closed": true
+    },
+    {
+      "id": "top-link",
+      "name": "Cliff Top Trail",
+      "points": [
+        [
+          0,
+          -650
+        ],
+        [
+          0,
+          -380
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "valley-loop",
+      "name": "Valley Loop",
+      "points": [
+        [
+          -1100,
+          1100
+        ],
+        [
+          -1450,
+          450
+        ],
+        [
+          -800,
+          330
+        ],
+        [
+          0,
+          400
+        ],
+        [
+          800,
+          330
+        ],
+        [
+          1450,
+          450
+        ],
+        [
+          1100,
+          900
+        ],
+        [
+          400,
+          1350
+        ],
+        [
+          -400,
+          1350
+        ],
+        [
+          -1100,
+          1100
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20,
+      "closed": true
+    },
+    {
+      "id": "camp-road",
+      "name": "Camp Road",
+      "points": [
+        [
+          -1100,
+          1100
+        ],
+        [
+          -600,
+          800
+        ],
+        [
+          0,
+          650
+        ],
+        [
+          600,
+          750
+        ],
+        [
+          1100,
+          900
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "eagle-link",
+      "name": "Eagle Trail",
+      "points": [
+        [
+          -1300,
+          -1150
+        ],
+        [
+          -1150,
+          -950
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    }
+  ],
+  "spots": [
+    {
+      "id": "camp",
+      "name": "Valley Camp",
+      "position": [
+        -1100,
+        1100
+      ],
+      "kind": "camp",
+      "radius": 24,
+      "about": "Shared spawn at the foot of the cliff."
+    },
+    {
+      "id": "top",
+      "name": "Cliff Top",
+      "position": [
+        0,
+        -380
+      ],
+      "kind": "lookout",
+      "radius": 24,
+      "about": "The edge of the mesa. It's a long way down."
+    },
+    {
+      "id": "eagle",
+      "name": "Eagle Point",
+      "position": [
+        -1150,
+        -950
+      ],
+      "kind": "tower",
+      "radius": 24,
+      "about": "A watchtower on the far side of the mesa."
+    },
+    {
+      "id": "river",
+      "name": "Valley Floor",
+      "position": [
+        0,
+        650
+      ],
+      "kind": "checkpoint",
+      "radius": 24,
+      "about": "Right under the cliff: the finish of the Big Drop."
+    },
+    {
+      "id": "ranch",
+      "name": "Dust Ranch",
+      "position": [
+        1100,
+        900
+      ],
+      "kind": "yard",
+      "radius": 24,
+      "about": "A ranch yard with a quick sprint."
+    },
+    {
+      "id": "ruins",
+      "name": "Mesa Ruins",
+      "position": [
+        1100,
+        -1050
+      ],
+      "kind": "ruin",
+      "radius": 24,
+      "about": "Old stone walls up on top."
+    }
+  ],
+  "races": [
+    {
+      "id": "sheer-descent",
+      "name": "Cliff Road Descent",
+      "route": "cliff-road",
+      "type": "downhill",
+      "difficulty": "hard",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    },
+    {
+      "id": "sheer-mesa",
+      "name": "Mesa Rally",
+      "route": "mesa-loop",
+      "type": "circuit",
+      "difficulty": "medium",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    },
+    {
+      "id": "sheer-valley",
+      "name": "Valley Loop",
+      "route": "valley-loop",
+      "type": "circuit",
+      "difficulty": "easy",
+      "laps": 2,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    },
+    {
+      "id": "sheer-camp",
+      "name": "Camp Road Sprint",
+      "route": "camp-road",
+      "type": "circuit",
+      "difficulty": "easy",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    }
+  ],
+  "interactions": [
+    {
+      "id": "board",
+      "name": "Valley Camp race board",
+      "position": [
+        -1060,
+        1100
+      ],
+      "kind": "race-board",
+      "radius": 18,
+      "event": "race.offer",
+      "about": "Choose a mini race and invite nearby friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "jam",
+      "name": "Dust Ranch trick jam",
+      "position": [
+        1050,
+        880
+      ],
+      "kind": "trick-zone",
+      "radius": 18,
+      "event": "trick.land",
+      "about": "Share a two-minute trick score with friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "camera",
+      "name": "Cliff Top photo perch",
+      "position": [
+        0,
+        -380
+      ],
+      "kind": "photo",
+      "radius": 18,
+      "event": "photo.capture",
+      "about": "Get the whole group into a summit picture.",
+      "cooldownSeconds": 10
+    }
+  ],
+  "ramps": [
+    {
+      "id": "camp-double",
+      "position": [
+        -700,
+        950
+      ],
+      "heading": 2.2,
+      "length": 90,
+      "width": 18,
+      "height": 7
+    },
+    {
+      "id": "ranch-table",
+      "position": [
+        950,
+        700
+      ],
+      "heading": 0.6,
+      "length": 100,
+      "width": 24,
+      "height": 9
+    }
+  ],
+  "surfaceZones": [
+    {
+      "id": "valley-dust",
+      "position": [
+        500,
+        900
+      ],
+      "radius": 200,
+      "surface": "sand",
+      "grip": 0.78,
+      "roll": 0.025
+    },
+    {
+      "id": "mesa-gravel",
+      "position": [
+        -400,
+        -1000
+      ],
+      "radius": 150,
+      "surface": "gravel",
+      "grip": 0.8,
+      "roll": 0.02
+    }
+  ],
+  "quests": [
+    {
+      "id": "sheerwall-welcome",
+      "name": "Welcome to Sheerwall Mesa",
+      "start": "camp",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "eagle",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "ranch",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "camp",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "sheerwall-summit",
+      "name": "Top of the World",
+      "start": "camp",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "top",
+          "count": 1
+        },
+        {
+          "event": "photo.capture",
+          "target": "camera",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    }
+  ],
+  "coordinateSystem": {
+    "units": "metres",
+    "horizontal": [
+      "x",
+      "z"
+    ],
+    "up": "y",
+    "heading": "radians: 0 points +z; positive rotates towards +x"
+  },
+  "status": "Made by tools/make_worlds.py.",
+  "boundary": {
+    "softMargin": 100,
+    "policy": "warn-and-respawn",
+    "respawn": "last-safe-pad",
+    "cliffWidth": 300,
+    "cliffHeight": 520,
+    "sceneryApron": 1600
+  },
+  "spawnPads": [
+    {
+      "id": "spawn-1",
+      "position": [
+        -1124,
+        1082
+      ],
+      "heading": 2.356194
+    },
+    {
+      "id": "spawn-2",
+      "position": [
+        -1119,
+        1082
+      ],
+      "heading": 2.356194
+    },
+    {
+      "id": "spawn-3",
+      "position": [
+        -1114,
+        1082
+      ],
+      "heading": 2.356194
+    },
+    {
+      "id": "spawn-4",
+      "position": [
+        -1124,
+        1076
+      ],
+      "heading": 2.356194
+    },
+    {
+      "id": "spawn-5",
+      "position": [
+        -1119,
+        1076
+      ],
+      "heading": 2.356194
+    },
+    {
+      "id": "spawn-6",
+      "position": [
+        -1114,
+        1076
+      ],
+      "heading": 2.356194
+    }
+  ],
+  "safePads": [
+    {
+      "id": "camp",
+      "position": [
+        -1100,
+        1100
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -1124,
+        1082
+      ]
+    },
+    {
+      "id": "top",
+      "position": [
+        0,
+        -380
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -24,
+        -398
+      ]
+    },
+    {
+      "id": "eagle",
+      "position": [
+        -1150,
+        -950
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -1174,
+        -968
+      ]
+    },
+    {
+      "id": "river",
+      "position": [
+        0,
+        650
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -24,
+        632
+      ]
+    },
+    {
+      "id": "ranch",
+      "position": [
+        1100,
+        900
+      ],
+      "radius": 32,
+      "riderPosition": [
+        1076,
+        882
+      ]
+    },
+    {
+      "id": "ruins",
+      "position": [
+        1100,
+        -1050
+      ],
+      "radius": 32,
+      "riderPosition": [
+        1076,
+        -1068
+      ]
+    }
+  ],
+  "features": {
+    "gaps": [
+      {
+        "id": "mesa-chasm",
+        "kind": "chasm",
+        "route": "mesa-loop",
+        "at": 0.3,
+        "side": 1,
+        "gap": 54,
+        "height": 4.1,
+        "width": 28
+      },
+      {
+        "id": "valley-chasm",
+        "kind": "chasm",
+        "route": "valley-loop",
+        "at": 0.55,
+        "side": -1,
+        "gap": 47,
+        "height": 3.7,
+        "width": 28
+      }
+    ],
+    "pools": [
+      {
+        "id": "ranch-tar",
+        "kind": "tar",
+        "position": [
+          700,
+          1150
+        ],
+        "radius": [
+          32,
+          24
+        ],
+        "turn": 0.4,
+        "trail": 30
+      }
+    ]
+  }
+}

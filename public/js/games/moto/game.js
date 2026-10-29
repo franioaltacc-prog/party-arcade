@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildWorld } from './world.js';
-import { makeBike, poseBike, disposeBike, preloadBike, bikesLoaded, LIVERIES, MODELS, RIDERS, KITS, HELMETS } from './bike.js';
+import { makeBike, poseBike, disposeBike, preloadBike, bikesLoaded, LIVERIES, MODELS, MTB_MODELS, RIDERS, KITS, HELMETS } from './bike.js';
 import { createAudio } from './sound.js';
 import { createMenus } from './menus.js';
 import {buildRideWorld} from './open-world/ride-world.mjs';
@@ -24,7 +24,8 @@ let DATA = null; let WORLDS = []; let CHALLENGES = [];
 const builtTracks = new Map();
 const trackDef = (id) => DATA.tracks.find((t) => t.id === id) || DATA.tracks[0];
 const physicsTrack = (def) => { if (!builtTracks.has(def.id)) builtTracks.set(def.id, C.build(def)); return builtTracks.get(def.id); };
-const prefs = Object.assign({ cam: 'chase', quality: 'auto', livery: 'factory', mode: 'solo', track: 'desert', minimap: 'on', physics: 'og', vehicle: 'bike', carModel: 'revuelto', carPaint: 'arancio' }, store.get('moto_prefs', {}));
+const prefs = Object.assign({ cam: 'chase', quality: 'auto', livery: 'factory', mode: 'solo', track: 'desert', minimap: 'on', physics: 'og', vehicle: 'bike', carModel: 'revuelto', carPaint: 'arancio', mtbModel: 'dh', mtbWorld: 'wildwood' }, store.get('moto_prefs', {}));
+if (!MTB_MODELS[prefs.mtbModel]) prefs.mtbModel = 'dh';
 const savePrefs = () => store.set('moto_prefs', prefs);
 // OG physics: a tumble plays out until you land on your wheels or your head. NEW: over on your side or roof is a
 // crash straight away, the wreck stops bouncing about and you're back riding sooner
@@ -66,7 +67,16 @@ const myLivery = () => (Account.user && Account.user.look && Account.user.look.b
 // your bike style, rider kit, helmet and race number (free to pick; only looks)
 prefs.style = Object.assign({ model: 'mx4', rider: 'biker', kit: 'match', helmet: 'match', number: null }, prefs.style);
 const myLook = () => ({ ...prefs.style, livery: myLivery() });
-const netStyle = () => ({ ...prefs.style, car: prefs.carModel, paint: prefs.carPaint });   // (what the room sees: bike, rider and supercar)
+const mtbLook = () => ({ ...myLook(), model: prefs.mtbModel });   // (Unrevvd: your mountain bike, same rider)
+const netStyle = () => ({ ...prefs.style, car: prefs.carModel, paint: prefs.carPaint, mtb: prefs.mtbModel });   // (what the room sees: bike, rider, supercar and mountain bike)
+/** Pick your Unrevvd mountain bike. */
+function setMtbModel(id) {
+  if (!MTB_MODELS[id]) return;
+  prefs.mtbModel = id; savePrefs();
+  if (window.Room && Room.code) Net.send('g:style', { style: netStyle() });
+  Sfx.play('click'); menus.refresh();
+  preloadBike(id).then(() => placeStage());
+}
 function setStyle(patch) {
   prefs.style = { ...prefs.style, ...patch }; savePrefs();
   if (window.Room && Room.code) Net.send('g:style', { style: netStyle() });   // (so the others see it)
@@ -120,7 +130,7 @@ function loadWorld(def) {
 
 // ------------------------------------------------------------------ the ride
 const R = {
-  V: C, car: false,   // (the physics: MotoCore's bike, or car.js's supercar in free ride)
+  V: C, car: false, mtb: false,   // (the physics: MotoCore's bike (mtb: a mountain bike), or car.js's supercar in free ride)
   running: false, mode: 'solo', def: null, T: null, bike: null, model: null, prev: null, cur: null,
   goAt: 0, acc: 0, last: 0, finished: false, spectate: false, lane: 0, camMode: prefs.cam,
   cam: { pos: new THREE.Vector3(), look: new THREE.Vector3(), fov: 60, shake: 0, init: false },
@@ -137,7 +147,7 @@ function snap(b) {
   return {
     x: b.x, y: b.y, a: b.a, wf: [f.x, f.y, f.ang], wr: [r.x, r.y, r.ang], rx: b.rx, ry: b.ry, lean: b.lean, px: b.px, pz: b.pz, h: b.h, s: b.s,
     boost: b.boost, crashed: b.crashed, ragdoll: b.rider ? { hip: { x: b.rider.hip.x, y: b.rider.hip.y }, head: { x: b.rider.head.x, y: b.rider.head.y } } : null,
-    tk: b.tk, tp: b.pose, wh: b.whip, sp: b.spin,
+    tk: b.tk, tp: b.pose, wh: b.whip, sp: b.spin, th: b.thr, v: Math.hypot(b.vx, b.vy),
     car: b.car ? { p: b.pitch, r: b.roll, st: b.steer, w: [b.wspin[0], b.wspin[1]], c: [...b.comp] } : null,
   };
 }
@@ -148,7 +158,7 @@ function mix(p, q, t) {
     x: L(p.x, q.x), y: L(p.y, q.y), a: lerpA(p.a, q.a, t), lean: L(p.lean, q.lean), rx: L(p.rx, q.rx), ry: L(p.ry, q.ry),
     px: L(p.px, q.px), pz: L(p.pz, q.pz), h: lerpA(p.h, q.h, t), s: L(p.s, q.s),
     wf: [L(p.wf[0], q.wf[0]), L(p.wf[1], q.wf[1]), L(p.wf[2], q.wf[2])], wr: [L(p.wr[0], q.wr[0]), L(p.wr[1], q.wr[1]), L(p.wr[2], q.wr[2])],
-    tk: q.tk, tp: L(p.tp || 0, q.tp || 0), wh: L(p.wh || 0, q.wh || 0), sp: q.sp ? (p.sp && p.sp <= q.sp ? L(p.sp, q.sp) : q.sp) : 0,
+    tk: q.tk, tp: L(p.tp || 0, q.tp || 0), wh: L(p.wh || 0, q.wh || 0), sp: q.sp ? (p.sp && p.sp <= q.sp ? L(p.sp, q.sp) : q.sp) : 0, th: q.th, v: L(p.v || 0, q.v || 0),
     car: q.car && p.car ? { p: lerpA(p.car.p, q.car.p, t), r: lerpA(p.car.r, q.car.r, t), st: L(p.car.st, q.car.st), w: [L(p.car.w[0], q.car.w[0]), L(p.car.w[1], q.car.w[1])], c: q.car.c.map((v, i) => L(p.car.c[i], v)) } : q.car,
     boost: q.boost, crashed: q.crashed, ragdoll: q.ragdoll && p.ragdoll ? { hip: { x: L(p.ragdoll.hip.x, q.ragdoll.hip.x), y: L(p.ragdoll.hip.y, q.ragdoll.hip.y) }, head: { x: L(p.ragdoll.head.x, q.ragdoll.head.x), y: L(p.ragdoll.head.y, q.ragdoll.head.y) } } : q.ragdoll,
   };
@@ -198,7 +208,7 @@ function begin(def, mode, goAt) {
     R.bike = C.newBike(R.T, R.T.start, R.lane);
     R.prev = R.cur = snap(R.bike);
     if (R.model) disposeModel(R.model);
-    R.V = C; R.car = false;
+    R.V = C; R.car = false; R.mtb = false;
     R.model = makeBike(myLook());
     R.model.root.visible = !R.spectate;
     world.scene.add(R.model.root);
@@ -281,7 +291,7 @@ function physicsStep(now) {
   if(R.trial && !holding && !b.crashed){
     const event=stepTrial(R.trial,before,{x:b.px,y:b.y,z:b.pz},DT);
     if(event==='finish'){
-      const key=trialBestKey(R.def.id,R.trial.race.id),ms=Math.round(R.trial.time*1000),best=store.get(key,null);
+      const key=trialBestKey(R.def.id+(R.mtb?'-mtb':''),R.trial.race.id),ms=Math.round(R.trial.time*1000),best=store.get(key,null);
       if(!best||ms<best.ms)store.set(key,{ms});
       payCoins(!best||ms<best.ms?50:30);
       showMessage(`FINISHED ${fmt(ms/1000)} · ${!best||ms<best.ms?'NEW BEST!':'Best '+fmt(best.ms/1000)}`,'cp',6000);
@@ -556,8 +566,8 @@ function effects(s, dt, place) {
   if (b.scrub > 0.15) emitAt(rear.x, rear.y - 0.33, 1 + Math.floor(b.scrub * 4), 'chunk', 1.1, -Math.sign(b.yaw) * 4);
   if (!b.crashed && b.wh[0].ct && b.brk > 0.5 && speed > 4) emitAt(b.wh[0].x, b.wh[0].y - 0.33, 1, 'puff', 0.5);
   if (b.crashed && speed > 2 && Math.random() < 0.5) emitAt(b.x, b.y - 0.3, 2, 'puff', 0.8);
-  // exhaust
-  if (Math.random() < 0.18 + b.thr * 0.3) {
+  // exhaust (not on a bicycle)
+  if (!R.mtb && Math.random() < 0.18 + b.thr * 0.3) {
     const ex = R.model.root.localToWorld(R.car ? tmpV.set(-2.36, -0.32, Math.random() < 0.5 ? -0.24 : 0.24) : tmpV.set(-0.82, 0.4, 0.17));
     fx.puff(ex.x, ex.y, ex.z, -D[0] * 0.6, 0.25, -D[1] * 0.6, { life: 0.8, size: 0.12, grow: 0.7, alpha: b.boost ? 0 : 0.12, drag: 1, color: fx.colors.smoke });
   }
@@ -589,7 +599,7 @@ function hud(now) {
   $('#hud-nitro').parentNode.classList.toggle('on', b.boost);
   $('#hud-nitro').parentNode.classList.toggle('full', b.nitro >= 0.999);
   $('#hud-sub').textContent = R.spectate ? 'WATCHING THE LEADER' : R.mode === 'online' && state.race ? `P${myPlace()} / ${Object.keys(state.race.runners).length}  ·  CP ${b.cp + 1}/${T.cps.length}` : `CHECKPOINT ${b.cp + 1} / ${T.cps.length}`;
-  $('#hud-left').textContent = R.mode==='free' ? R.trial ? `${R.trial.race.name} · LAP ${R.trial.lap}/${R.trial.race.laps}` : 'FREE RIDE · SPACE TURBO · R SAFE PAD' : `${Math.max(0, Math.round(T.finish - b.s))} M LEFT`;
+  $('#hud-left').textContent = R.mode==='free' ? R.trial ? `${R.trial.race.name} · LAP ${R.trial.lap}/${R.trial.race.laps}` : R.mtb ? 'UNREVVD · SPACE SPRINT · R SAFE PAD' : 'FREE RIDE · SPACE TURBO · R SAFE PAD' : `${Math.max(0, Math.round(T.finish - b.s))} M LEFT`;
   if(R.mode==='free')$('#hud-sub').textContent=R.trial?`GATE ${Math.min(R.trial.next+1,R.trial.gates.length)} / ${R.trial.gates.length}`:'EXPLORE AT YOUR OWN PACE';
   const ch = R.challenge;
   if (ch) {
@@ -654,7 +664,9 @@ async function startFree(entry, opts = {}){
   fill($('#hud-center'),h('div',{class:'mx-loading'},'Building '+entry.name+'…'));$('#hud-time').closest('.mx-tr').hidden=true;
   try{
     const response=await fetch('/js/games/moto/open-world/'+entry.file);if(!response.ok)throw new Error('World unavailable');
-    const def=await response.json();await preloadBike(myLook().model);if(prefs.vehicle==='car')await preloadCar(prefs.carModel);if(!riding||R.ride!==ride)return;
+    // on a mountain bike: an Unrevvd challenge, Unrevvd's free ride (opts.mtb), or a room's free ride with it picked
+    const mtb=ch?ch.vehicle==='mtb':opts.online?prefs.vehicle==='mtb':!!opts.mtb;
+    const def=await response.json();await preloadBike(mtb?prefs.mtbModel:myLook().model);if(!ch&&!mtb&&prefs.vehicle==='car')await preloadCar(prefs.carModel);if(!riding||R.ride!==ride)return;
     for(const o of R.others.values())dropOther(o);R.others.clear();
     if(R.model){disposeModel(R.model);R.model=null;}
     for(const sb of stage.bikes.values()){sb.model.root.removeFromParent();sb.tag?.removeFromParent();}
@@ -672,28 +684,30 @@ async function startFree(entry, opts = {}){
       if(R.freeOnline){const side=laneFor(Net.id)*3;spawn.position=[pad.position[0]+Math.cos(spawn.heading)*side,pad.position[1]-Math.sin(spawn.heading)*side];}   // (riding together: side by side)
       engine=Coins.engineOf().stats;   // (bought engine upgrades only work in free ride)
     }
-    // the bike, or (free ride on your own) the supercar
-    R.car=!ch&&prefs.vehicle==='car';R.V=R.car?Car:C;
-    R.T=C.groundTrack(world.ground,spawn,engine);R.bike=R.V.newBike(R.T);
-    R.model=R.car?makeCar(prefs.carModel,prefs.carPaint):makeBike(myLook());world.scene.add(R.model.root);
+    // the dirt bike, the mountain bike (its upgrades only in free ride too) or the supercar
+    R.mtb=mtb;R.car=!ch&&!mtb&&prefs.vehicle==='car';R.V=R.car?Car:C;
+    R.T=C.groundTrack(world.ground,spawn,engine,mtb?(ch?{}:Coins.MTB.current().stats):null);R.bike=R.V.newBike(R.T);
+    R.model=R.car?makeCar(prefs.carModel,prefs.carPaint):makeBike(mtb?mtbLook():myLook());world.scene.add(R.model.root);
     if(opts.online&&state.race){fillOthers(state.race);if(ch)for(const o of R.others.values())addOtherModel(o);}   // (free ride: each rider's bike or car appears with their first message)
     R.prev=R.cur=snap(R.bike);R.acc=0;R.last=performance.now();R.finished=false;R.cam.init=false;R.stuck=0;R.emitAcc=0;R.roll=0;R.best=null;R.beeped=0;R.safeTrail=[];R.retry=null;R.toPad=false;
     R.goAt=ch?Math.max(opts.goAt||0,performance.now()+(opts.online?600:3200)):0;R.gateDown=!ch;
-    R.trialMarker=null;R.finishMarker=finish?finishBeacon(finish):null;R.audio=createAudio();$('.mx-nlab').textContent='TURBO · SPACE / SHIFT';$('#mx-trials').hidden=!!ch;
+    R.trialMarker=null;R.finishMarker=finish?finishBeacon(finish):null;R.audio=createAudio({pedal:mtb});$('.mx-nlab').textContent=mtb?'SPRINT · SPACE / SHIFT':'TURBO · SPACE / SHIFT';$('#mx-trials').hidden=!!ch;
     $('#hud-track').textContent=ch?`${ch.emoji} ${ch.name}`:def.name;
-    fill($('#hud-center'));resize();drawMapBase();coinHud(Coins.wallet().coins,0);R.running=true;requestAnimationFrame(frame);
+    fill($('#hud-center'));resize();drawMapBase();coinHud(purse().wallet().coins,0);R.running=true;requestAnimationFrame(frame);
     const url=new URL(location.href);url.searchParams.delete('solo');url.searchParams.delete('track');
     if(ch){url.searchParams.delete('free');url.searchParams.delete('world');history.replaceState(null,'',url);showMessage(ch.about,'small',5000);}
-    else{prefs.world=def.id;savePrefs();url.searchParams.set('free','1');url.searchParams.set('world',def.id);history.replaceState(null,'',url);
-      showMessage(R.freeOnline?'FREE RIDE TOGETHER · Esc goes back to the room':'FREE RIDE · Collect the gold coins · Space / Shift turbo · R resets','small',4500);}
+    else{if(mtb)prefs.mtbWorld=def.id;else prefs.world=def.id;savePrefs();url.searchParams.set('free','1');url.searchParams.set('world',def.id);if(mtb&&!R.freeOnline)url.searchParams.set('mtb','1');else url.searchParams.delete('mtb');history.replaceState(null,'',url);
+      showMessage(R.freeOnline?'FREE RIDE TOGETHER · Esc goes back to the room':mtb?'UNREVVD · W pedals · Space / Shift sprint · R resets':'FREE RIDE · Collect the gold coins · Space / Shift turbo · R resets','small',4500);}
   }catch(error){console.error(error);UI.toast('Could not load that world','bad');quit();}
 }
 
 // ------------------------------------------------------------------ coins
+/** The coins you're earning: Revvd's, or Unrevvd's on a mountain bike. */
+const purse = (mtb = R.mtb) => (mtb ? Coins.MTB : Coins);
 /** Earn coins (fractions add up); pop shows "+n" by the counter. */
-function payCoins(n, pop = true) {
-  const before = R.coins ?? Coins.wallet().coins;
-  const total = Coins.earn(n);
+function payCoins(n, pop = true, wallet = purse()) {
+  const before = R.coins ?? wallet.wallet().coins;
+  const total = wallet.earn(n);
   if (total !== before) coinHud(total, pop ? total - before : 0);
 }
 function coinHud(total, gained) {
@@ -729,8 +743,9 @@ function challengeStart(ch, ground, def, lane) {
 function finishBeacon([x, z], color = '#7dffb5') {
   const y = world.ground.heightAt(x, z);
   const g = new THREE.Group();
-  const beam = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, 260, 24, 1, true), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide, fog: false }));
-  beam.position.set(x, y + 130, z);
+  // (tall enough to see from the top of Sheerwall's cliff, 420 m above its finish)
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, 760, 24, 1, true), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+  beam.position.set(x, y + 380, z);
   const ring = new THREE.Mesh(new THREE.TorusGeometry(40, 0.8, 8, 64).rotateX(Math.PI / 2), new THREE.MeshBasicMaterial({ color }));
   ring.position.set(x, y + 0.6, z);
   g.add(beam, ring); world.scene.add(g);
@@ -816,7 +831,7 @@ $('#mx-trials').addEventListener('click',()=>{
  for(const k of Object.keys(keys))keys[k]=false;for(const k of Object.keys(touch))touch[k]=false;
  R.paused=true;
  const close=UI.modal(h('div',{},h('h2',{},'Mini races'),h('p',{class:'muted'},'Choose a course. Your best time is saved on this device.'),
- h('div',{class:'stack'},R.def.races.map(r=>{const best=store.get(trialBestKey(R.def.id,r.id),null);return h('button',{class:'btn btn-cyan',onclick:()=>{close();beginTrial(r);}},r.name+' · '+r.laps+' lap'+(r.laps>1?'s':'')+' · '+(best?'Best '+fmt(best.ms/1000):'No time yet'));})),
+ h('div',{class:'stack'},R.def.races.map(r=>{const best=store.get(trialBestKey(R.def.id+(R.mtb?'-mtb':''),r.id),null);return h('button',{class:'btn btn-cyan',onclick:()=>{close();beginTrial(r);}},r.name+' · '+r.laps+' lap'+(r.laps>1?'s':'')+' · '+(best?'Best '+fmt(best.ms/1000):'No time yet'));})),
  R.trial?h('button',{class:'btn btn-ghost',onclick:()=>{R.trial=null;updateTrialMarker();close();}},'Cancel current race'):null),{onClose:()=>{R.paused=false;}});
 });
 
@@ -914,8 +929,11 @@ function stageTrack(id) {
 }
 /** Menus with just you: your bike (or the paint job you're looking at in the garage). */
 function stageSolo(livery, screen) {
-  stage.shot = SHOTS[screen] ? screen : 'home';
-  stage.list = [{ id: 'me', look: { ...myLook(), ...(livery ? { livery } : {}) } }];
+  const mtb = /^mtb/.test(screen || '');   // (Unrevvd's screens: your mountain bike)
+  const shot = mtb ? screen.slice(3) : screen;
+  stage.shot = SHOTS[shot] ? shot : 'home';
+  stage.list = [{ id: 'me', look: mtb ? mtbLook() : { ...myLook(), ...(livery ? { livery } : {}) } }];
+  if (mtb) preloadBike(prefs.mtbModel).then(() => placeStage());
   stageTrack(prefs.track);
 }
 /** In a room: everyone's bike in the start gate, with name tags (✔ = ready). */
@@ -1015,8 +1033,8 @@ function quit() {
   }
   const wasChallenge = !!R.challenge; R.challenge = null;
   setRiding(false);
-  menus.show(wasChallenge ? 'challenges' : R.mode==='free'?'worlds':'tracks');
-  const url = new URL(location.href); url.searchParams.delete('free'); url.searchParams.delete('world'); url.searchParams.delete('track'); history.replaceState(null, '', url);
+  menus.show((R.mtb ? 'mtb' : '') + (wasChallenge ? 'challenges' : R.mode==='free'?'worlds':'tracks'));
+  const url = new URL(location.href); for (const k of ['free', 'world', 'track', 'mtb']) url.searchParams.delete(k); history.replaceState(null, '', url);
 }
 $('#mx-quit').addEventListener('click', quit);
 // (the whole page goes full screen, not just the game, so pop-ups like signing in still show)
@@ -1100,7 +1118,8 @@ function addOtherModel(o) {
   if (!world) return;
   dropOther(o);
   o.lane = laneFor(o.id);
-  o.model = makeBike({ ...(state.styles[o.id] || {}), ghost: o.color });
+  const st = state.styles[o.id] || {};
+  o.model = makeBike({ ...st, ...(R.mtb ? { model: MTB_MODELS[st.mtb] ? st.mtb : 'dh' } : {}), ghost: o.color });   // (an Unrevvd challenge: everyone's on a mountain bike)
   world.scene.add(o.model.root);
   o.tag = nameTag(o.name, o.color);
   world.scene.add(o.tag);
@@ -1116,14 +1135,15 @@ function addRider(id) {
 function ensureOtherModel(o, m) {
   const st = state.styles[o.id] || {};
   const carId = CAR_MODELS[st.car] ? st.car : 'revuelto';
-  const kind = m.v === 1 ? `car:${carId}:${st.paint || ''}` : 'bike';
+  const mtbId = MTB_MODELS[st.mtb] ? st.mtb : 'dh';
+  const kind = m.v === 1 ? `car:${carId}:${st.paint || ''}` : `${m.v === 2 ? 'mtb:' + mtbId : 'bike'}:${bikesLoaded()}`;   // (a bike model file that has just loaded replaces its stand-in)
   if (o.kind === kind && o.model) return;
   dropOther(o); o.kind = kind;
   if (m.v === 1) {
     o.model = makeCar(carId, st.paint || 'arancio');
     // (the model file may still be loading: it shows as the wedge until then, and is swapped in once it's here)
     if (CAR_MODELS[carId].file && !o.model.file) preloadCar(carId).then((ok) => { if (ok && o.kind === kind) o.kind = null; });
-  } else o.model = makeBike({ ...st, livery: playerOf(o.id).bike });
+  } else o.model = makeBike({ ...st, ...(m.v === 2 ? { model: mtbId } : {}), livery: playerOf(o.id).bike });
   world.scene.add(o.model.root);
   o.tag = nameTag(o.name, o.color); world.scene.add(o.tag);
 }
@@ -1153,7 +1173,7 @@ function otherSnap(m, o) {
     x: 0, y: m.y, a: m.a, wf: wheel(0, m.c0, o.ang[0]), wr: wheel(1, m.c1, o.ang[1]), rx: m.rx, ry: m.y + m.ry, lean: m.l,
     px: m.px, pz: m.pz, h: m.h, s: m.x, roll: m.ro,
     boost: !!m.b, crashed: m.k, ragdoll: m.rg ? { hip: { x: m.rg[0], y: m.rg[1] }, head: { x: m.rg[2], y: m.rg[3] } } : null,
-    tk: m.tk ?? -1, tp: m.tp || 0, wh: m.wh || 0, sp: m.sp || 0,
+    tk: m.tk ?? -1, tp: m.tp || 0, wh: m.wh || 0, sp: m.sp || 0, th: m.th || 0, v: (m.s || 0) / 3.6,
   };
 }
 const DELAY = 130;   // draw the others a moment in the past, so there are always two messages to blend between
@@ -1209,6 +1229,7 @@ function sendPos(force) {
     c0: r2(b.wh[0].c), c1: r2(b.wh[1].c), l: r2(b.lean), tk: b.tk, tp: r2(b.pose), wh: r2(b.whip), sp: r2(b.spin),
     s: Math.round(Math.hypot(b.vx, b.vy) * 36) / 10, r: Math.round(b.rpm), th: r2(b.thr), k: b.crashed ? 1 : 0, b: b.boost ? 1 : 0, cp: b.cp };
   if (R.car) Object.assign(msg, { v: 1, ro: r2(b.roll), st: r2(b.steer), c0: r2(b.comp[0]), c1: r2(b.comp[1]), c2: r2(b.comp[2]), c3: r2(b.comp[3]) });   // (the supercar)
+  else if (R.mtb) msg.v = 2;   // (a mountain bike)
   if (b.crashed && b.rider) msg.rg = [r2(b.rider.hip.x - b.x), r2(b.rider.hip.y), r2(b.rider.head.x - b.x), r2(b.rider.head.y)];
   Net.send('g:pos', msg);
 }
@@ -1242,7 +1263,7 @@ function drawBoard() {
   }));
 }
 function otherSounds(b) {
-  return [...R.others.values()].filter((o) => o.buf.length && o.model).map((o) => {
+  return [...R.others.values()].filter((o) => o.buf.length && o.model && o.buf[o.buf.length - 1].v !== 2).map((o) => {   // (bicycles have no engine to hear)
     const m = o.buf[o.buf.length - 1];
     return { id: o.id, rpm: m.r, thr: m.th, dist: R.mode === 'free' ? Math.hypot(m.px - b.px, m.pz - b.pz) : m.x - b.s, lane: 0 };
   }).sort((p, q) => Math.abs(p.dist) - Math.abs(q.dist));
@@ -1335,7 +1356,7 @@ Net.on('g:results', (m) => {
   const res = m.results;
   if (res.challenge) {   // coins for taking part, more for a podium
     const mine = res.rows.find((r) => r.id === Net.id);
-    if (mine) { const pay = mine.done ? [100, 60, 40][mine.place - 1] || 20 : 10; payCoins(pay); UI.toast(`+${pay} 🪙 coins`, 'good', 2500); }
+    if (mine) { const pay = mine.done ? [100, 60, 40][mine.place - 1] || 20 : 10; payCoins(pay, true, purse(CHALLENGES.find((c) => c.id === res.challenge)?.vehicle === 'mtb')); UI.toast(`+${pay} 🪙 coins`, 'good', 2500); }
   }
   if (racing) {
     const rows = res.rows; const ch = res.challenge && CHALLENGES.find((c) => c.id === res.challenge);
@@ -1367,11 +1388,12 @@ async function init() {
     MODELS, RIDERS, KITS, HELMETS, get style() { return prefs.style; }, setStyle,
     setCam: (k) => { prefs.cam = R.camMode = k; savePrefs(); },
     setMinimap: (k) => { prefs.minimap = k; savePrefs(); showMinimap(); },
-    CAR_PAINTS, CAR_MODELS, paintable, setVehicle: (k) => { prefs.vehicle = k; savePrefs(); Sfx.play('click'); if (k === 'car') preloadCar(prefs.carModel); },
+    CAR_PAINTS, CAR_MODELS, paintable, setVehicle: (k) => { prefs.vehicle = k; savePrefs(); Sfx.play('click'); if (k === 'car') preloadCar(prefs.carModel); if (k === 'mtb') preloadBike(prefs.mtbModel); },
     setPhysics: (k) => { prefs.physics = k; savePrefs(); },
     setCarModel: (k) => { prefs.carModel = k; savePrefs(); Sfx.play('click'); preloadCar(k); if (inRoom()) Net.send('g:style', { style: netStyle() }); },
     setCarPaint: (k) => { prefs.carPaint = k; savePrefs(); Sfx.play('click'); if (inRoom()) Net.send('g:style', { style: netStyle() }); },
-    rideWithFriends: (w) => { pendingFree = w.id; },
+    rideWithFriends: (w, vehicle) => { pendingFree = w.id; if (vehicle) { prefs.vehicle = vehicle; savePrefs(); } },
+    MTB_MODELS, setMtbModel, startMtbFree: (w) => startFree(w, { mtb: true }),
     setQuality: (k) => { prefs.quality = k; savePrefs(); worldKey = null; resize(); if (stage.trackId) stageTrack(stage.trackId); },
     stage: { solo: stageSolo, room: stageRoom },
   });
@@ -1385,7 +1407,7 @@ async function init() {
   Lobby.ChatBox(chatEl, { title: '' });
   chatEl.prepend(h('div', { class: 'mx-h' }, 'Chat'));
   if (qs.get('room')) menus.show('joining');   // (the lobby is joining it)
-  else if(qs.get('free')){menus.show('worlds');const w=WORLDS.find(w=>w.id===qs.get('world'));if(w){await loadUnlocks();startFree(w);}}
+  else if(qs.get('free')){const mtb=qs.get('mtb')==='1';menus.show(mtb?'mtbworlds':'worlds');const w=WORLDS.find(w=>w.id===qs.get('world'));if(w){await loadUnlocks();startFree(w,{mtb});}}
   else if (qs.get('solo')) {
     const t = qs.get('track') && DATA.tracks.find((x) => x.id === qs.get('track'));
     menus.show('tracks');

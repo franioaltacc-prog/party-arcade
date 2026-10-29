@@ -22,8 +22,10 @@ def spiral(cx, cz, r0, r1, a0, turns, n, start=None, end=None):
     return pts + ([] if end is None else [end])
 
 
-def gap(i, kind, route, at, side, length, height=3.2, width=24):
-    # (sizes are given small and scaled up: the free-ride bike flies a long way)
+def gap(i, kind, route, at, side, length, height=3.2, width=24, bike=False):
+    # (sizes are given small and scaled up: the free-ride bike flies a long way; bike=True: a mountain bike's gap, as given)
+    if bike:
+        return {"id": i, "kind": kind, "route": route, "at": at, "side": side, "gap": length, "height": height, "width": width}
     return {"id": i, "kind": kind, "route": route, "at": at, "side": side, "gap": round(length * 1.8), "height": round(height * 1.15, 1), "width": width + 4}
 
 
@@ -32,6 +34,21 @@ def pool(i, kind, x, z, rx, rz, turn=0.0, trail=30):
 
 
 OUT = Path(__file__).resolve().parent.parent / "public" / "js" / "games" / "moto" / "open-world"
+
+
+def scarp_z(x, w):
+    """Where Sheerwall's cliff face runs (its middle) at x."""
+    sc = w["terrain"]["scarp"]
+    return sc["z"] + math.sin(x / sc["wavelength"]) * sc["amplitude"]
+
+
+def cliff_road(xs, s0, s1, scarp):
+    """A road cut into the cliff face: along it from west to east, from s0 metres off the face's middle (- = up on top)
+    to s1 (+ = down below)."""
+    return [[x, round(scarp["z"] + math.sin(x / scarp["wavelength"]) * scarp["amplitude"] + s0 + (s1 - s0) * (x - xs[0]) / (xs[-1] - xs[0]))] for x in xs]
+
+
+SHEERWALL_SCARP = {"z": -150, "amplitude": 140, "wavelength": 640, "height": 420, "edge": 160}
 
 WORLDS = [
     {
@@ -180,6 +197,65 @@ WORLDS = [
                               gap("ruins-chasm", "chasm", "ruins-run", 0.5, 1, 26)],
                      "pools": [pool("rock-pool", "water", 700, -150, 34, 24, 0.7), pool("jungle-pool", "water", -500, -500, 30, 22, 1.2)]},
     },
+    {
+        # Unrevvd's bike park: a forested mountain with a long climb, a flow trail, a rock garden and a jump garden
+        "id": "wildwood", "name": "Wildwood Bike Park", "tagline": "Earn the climb. Send the descent.", "theme": "alpine", "seed": 7717, "bike": True,
+        "size": 2400, "baseHeight": 40, "cliff": [240, 420],
+        "palette": {"sky": "#cfe3d6", "low": "#4f7a3a", "high": "#c8d6a0", "trail": "#9a7350", "water": "#3f8f95", "accent": "#39d98a"},
+        "look": {"flora": ["pine", "broadleaf", "rock", "shrub", "log"],
+                 "sky": {"sun": [38, 150], "turbidity": 4, "rayleigh": 1.6, "mie": 0.006, "exposure": 1.25, "fog": 0.28, "fogColor": "#cfe0d4", "sunColor": "#fff1d6"},
+                 "grass": [[62, 112, 46], [140, 178, 84]], "dirt": [[120, 86, 58], [184, 146, 104]]},
+        "terrain": {"noise": 7, "scale": 220, "hills": [[0, -350, 230, 520, 480], [-750, 650, 40, 420, 380], [800, 650, 60, 420, 380], [-850, -650, 90, 380, 360]],
+                    "lake": {"position": [-650, 250], "radius": [170, 120], "level": 46, "depth": 10}},
+        "spots": [("trailhead", "Trailhead", -700, 800, "camp", "Shared spawn: bike racks, trail maps and the start of the climb."),
+                  ("summit", "Summit Hut", 0, -350, "lookout", "The top of the mountain. Every trail goes down from here."),
+                  ("garden", "Jump Garden", 600, 750, "yard", "Dirt jumps and a quick loop."),
+                  ("lake", "Wildwood Lake", -650, 470, "dock", "A jetty on the lake at the bottom of the rock garden."),
+                  ("mill", "Old Mill", 820, -180, "cabin", "A cabin halfway down the east side."),
+                  ("tower", "Fire Tower", -850, -650, "tower", "A fire lookout on the west ridge.")],
+        "routes": [("climb", "The Grind", spiral(0, -350, 470, 120, math.radians(120), 1.25, 16, start=[-700, 800], end=[0, -350]), False),
+                   ("flow", "Flow Line", [[0, -350], [250, -180], [120, 20], [380, 200], [160, 400], [-150, 520], [-450, 700], [-700, 800]], False),
+                   ("rock-garden", "Rock Garden", [[0, -350], [-180, -170], [-330, 20], [-500, 200], [-650, 470]], False),
+                   ("valley-loop", "Valley Loop", [[-700, 800], [-1000, 400], [-1000, -200], [-850, -650], [-350, -900], [300, -900], [820, -650], [1000, -180], [1000, 300], [600, 750], [0, 950], [-700, 800]], True),
+                   ("east-descent", "Mill Run", [[0, -350], [380, -380], [820, -180], [880, 220], [600, 750]], False),
+                   ("jump-loop", "Jump Garden Loop", [[600, 750], [820, 640], [860, 450], [660, 400], [460, 560], [600, 750]], True),
+                   ("tower-link", "Ridge Trail", [[-850, -650], [-450, -520], [0, -350]], False)],
+        "races": [("wild-flow", "Flow Line", "flow", "downhill", "medium", 1), ("wild-climb", "The Grind", "climb", "hillclimb", "hard", 1),
+                  ("wild-rock", "Rock Garden", "rock-garden", "downhill", "hard", 1), ("wild-jumps", "Jump Garden Laps", "jump-loop", "circuit", "easy", 3)],
+        "ramps": [("trail-double", -480, 760, 2.0, 40, 12, 2.4), ("garden-table", 760, 560, 0.6, 46, 14, 3)],
+        "zones": [("lake-mud", -650, 380, 70, "mud", 0.72, 0.025), ("root-mud", -260, -60, 110, "mud", 0.78, 0.02)],
+        "features": {"gaps": [gap("creek-gap", "water", "valley-loop", 0.15, 1, 7, 2.0, 14, bike=True), gap("rock-drop", "chasm", "valley-loop", 0.45, -1, 8, 2.2, 14, bike=True),
+                              gap("mill-gap", "water", "valley-loop", 0.7, -1, 8, 2.2, 14, bike=True)],
+                     "pools": [pool("bog", "water", 350, 1000, 30, 22, 0.4)]},
+    },
+    {
+        # a 420 m wall of red rock across the middle: race a friend from the top to the valley floor
+        "id": "sheerwall", "name": "Sheerwall Mesa", "tagline": "One way down. Make it quick.", "theme": "desert", "seed": 9137,
+        "size": 3600, "baseHeight": 30, "cliff": [300, 520],
+        "palette": {"sky": "#e8c7a4", "low": "#a85a3a", "high": "#e9b483", "trail": "#d9a77a", "water": "#3b8e8a", "accent": "#ff6a3c"},
+        "look": {"sky": {"sun": [32, 200], "turbidity": 6, "rayleigh": 2.4, "mie": 0.008, "exposure": 1.1, "fog": 0.3, "fogColor": "#e6c3a0"},
+                 "rock": [[126, 52, 40], [222, 132, 92]], "dirt": [[168, 98, 64], [228, 166, 120]]},
+        "terrain": {"noise": 9, "scale": 260, "hills": [[-1000, -1150, 60, 500, 400], [1000, -1100, 80, 520, 420], [900, 1000, 90, 480, 420], [-1050, 950, 50, 460, 420]],
+                    "scarp": SHEERWALL_SCARP},
+        "spots": [("camp", "Valley Camp", -1100, 1100, "camp", "Shared spawn at the foot of the cliff."),
+                  ("top", "Cliff Top", 0, -380, "lookout", "The edge of the mesa. It's a long way down."),
+                  ("eagle", "Eagle Point", -1150, -950, "tower", "A watchtower on the far side of the mesa."),
+                  ("river", "Valley Floor", 0, 650, "checkpoint", "Right under the cliff: the finish of the Big Drop."),
+                  ("ranch", "Dust Ranch", 1100, 900, "yard", "A ranch yard with a quick sprint."),
+                  ("ruins", "Mesa Ruins", 1100, -1050, "ruin", "Old stone walls up on top.")],
+        "routes": [("cliff-road", "Cliff Road", [[-1450, -560]] + cliff_road(list(range(-1350, 1351, 150)), -120, 120, SHEERWALL_SCARP) + [[1450, 450]], False),
+                   ("mesa-loop", "Mesa Loop", [[-1450, -560], [-1300, -1150], [-700, -1400], [0, -1300], [700, -1400], [1300, -1150], [1400, -560], [700, -700], [0, -650], [-700, -720], [-1450, -560]], True),
+                   ("top-link", "Cliff Top Trail", [[0, -650], [0, -380]], False),
+                   ("valley-loop", "Valley Loop", [[-1100, 1100], [-1450, 450], [-800, 330], [0, 400], [800, 330], [1450, 450], [1100, 900], [400, 1350], [-400, 1350], [-1100, 1100]], True),
+                   ("camp-road", "Camp Road", [[-1100, 1100], [-600, 800], [0, 650], [600, 750], [1100, 900]], False),
+                   ("eagle-link", "Eagle Trail", [[-1300, -1150], [-1150, -950]], False)],
+        "races": [("sheer-descent", "Cliff Road Descent", "cliff-road", "downhill", "hard", 1), ("sheer-mesa", "Mesa Rally", "mesa-loop", "circuit", "medium", 1),
+                  ("sheer-valley", "Valley Loop", "valley-loop", "circuit", "easy", 2), ("sheer-camp", "Camp Road Sprint", "camp-road", "circuit", "easy", 1)],
+        "ramps": [("camp-double", -700, 950, 2.2, 90, 18, 7), ("ranch-table", 950, 700, 0.6, 100, 24, 9)],
+        "zones": [("valley-dust", 500, 900, 200, "sand", 0.78, 0.025), ("mesa-gravel", -400, -1000, 150, "gravel", 0.8, 0.02)],
+        "features": {"gaps": [gap("mesa-chasm", "chasm", "mesa-loop", 0.3, 1, 30, 3.6), gap("valley-chasm", "chasm", "valley-loop", 0.55, -1, 26)],
+                     "pools": [pool("ranch-tar", "tar", 700, 1150, 32, 24, 0.4)]},
+    },
 ]
 
 
@@ -225,6 +301,7 @@ def build(w):
         "spawnPads": pads,
         "safePads": [{"id": s["id"], "position": s["position"], "radius": 32, "riderPosition": [s["position"][0] - 24, s["position"][1] - 18]} for s in spots],
         "features": w.get("features", {}),
+        **({"bike": True} if w.get("bike") else {}),
     }
 
 
@@ -246,7 +323,7 @@ if __name__ == "__main__":
     manifest = json.loads(manifest_path.read_text())
     for w in WORLDS:
         (OUT / f"{w['id']}.json").write_text(json.dumps(build(w), indent=2) + "\n")
-        entry = {"id": w["id"], "name": w["name"], "file": f"{w['id']}.json", "areaKm2": round(w["size"] ** 2 / 1e6, 2)}
+        entry = {"id": w["id"], "name": w["name"], "file": f"{w['id']}.json", "areaKm2": round(w["size"] ** 2 / 1e6, 2), **({"bike": True} if w.get("bike") else {})}
         manifest["worlds"] = [x for x in manifest["worlds"] if x["id"] != w["id"]] + [entry]
         print("wrote", w["id"])
     for wid, feats in EXTRAS.items():

@@ -3,7 +3,7 @@
  * Instantiate once, then sample heightAt(x,z), surfaceAt(x,z), normalAt(x,z).
  *
  * The height is built in layers:
- *  1. rawHeight: the authored hills, lake and river (the trails follow this, so races stay as authored)
+ *  1. rawHeight: the authored hills, lake, river and cliff wall (the trails follow this, so races stay as authored)
  *  2. trails, safe pads and jumps are blended in
  *  3. theme landforms (mesas and dunes, forested ridges, alpine crags) are added only well away from
  *     trails, pads, buildings, jumps and water (the "wild" mask)
@@ -36,12 +36,16 @@ export function buildTerrain(world) {
  const lake=spec.lake, river=spec.river;
  const riverDist=(x,z)=>river?Math.abs(x-river.x-Math.sin(z/river.wavelength)*river.amplitude):Infinity;
  const lakeDist=(x,z)=>lake?Math.hypot((x-lake.position[0])/lake.radius[0],(z-lake.position[1])/lake.radius[1]):Infinity;
+ // a scarp: a wall of cliff running east to west along z = scarp.z (waving by amplitude over wavelength), the high
+ // ground to the north (smaller z); edge = how wide its face is (metres), scarpDist < 0 on the high side
+ const scarp=spec.scarp, scarpDist=(x,z)=>z-scarp.z-Math.sin(x/scarp.wavelength)*scarp.amplitude+8*(noise(x/160,z/160,seed+61)-.5);
  function rawHeight(x,z) {
   let y=world.baseHeight;
   for(const [hx,hz,h,rx,rz] of spec.hills) y+=h*Math.exp(-(((x-hx)/rx)**2+((z-hz)/rz)**2)*1.8);
   y+=spec.noise*(noise(x/spec.scale,z/spec.scale,seed)-.5)*2;
   y+=spec.noise*.22*(noise(x/65,z/65,seed+51)-.5)*2;
   if(river) { const d=riverDist(x,z); y-=river.depth*Math.exp(-((d/river.width)**2)); }
+  if(scarp) y+=scarp.height*(1-smooth((scarpDist(x,z)+scarp.edge/2)/scarp.edge));
   if(lake) { const d=lakeDist(x,z); y=y*(smooth((d-.7)/.55))+(lake.frozen?lake.level:lake.level-lake.depth)*(1-smooth((d-.7)/.55));
    // a real shore: the water is the lowest thing round it, so just outside the shoreline the ground is above it
    // (no riding along below the water's surface beside a lake); the rule fades out further away
