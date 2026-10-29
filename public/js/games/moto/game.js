@@ -1277,6 +1277,7 @@ Lobby.on('joined', (m) => {
   else { setRiding(false); menus.show('room'); }
 });
 Lobby.on('players', () => menus.roomUpdate());
+Lobby.on('privacy', () => menus.roomUpdate());
 Lobby.on('left', () => { stopRide(); });
 // back out of a room (or a room that wasn't there): to the "race online" menu
 Lobby.on('entry', () => {

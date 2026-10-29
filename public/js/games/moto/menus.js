@@ -384,7 +384,7 @@ export function createMenus(ctx) {
 
     // invite, watch, party mode and the rest (from the lobby), and leaving
     fill(roomEls.tools, Lobby.roomTools(), h('button', { class: 'mx-sb', type: 'button', style: { marginTop: '8px' }, onclick: () => Lobby.leave() }, '🚪 Leave the room'));
-    roomEls.tools.querySelectorAll('.btn').forEach((b) => { b.className = 'mx-sb'; });
+    roomEls.tools.querySelectorAll('.btn').forEach((b) => { b.className = 'mx-sb' + (b.getAttribute('aria-pressed') === 'true' ? ' on' : ''); });   // (in the game's style; the picked one stays lit)
 
     if (fresh && FX.list) FX.list(screenEl.querySelectorAll('.mx-room > .mx-col > *:not(:empty), .mx-chat'), { y: 26, stagger: 0.05, duration: 0.4, ease: 'back.out(1.5)' });
     ctx.stage.room();
@@ -428,7 +428,7 @@ export function createMenus(ctx) {
   }
 
   // ---------------------------------------------------------------- going online
-  async function create() { await Profile.ensure(); Sfx.play('pop'); show('joining'); Net.send('room:create', { game: 'moto' }); }
+  async function create() { await Profile.ensure(); Sfx.play('pop'); show('joining'); Net.send('room:create', { game: 'moto', private: Lobby.privatePref() }); }
   async function quick() { await Profile.ensure(); Sfx.play('pop'); show('joining'); Net.send('room:quick', { game: 'moto' }); }
   async function join(code) {
     code = String(code || '').trim().toUpperCase();

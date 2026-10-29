@@ -572,11 +572,13 @@ class Accounts:
 
     # -- rooms kept across restarts ------------------------------------------
     async def save_rooms(self, rooms):
-        """rooms: [(code, game, host, banned_list)] from a server that is shutting down."""
+        """rooms: [(code, game, host, banned_list, private)] from a server that is shutting down.
+        (The banned column holds {"banned": [...], "private": bool}; older saves are just the list.)"""
         t = now()
         stmts = [("DELETE FROM saved_rooms WHERE saved < ?", (t - ROOM_KEEP,))]
         stmts += [("INSERT OR REPLACE INTO saved_rooms (code, game, host, banned, saved) VALUES (?, ?, ?, ?, ?)",
-                   (code, game, host or "", json.dumps(sorted(banned)), t)) for code, game, host, banned in rooms]
+                   (code, game, host or "", json.dumps({"banned": sorted(banned), "private": bool(private)}), t))
+                  for code, game, host, banned, private in rooms]
         await self.many(stmts)
 
     async def take_room(self, code):
@@ -590,10 +592,13 @@ class Accounts:
             return None
         r = rows[0]
         try:
-            banned = set(json.loads(r["banned"]))
+            kept = json.loads(r["banned"])
         except ValueError:
-            banned = set()
-        return {"code": r["code"], "game": r["game"], "host": r["host"] or None, "banned": banned}
+            kept = []
+        if not isinstance(kept, dict):
+            kept = {"banned": kept}
+        return {"code": r["code"], "game": r["game"], "host": r["host"] or None, "banned": set(kept.get("banned") or []),
+                "private": bool(kept.get("private"))}
 
     def limited(self, key, limit, window):
         """True if `key` already did something `limit` times in the last `window` seconds."""

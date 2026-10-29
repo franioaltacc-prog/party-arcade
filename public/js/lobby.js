@@ -1,7 +1,9 @@
 /* Shared room flow for online games: entry screen, invite code, players, chat. */
 (() => {
   'use strict';
-  const { $, h, fill, Net, Sfx, UI, Profile, Account, icon } = PA;
+  const { $, h, fill, Net, Sfx, UI, Profile, Account, icon, store } = PA;
+  /** Whether your new rooms start code only (the last choice you made as a host). */
+  const privatePref = () => !!store.get('pa_room_private', false);
   const FX = PA.FX || {};
   const G = FX.on ? FX.gsap : null;
 
@@ -33,6 +35,7 @@
     party: null,     // party mode: { list, i, done, next, nextIn, board, last }
     vote: null,      // "play again?" / "pick a game" vote in progress
     tour: null,      // when this room is a tournament match: { id, title, round, a, b, players }
+    private: false,  // code only: hidden from the open rooms list and quick play
     get watching() { const p = this.player(Net.id); return !!(p && p.watch); },
     get me() { return Net.id; },
     get isHost() { return this.host === Net.id; },
@@ -111,11 +114,12 @@
     render();
     let toolsKey = '';
     const again = () => {   // redraw when host / watching / party changes
-      const key = [Room.isHost, Room.watching, !!(Room.party && !Room.party.done)].join();
+      const key = [Room.isHost, Room.watching, !!(Room.party && !Room.party.done), Room.private].join();
       if (key !== toolsKey) { toolsKey = key; render(); }
     };
     on('players', again);
     on('party', again);
+    on('privacy', again);
     on('joined', () => {
       toolsKey = '';
       render();
@@ -179,6 +183,7 @@
         h('a', { class: 'btn btn-yellow btn-sm btn-block', href: `/tournament?id=${Room.tour.id}` }, `🏆 ${Room.tour.round}: see the bracket`));
     }
     return h('div', { class: 'room-tools' },
+      privacyRow(),
       Room.isHost ? h('button', { class: 'btn btn-yellow btn-sm btn-block', title: 'Knockout bracket of 1-on-1 matches', onclick: tourPicker }, '🏆 Start a tournament') : null,
       Room.isHost ? h('div', { class: 'rt-row' },
         partyOn
@@ -189,6 +194,20 @@
       Room.code ? (Room.watching
         ? h('button', { class: 'btn btn-lime btn-sm btn-block', onclick: () => setWatch(false) }, '✋ Join in (you’re watching)')
         : h('button', { class: 'btn btn-ghost btn-sm btn-block', title: 'Sit out and just watch', onclick: () => setWatch(true) }, '👀 Just watch')) : null);
+  }
+
+  /** Public (in open rooms and quick play) or code only (friends join with the code or an invite): the host picks. */
+  function privacyRow() {
+    if (!Room.code) return null;
+    if (!Room.isHost) return h('div', { class: 'tiny faint rt-privacy' }, Room.private ? '🔒 Code only: friends join with the code or an invite' : '🌍 Public: anyone can find this room');
+    const pick = (want) => {
+      if (want === Room.private) return;
+      store.set('pa_room_private', want);   // (your next room starts the same way)
+      Net.send('room:privacy', { private: want }); Sfx.play('click');
+    };
+    return h('div', { class: 'rt-row rt-privacy', title: 'Who can find this room' },
+      h('button', { class: 'btn btn-sm ' + (Room.private ? 'btn-ghost' : 'btn-lime'), 'aria-pressed': String(!Room.private), onclick: () => pick(false) }, '🌍 Public'),
+      h('button', { class: 'btn btn-sm ' + (Room.private ? 'btn-lime' : 'btn-ghost'), 'aria-pressed': String(Room.private), onclick: () => pick(true) }, '🔒 Code only'));
   }
 
   function gameTile(g, extra = {}) {
@@ -401,7 +420,7 @@
     showEntry();
   }
 
-  async function create() { await Profile.ensure(); Sfx.play('pop'); Net.send('room:create', { game: opts.game }); }
+  async function create() { await Profile.ensure(); Sfx.play('pop'); Net.send('room:create', { game: opts.game, private: privatePref() }); }
   async function quick() { await Profile.ensure(); Sfx.play('pop'); Net.send('room:quick', { game: opts.game }); }
   async function join(code) {
     code = String(code || '').trim().toUpperCase();
@@ -512,7 +531,7 @@
       showTourCard();
       if (watchEl) { watchEl.remove(); watchEl = null; }
       const fresh = Room.code !== m.code;
-      Object.assign(Room, { code: m.code, game: m.game, host: m.host, players: m.players });
+      Object.assign(Room, { code: m.code, game: m.game, host: m.host, players: m.players, private: !!m.private });
       autoJoining = false;
       rejoining = false;
       setUrlRoom(m.code);
@@ -534,6 +553,7 @@
     });
     Net.on('room:kicked', (m) => { UI.toast(m.reason || 'Disconnected from room', 'bad'); Room.code = null; setUrlRoom(null); showVote(null); showParty(null); drawWatchChip(); emit('left'); showEntry(); });
     Net.on('room:vote', (m) => showVote(m.vote));
+    Net.on('room:privacy', (m) => { Room.private = !!m.private; emit('privacy', m); });
     Net.on('party:state', (m) => showParty(m.party));
     Net.on('room:goto', (m) => {
       if (m.code !== Room.code) return;
@@ -564,6 +584,6 @@
     Net.connect();
   }
 
-  window.Lobby = { init, on, Room, ChatBox, renderCode, renderPlayers, refreshPlayers, roomTools, leave, showEntry, hideEntry, GAME_INFO };
+  window.Lobby = { init, on, Room, ChatBox, renderCode, renderPlayers, refreshPlayers, roomTools, leave, showEntry, hideEntry, GAME_INFO, privatePref };
   window.Room = Room;
 })();

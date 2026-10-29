@@ -6,6 +6,11 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.12.0', date: '2026-10-24', emoji: '🔒', title: 'Public or code-only rooms', items: [
+      'Hosts can switch a room between 🌍 Public and 🔒 Code only, in every game',
+      'A code-only room stays out of the open rooms list and quick play: friends join with the code, the invite link or an invite',
+      'Your next room starts the way you last picked',
+    ] },
     { v: '3.11.0', date: '2026-10-22', emoji: '🌍', title: 'Motocross: free ride with friends, and OG or NEW physics', items: [
       'Free ride together: make a room, pick 🌍 Free ride and a world, and everyone rides it at once, on their bike or in their supercar',
       'No race and no end: friends who join the room ride straight in, Esc takes you back to the room, and the host can end it for everyone',

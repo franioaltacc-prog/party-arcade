@@ -205,6 +205,7 @@ class Room:
         self.vote_timer = None
         self.party_timer = None
         self.tour = None    # (Tournament, match) when this room is a tournament match
+        self.private = False   # code only: not in the open rooms list or quick play (friends still join by code or invite)
 
     # -- messaging -------------------------------------------------------
     def broadcast(self, t, exclude=None, **data):
@@ -466,7 +467,7 @@ class Room:
             self.host, self.prev_host = client.uid, None
         self.pick_host()
         client.send("room:joined", code=self.code, game=self.game_key, me=client.uid, party=self.party_public(), vote=self.vote_public(), tour=self.tour_public(),
-                    host=self.host, players=self.players(), state=self.game.state_for(member))
+                    host=self.host, private=self.private, players=self.players(), state=self.game.state_for(member))
         self.sync_players()
         if not rejoin:
             self.system(f"{member.avatar} {member.name} {'is watching 👀' if member.watching else 'joined the room'}")
@@ -590,7 +591,7 @@ class Hub:
         out = []
         for r in self.rooms.values():
             playing = r.players_now()
-            if not playing:
+            if not playing or r.private:
                 continue
             host = r.members.get(r.host)
             out.append({"code": r.code, "game": r.game_key, "players": len(playing),
@@ -639,6 +640,7 @@ class Hub:
         room = Room(self, saved["game"], code)
         room.prev_host = saved["host"]
         room.banned = saved["banned"]
+        room.private = saved.get("private", False)
         room.waiting = True
         self.rooms[code] = room
 
@@ -670,7 +672,7 @@ class Hub:
         self.closing = True
         for c in list(self.clients):
             c.send("server:restart")
-        rooms = [(r.code, r.game_key, r.host, r.banned) for r in self.rooms.values() if r.members]
+        rooms = [(r.code, r.game_key, r.host, r.banned, r.private) for r in self.rooms.values() if r.members]
         if rooms:
             try:
                 await asyncio.wait_for(self.accounts.save_rooms(rooms), 15)
@@ -745,7 +747,9 @@ class Hub:
         elif t == "room:create":
             game = msg.get("game")
             if game in GAMES:
-                self.join(c, self.create_room(game))
+                room = self.create_room(game)
+                room.private = bool(msg.get("private"))
+                self.join(c, room)
         elif t == "room:join":
             code = clean_text(msg.get("code"), 8).upper()
             watch = bool(msg.get("watch"))
@@ -764,14 +768,14 @@ class Hub:
             c.tour_view = tour.id
             tour.viewers.add(c)
             c.send("tour:state", tour=tour.public())
-        elif t in ("room:watch", "room:vote", "party:start", "party:stop", "room:switch", "tour:start") and c.room:
+        elif t in ("room:watch", "room:vote", "room:privacy", "party:start", "party:stop", "room:switch", "tour:start") and c.room:
             self.room_action(c, t, msg)
         elif t == "room:quick":
             game = msg.get("game")
             if game not in GAMES:
                 return
             options = [r for r in self.rooms.values()
-                       if r.game_key == game and r.online_members() and r.game.listed() and not r.tour
+                       if r.game_key == game and r.online_members() and r.game.listed() and not r.tour and not r.private
                        and sum(1 for m in r.members.values() if not m.watching) < r.game.max_players and r is not c.room]
             room = max(options, key=lambda r: len(r.online_members())) if options else self.create_room(game)
             self.join(c, room)
@@ -827,6 +831,13 @@ class Hub:
                     room.game.on_join(m, True)   # games that let people join mid-round add them now
         elif t == "room:vote":
             room.cast_vote(m, str(msg.get("choice") or ""))
+        elif t == "room:privacy" and host:
+            want = bool(msg.get("private"))
+            if want != room.private:
+                room.private = want
+                room.broadcast("room:privacy", private=want)
+                room.system("🔒 The room is code only now: friends join with the code or an invite" if want
+                            else "🌍 The room is public now: anyone can find it in open rooms and quick play")
         elif t == "party:start" and host:
             games = msg.get("games")
             if isinstance(games, list) and 2 <= len(games) <= 8 and all(g in PARTY_GAMES and g in GAMES for g in games):
