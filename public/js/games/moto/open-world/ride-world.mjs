@@ -90,6 +90,7 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false){
    if(lake&&Math.hypot((x-lake.position[0])/lake.radius[0],(z-lake.position[1])/lake.radius[1])<1.08)continue;
    if(river&&Math.abs(x-river.x-Math.sin(z/river.wavelength)*river.amplitude)<river.width*.62)continue;
    if(built.terrain.featureAt(x,z).flat>.02)continue;
+   if(kind.every<.1&&kind.size[1]>.6&&built.terrain.gauntletIn(x,z,40))continue;   // (no bushes in a gauntlet: everything big there is solid)
    const y=gridHeight(pos.array,half*2,half*2,n,x-cx,z-cz),s=kind.size[0]+(kind.size[1]-kind.size[0])*cHash(gx,gz,21);
    cq.setFromAxisAngle(cup,cHash(gx,gz,31)*6.283);cm.compose(cv.set(x,y-kind.sink,z),cq,cscale.set(s,s*(.8+cHash(gx,gz,41)*.5),s));
    kind.im.setMatrixAt(kind.im.count,cm);const t=.85+cHash(gx,gz,51)*.3;kind.im.setColorAt(kind.im.count,ctint.setRGB(t,t,t*.97));kind.im.count++;

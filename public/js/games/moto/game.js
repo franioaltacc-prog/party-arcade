@@ -208,7 +208,7 @@ function begin(def, mode, goAt) {
     R.bike = C.newBike(R.T, R.T.start, R.lane);
     R.prev = R.cur = snap(R.bike);
     if (R.model) disposeModel(R.model);
-    R.V = C; R.car = false; R.mtb = false;
+    R.V = C; R.car = false; R.mtb = false; R.camMode = prefs.cam;
     R.model = makeBike(myLook());
     R.model.root.visible = !R.spectate;
     world.scene.add(R.model.root);
@@ -313,7 +313,7 @@ function physicsStep(now) {
     if(R.mode==='free'){R.trial=null;updateTrialMarker();}
     // in a challenge you go back to where you last were on your wheels (a safe pad could be a shortcut)
     let where;
-    if (R.challenge) { const sp = R.challenge.safe; R.V.place(T, b, { position: [sp.x, sp.z], heading: sp.h }); where = 'where you were'; }
+    if (R.challenge) { const sp = clearOfTrees(T, R.challenge.safe); R.V.place(T, b, { position: [sp.x, sp.z], heading: sp.h }); where = 'where you were'; }
     else if (R.mode === 'free') {
       // free ride: another go at the gap you fell into, else where you were riding a few seconds ago (R and the
       // world edge go to a safe pad)
@@ -330,6 +330,17 @@ function physicsStep(now) {
   R.stuck = !b.crashed && b.hold <= 0 && now > R.goAt && !R.finished && sp < 0.6 ? R.stuck + DT : 0;
   if (R.stuck > 4 && R.stuck - DT <= 4 && !R.challenge) showMessage(R.mode==='free'?'Press R to return to a safe pad':'Stuck? Press R to go back to the checkpoint', 'small', 2500);
   R.cur = snap(b);
+}
+
+/** Where to start again in a gauntlet (a forest of solid trees): if the line straight ahead runs into a tree or rock
+    within ~16 m, moved sideways to the nearest clear line (or you'd hit the same tree again). spot: { x, z, h }. */
+function clearOfTrees(T, spot) {
+  const g = T.terrain;
+  if (!g || !g.gauntletIn || !g.gauntletIn(spot.x, spot.z, 10)) return spot;
+  const fx = Math.sin(spot.h); const fz = Math.cos(spot.h);
+  const blocked = (x, z) => { for (let d = -2; d <= 16; d += 1.5) for (const w of [-1.4, 0, 1.4]) if (g.obstacleAt(x + fx * d + fz * w, z + fz * d - fx * w)) return true; return false; };
+  for (const side of [0, 2.5, -2.5, 5, -5, 7.5, -7.5, 10, -10, 13, -13]) { const x = spot.x + fz * side; const z = spot.z - fx * side; if (!blocked(x, z)) return { ...spot, x, z }; }
+  return spot;
 }
 
 function respawnNow() {
@@ -493,6 +504,7 @@ function render(now, dt, alpha) {
 /** The ground height under a point in the world (near the track). */
 function groundUnder(x, z, hint, T = R.T) { if(T.terrain)return T.terrain.heightAt(x,z); const L = C.locate(T, x, z, hint); return C.heightAt(T, L.s, L.u); }
 
+const firstV = new THREE.Vector3(); const firstD = new THREE.Vector3();
 function updateCamera(s, dt, speed, place) {
   const cam = R.cam;
   // swing round behind the way the bike points, like a 3D racing game (smoothly, so steering isn't jerky)
@@ -504,6 +516,20 @@ function updateCamera(s, dt, speed, place) {
   const P = place(rag ? s.ragdoll.hip.x : s.x, rag ? s.ragdoll.hip.y : s.y, tmpV3);
   const air = Math.max(0, P.y - groundUnder(P.x, P.z, s.s) - 0.7);
   let want; let look; let fov = C.P.CAM_FOV + Math.min(C.P.CAM_FOV_RANGE, speed * C.P.CAM_SPEED_FOV) + (camera.aspect < 1 ? 18 : 0);   // (a tall phone screen needs a wider view)
+  if (R.camMode === 'first' && !R.car && !s.crashed && !R.spectate) {
+    // first person: just in front of the rider's face, looking the way the bike points (and tips)
+    const m = R.model; const head = m.fig ? m.fig.bones.CC_Base_Head : m.parts.helmet;
+    head.getWorldPosition(firstV);
+    const ca = Math.cos(s.a);
+    firstD.set(Math.cos(s.h) * ca, Math.sin(s.a), Math.sin(s.h) * ca);
+    camera.position.copy(firstV).addScaledVector(firstD, 0.03).add(tmpV.set(0, 0.08, 0));   // (the eyes: the head's inside isn't drawn)
+    camera.lookAt(tmpV2.copy(camera.position).addScaledVector(firstD, 10).add(tmpV.set(0, -4, 0)));   // (looking down a little: your hands on the bars)
+    if (cam.shake > 0) { cam.shake = Math.max(0, cam.shake - dt * 1.6); camera.position.y += (Math.random() - 0.5) * cam.shake * 0.3; }
+    const f = 80 + Math.min(12, speed * 0.4);
+    if (Math.abs(camera.fov - f) > 0.05) { camera.fov += (f - camera.fov) * Math.min(1, dt * 4); camera.updateProjectionMatrix(); }
+    cam.init = false;   // (the other cameras start fresh when you switch back)
+    return;
+  }
   if (R.camMode === 'side') {
     want = P.clone().addScaledVector(Rt, 10.5 + air * 0.5).addScaledVector(D, 2).add(UPV.clone().multiplyScalar(1.8 + air * 0.25));
     look = P.clone().addScaledVector(D, 3).add(UPV.clone().multiplyScalar(0.6));
@@ -691,6 +717,7 @@ async function startFree(entry, opts = {}){
     if(opts.online&&state.race){fillOthers(state.race);if(ch)for(const o of R.others.values())addOtherModel(o);}   // (free ride: each rider's bike or car appears with their first message)
     R.prev=R.cur=snap(R.bike);R.acc=0;R.last=performance.now();R.finished=false;R.cam.init=false;R.stuck=0;R.emitAcc=0;R.roll=0;R.best=null;R.beeped=0;R.safeTrail=[];R.retry=null;R.toPad=false;
     R.goAt=ch?Math.max(opts.goAt||0,performance.now()+(opts.online?600:3200)):0;R.gateDown=!ch;
+    R.camMode=ch?.cam||prefs.cam;   // (a challenge can be ridden in first person)
     R.trialMarker=null;R.finishMarker=finish?finishBeacon(finish):null;R.audio=createAudio({pedal:mtb});$('.mx-nlab').textContent='TURBO · SPACE / SHIFT';for(const el of $$('.mx-nitro, .mx-nlab'))el.style.display=mtb?'none':'';   // (a bicycle has no nitro)$('#mx-trials').hidden=!!ch;
     $('#hud-track').textContent=ch?`${ch.emoji} ${ch.name}`:def.name;
     fill($('#hud-center'));resize();drawMapBase();coinHud(purse().wallet().coins,0);R.running=true;requestAnimationFrame(frame);
@@ -1052,7 +1079,7 @@ $('#mx-snd').addEventListener('click', () => Sfx.setMuted(!Sfx.muted));
 PA.on('muted', () => { showMute(); if (menus && menus.screen === 'controls') menus.refresh(); });
 showMute();
 const camBtn = $('#mx-cam');
-const CAMS = ['chase', 'side', 'close'];
+const CAMS = ['chase', 'side', 'close', 'first'];
 camBtn.addEventListener('click', () => { R.camMode = CAMS[(CAMS.indexOf(R.camMode) + 1) % CAMS.length]; prefs.cam = R.camMode; savePrefs(); R.cam.init = false; showMessage(`${R.camMode.toUpperCase()} CAMERA`, 'small', 900); });
 
 addEventListener('keydown', (e) => {

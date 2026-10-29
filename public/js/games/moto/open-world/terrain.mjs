@@ -123,6 +123,33 @@ export function buildTerrain(world) {
    if(ok&&line.length===5){ line.forEach((r,i)=>ramps.push({...r,id:'park-'+parks.length+'-'+i})); parks.push({pad:pad.id,start:[px+sx*150,pz+sz*150],heading:h,ramps:line}); break; }
   }
  }
+ // ---------------------------------------------------------------- gauntlets: a steep run through the trees
+ // A corridor (from -> to, width wide) packed with trees you crash into, rocks you crash into unless you jump them, and
+ // small kickers down the middle. The trees and rocks are solid (obstacleAt) and drawn by the renderer exactly here.
+ const gauntlets=[];
+ for(const gs of world.gauntlets||[]) {
+  const r=rng(seed*7+gauntlets.length*131+17),[ax,az]=gs.from,[bx,bz]=gs.to,L=Math.hypot(bx-ax,bz-az),ux=(bx-ax)/L,uz=(bz-az)/L,half=gs.width/2;
+  const at=(along,across)=>[ax+ux*along+uz*across,az+uz*along-ux*across];
+  const g={id:gs.id,from:gs.from,to:gs.to,ux,uz,L,half,trees:[],rocks:[]};
+  for(let k=0;k<(gs.jumps||0);k++){ const [x,z]=at(L*(k+1)/(gs.jumps+1)+(r()-.5)*18,(r()-.5)*half*.9); ramps.push({id:gs.id+'-kick-'+k,position:[x,z],heading:Math.atan2(ux,uz),length:11,width:8,height:1.1+r()*.7,kind:'table',park:false,gauntlet:true}); }
+  const onJump=(x,z,m)=>ramps.some(q=>q.gauntlet&&Math.hypot(x-q.position[0],z-q.position[1])<q.length/2+m);
+  const free=(x,z,gap)=>!g.trees.some(t=>Math.hypot(t.x-x,t.z-z)<gap)&&!g.rocks.some(t=>Math.hypot(t.x-x,t.z-z)<gap);
+  for(let tries=0;g.trees.length<(gs.trees||0)&&tries<gs.trees*30;tries++) {
+   const along=r()*L,across=(r()*2-1)*(half+18),[x,z]=at(along,across);
+   if(along<30&&Math.abs(across)<12)continue;   // (a clear start)
+   if(routeDist(x,z)<6||onJump(x,z,6)||!free(x,z,8.5)||pads.some(p=>Math.hypot(x-p.position[0],z-p.position[1])<40))continue;
+   const sc=.65+r()*.35; g.trees.push({x,z,s:sc,r:2.1*sc,tall:16,rot:r()*6.28});   // (r: out to the lowest branches)
+  }
+  for(let tries=0;g.rocks.length<(gs.rocks||0)&&tries<gs.rocks*30;tries++) {
+   const along=30+r()*(L-30),across=(r()*2-1)*half,[x,z]=at(along,across);
+   if(routeDist(x,z)<5||onJump(x,z,5)||!free(x,z,5))continue;
+   const sc=.7+r()*.5; g.rocks.push({x,z,s:sc,r:1.15*sc,tall:.95*sc,rot:r()*6.28});
+  }
+  gauntlets.push(g);
+ }
+ /** How far (x, z) is inside a gauntlet's corridor and its fringe of trees (> 0 inside). */
+ const gauntletIn=(x,z,margin=0)=>gauntlets.some(g=>{ const dx=x-g.from[0],dz=z-g.from[1],along=dx*g.ux+dz*g.uz,across=Math.abs(dx*g.uz-dz*g.ux); return along>-margin&&along<g.L+margin&&across<g.half+18+margin; });
+
  // ---------------------------------------------------------------- gap jumps, pools and boost pads
  // A gap jump: a run-in, a kicker, a pit (lava, water, a freezing crevasse or a bottomless chasm) and a landing
  // ramp on the far side. Fall in and you crash (and get another go from the run-in). Each one is placed near its
@@ -142,7 +169,7 @@ export function buildTerrain(world) {
    const mid=(end-run)/2,lx=cx-sx*mid,lz=cz-sz*mid,pts=[];let ok=true;
    for(let e=-run-12;e<=end+12&&ok;e+=8) for(const side of [-W/2-8,0,W/2+8]) {
     const ex=lx+sx*e+sz*side,ez=lz+sz*e-sx*side;
-    if(!inBounds(ex,ez,rimWidth+70)||routeDist(ex,ez)<42||wet(ex,ez,70)||world.spots.some(s=>Math.hypot(ex-s.position[0],ez-s.position[1])<95)||pads.some(p=>Math.hypot(ex-p.position[0],ez-p.position[1])<110)||!clearOfFeatures(ex,ez,30)){ok=false;break;}
+    if(!inBounds(ex,ez,rimWidth+70)||routeDist(ex,ez)<42||wet(ex,ez,70)||world.spots.some(s=>Math.hypot(ex-s.position[0],ez-s.position[1])<95)||pads.some(p=>Math.hypot(ex-p.position[0],ez-p.position[1])<110)||!clearOfFeatures(ex,ez,30)||gauntletIn(ex,ez,30)){ok=false;break;}
     pts.push([e,rawHeight(ex,ez)]);
    }
    if(!ok)continue;
@@ -161,7 +188,7 @@ export function buildTerrain(world) {
    const cx=p.position[0]+Math.cos(k*.5236)*d,cz=p.position[1]+Math.sin(k*.5236)*d;let lo=Infinity,hi=-Infinity,ok=inBounds(cx,cz,rimWidth+reach+40)&&clearOfFeatures(cx,cz,reach+20);
    for(let a=0;a<6.28&&ok;a+=.52) for(const f of [0,.6,1.25]) {
     const ex=cx+Math.cos(a)*rx*f*1.2,ez=cz+Math.sin(a)*rz*f*1.2;
-    if(routeDist(ex,ez)<(p.trail??30)||wet(ex,ez,40)||world.spots.some(s=>Math.hypot(ex-s.position[0],ez-s.position[1])<80)||pads.some(q=>Math.hypot(ex-q.position[0],ez-q.position[1])<90)){ok=false;break;}
+    if(routeDist(ex,ez)<(p.trail??30)||wet(ex,ez,40)||world.spots.some(s=>Math.hypot(ex-s.position[0],ez-s.position[1])<80)||pads.some(q=>Math.hypot(ex-q.position[0],ez-q.position[1])<90)||gauntletIn(ex,ez,30)){ok=false;break;}
     const y=rawHeight(ex,ez);lo=Math.min(lo,y);hi=Math.max(hi,y);
    }
    if(ok&&hi-lo<14){ spot={cx,cz,base:(lo+hi)/2}; break search; }
@@ -249,6 +276,7 @@ export function buildTerrain(world) {
   if(m>0)for(const f of features) m=Math.min(m,smooth((Math.hypot(x-f.cx,z-f.cz)-f.reach)/60));
   if(lake) m=Math.min(m,smooth((lakeDist(x,z)-1.35)/.55));
   if(river) m=Math.min(m,smooth((riverDist(x,z)-river.width*1.6)/120));
+  if(m>0&&gauntletIn(x,z,60)) m=Math.min(m,gauntletIn(x,z,10)?0:.4);
   mask[j*nx+i]=m;
  }
  function sampleMask(m,x,z) {
@@ -322,8 +350,14 @@ export function buildTerrain(world) {
  const obstacles=[];
  for(const b of buildings)if(b.solid)obstacles.push({x:b.x,z:b.z,r:b.solid,tall:b.tall});
  for(const a of arches)for(const side of [-1,1])obstacles.push({x:a.x+Math.cos(a.heading)*a.width/2*side,z:a.z-Math.sin(a.heading)*a.width/2*side,r:1.1,tall:10});
- /** A solid thing the bike can't ride through at (x, z): { x, z, r, top } or null. */
- function obstacleAt(x,z){ for(const o of obstacles){ if(Math.abs(x-o.x)<o.r&&Math.abs(z-o.z)<o.r&&Math.hypot(x-o.x,z-o.z)<o.r) return {...o,top:(o.top??=heightAt(o.x,o.z)+o.tall)}; } return null; }
+ const solidGrid=new Map(); for(const g of gauntlets) for(const o of [...g.trees,...g.rocks]) insert(solidGrid,o,o.x-o.r,o.x+o.r,o.z-o.r,o.z+o.r,20);
+ /** A solid thing the bike can't ride through at (x, z): { x, z, r, top } or null (a building, an arch post, or a
+     gauntlet's tree or rock: jump high enough and you clear a rock). */
+ function obstacleAt(x,z){
+  for(const o of obstacles){ if(Math.abs(x-o.x)<o.r&&Math.abs(z-o.z)<o.r&&Math.hypot(x-o.x,z-o.z)<o.r) return {...o,top:(o.top??=heightAt(o.x,o.z)+o.tall)}; }
+  if(solidGrid.size) for(const o of solidGrid.get(Math.floor(x/20)+','+Math.floor(z/20))||[]) if(Math.hypot(x-o.x,z-o.z)<o.r) return {...o,top:(o.top??=heightAt(o.x,o.z)+o.tall)};
+  return null;
+ }
 
  /** Water's edge: the ground right next to a lake or river is never lower than its water (or you could ride along
      beneath the surface, and see the water's edge hanging in the air). Lava, deep in its crater or channel, too. */
@@ -373,5 +407,5 @@ export function buildTerrain(world) {
   return gates;
  }
  return {world,rawHeight,cliffRise,heightAt,roadAt,rampAt,surfaceAt,normalAt,inBounds,nearestSafePad,gatesFor,wild,ramps,parks,mesas,routeDist,buildings,arches,obstacles,obstacleAt,
-  featureAt,hazardAt,boostAt,tintAt,gaps,pools,boosts};
+  featureAt,hazardAt,boostAt,tintAt,gaps,pools,boosts,gauntlets,gauntletIn};
 }

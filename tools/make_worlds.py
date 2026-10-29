@@ -212,7 +212,10 @@ WORLDS = [
                   ("garden", "Jump Garden", 600, 750, "yard", "Dirt jumps and a quick loop."),
                   ("lake", "Wildwood Lake", -650, 470, "dock", "A jetty on the lake at the bottom of the rock garden."),
                   ("mill", "Old Mill", 820, -180, "cabin", "A cabin halfway down the east side."),
-                  ("tower", "Fire Tower", -850, -650, "tower", "A fire lookout on the west ridge.")],
+                  ("tower", "Fire Tower", -850, -650, "tower", "A fire lookout on the west ridge."),
+                  ("timber", "Timber Gap", 0, -870, "checkpoint", "The bottom of the Timber Run, down the north face through the trees.")],
+        # the Timber Run: straight down the steep north face, through solid trees and rocks, over little kickers
+        "gauntlets": [{"id": "timber-run", "from": [0, -445], "to": [0, -825], "width": 64, "trees": 140, "rocks": 45, "jumps": 7}],
         "routes": [("climb", "The Grind", spiral(0, -350, 470, 120, math.radians(120), 1.25, 16, start=[-700, 800], end=[0, -350]), False),
                    ("flow", "Flow Line", [[0, -350], [250, -180], [120, 20], [380, 200], [160, 400], [-150, 520], [-450, 700], [-700, 800]], False),
                    ("rock-garden", "Rock Garden", [[0, -350], [-180, -170], [-330, 20], [-500, 200], [-650, 470]], False),
@@ -302,6 +305,7 @@ def build(w):
         "safePads": [{"id": s["id"], "position": s["position"], "radius": 32, "riderPosition": [s["position"][0] - 24, s["position"][1] - 18]} for s in spots],
         "features": w.get("features", {}),
         **({"bike": True} if w.get("bike") else {}),
+        **({"gauntlets": w["gauntlets"]} if w.get("gauntlets") else {}),
     }
 
 

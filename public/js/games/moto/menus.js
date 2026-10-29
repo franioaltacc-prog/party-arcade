@@ -59,7 +59,7 @@ export function createMenus(ctx) {
     const best = ctx.challengeBest(c.id); const world = (ctx.worlds.find((w) => w.id === c.world) || {}).name || c.world;
     return h('button', { class: 'mx-chal' + (on ? ' on' : ''), type: 'button', onclick: onClick, disabled: !onClick, title: c.about },
       h('span', { class: 'e' }, c.emoji),
-      h('span', { class: 'tx' }, h('b', {}, c.name), h('small', {}, `${world} · ${KIND[c.kind]}${c.kind === 'race' ? '' : ` · ${c.limit}s`}${c.vehicle === 'mtb' ? ' · 🚵 MTB' : ''}`),
+      h('span', { class: 'tx' }, h('b', {}, c.name), h('small', {}, `${world} · ${KIND[c.kind]}${c.kind === 'race' ? '' : ` · ${c.limit}s`}${c.vehicle === 'mtb' ? ' · 🚵 MTB' : ''}${c.cam === 'first' ? ' · 👀 First person' : ''}`),
         big ? h('span', { class: 'ab' }, c.about) : null),
       big ? h('span', { class: 'best' }, best != null ? `Best ${ctx.fmtScore(c.kind, best)}` : 'Not tried yet') : null);
   }
@@ -138,7 +138,7 @@ export function createMenus(ctx) {
         h('div', { class: 'mx-chpick' },
           h('div', { class: 'mx-glass mx-chdetail' },
             h('span', { class: 'e' }, sel.emoji), h('b', {}, sel.name),
-            h('small', {}, `${world} · ${KIND[sel.kind]}${sel.kind === 'race' ? '' : ` · ${sel.limit} s`}`),
+            h('small', {}, `${world} · ${KIND[sel.kind]}${sel.kind === 'race' ? '' : ` · ${sel.limit} s`}${sel.cam === 'first' ? ' · 👀 First person' : ''}`),
             h('p', {}, sel.about),
             h('span', { class: 'best' }, best != null ? `Your best: ${ctx.fmtScore(sel.kind, best)}` : 'Not tried yet')),
           go('Ride it solo', 'Beat your best, earn coins', () => ctx.startChallengeSolo(sel)),
@@ -351,7 +351,7 @@ export function createMenus(ctx) {
           note('Gamepads work too: triggers for gas and brake, left stick to steer, right stick to lean, A for nitro, X / Y / bumpers for tricks, B for a 360.')),
         h('div', { class: 'mx-col' },
           glass('Settings', null,
-            h('div', { class: 'mx-lab' }, 'CAMERA'), seg([['chase', '🎥 Chase'], ['side', '📺 Side'], ['close', '🎬 Close']], ctx.prefs.cam, ctx.setCam),
+            h('div', { class: 'mx-lab' }, 'CAMERA'), seg([['chase', '🎥 Chase'], ['side', '📺 Side'], ['close', '🎬 Close'], ['first', '👀 First person']], ctx.prefs.cam, ctx.setCam),
             h('div', { class: 'mx-lab' }, 'GRAPHICS'), seg([['auto', 'Auto'], ['high', 'High'], ['medium', 'Medium'], ['low', 'Low (faster)']], ctx.prefs.quality, ctx.setQuality),
             h('div', { class: 'mx-lab' }, 'PHYSICS'), seg([['og', '🤸 OG'], ['new', '🧱 NEW']], ctx.prefs.physics === 'new' ? 'new' : 'og', ctx.setPhysics),
             h('small', { class: 'mx-hint' }, ctx.prefs.physics === 'new' ? 'NEW: roll over and it’s a crash straight away, then you’re straight back riding' : 'OG: tumbles play out: bounce, roll and maybe land on your wheels again'),

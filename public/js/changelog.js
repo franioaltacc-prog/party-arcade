@@ -6,6 +6,12 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.15.0', date: '2026-10-30', emoji: '🌲', title: 'Unrevvd: the Timber Run', items: [
+      'New Unrevvd challenge, the Timber Run: straight down the steep north face of the Wildwood mountain through a forest, in first person',
+      'The trees are solid (touch one and you crash), rocks are too unless you jump them, and there are little kickers to hit on the way down',
+      'Crash and you start again just behind where you hit, on a clear line',
+      'New camera: 👀 First person (press C while riding, or pick it in Controls)',
+    ] },
     { v: '3.14.2', date: '2026-10-30', emoji: '⛰️', title: 'Unrevvd: stronger on the hills', items: [
       'Mountain bike riders stand up and dig in going uphill: about 33 km/h up a steep 20% hill (it was 20), and the steepest climbs are much easier',
     ] },

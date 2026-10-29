@@ -1,5 +1,5 @@
 {
-  "about": "Revvd challenges in the open worlds, played solo or by a whole room at once (games/moto/game.py reads this too). kind: race = first to the finish pad (from/to are safe-pad ids); air = longest single jump in seconds; flips = most flips landed; tricks = most trick points; speed = highest speed in km/h. at = a safe-pad id or 'park' (the send-it jump park). limit = seconds. vehicle: 'mtb' = an Unrevvd challenge, ridden on mountain bikes (the rest are on dirt bikes).",
+  "about": "Revvd challenges in the open worlds, played solo or by a whole room at once (games/moto/game.py reads this too). kind: race = first to the finish pad (from/to are safe-pad ids); air = longest single jump in seconds; flips = most flips landed; tricks = most trick points; speed = highest speed in km/h. at = a safe-pad id or 'park' (the send-it jump park). limit = seconds. vehicle: 'mtb' = an Unrevvd challenge, ridden on mountain bikes (the rest are on dirt bikes). cam: 'first' = ridden in the first-person camera.",
   "challenges": [
     {"id": "big-drop", "world": "sheerwall", "kind": "race", "name": "The Big Drop", "emoji": "🪂", "from": "top", "to": "river", "limit": 180,
      "about": "Race from the top of Sheerwall's 400 m cliff down to the valley floor. Take the cliff road, or send it straight off the edge and land it."},
@@ -33,6 +33,8 @@
      "about": "Two minutes at the beach jump park to land as many flips as you can."},
     {"id": "wild-send", "world": "wildwood", "kind": "race", "name": "Summit Send", "emoji": "🚵", "from": "summit", "to": "trailhead", "limit": 300, "vehicle": "mtb",
      "about": "From the Summit Hut down to the Trailhead. The flow trail, the rock garden or straight through the trees: first one down wins."},
+    {"id": "timber-run", "world": "wildwood", "kind": "race", "name": "Timber Run", "emoji": "🌲", "from": "summit", "to": "timber", "limit": 180, "vehicle": "mtb", "cam": "first",
+     "about": "First person, straight down the steep north face through the forest. Dodge the trees, jump the rocks (or go round them) and hit the little kickers. Touch a tree and you crash."},
     {"id": "wild-grind", "world": "wildwood", "kind": "race", "name": "The Grind", "emoji": "⛰️", "from": "trailhead", "to": "summit", "limit": 600, "vehicle": "mtb",
      "about": "Pedal from the Trailhead all the way up to the Summit Hut. No engine, no nitro: just your legs."},
     {"id": "wild-air", "world": "wildwood", "kind": "air", "name": "Bike Park Air", "emoji": "🚀", "at": "park", "limit": 90, "vehicle": "mtb",

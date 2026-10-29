@@ -163,6 +163,7 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
    const road=terrain.roadAt(x,z);if(road&&road.distance<9+spec.clear)continue;
    if(terrain.rampAt(x,z).weight>0||terrain.featureAt(x,z).flat>.02)continue;
    if(keepOut.some(([p,r])=>Math.hypot(x-p[0],z-p[1])<r))continue;
+   if(terrain.gauntletIn(x,z,40))continue;   // (a gauntlet has its own trees and rocks, below: the solid ones; none just round it either)
    if(lakeDist(x,z)<1.1||riverDist(x,z)<(river?river.width*.62:0))continue;
    const y=renderHeightAt(x,z);if(spec.treeLine&&y>map.baseHeight+spec.treeLine+r2*80)continue;
    if(coarseUp(x,z)<spec.slope)continue;
@@ -172,6 +173,14 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
    const list=chunks.get(key).lists;if(!list.has(spec))list.set(spec,[]);
    const tilt=spec.kind==='rock'?(r3-.5)*.6:spec.kind==='log'?0:(r3-.5)*.1;
    list.get(spec).push({x,z,sink:spec.sink*s+(spec.kind==='rock'?s*.12:0),rot:r4*Math.PI*2,tilt,s,sy:s*(spec.kind==='rock'?.7+r1*.6:1),shade:.84+r3*.3});
+  }
+  // a gauntlet's trees and rocks, exactly where the bike crashes into them
+  const solid=spec.kind==='pine'||spec.kind==='snowpine'?'trees':spec.kind==='rock'?'rocks':null;
+  if(solid) for(const g of terrain.gauntlets) for(const o of g[solid]) {
+   const key=Math.floor(o.x/CHUNK)+','+Math.floor(o.z/CHUNK);
+   if(!chunks.has(key))chunks.set(key,{x0:Math.floor(o.x/CHUNK)*CHUNK,z0:Math.floor(o.z/CHUNK)*CHUNK,lists:new Map(),meshes:[]});
+   const list=chunks.get(key).lists;if(!list.has(spec))list.set(spec,[]);
+   list.get(spec).push({x:o.x,z:o.z,sink:spec.sink*o.s+(solid==='rocks'?o.s*.12:0),rot:o.rot,tilt:0,s:o.s,sy:o.s,shade:.9});
   }
  }
  const geos=new Map();
