@@ -37,9 +37,10 @@
     FREE_WHEELIE: [.06, .22], // with all that power the rider leans over the bars from this pitch, and eases off from this one (lean back to wheelie)
     // Unrevvd's mountain bike (free ride only): the rider's legs push the back wheel with up to FMAX newtons, and no
     // more than POWER watts once it's rolling (about 45 km/h on the flat, slower up a steep hill, quick down one); DRAG
-    // is its air drag (upright rider). No nitro: it's a bicycle. Lean back on the ground to pop a wheelie: the rider
-    // lifts the front to WHEELIE (radians, more the further back you lean) and balances it there
-    MTB: { POWER: 2800, FMAX: 900, DRAG: 1.0, WHEELIE: [0.45, 0.75] },
+    // is its air drag (upright rider). Uphill the rider stands up and digs in: CLIMB more power per radian of slope, up
+    // to CLIMB_MAX times as much. No nitro: it's a bicycle. Lean back on the ground to pop a wheelie: the rider lifts
+    // the front to WHEELIE (radians, more the further back you lean) and balances it there
+    MTB: { POWER: 2800, FMAX: 900, DRAG: 1.0, CLIMB: 4, CLIMB_MAX: 2.2, WHEELIE: [0.45, 0.75] },
     G: 10.5,                 // gravity (a touch above real, so jumps don't feel floaty)
     M: 104, I: 17,           // the bike's frame: mass (kg) and how hard it is to spin (the wheels and the rider come on top)
     MR: 70,                  // the rider: a body on springy legs and arms, so bumps aren't passed straight into the bike
@@ -626,7 +627,8 @@
     if (T.mtb) {
       // a bicycle: the rider's legs push the back wheel (hard from a standstill, power-limited once rolling)
       const up = T.mtb; const v = Math.max(1, rear.sp * P.R[1]);
-      if (rear.ct && !inp.hold) engine = b.thr * Math.min(P.MTB.FMAX * up.power, P.MTB.POWER * up.power / v) * P.R[1];
+      const climb = clamp(1 + P.MTB.CLIMB * slope(G, b.x), 1, P.MTB.CLIMB_MAX);   // (standing up on the pedals for a hill)
+      if (rear.ct && !inp.hold) engine = b.thr * climb * Math.min(P.MTB.FMAX * up.power, P.MTB.POWER * up.power / v) * P.R[1];
       b.rpm = b.thr > 0.15 ? 60 + Math.min(50, v * 4) : 0; b.limiter = false; b.shift = 0;   // (rpm: the pedalling cadence)
       b.gear = clamp(1 + Math.floor(Math.max(0, b.vx) / 1.6), 1, 12);                         // (the gear you'd be in: just for show)
     } else {

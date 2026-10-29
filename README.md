@@ -317,7 +317,7 @@ with an import map), everything else is drawn and synthesised in code (no model,
 `challenges.json`), its own coins and upgrades, and riding free with dirt bikes in a room.
 - **Physics:** `MotoCore.groundTrack(terrain, spawn, null, mtb)` with `mtb` = `{ power, drag }`
   multipliers (`{}` = stock). The rider's legs push the back wheel with up to `P.MTB.FMAX` newtons and no more than
-  `P.MTB.POWER` watts (about 47 km/h on the flat, 21 km/h up a 20% hill, 85 km/h coasting down a steep one), with its
+  `P.MTB.POWER` watts (about 47 km/h on the flat, 33 km/h up a 20% hill with the climbing boost `P.MTB.CLIMB`, 85 km/h coasting down a steep one), with its
   own air drag. No nitro. Leaning back on the ground pulls a wheelie the rider balances (`P.MTB.WHEELIE`, v3.14.1). Same
   frame, suspension, tricks and crashes as the dirt bike.
 - **Coins:** `coins.js` keeps two wallets: Revvd's (`moto_coins_v1`, `ENGINES`) and Unrevvd's (`MTB`, `mtb_coins_v1`,

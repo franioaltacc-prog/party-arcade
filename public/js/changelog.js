@@ -6,6 +6,9 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.14.2', date: '2026-10-30', emoji: '⛰️', title: 'Unrevvd: stronger on the hills', items: [
+      'Mountain bike riders stand up and dig in going uphill: about 33 km/h up a steep 20% hill (it was 20), and the steepest climbs are much easier',
+    ] },
     { v: '3.14.1', date: '2026-10-30', emoji: '🚵', title: 'Unrevvd: wheelies, and faster bikes', items: [
       'Lean back (Q) on the ground to pull a wheelie: the further back, the higher. Let go to put the front down',
       'Mountain bikes are much quicker now: about 47 km/h on the flat, and up to 30 km/h in under 4 seconds (the upgrades are faster too)',

@@ -202,7 +202,7 @@ const flat = C.build({ id: 'flat', name: 'Flat', course: ['flat 20', 'start', 'f
   for(let i=0;i<120*5;i++){C.step(T,b,{gas:1,lean:-1});if(i>120){up=Math.max(up,b.a);low=Math.min(low,b.a);}if(b.crashed)crashed=true;}
   for(let i=0;i<120*3;i++){C.step(T,b,{gas:1});if(b.crashed)crashed=true;}
   check(low>.6&&up<.95&&b.wh[0].ct&&!crashed,`leaning back pulls a wheelie it holds (${low.toFixed(2)}–${up.toFixed(2)} rad), and letting go puts the front down`);}
- check(up.b.vx>2&&up.kmh<flat.kmh*.6&&!up.crashed,`it climbs a 20% hill, slower than on the flat (${up.kmh.toFixed(0)} km/h)`);
+ check(up.kmh>25&&up.kmh<flat.kmh*.85&&!up.crashed&&up.b.wh[0].ct,`it climbs a 20% hill strongly but slower than on the flat (${up.kmh.toFixed(0)} km/h), front wheel down`);
  check(down.kmh>70&&!down.crashed,`coasting down a steep hill it reaches ${down.kmh.toFixed(0)} km/h`);
  check(C.groundTrack(slope(0),pad,{power:9},{}).engine===null&&C.groundTrack(slope(0),pad).mtb===null,'a mountain bike has no engine upgrade, and a dirt bike no pedals');
  {const T=C.groundTrack(slope(0),pad,null,{}),b=C.newBike(T);for(let i=0;i<120*30;i++)C.step(T,b,{gas:1});const x=b.x;for(let i=0;i<120*8&&b.vx>.3;i++)C.step(T,b,{brake:1});check(!b.crashed&&b.x-x<20,`full brakes stop it in ${(b.x-x).toFixed(0)} m without going over the bars`);}
