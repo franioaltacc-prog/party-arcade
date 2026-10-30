@@ -212,10 +212,7 @@ WORLDS = [
                   ("garden", "Jump Garden", 600, 750, "yard", "Dirt jumps and a quick loop."),
                   ("lake", "Wildwood Lake", -650, 470, "dock", "A jetty on the lake at the bottom of the rock garden."),
                   ("mill", "Old Mill", 820, -180, "cabin", "A cabin halfway down the east side."),
-                  ("tower", "Fire Tower", -850, -650, "tower", "A fire lookout on the west ridge."),
-                  ("timber", "Timber Gap", 0, -870, "checkpoint", "The bottom of the Timber Run, down the north face through the trees.")],
-        # the Timber Run: straight down the steep north face, through solid trees and rocks, over little kickers
-        "gauntlets": [{"id": "timber-run", "from": [0, -445], "to": [0, -825], "width": 64, "trees": 140, "rocks": 45, "jumps": 7}],
+                  ("tower", "Fire Tower", -850, -650, "tower", "A fire lookout on the west ridge.")],
         "routes": [("climb", "The Grind", spiral(0, -350, 470, 120, math.radians(120), 1.25, 16, start=[-700, 800], end=[0, -350]), False),
                    ("flow", "Flow Line", [[0, -350], [250, -180], [120, 20], [380, 200], [160, 400], [-150, 520], [-450, 700], [-700, 800]], False),
                    ("rock-garden", "Rock Garden", [[0, -350], [-180, -170], [-330, 20], [-500, 200], [-650, 470]], False),
@@ -230,6 +227,23 @@ WORLDS = [
         "features": {"gaps": [gap("creek-gap", "water", "valley-loop", 0.15, 1, 7, 2.0, 14, bike=True), gap("rock-drop", "chasm", "valley-loop", 0.45, -1, 8, 2.2, 14, bike=True),
                               gap("mill-gap", "water", "valley-loop", 0.7, -1, 8, 2.2, 14, bike=True)],
                      "pools": [pool("bog", "water", 350, 1000, 30, 22, 0.4)]},
+    },
+    {
+        # the Timber Run's own little world (challenge only: not in free ride): a narrow, steep gully packed with solid
+        # pines, rocks, stumps and fallen logs, with a few kickers; banks and mountains either side keep you in it
+        "id": "timberchute", "name": "Timber Chute", "tagline": "Through the trees. Don't touch them.", "theme": "alpine", "seed": 4411,
+        "size": [220, 640], "baseHeight": 40, "cliff": [50, 160], "hidden": True, "buildings": False, "pad": 8, "riderOffset": [0, 0],
+        "palette": {"sky": "#c4d6cc", "low": "#3f6a33", "high": "#8fae6a", "trail": "#7a5a3e", "water": "#3f8f95", "accent": "#39d98a"},
+        "look": {"flora": [],
+                 "sky": {"sun": [44, 160], "turbidity": 4, "rayleigh": 1.6, "mie": 0.006, "exposure": 1.2, "fog": 1.6, "fogColor": "#b9cbbf", "sunColor": "#fff1d6"},
+                 "grass": [[52, 92, 40], [112, 146, 70]], "dirt": [[96, 70, 48], [150, 116, 82]]},
+        # one long slope down to the south, a gully down the middle of it
+        "terrain": {"noise": 3, "scale": 90, "hills": [[0, -330, 170, 620, 620], [0, 0, -16, 34, 5000]]},
+        "spots": [("top", "Chute Top", 0, -262, "lookout", "The top of the Timber Chute."),
+                  ("bottom", "Chute Bottom", 0, 262, "checkpoint", "The bottom of the Timber Chute.")],
+        "gauntlets": [{"id": "timber-run", "from": [0, -258], "to": [0, 250], "width": 64, "fringe": 45, "gap": 5.6, "trees": 1150,
+                       "rocks": 70, "stumps": 30, "logs": 18, "jumps": 6, "ferns": 420}],
+        "routes": [], "races": [], "ramps": [], "zones": [], "features": {},
     },
     {
         # a 420 m wall of red rock across the middle: race a friend from the top to the valley floor
@@ -263,7 +277,8 @@ WORLDS = [
 
 
 def build(w):
-    sx = w["size"]
+    sx, sz = w["size"] if isinstance(w["size"], list) else (w["size"], w["size"])
+    pad, (ox, oz) = w.get("pad", 32), w.get("riderOffset", [-24, -18])
     spots = [{"id": i, "name": n, "position": [x, z], "kind": k, "radius": 24, "about": a} for i, n, x, z, k, a in w["spots"]]
     first = spots[0]
     # face the spawn towards the middle of the map
@@ -278,12 +293,12 @@ def build(w):
     ids = [s["id"] for s in spots]
     interactions = [
         {"id": "board", "name": f"{first['name']} race board", "position": at(ids[0], 40), "kind": "race-board", "radius": 18, "event": "race.offer", "about": "Choose a mini race and invite nearby friends.", "cooldownSeconds": 10},
-        {"id": "jam", "name": f"{by[ids[4]]['name']} trick jam", "position": at(ids[4], -50, -20), "kind": "trick-zone", "radius": 18, "event": "trick.land", "about": "Share a two-minute trick score with friends.", "cooldownSeconds": 10},
+        {"id": "jam", "name": f"{by[ids[min(4, len(ids) - 1)]]['name']} trick jam", "position": at(ids[min(4, len(ids) - 1)], -50, -20), "kind": "trick-zone", "radius": 18, "event": "trick.land", "about": "Share a two-minute trick score with friends.", "cooldownSeconds": 10},
         {"id": "camera", "name": f"{by[ids[1]]['name']} photo perch", "position": at(ids[1]), "kind": "photo", "radius": 18, "event": "photo.capture", "about": "Get the whole group into a summit picture.", "cooldownSeconds": 10},
     ]
     quests = [
         {"id": f"{w['id']}-welcome", "name": f"Welcome to {w['name']}", "start": ids[0], "players": [1, 6],
-         "steps": [{"event": "zone.enter", "target": ids[2], "count": 1}, {"event": "zone.enter", "target": ids[4], "count": 1}, {"event": "zone.enter", "target": ids[0], "count": 1}],
+         "steps": [{"event": "zone.enter", "target": ids[min(2, len(ids) - 1)], "count": 1}, {"event": "zone.enter", "target": ids[min(4, len(ids) - 1)], "count": 1}, {"event": "zone.enter", "target": ids[0], "count": 1}],
          "reward": {"type": "cosmetic-token", "amount": 1}, "repeatable": True},
         {"id": f"{w['id']}-summit", "name": "Top of the World", "start": ids[0], "players": [1, 6],
          "steps": [{"event": "zone.enter", "target": ids[1], "count": 1}, {"event": "photo.capture", "target": "camera", "count": 1}],
@@ -291,7 +306,7 @@ def build(w):
     ]
     return {
         "schemaVersion": 1, "id": w["id"], "name": w["name"], "tagline": w["tagline"], "theme": w["theme"], "seed": w["seed"],
-        "size": [sx, sx], "baseHeight": w["baseHeight"], "spawn": first["position"], "spawnHeading": heading,
+        "size": [sx, sz], "baseHeight": w["baseHeight"], "spawn": first["position"], "spawnHeading": heading,
         "palette": w["palette"], "look": w["look"], "terrain": w["terrain"],
         "regions": [{"name": s["name"], "position": s["position"]} for s in spots],
         "routes": routes, "spots": spots, "races": races, "interactions": interactions,
@@ -302,10 +317,12 @@ def build(w):
         "status": "Made by tools/make_worlds.py.",
         "boundary": {"softMargin": 100, "policy": "warn-and-respawn", "respawn": "last-safe-pad", "cliffWidth": w["cliff"][0], "cliffHeight": w["cliff"][1], "sceneryApron": 1600},
         "spawnPads": pads,
-        "safePads": [{"id": s["id"], "position": s["position"], "radius": 32, "riderPosition": [s["position"][0] - 24, s["position"][1] - 18]} for s in spots],
+        "safePads": [{"id": s["id"], "position": s["position"], "radius": pad, "riderPosition": [s["position"][0] + ox, s["position"][1] + oz]} for s in spots],
         "features": w.get("features", {}),
         **({"bike": True} if w.get("bike") else {}),
         **({"gauntlets": w["gauntlets"]} if w.get("gauntlets") else {}),
+        **({"hidden": True} if w.get("hidden") else {}),
+        **({"buildings": False} if w.get("buildings") is False else {}),
     }
 
 
@@ -327,7 +344,9 @@ if __name__ == "__main__":
     manifest = json.loads(manifest_path.read_text())
     for w in WORLDS:
         (OUT / f"{w['id']}.json").write_text(json.dumps(build(w), indent=2) + "\n")
-        entry = {"id": w["id"], "name": w["name"], "file": f"{w['id']}.json", "areaKm2": round(w["size"] ** 2 / 1e6, 2), **({"bike": True} if w.get("bike") else {})}
+        size = w["size"] if isinstance(w["size"], list) else [w["size"], w["size"]]
+        entry = {"id": w["id"], "name": w["name"], "file": f"{w['id']}.json", "areaKm2": round(size[0] * size[1] / 1e6, 2), **({"bike": True} if w.get("bike") else {}),
+                 **({"hidden": True} if w.get("hidden") else {})}   # (hidden: only a challenge rides it, never free ride)
         manifest["worlds"] = [x for x in manifest["worlds"] if x["id"] != w["id"]] + [entry]
         print("wrote", w["id"])
     for wid, feats in EXTRAS.items():

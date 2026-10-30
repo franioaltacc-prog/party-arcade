@@ -56,7 +56,7 @@ export function createMenus(ctx) {
   const KIND = { race: '🏁 Race to the finish', air: '🚀 Longest jump', flips: '🤸 Most flips', speed: '⚡ Top speed', tricks: '🌟 Most trick points' };
   /** A challenge to pick: what it is, where, the goal and (big) your best on this device. */
   function challengeChip(c, on, onClick, big) {
-    const best = ctx.challengeBest(c.id); const world = (ctx.worlds.find((w) => w.id === c.world) || {}).name || c.world;
+    const best = ctx.challengeBest(c.id); const world = (ctx.allWorlds.find((w) => w.id === c.world) || {}).name || c.world;
     return h('button', { class: 'mx-chal' + (on ? ' on' : ''), type: 'button', onclick: onClick, disabled: !onClick, title: c.about },
       h('span', { class: 'e' }, c.emoji),
       h('span', { class: 'tx' }, h('b', {}, c.name), h('small', {}, `${world} · ${KIND[c.kind]}${c.kind === 'race' ? '' : ` · ${c.limit}s`}${c.vehicle === 'mtb' ? ' · 🚵 MTB' : ''}${c.cam === 'first' ? ' · 👀 First person' : ''}`),
@@ -131,7 +131,7 @@ export function createMenus(ctx) {
     primary = () => ctx.startChallengeSolo(sel);
     const friends = async () => { ctx.challengeFriends(sel); await create(); };
     // the picked challenge (and its buttons) beside a compact grid of all of them
-    const best = ctx.challengeBest(sel.id); const world = (ctx.worlds.find((w) => w.id === sel.world) || {}).name || sel.world;
+    const best = ctx.challengeBest(sel.id); const world = (ctx.allWorlds.find((w) => w.id === sel.world) || {}).name || sel.world;
     return h('div', { class: 'mx-col wide' },
       backBtn(mtb ? 'Unrevvd challenges' : 'Challenges'),
       h('div', { class: 'mx-chsplit' },

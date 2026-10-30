@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {Sky} from 'three/addons/objects/Sky.js';
 import {buildOpenWorld,autumnize} from './world.mjs';
+import {gauntletScenery} from './nature.mjs';
 import {terrainMaterial} from './materials.mjs';
 import {renderPolicy} from './render-policy.mjs';
 import {gridHeight} from './grounding.mjs';
@@ -8,10 +9,11 @@ import {routeLength,routePoint} from './terrain.mjs';
 import {THEMES,particles,makeProps} from '../world.js';
 
 /** The free-ride scene: sky and sun like the race tracks, distance-cullable ground and scenery, a budgeted
- * detailed patch of ground round the rider and grass and pebbles scattered on it. */
-export function buildRideWorld(map,quality=1,renderer=null,shadows=false){
+ * detailed patch of ground round the rider and grass and pebbles scattered on it. nature: the real tree and rock
+ * models (nature.mjs loadNature), for a gauntlet's solid trees and rocks (without them they're the scenery models). */
+export function buildRideWorld(map,quality=1,renderer=null,shadows=false,nature=null){
  const policy=renderPolicy(quality);
- const built=buildOpenWorld(map,{resolution:policy.resolution,chunkSegments:policy.chunkSegments,scenery:policy.scenery,detailed:false});
+ const built=buildOpenWorld(map,{resolution:policy.resolution,chunkSegments:policy.chunkSegments,scenery:policy.scenery,detailed:false,solidProps:!nature});
  built.routes.visible=false; // The textured trails and stakes already mark roads; preview lines can float above coarse hills.
  const scene=new THREE.Scene();scene.add(built.group);
  // The race tracks' skies, tuned for big daytime views: higher sun, clearer air, thinner haze.
@@ -50,6 +52,7 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false){
  {let s=map.seed*7;const r=()=>{s=(Math.imul(s,1664525)+1013904223)>>>0;return s/4294967296;};
   for(let i=0;i<(map.theme==='desert'?16:30);i++){const c=new THREE.Sprite(cloudMat),a=r()*Math.PI*2,d=r()*map.size[0]*.9;c.position.set(Math.cos(a)*d,map.baseHeight+700+r()*500,Math.sin(a)*d);c.scale.set(700+r()*600,240+r()*140,1);scene.add(c);}}
  const fxRoot=new THREE.Group();scene.add(fxRoot);const fx=particles(fxRoot,theme,null,quality);
+ const forest=nature&&built.terrain.gauntlets.length?gauntletScenery(built.terrain,nature,scene,{shadows}):null;
 
  // ---------------------------------------------------------------- detailed ground round the rider
  const half=policy.half,n=policy.segments,inner=half-12;
@@ -170,7 +173,7 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false){
   free:true,scene,theme,fx,gates:[],ground:built.terrain,definition:map,policy,sun,coins,collect,
   /** ahead: where to centre the detailed ground (a little ahead of a fast bike, so the ground it's riding into is ready). */
   update(point,dt,camera,ahead=point){
-   updatePatch(ahead);fx.update(dt,camera);built.update(camera.position);drawCoins(performance.now());drawHoops(performance.now());
+   updatePatch(ahead);fx.update(dt,camera);built.update(camera.position);forest?.update(camera.position);drawCoins(performance.now());drawHoops(performance.now());
    sun.position.copy(point).addScaledVector(sunDir,220);sun.target.position.copy(point);
    if(!shadows){
     const y=built.terrain.heightAt(point.x,point.z),nn=built.terrain.normalAt(point.x,point.z);
@@ -178,7 +181,7 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false){
    }
   },
   dispose(){
-   samples.clear();built.dispose();geo.dispose();detail.dispose();shadowGeo.dispose();shadowMat.dispose();shadowTex.dispose();
+   samples.clear();built.dispose();forest?.dispose();geo.dispose();detail.dispose();shadowGeo.dispose();shadowMat.dispose();shadowTex.dispose();
    for(const k of coverKinds){k.im.dispose();k.geo.dispose();}for(const m of [props.propMat,props.leafMat,props.cactusMat,pebbleProps.propMat,pebbleProps.leafMat,pebbleProps.cactusMat])m.dispose();
    cloudTex.dispose();cloudMat.dispose();coinMesh.dispose();coinGeo.dispose();coinMat.dispose();hoopMesh.dispose();hoopGeo.dispose();hoopMat.dispose();sky.geometry.dispose();sky.material.dispose();env?.dispose();
    const textures=new Set();fxRoot.traverse(o=>{o.geometry?.dispose();if(o.material){for(const u of Object.values(o.material.uniforms||{}))if(u.value?.isTexture)textures.add(u.value);if(o.material.map)textures.add(o.material.map);o.material.dispose();}});textures.forEach(t=>t.dispose());

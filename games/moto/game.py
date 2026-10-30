@@ -56,7 +56,8 @@ CHALLENGES = load_challenges()
 
 def load_worlds():
     try:
-        return [w["id"] for w in json.loads((WORLD_DIR / "manifest.json").read_text(encoding="utf-8"))["worlds"]]
+        # (a hidden world is only for its challenge: never a room's free ride)
+        return [w["id"] for w in json.loads((WORLD_DIR / "manifest.json").read_text(encoding="utf-8"))["worlds"] if not w.get("hidden")]
     except (OSError, ValueError, KeyError):
         return []
 

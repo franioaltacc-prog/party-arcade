@@ -68,7 +68,8 @@ function padTexture(){
  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.colorSpace=THREE.SRGBColorSpace;return t;
 }
 
-export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,detailed=true}={}) {
+/** solidProps: draw a gauntlet's solid trees and rocks with the scenery models (when the real ones, nature.mjs, aren't drawn). */
+export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,detailed=true,solidProps=true}={}) {
  const terrain=buildTerrain(map), group=new THREE.Group(), disposables=[], theme=map.theme, W=map.size[0], D=map.size[1];
  const mats={}; const mat=(id,make)=>mats[id]||(mats[id]=make());
  // ---------------------------------------------------------------- the ground
@@ -153,7 +154,9 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
  const keepOut=[...map.safePads.map(p=>[p.position,48]),...map.spots.map(s=>[s.position,40]),...(map.spawnPads||[]).map(p=>[p.position,20])];
  const chunks=new Map(), dummy=new THREE.Object3D(), tint=new THREE.Color();
  const cluster=(x,z,k)=>{let n=0,a=.5,f=1/380,t=0;for(let i=0;i<3;i++){const s=Math.sin(x*f*1.7+z*f*.6+k*5.1+i*2.3)*Math.cos(z*f*1.3-x*f*.4+k*3.7+i*1.1);n+=a*s;t+=a;a*=.5;f*=2.1;}return .5+.5*n/t;};
- const flora=(FLORA[theme]||FLORA.alpine).filter(f=>!map.look?.flora||map.look.flora.includes(f.kind));   // (a world can keep only some kinds)
+ // (a world can keep only some kinds; a gauntlet's trees and rocks still need theirs)
+ const drawSolid=solidProps&&terrain.gauntlets.length>0;
+ const flora=(FLORA[theme]||FLORA.alpine).map(f=>!map.look?.flora||map.look.flora.includes(f.kind)?f:drawSolid&&/pine|rock/.test(f.kind)?{...f,per:0}:null).filter(Boolean);
  for(const spec of flora) {
   const attempts=Math.round(spec.per*W*D/1e6*density*(spec.far?1:.8));
   for(let i=0;i<attempts;i++) {
@@ -174,9 +177,9 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
    const tilt=spec.kind==='rock'?(r3-.5)*.6:spec.kind==='log'?0:(r3-.5)*.1;
    list.get(spec).push({x,z,sink:spec.sink*s+(spec.kind==='rock'?s*.12:0),rot:r4*Math.PI*2,tilt,s,sy:s*(spec.kind==='rock'?.7+r1*.6:1),shade:.84+r3*.3});
   }
-  // a gauntlet's trees and rocks, exactly where the bike crashes into them
-  const solid=spec.kind==='pine'||spec.kind==='snowpine'?'trees':spec.kind==='rock'?'rocks':null;
-  if(solid) for(const g of terrain.gauntlets) for(const o of g[solid]) {
+  // a gauntlet's trees and rocks (stumps and logs as rocks too), exactly where the bike crashes into them
+  const solid=!drawSolid?null:spec.kind==='pine'||spec.kind==='snowpine'?'trees':spec.kind==='rock'?'rocks':null;
+  if(solid) for(const g of terrain.gauntlets) for(const o of solid==='trees'?g.trees:[...g.rocks,...g.stumps,...g.logs.flatMap(l=>l.parts.map(p=>({...p,s:p.r/1.15,rot:l.rot})))]) {
    const key=Math.floor(o.x/CHUNK)+','+Math.floor(o.z/CHUNK);
    if(!chunks.has(key))chunks.set(key,{x0:Math.floor(o.x/CHUNK)*CHUNK,z0:Math.floor(o.z/CHUNK)*CHUNK,lists:new Map(),meshes:[]});
    const list=chunks.get(key).lists;if(!list.has(spec))list.set(spec,[]);

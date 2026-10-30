@@ -605,6 +605,18 @@
   /** One game step (1/120 s). inp = { gas 0..1, brake 0..1, steer -1 (left) .. 1 (right), lean -1 (back) .. 1 (forward),
       nitro, hold (stand at the gate), assist: false (no levelling in the air), calm (NEW physics: crash sooner, settle faster) }.
       Returns a list of events: ['land', {...}], ['crash'], ['cp', i], ['finish', time], ['shift', gear], ['fence']. */
+  /** Something solid (free ride: a building, an arch post, a tree, a rock…) the bike is running into, at its front
+      wheel, either end of its handlebar, its middle or its rear wheel. Each of those clears a thing only above its top
+      (so a jump can take you over a rock). Returns [the obstacle, x, z of the part that hit it] or null. */
+  function obstacleHit(T, b) {
+    const c = Math.cos(b.h); const s = Math.sin(b.h); const front = b.wh[0].x - b.x;
+    for (const [along, side, bottom] of [[front, 0, b.wh[0].y - P.R[0]], [front * 0.6, 0.38, b.y], [front * 0.6, -0.38, b.y], [0, 0, b.y], [b.wh[1].x - b.x, 0, b.wh[1].y - P.R[1]]]) {
+      const x = b.px + c * along - s * side; const z = b.pz + s * along + c * side;
+      const o = T.terrain.obstacleAt(x, z);
+      if (o && bottom < o.top) return [o, x, z];
+    }
+    return null;
+  }
   function step(T, b, inp) {
     const ev = [];
     const G = slice(T, b);
@@ -719,9 +731,9 @@
     if (T.terrain) {
       b.s=b.x; b.u=0; b.off=false; b.wrong=false;
       if(!out && !inp.hold && !T.terrain.inBounds(b.px,b.pz)) { crash(T,b,ev); ev.push(['bounds']); }
-      // buildings and arch posts are solid: bounce off and come off the bike
-      const o = !out && !inp.hold && T.terrain.obstacleAt ? T.terrain.obstacleAt(b.px, b.pz) : null;
-      if (o && b.y < o.top) { const dx = b.px - o.x; const dz = b.pz - o.z; const l = Math.hypot(dx, dz) || 1; b.px = o.x + dx / l * (o.r + 0.4); b.pz = o.z + dz / l * (o.r + 0.4); b.vx *= -0.25; crash(T, b, ev); }
+      // buildings, arch posts and a gauntlet's trees and rocks are solid: bounce off and come off the bike
+      const hit = !out && !inp.hold && T.terrain.obstacleAt ? obstacleHit(T, b) : null;
+      if (hit) { const [o, x, z] = hit; const dx = x - o.x; const dz = z - o.z; const l = Math.hypot(dx, dz) || 1; const push = o.r + 0.3 - l; b.px += dx / l * push; b.pz += dz / l * push; b.vx *= -0.25; crash(T, b, ev); }
       // lava, deep water and chasms: in you go (lava the moment a tyre touches it, water once it's over the axles)
       const hz = !b.crashed && !inp.hold && T.terrain.hazardAt ? T.terrain.hazardAt(b.px, b.pz) : null;
       if (hz && b.y < hz.level + (hz.kind === 'lava' || hz.kind === 'tar' ? 0.55 : hz.kind === 'chasm' ? 0 : -0.25)) { crash(T, b, ev); b.vx *= 0.3; ev.push(['hazard', hz]); }

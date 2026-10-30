@@ -6,6 +6,14 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.16.0', date: '2026-10-30', emoji: '🌲', title: 'Unrevvd: the Timber Chute', items: [
+      'The Timber Run has its own map now, the Timber Chute: a narrow, steep gully packed tight with pine trees, rocks, stumps and fallen logs (only the challenge goes there, not free ride)',
+      'Real-looking forest: proper pine trees with bark and needles, and scanned mossy rocks, stumps, logs and ferns',
+      'Trees really are solid now: your front wheel, both ends of the handlebar and your back wheel all hit them, not just the middle of the bike',
+      'First person shows the handlebar and your hands at any speed (before, only when you were going fast)',
+      'After a crash in the trees you always come back on a clear line, not stuck facing the tree',
+      'Fixed: the time trials list was missing in free ride',
+    ] },
     { v: '3.15.0', date: '2026-10-30', emoji: '🌲', title: 'Unrevvd: the Timber Run', items: [
       'New Unrevvd challenge, the Timber Run: straight down the steep north face of the Wildwood mountain through a forest, in first person',
       'The trees are solid (touch one and you crash), rocks are too unless you jump them, and there are little kickers to hit on the way down',

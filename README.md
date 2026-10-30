@@ -334,12 +334,18 @@ with an import map), everything else is drawn and synthesised in code (no model,
   (`terrain.scarp` in `terrain.mjs`: a wall across the map, the high ground to the north) with a road cut down its
   face. Its challenge, **The Big Drop** (dirt bikes), races from the Cliff Top to the valley floor: take the road, or
   ride off the edge (the free-ride landing absorbs an upright landing).
-- **v3.15.0, the Timber Run:** a world can have `gauntlets` (`{id, from, to, width, trees, rocks, jumps}`; `terrain.mjs`
-  places them from the world's seed): a corridor of solid trees (hit radius out to the lowest branches) and rocks
-  (`obstacleAt`: jump high enough and you clear a rock), with small kickers down it. `world.mjs` draws exactly those
-  trees and rocks, and no other scenery in or round it. Wildwood's runs down the steep north face; its challenge
-  (`"cam": "first"`) is ridden in the first-person camera (also the fourth camera on C). After a crash in a gauntlet
-  you restart on a clear line (`clearOfTrees` in `game.js`).
+- **The Timber Run (v3.15.0, own map in v3.16.0):** a world can have `gauntlets` (`{id, from, to, width, fringe, gap,
+  trees, rocks, stumps, logs, jumps, ferns}`; `terrain.mjs` places them from the world's seed): a corridor packed with
+  solid trees (hit radius = the trunk; `gap` = closest two trunks), rocks, stumps and fallen logs (`obstacleAt`: jump
+  high enough and you clear the low ones), with small kickers down it. `core.js` checks the front wheel, both bar ends,
+  the middle and the rear wheel against them (`obstacleHit`). The run is in its own small world, **Timber Chute**
+  (`timberchute.json`, 220 × 640 m: a steep gully; `"hidden": true` in the manifest keeps it out of free ride, rooms
+  and links, `"buildings": false`, small safe pads). It's drawn with real models (`open-world/nature.mjs`,
+  `public/models/nature/`): ez-tree pines (`tools/pack_trees.py`; near and far versions, in 30 m slices) and Poly Haven
+  scans of mossy rocks, a stump, a log and ferns (`tools/pack_nature.py` shrinks them); without the models it falls
+  back to the scenery models. Its challenge (`"cam": "first"`) is ridden in first person (also the fourth camera on C):
+  the camera sits behind the rider's hands, with the near plane cutting away the rider's own back. After a crash you
+  restart on a clear line (`clearOfTrees` in `game.js`).
 
 ## Billiards
 Top-down pool with real physics (spin, banks, kisses, rattling jaws). `public/js/games/pool-core.js` is the table, the

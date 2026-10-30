@@ -75,6 +75,15 @@
       "pools": 1
     },
     {
+      "id": "timberchute",
+      "name": "Timber Chute",
+      "file": "timberchute.json",
+      "areaKm2": 0.14,
+      "hidden": true,
+      "gaps": 0,
+      "pools": 0
+    },
+    {
       "id": "sheerwall",
       "name": "Sheerwall Mesa",
       "file": "sheerwall.json",

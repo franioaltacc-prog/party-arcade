@@ -124,31 +124,46 @@ export function buildTerrain(world) {
   }
  }
  // ---------------------------------------------------------------- gauntlets: a steep run through the trees
- // A corridor (from -> to, width wide) packed with trees you crash into, rocks you crash into unless you jump them, and
- // small kickers down the middle. The trees and rocks are solid (obstacleAt) and drawn by the renderer exactly here.
+ // A corridor (from -> to, width wide, with a fringe of trees either side) packed with trees you crash into (their
+ // trunks: gap = the closest two trunks get), rocks and stumps you crash into unless you jump them, fallen logs and
+ // small kickers down the middle. All of it is solid (obstacleAt) and drawn by the renderer exactly here (k picks
+ // which model).
  const gauntlets=[];
  for(const gs of world.gauntlets||[]) {
-  const r=rng(seed*7+gauntlets.length*131+17),[ax,az]=gs.from,[bx,bz]=gs.to,L=Math.hypot(bx-ax,bz-az),ux=(bx-ax)/L,uz=(bz-az)/L,half=gs.width/2;
+  const r=rng(seed*7+gauntlets.length*131+17),[ax,az]=gs.from,[bx,bz]=gs.to,L=Math.hypot(bx-ax,bz-az),ux=(bx-ax)/L,uz=(bz-az)/L,half=gs.width/2,fringe=gs.fringe??18,gap=gs.gap??8.5;
   const at=(along,across)=>[ax+ux*along+uz*across,az+uz*along-ux*across];
-  const g={id:gs.id,from:gs.from,to:gs.to,ux,uz,L,half,trees:[],rocks:[]};
+  const g={id:gs.id,from:gs.from,to:gs.to,ux,uz,L,half,fringe,trees:[],rocks:[],stumps:[],logs:[],ferns:gs.ferns||0};
   for(let k=0;k<(gs.jumps||0);k++){ const [x,z]=at(L*(k+1)/(gs.jumps+1)+(r()-.5)*18,(r()-.5)*half*.9); ramps.push({id:gs.id+'-kick-'+k,position:[x,z],heading:Math.atan2(ux,uz),length:11,width:8,height:1.1+r()*.7,kind:'table',park:false,gauntlet:true}); }
   const onJump=(x,z,m)=>ramps.some(q=>q.gauntlet&&Math.hypot(x-q.position[0],z-q.position[1])<q.length/2+m);
-  const free=(x,z,gap)=>!g.trees.some(t=>Math.hypot(t.x-x,t.z-z)<gap)&&!g.rocks.some(t=>Math.hypot(t.x-x,t.z-z)<gap);
-  for(let tries=0;g.trees.length<(gs.trees||0)&&tries<gs.trees*30;tries++) {
-   const along=r()*L,across=(r()*2-1)*(half+18),[x,z]=at(along,across);
-   if(along<30&&Math.abs(across)<12)continue;   // (a clear start)
-   if(routeDist(x,z)<6||onJump(x,z,6)||!free(x,z,8.5)||pads.some(p=>Math.hypot(x-p.position[0],z-p.position[1])<40))continue;
-   const sc=.65+r()*.35; g.trees.push({x,z,s:sc,r:2.1*sc,tall:16,rot:r()*6.28});   // (r: out to the lowest branches)
+  const all=()=>[...g.trees,...g.rocks,...g.stumps,...g.logs.flatMap(l=>l.parts)];
+  const free=(x,z,d)=>!all().some(t=>Math.hypot(t.x-x,t.z-z)<d+(t.r||0)*.5);
+  const clearStart=(along,across)=>along<30&&Math.abs(across)<10;   // (room to start)
+  const ok=(x,z,m)=>routeDist(x,z)>=m&&!onJump(x,z,m)&&!pads.some(p=>p.radius<20?Math.hypot(x-p.position[0],z-p.position[1])<p.radius+4:Math.hypot(x-p.position[0],z-p.position[1])<40);
+  for(let tries=0;g.trees.length<(gs.trees||0)&&tries<gs.trees*40;tries++) {
+   const along=r()*L,across=(r()*2-1)*(half+fringe),[x,z]=at(along,across);
+   if(clearStart(along,across)||!ok(x,z,6)||!free(x,z,gap))continue;
+   const sc=.75+r()*.4; g.trees.push({x,z,s:sc,r:.42*sc,tall:16,rot:r()*6.28,k:Math.floor(r()*3)});   // (r: the trunk)
   }
-  for(let tries=0;g.rocks.length<(gs.rocks||0)&&tries<gs.rocks*30;tries++) {
-   const along=30+r()*(L-30),across=(r()*2-1)*half,[x,z]=at(along,across);
-   if(routeDist(x,z)<5||onJump(x,z,5)||!free(x,z,5))continue;
-   const sc=.7+r()*.5; g.rocks.push({x,z,s:sc,r:1.15*sc,tall:.95*sc,rot:r()*6.28});
+  for(let tries=0;g.rocks.length<(gs.rocks||0)&&tries<gs.rocks*40;tries++) {
+   const along=30+r()*(L-30),across=(r()*2-1)*(half+fringe*.5),[x,z]=at(along,across);
+   if(!ok(x,z,5)||!free(x,z,3.5))continue;
+   const sc=.6+r()*.6; g.rocks.push({x,z,s:sc,r:1.15*sc,tall:.95*sc,rot:r()*6.28,k:Math.floor(r()*13)});
+  }
+  for(let tries=0;g.stumps.length<(gs.stumps||0)&&tries<gs.stumps*40;tries++) {
+   const along=30+r()*(L-30),across=(r()*2-1)*(half+fringe),[x,z]=at(along,across);
+   if(!ok(x,z,4)||!free(x,z,3))continue;
+   const sc=.8+r()*.4; g.stumps.push({x,z,s:sc,r:.55*sc,tall:.55*sc,rot:r()*6.28});
+  }
+  for(let tries=0;g.logs.length<(gs.logs||0)&&tries<gs.logs*40;tries++) {
+   const along=40+r()*(L-50),across=(r()*2-1)*(half+fringe),[x,z]=at(along,across),rot=r()*6.28,sc=.9+r()*.5,c=Math.cos(rot),s=Math.sin(rot);
+   const parts=[-1.1,-.37,.37,1.1].map(d=>({x:x+c*d*sc,z:z-s*d*sc,r:.4*sc,tall:.35*sc}));
+   if(!parts.every(p=>ok(p.x,p.z,4)&&free(p.x,p.z,2.2)))continue;
+   g.logs.push({x,z,s:sc,rot,parts});
   }
   gauntlets.push(g);
  }
- /** How far (x, z) is inside a gauntlet's corridor and its fringe of trees (> 0 inside). */
- const gauntletIn=(x,z,margin=0)=>gauntlets.some(g=>{ const dx=x-g.from[0],dz=z-g.from[1],along=dx*g.ux+dz*g.uz,across=Math.abs(dx*g.uz-dz*g.ux); return along>-margin&&along<g.L+margin&&across<g.half+18+margin; });
+ /** Whether (x, z) is in a gauntlet's corridor or its fringe of trees (or within margin of them). */
+ const gauntletIn=(x,z,margin=0)=>gauntlets.some(g=>{ const dx=x-g.from[0],dz=z-g.from[1],along=dx*g.ux+dz*g.uz,across=Math.abs(dx*g.uz-dz*g.ux); return along>-margin&&along<g.L+margin&&across<g.half+g.fringe+margin; });
 
  // ---------------------------------------------------------------- gap jumps, pools and boost pads
  // A gap jump: a run-in, a kicker, a pit (lava, water, a freezing crevasse or a bottomless chasm) and a landing
@@ -331,7 +346,7 @@ export function buildTerrain(world) {
  const nearestTrail=(x,z)=>{let best={d:Infinity};for(const r of world.routes){const len=routeLength(r);for(let d=0;d<=len;d+=6){const p=routePoint(r,d),dd=Math.hypot(p.x-x,p.z-z);if(dd<best.d)best={d:dd,x:p.x,z:p.z,width:r.width};}}return best;};
  const blocked=(x,z,r)=>{const road=roadAt(x,z);return (road&&road.distance<10+r)||rampAt(x,z).weight>0||pads.some(p=>p.riderPosition&&Math.hypot(x-p.riderPosition[0],z-p.riderPosition[1])<r+7);};
  const FOOT={cabin:[9,6.2,9],tower:[6,4.6,23],camp:[16],yard:[16],ruin:[11],dock:[7],checkpoint:[9],lookout:[7,5.2,3]};   // [clear radius, solid radius, solid height]
- const buildings=world.spots.map(spot=>{
+ const buildings=world.buildings===false?[]:world.spots.map(spot=>{   // (a world can have none: the forest chute)
   // the nearest clear ground beside the trails for the whole place, facing the nearest trail
   const [R,solid,tall]=FOOT[spot.kind]||FOOT.lookout,fits=(x,z)=>!blocked(x,z,R*.5)&&[0,1,2,3,4,5,6,7].every(k=>!blocked(x+Math.cos(k*.785)*R*.8,z+Math.sin(k*.785)*R*.8,1));
   let [x,z]=spot.position;
@@ -350,9 +365,9 @@ export function buildTerrain(world) {
  const obstacles=[];
  for(const b of buildings)if(b.solid)obstacles.push({x:b.x,z:b.z,r:b.solid,tall:b.tall});
  for(const a of arches)for(const side of [-1,1])obstacles.push({x:a.x+Math.cos(a.heading)*a.width/2*side,z:a.z-Math.sin(a.heading)*a.width/2*side,r:1.1,tall:10});
- const solidGrid=new Map(); for(const g of gauntlets) for(const o of [...g.trees,...g.rocks]) insert(solidGrid,o,o.x-o.r,o.x+o.r,o.z-o.r,o.z+o.r,20);
+ const solidGrid=new Map(); for(const g of gauntlets) for(const o of [...g.trees,...g.rocks,...g.stumps,...g.logs.flatMap(l=>l.parts)]) insert(solidGrid,o,o.x-o.r,o.x+o.r,o.z-o.r,o.z+o.r,20);
  /** A solid thing the bike can't ride through at (x, z): { x, z, r, top } or null (a building, an arch post, or a
-     gauntlet's tree or rock: jump high enough and you clear a rock). */
+     gauntlet's tree, rock, stump or log: jump high enough and you clear the low ones). */
  function obstacleAt(x,z){
   for(const o of obstacles){ if(Math.abs(x-o.x)<o.r&&Math.abs(z-o.z)<o.r&&Math.hypot(x-o.x,z-o.z)<o.r) return {...o,top:(o.top??=heightAt(o.x,o.z)+o.tall)}; }
   if(solidGrid.size) for(const o of solidGrid.get(Math.floor(x/20)+','+Math.floor(z/20))||[]) if(Math.hypot(x-o.x,z-o.z)<o.r) return {...o,top:(o.top??=heightAt(o.x,o.z)+o.tall)};

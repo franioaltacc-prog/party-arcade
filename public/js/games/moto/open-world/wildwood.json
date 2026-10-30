@@ -157,13 +157,6 @@
         -850,
         -650
       ]
-    },
-    {
-      "name": "Timber Gap",
-      "position": [
-        0,
-        -870
-      ]
     }
   ],
   "routes": [
@@ -524,17 +517,6 @@
       "kind": "tower",
       "radius": 24,
       "about": "A fire lookout on the west ridge."
-    },
-    {
-      "id": "timber",
-      "name": "Timber Gap",
-      "position": [
-        0,
-        -870
-      ],
-      "kind": "checkpoint",
-      "radius": 24,
-      "about": "The bottom of the Timber Run, down the north face through the trees."
     }
   ],
   "races": [
@@ -891,18 +873,6 @@
         -874,
         -668
       ]
-    },
-    {
-      "id": "timber",
-      "position": [
-        0,
-        -870
-      ],
-      "radius": 32,
-      "riderPosition": [
-        -24,
-        -888
-      ]
     }
   ],
   "features": {
@@ -955,22 +925,5 @@
       }
     ]
   },
-  "bike": true,
-  "gauntlets": [
-    {
-      "id": "timber-run",
-      "from": [
-        0,
-        -445
-      ],
-      "to": [
-        0,
-        -825
-      ],
-      "width": 64,
-      "trees": 140,
-      "rocks": 45,
-      "jumps": 7
-    }
-  ]
+  "bike": true
 }

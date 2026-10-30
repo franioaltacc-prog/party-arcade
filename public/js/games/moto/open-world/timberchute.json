@@ -1,0 +1,349 @@
+{
+  "schemaVersion": 1,
+  "id": "timberchute",
+  "name": "Timber Chute",
+  "tagline": "Through the trees. Don't touch them.",
+  "theme": "alpine",
+  "seed": 4411,
+  "size": [
+    220,
+    640
+  ],
+  "baseHeight": 40,
+  "spawn": [
+    0,
+    -262
+  ],
+  "spawnHeading": 0.0,
+  "palette": {
+    "sky": "#c4d6cc",
+    "low": "#3f6a33",
+    "high": "#8fae6a",
+    "trail": "#7a5a3e",
+    "water": "#3f8f95",
+    "accent": "#39d98a"
+  },
+  "look": {
+    "flora": [],
+    "sky": {
+      "sun": [
+        44,
+        160
+      ],
+      "turbidity": 4,
+      "rayleigh": 1.6,
+      "mie": 0.006,
+      "exposure": 1.2,
+      "fog": 1.6,
+      "fogColor": "#b9cbbf",
+      "sunColor": "#fff1d6"
+    },
+    "grass": [
+      [
+        52,
+        92,
+        40
+      ],
+      [
+        112,
+        146,
+        70
+      ]
+    ],
+    "dirt": [
+      [
+        96,
+        70,
+        48
+      ],
+      [
+        150,
+        116,
+        82
+      ]
+    ]
+  },
+  "terrain": {
+    "noise": 3,
+    "scale": 90,
+    "hills": [
+      [
+        0,
+        -330,
+        170,
+        620,
+        620
+      ],
+      [
+        0,
+        0,
+        -16,
+        34,
+        5000
+      ]
+    ]
+  },
+  "regions": [
+    {
+      "name": "Chute Top",
+      "position": [
+        0,
+        -262
+      ]
+    },
+    {
+      "name": "Chute Bottom",
+      "position": [
+        0,
+        262
+      ]
+    }
+  ],
+  "routes": [],
+  "spots": [
+    {
+      "id": "top",
+      "name": "Chute Top",
+      "position": [
+        0,
+        -262
+      ],
+      "kind": "lookout",
+      "radius": 24,
+      "about": "The top of the Timber Chute."
+    },
+    {
+      "id": "bottom",
+      "name": "Chute Bottom",
+      "position": [
+        0,
+        262
+      ],
+      "kind": "checkpoint",
+      "radius": 24,
+      "about": "The bottom of the Timber Chute."
+    }
+  ],
+  "races": [],
+  "interactions": [
+    {
+      "id": "board",
+      "name": "Chute Top race board",
+      "position": [
+        40,
+        -262
+      ],
+      "kind": "race-board",
+      "radius": 18,
+      "event": "race.offer",
+      "about": "Choose a mini race and invite nearby friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "jam",
+      "name": "Chute Bottom trick jam",
+      "position": [
+        -50,
+        242
+      ],
+      "kind": "trick-zone",
+      "radius": 18,
+      "event": "trick.land",
+      "about": "Share a two-minute trick score with friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "camera",
+      "name": "Chute Bottom photo perch",
+      "position": [
+        0,
+        262
+      ],
+      "kind": "photo",
+      "radius": 18,
+      "event": "photo.capture",
+      "about": "Get the whole group into a summit picture.",
+      "cooldownSeconds": 10
+    }
+  ],
+  "ramps": [],
+  "surfaceZones": [],
+  "quests": [
+    {
+      "id": "timberchute-welcome",
+      "name": "Welcome to Timber Chute",
+      "start": "top",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "bottom",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "bottom",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "top",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "timberchute-summit",
+      "name": "Top of the World",
+      "start": "top",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "bottom",
+          "count": 1
+        },
+        {
+          "event": "photo.capture",
+          "target": "camera",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    }
+  ],
+  "coordinateSystem": {
+    "units": "metres",
+    "horizontal": [
+      "x",
+      "z"
+    ],
+    "up": "y",
+    "heading": "radians: 0 points +z; positive rotates towards +x"
+  },
+  "status": "Made by tools/make_worlds.py.",
+  "boundary": {
+    "softMargin": 100,
+    "policy": "warn-and-respawn",
+    "respawn": "last-safe-pad",
+    "cliffWidth": 50,
+    "cliffHeight": 160,
+    "sceneryApron": 1600
+  },
+  "spawnPads": [
+    {
+      "id": "spawn-1",
+      "position": [
+        -24,
+        -280
+      ],
+      "heading": 0.0
+    },
+    {
+      "id": "spawn-2",
+      "position": [
+        -19,
+        -280
+      ],
+      "heading": 0.0
+    },
+    {
+      "id": "spawn-3",
+      "position": [
+        -14,
+        -280
+      ],
+      "heading": 0.0
+    },
+    {
+      "id": "spawn-4",
+      "position": [
+        -24,
+        -286
+      ],
+      "heading": 0.0
+    },
+    {
+      "id": "spawn-5",
+      "position": [
+        -19,
+        -286
+      ],
+      "heading": 0.0
+    },
+    {
+      "id": "spawn-6",
+      "position": [
+        -14,
+        -286
+      ],
+      "heading": 0.0
+    }
+  ],
+  "safePads": [
+    {
+      "id": "top",
+      "position": [
+        0,
+        -262
+      ],
+      "radius": 8,
+      "riderPosition": [
+        0,
+        -262
+      ]
+    },
+    {
+      "id": "bottom",
+      "position": [
+        0,
+        262
+      ],
+      "radius": 8,
+      "riderPosition": [
+        0,
+        262
+      ]
+    }
+  ],
+  "features": {},
+  "gauntlets": [
+    {
+      "id": "timber-run",
+      "from": [
+        0,
+        -258
+      ],
+      "to": [
+        0,
+        250
+      ],
+      "width": 64,
+      "fringe": 45,
+      "gap": 5.6,
+      "trees": 1150,
+      "rocks": 70,
+      "stumps": 30,
+      "logs": 18,
+      "jumps": 6,
+      "ferns": 420
+    }
+  ],
+  "hidden": true,
+  "buildings": false
+}
