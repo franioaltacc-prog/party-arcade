@@ -5,6 +5,9 @@ It also gives every world (the first three included, see EXTRAS) its gap jumps a
   gaps:  {id, kind: lava | water | ice | chasm, route, at (0..1 along it), side (±1), gap (m), height, width}
          placed beside that point of the trail, on the nearest clear, flattish ground (terrain.mjs)
   pools: {id, kind: lava | tar | water, position, radius: [rx, rz], turn, trail (how far from trails)}
+  parks: {id, kind: halfpipe | rails | pump | jumps | climb | arena, name, near: [x, z]} shaped into the nearest clear
+         ground (a halfpipe on a downhill slope)
+  lifts: {id, name, from: [x, z], to: [x, z], speed (m/s)} a chairlift (drawn by parks.mjs, ridden in game.js)
 Run: python3 tools/make_worlds.py"""
 import json
 import math
@@ -27,6 +30,10 @@ def gap(i, kind, route, at, side, length, height=3.2, width=24, bike=False):
     if bike:
         return {"id": i, "kind": kind, "route": route, "at": at, "side": side, "gap": length, "height": height, "width": width}
     return {"id": i, "kind": kind, "route": route, "at": at, "side": side, "gap": round(length * 1.8), "height": round(height * 1.15, 1), "width": width + 4}
+
+
+def park(i, kind, name, x, z, **extra):
+    return {"id": i, "kind": kind, "name": name, "near": [x, z], **extra}
 
 
 def pool(i, kind, x, z, rx, rz, turn=0.0, trail=30):
@@ -132,7 +139,8 @@ WORLDS = [
         "zones": [("rim-sand", -800, -300, 220, "sand", 0.78, 0.025), ("mine-gravel", 1150, 800, 120, "gravel", 0.8, 0.02)],
         "features": {"gaps": [gap("slot-canyon", "chasm", "rim-loop", 0.12, -1, 26), gap("rim-chasm", "chasm", "butte-climb", 0.5, -1, 32, 3.8),
                               gap("arch-chasm", "chasm", "arch-run", 0.45, 1, 28), gap("mine-gap", "water", "mine-ring", 0.4, -1, 22, 3)],
-                     "pools": [pool("outpost-tar", "tar", -700, 1250, 32, 24, 0.4)]},
+                     "pools": [pool("outpost-tar", "tar", -700, 1250, 32, 24, 0.4)],
+                     "parks": [park("canyon-arena", "arena", "Freestyle Arena", -500, 1150)]},
     },
     {
         "id": "magmaisle", "name": "Magma Isle", "tagline": "The floor is lava. Really.", "theme": "desert", "seed": 6661,
@@ -226,7 +234,8 @@ WORLDS = [
         "zones": [("lake-mud", -650, 380, 70, "mud", 0.72, 0.025), ("root-mud", -260, -60, 110, "mud", 0.78, 0.02)],
         "features": {"gaps": [gap("creek-gap", "water", "valley-loop", 0.15, 1, 7, 2.0, 14, bike=True), gap("rock-drop", "chasm", "valley-loop", 0.45, -1, 8, 2.2, 14, bike=True),
                               gap("mill-gap", "water", "valley-loop", 0.7, -1, 8, 2.2, 14, bike=True)],
-                     "pools": [pool("bog", "water", 350, 1000, 30, 22, 0.4)]},
+                     "pools": [pool("bog", "water", 350, 1000, 30, 22, 0.4)],
+                     "parks": [park("wild-pump", "pump", "Pump Track", -450, 950), park("wild-jumps", "jumps", "Dirt Jumps", -350, 650)]},
     },
     {
         # the Timber Run's own little world (challenge only: not in free ride): a narrow, steep gully packed with solid
@@ -363,7 +372,54 @@ WORLDS = [
         "ramps": [("camp-double", -700, 950, 2.2, 90, 18, 7), ("ranch-table", 950, 700, 0.6, 100, 24, 9)],
         "zones": [("valley-dust", 500, 900, 200, "sand", 0.78, 0.025), ("mesa-gravel", -400, -1000, 150, "gravel", 0.8, 0.02)],
         "features": {"gaps": [gap("mesa-chasm", "chasm", "mesa-loop", 0.3, 1, 30, 3.6), gap("valley-chasm", "chasm", "valley-loop", 0.55, -1, 26)],
-                     "pools": [pool("ranch-tar", "tar", 700, 1150, 32, 24, 0.4)]},
+                     "pools": [pool("ranch-tar", "tar", 700, 1150, 32, 24, 0.4)],
+                     "parks": [park("sheer-climb", "climb", "Hill Climb", -750, 1250)]},
+    },
+    {
+        # a real ski resort: you start on the summit; four marked runs down through the forest to the village, and two
+        # chairlifts back up (Carvvd's mountain, but anyone can ride it)
+        "id": "powderpeak", "name": "Powder Peak Resort", "tagline": "Four runs. Two lifts. One mountain.", "theme": "snow", "seed": 4411, "resort": True,
+        "size": 4000, "baseHeight": 60, "cliff": [340, 700],
+        "palette": {"sky": "#a8bed0", "low": "#b9c8d6", "high": "#ffffff", "trail": "#8d9fae", "water": "#6391aa", "accent": "#2a7fff"},
+        "look": {"sky": {"sun": [30, 215], "turbidity": 2.5, "rayleigh": 1.2, "mie": 0.005, "exposure": 1.2, "fog": 0.26, "fogColor": "#c9d3e6"},
+                 "forest": 2.6, "pisteClear": 24, "solidForest": True, "treeLine": 690},
+        "terrain": {"noise": 9, "scale": 240, "hills": [[0, -1000, 780, 1250, 1150], [-950, -650, 260, 650, 650], [950, -650, 260, 650, 650]]},
+        "spots": [("summit", "Summit", 0, -1000, "lookout", "The top of Powder Peak: four runs start here."),
+                  ("village", "Base Village", 0, 1180, "camp", "The bottom of every run, and the two chairlifts back up."),
+                  ("hut", "Mountain Hut", -620, 150, "cabin", "A warm hut halfway down the Glacier Way."),
+                  ("ridge", "Ridge Lookout", 700, -300, "tower", "A watchtower beside the Meadow Cruise."),
+                  ("chapel", "Old Chapel", 500, 820, "ruin", "Near the bottom of the Meadow Cruise.")],
+        "routes": [("meadow-cruise", "🟢 Meadow Cruise", [[40, -960], [600, -780], [250, -480], [800, -250], [450, 100], [900, 380], [400, 700], [150, 1120]], False, 40, "green"),
+                   ("glacier-way", "🔵 Glacier Way", [[-40, -960], [-450, -720], [-150, -420], [-680, -150], [-320, 180], [-720, 450], [-280, 800], [-100, 1120]], False, 36, "blue"),
+                   ("fall-line", "🔴 Fall Line", [[0, -960], [90, -600], [-60, -250], [130, 150], [-30, 550], [0, 1120]], False, 32, "red"),
+                   ("the-wall", "⚫ The Wall", [[-20, -960], [-250, -560], [-330, -140], [-170, 330], [-420, 690], [-60, 1120]], False, 28, "black")],
+        "races": [("pp-meadow", "Meadow Cruise", "meadow-cruise", "downhill", "easy", 1), ("pp-wall", "The Wall", "the-wall", "downhill", "hard", 1)],
+        "ramps": [("wall-kicker", -320, -40, 3.0, 26, 16, 2.4), ("fall-table", 80, 300, 3.1, 30, 18, 2.6)],
+        "zones": [],
+        "features": {"lifts": [{"id": "pp-express", "name": "Summit Express", "from": [-170, 1210], "to": [-130, -880], "speed": 18},
+                               {"id": "pp-ridge", "name": "Ridge Chair", "from": [260, 1210], "to": [320, -860], "speed": 16}]},
+    },
+    {
+        # a floodlit ski hill at dusk: one long, wide run straight down a forested hillside to the lodge at the bottom,
+        # a chairlift up beside it and a short one for beginners. Real trees either side ("forest"): a thin fringe you
+        # can weave through, then a wall of them; ride too far off the run ("corridor") and you're put back on it
+        "id": "twilight", "name": "Twilight Slope", "tagline": "One long run under the lights, forest all round.", "theme": "snow", "seed": 7321, "resort": True,
+        "size": [1500, 3400], "baseHeight": 40, "cliff": [90, 110], "rise": 0.3,
+        "palette": {"sky": "#4a5f8c", "low": "#b9c8d6", "high": "#ffffff", "trail": "#8d9fae", "water": "#6391aa", "accent": "#2a7fff"},
+        "look": {"sky": {"sun": [2, 215], "turbidity": 2, "rayleigh": 3, "mie": 0.004, "exposure": 1.3, "fog": 0.5, "fogColor": "#5d6f99",
+                         "sunColor": "#9fb2ff", "sunI": 0.45, "hemi": ["#a4b8ea", "#4a557a", 1.5], "envI": 0.6},
+                 "flora": ["snowbank"], "pisteClear": 40, "dusk": True, "floodlights": {"every": 50}, "corridor": 45},
+        "terrain": {"noise": 3, "scale": 140, "crags": False, "hills": [[0, -1550, 300, 8000, 1700], [-430, 0, 75, 230, 4000], [430, 0, 75, 230, 4000]]},
+        "spots": [("top", "Hilltop", -5, -1090, "checkpoint", "The top of the Twilight Run, where the chairlift drops you."),
+                  ("base", "Base Lodge", 0, 1075, "cabin", "The bottom of the run: the hotel, the lodge and both lifts.")],
+        "routes": [("twilight-run", "🔵 Twilight Run", [[-5, -1090], [-12, -800], [0, -450], [14, -100], [8, 300], [-6, 650], [0, 1040]], False, 74, "blue")],
+        "races": [("tw-run", "Twilight Run", "twilight-run", "downhill", "easy", 1)],
+        "ramps": [],
+        "zones": [],
+        "features": {"lifts": [{"id": "tw-chair", "name": "Hill Chair", "from": [-60, 1035], "to": [-60, -1065], "speed": 16},
+                               {"id": "tw-nursery", "name": "Nursery Chair", "from": [56, 1035], "to": [56, 690], "speed": 6}],
+                     "forest": {"clear": 3, "loose": [32, 9], "dense": [75, 4.8], "outer": 6.5, "cuts": [[-5, -1100, 45], [0, 1130, 130], [150, 1060, 70]]},
+                     "lodge": {"position": [150, 1075], "heading": -1.57, "floors": 6}},
     },
 ]
 
@@ -377,7 +433,9 @@ def build(w):
     heading = round(math.atan2(-first["position"][0], -first["position"][1]), 6)
     px, pz = first["position"]
     pads = [{"id": f"spawn-{k + 1}", "position": [px - 24 + 5 * (k % 3), pz - 18 - 6 * (k // 3)], "heading": heading} for k in range(6)]
-    routes = [{"id": i, "name": n, "points": p, "width": 14, "shoulder": 20, **({"closed": True} if c else {})} for i, n, p, c in w["routes"]]
+    # (a route: id, name, points, closed; a ski run adds its width and piste colour: green, blue, red or black)
+    routes = [{"id": r[0], "name": r[1], "points": r[2], "width": r[4] if len(r) > 4 else 14, "shoulder": 20 if len(r) <= 4 else 26, **({"closed": True} if r[3] else {}),
+               **({"piste": r[5]} if len(r) > 5 else {})} for r in w["routes"]]
     races = [{"id": i, "name": n, "route": r, "type": t, "difficulty": d, "laps": laps, "players": [1, 6], "gateRadius": 22, "countdown": 5, "medalSeconds": None,
               "description": "Follow the ordered gates."} for i, n, r, t, d, laps in w["races"]]
     by = {s["id"]: s for s in spots}
@@ -407,7 +465,8 @@ def build(w):
         "quests": quests,
         "coordinateSystem": {"units": "metres", "horizontal": ["x", "z"], "up": "y", "heading": "radians: 0 points +z; positive rotates towards +x"},
         "status": "Made by tools/make_worlds.py.",
-        "boundary": {"softMargin": 100, "policy": "warn-and-respawn", "respawn": "last-safe-pad", "cliffWidth": w["cliff"][0], "cliffHeight": w["cliff"][1], "sceneryApron": 1600},
+        "boundary": {"softMargin": 100, "policy": "warn-and-respawn", "respawn": "last-safe-pad", "cliffWidth": w["cliff"][0], "cliffHeight": w["cliff"][1], "sceneryApron": 1600,
+                     **({"rise": w["rise"]} if "rise" in w else {})},
         "spawnPads": pads,
         "safePads": [{"id": s["id"], "position": s["position"], "radius": pad, "riderPosition": [s["position"][0] + ox, s["position"][1] + oz]} for s in spots],
         "features": w.get("features", {}),
@@ -415,6 +474,7 @@ def build(w):
         **({"gauntlets": w["gauntlets"]} if w.get("gauntlets") else {}),
         **({"hidden": True} if w.get("hidden") else {}),
         **({"buildings": False} if w.get("buildings") is False else {}),
+        **({"resort": True} if w.get("resort") else {}),
     }
 
 
@@ -427,7 +487,9 @@ EXTRAS = {
                            gap("ridge-chasm", "chasm", "summit-climb", 0.35, 1, 26)],
                   "pools": [pool("bog", "water", -1250, -300, 34, 24, 0.4)]},
     "frostpeak": {"gaps": [gap("crevasse-1", "ice", "frost-summit-climb", 0.5, 1, 24), gap("crevasse-2", "ice", "frost-timber-run", 0.1, -1, 28, 3.4),
-                           gap("crevasse-3", "ice", "frost-lake-loop", 0.7, -1, 30, 3.6), gap("frost-chasm", "chasm", "frost-ridge-link", 0.5, -1, 26)]},
+                           gap("crevasse-3", "ice", "frost-lake-loop", 0.7, -1, 30, 3.6), gap("frost-chasm", "chasm", "frost-ridge-link", 0.5, -1, 26)],
+                  "parks": [park("frost-pipe", "halfpipe", "Halfpipe", -950, 950), park("frost-rails", "rails", "Rail garden", -1000, 1350)],
+                  "lifts": [{"id": "frost-lift", "name": "Falls Chairlift", "from": [-1105, 1075], "to": [-760, -420], "speed": 18}]},
 }
 
 

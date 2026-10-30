@@ -371,7 +371,38 @@ with an import map), everything else is drawn and synthesised in code (no model,
   **Carvvd** (snowboards, its own tab and logo: the `snow` screens in `menus.js`): challenges with `"board": true` and a
   free ride on Frostpeak (`startFree(w, { board: true })`, `?board=1`). `boardify` in `bike.js` hides the bike, puts a
   board (your colour, `BOARDS` in `game.js`) under the rider and turns them sideways; the physics is the mountain bike's
-  with almost no pedal power, so a board only really goes downhill (pick starts with no climbs). Gear (`Coins.LAMP`, `Coins.CAM`) only
+  with almost no pedal power, so a board only really goes downhill (pick starts with no climbs).
+  Unrevvd's riders and the snowboarder are Quaternius CC0 characters (`public/models/riders/`, packed by
+  `tools/pack_character.py`, which drops their animations). `RIDER_FILES` in `bike.js`: their bones are renamed to the
+  Character Creator names the posing uses, re-hung (thighs off the hips, feet off the shins, the "body" bone under the
+  hips) and given toes; the snowboarder is recoloured and gets a beanie and goggles (`winterGear`). On the board the
+  rider is posed by `poseSnowboarder` (`bike.js`): bent knees, leaning into carves, looking over the front shoulder, the
+  back foot pushing along when slow with the gas held, a speed tuck, a tuck in the air and grabs for the trick keys
+  (`GRABS`; their names are `BOARD_TRICKS` in `game.js`). On a snow world each board cuts a groove behind it
+  (`snowtrail.js`, a strip of short pieces laid on the ground, shared by every rider), and carving throws powder off
+  its edge; the snow ground glitters close up (`materials.mjs`). On the snow maps it snows (`flakes` in
+  `ride-world.mjs`), the grooves fill in over `FILL` seconds, snow settles on riders (`snowCover`: their own copies of
+  their materials, `cover` building up in `settle` in `game.js`, knocked off by a crash) and lies on the buildings and
+  signs (`coverShader`, `cover.js`). Tyre tracks too, on any ground, in `tracks.js` (`createTracks`: grooves for boards
+  and skis, prints for wheels, fading or snowed over). Mud builds up in the same shader (`coverModel`).
+  Skis: `boardify(m, color, 'skis')` (`skify`, `poseSkier`, poles in the rider's own space). Spins on a board: `b.board`
+  in `core.js` (any half turn; odd ones revert on the snow). Powder: `BOARD_FREE.powder` (free ride only). Weather:
+  `WEATHER` in `game.js`, `look.weather` in the world (`ride-world.mjs`; a blizzard's `wind` is `windStep`).
+  Parks (`features.parks` in `tools/make_worlds.py`, shaped by `terrain.mjs`'s `parkShape`, drawn by
+  `open-world/parks.mjs`): halfpipe and rail garden (Carvvd; rails are solid only to ride on: `railAt` / `rideAt`, and
+  `parkStep` in `game.js` locks you on and scores the slide, and turns you round in the air out of the pipe), pump track
+  and dirt jumps (Unrevvd), hill climb and the freestyle arena (Revvd; `judge`). Chairlifts: `features.lifts`
+  (`startLift` / `liftFrame`, `seatRider`). Powder Peak Resort (`powderpeak`): `look.forest`, `pisteClear`,
+  `solidForest` (`terrain.addSolids`), `treeLine`, and runs with a `piste` colour (marker poles in `parks.mjs`).
+  Twilight Slope (`twilight`): one floodlit run at dusk. `features.forest` places real solid spruces either side and
+  all over the hill (`terrain.forestTrees`; spruces from `public/models/nature/spruces.glb`, `loadSpruces`), drawn
+  by `forestScenery` in `nature.mjs` (full trees close by, simpler ones further, painted cards far off);
+  `look.floodlights` and `features.lodge` in `open-world/slope.mjs`; `look.dusk`; `look.corridor` (how far off the
+  run you may go: `offSlope` in `game.js`, `terrain.trailNearest`); `terrain.crags: false` and `boundary.rise`.
+  Challenges: `park` (start at a park; laps: `lapStep`), `avalanche` (`avalanche.js`, `avalancheStep`), `judges`, and
+  the room-only Lantern Relay (`kind: relay`: teams, `g:pass`, the team finishes together; `games/moto/game.py`).
+  The Weekly Challenge: `weeklyChallenge` in `chutes.js` and `weekly_challenge` in `accounts.py` (the same pick).
+  Photo mode and replays: `studio.js` (the replay is the last minute of `R.rec`). Gear (`Coins.LAMP`, `Coins.CAM`) only
   changes the lamp and the first-person look, so it's allowed in challenges. Tests: `tests/chutebot.py`.
 
 ## Billiards

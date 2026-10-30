@@ -1,0 +1,635 @@
+{
+  "schemaVersion": 1,
+  "id": "powderpeak",
+  "name": "Powder Peak Resort",
+  "tagline": "Four runs. Two lifts. One mountain.",
+  "theme": "snow",
+  "seed": 4411,
+  "size": [
+    4000,
+    4000
+  ],
+  "baseHeight": 60,
+  "spawn": [
+    0,
+    -1000
+  ],
+  "spawnHeading": 0.0,
+  "palette": {
+    "sky": "#a8bed0",
+    "low": "#b9c8d6",
+    "high": "#ffffff",
+    "trail": "#8d9fae",
+    "water": "#6391aa",
+    "accent": "#2a7fff"
+  },
+  "look": {
+    "sky": {
+      "sun": [
+        30,
+        215
+      ],
+      "turbidity": 2.5,
+      "rayleigh": 1.2,
+      "mie": 0.005,
+      "exposure": 1.2,
+      "fog": 0.26,
+      "fogColor": "#c9d3e6"
+    },
+    "forest": 2.6,
+    "pisteClear": 24,
+    "solidForest": true,
+    "treeLine": 690
+  },
+  "terrain": {
+    "noise": 9,
+    "scale": 240,
+    "hills": [
+      [
+        0,
+        -1000,
+        780,
+        1250,
+        1150
+      ],
+      [
+        -950,
+        -650,
+        260,
+        650,
+        650
+      ],
+      [
+        950,
+        -650,
+        260,
+        650,
+        650
+      ]
+    ]
+  },
+  "regions": [
+    {
+      "name": "Summit",
+      "position": [
+        0,
+        -1000
+      ]
+    },
+    {
+      "name": "Base Village",
+      "position": [
+        0,
+        1180
+      ]
+    },
+    {
+      "name": "Mountain Hut",
+      "position": [
+        -620,
+        150
+      ]
+    },
+    {
+      "name": "Ridge Lookout",
+      "position": [
+        700,
+        -300
+      ]
+    },
+    {
+      "name": "Old Chapel",
+      "position": [
+        500,
+        820
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "id": "meadow-cruise",
+      "name": "\ud83d\udfe2 Meadow Cruise",
+      "points": [
+        [
+          40,
+          -960
+        ],
+        [
+          600,
+          -780
+        ],
+        [
+          250,
+          -480
+        ],
+        [
+          800,
+          -250
+        ],
+        [
+          450,
+          100
+        ],
+        [
+          900,
+          380
+        ],
+        [
+          400,
+          700
+        ],
+        [
+          150,
+          1120
+        ]
+      ],
+      "width": 40,
+      "shoulder": 26,
+      "piste": "green"
+    },
+    {
+      "id": "glacier-way",
+      "name": "\ud83d\udd35 Glacier Way",
+      "points": [
+        [
+          -40,
+          -960
+        ],
+        [
+          -450,
+          -720
+        ],
+        [
+          -150,
+          -420
+        ],
+        [
+          -680,
+          -150
+        ],
+        [
+          -320,
+          180
+        ],
+        [
+          -720,
+          450
+        ],
+        [
+          -280,
+          800
+        ],
+        [
+          -100,
+          1120
+        ]
+      ],
+      "width": 36,
+      "shoulder": 26,
+      "piste": "blue"
+    },
+    {
+      "id": "fall-line",
+      "name": "\ud83d\udd34 Fall Line",
+      "points": [
+        [
+          0,
+          -960
+        ],
+        [
+          90,
+          -600
+        ],
+        [
+          -60,
+          -250
+        ],
+        [
+          130,
+          150
+        ],
+        [
+          -30,
+          550
+        ],
+        [
+          0,
+          1120
+        ]
+      ],
+      "width": 32,
+      "shoulder": 26,
+      "piste": "red"
+    },
+    {
+      "id": "the-wall",
+      "name": "\u26ab The Wall",
+      "points": [
+        [
+          -20,
+          -960
+        ],
+        [
+          -250,
+          -560
+        ],
+        [
+          -330,
+          -140
+        ],
+        [
+          -170,
+          330
+        ],
+        [
+          -420,
+          690
+        ],
+        [
+          -60,
+          1120
+        ]
+      ],
+      "width": 28,
+      "shoulder": 26,
+      "piste": "black"
+    }
+  ],
+  "spots": [
+    {
+      "id": "summit",
+      "name": "Summit",
+      "position": [
+        0,
+        -1000
+      ],
+      "kind": "lookout",
+      "radius": 24,
+      "about": "The top of Powder Peak: four runs start here."
+    },
+    {
+      "id": "village",
+      "name": "Base Village",
+      "position": [
+        0,
+        1180
+      ],
+      "kind": "camp",
+      "radius": 24,
+      "about": "The bottom of every run, and the two chairlifts back up."
+    },
+    {
+      "id": "hut",
+      "name": "Mountain Hut",
+      "position": [
+        -620,
+        150
+      ],
+      "kind": "cabin",
+      "radius": 24,
+      "about": "A warm hut halfway down the Glacier Way."
+    },
+    {
+      "id": "ridge",
+      "name": "Ridge Lookout",
+      "position": [
+        700,
+        -300
+      ],
+      "kind": "tower",
+      "radius": 24,
+      "about": "A watchtower beside the Meadow Cruise."
+    },
+    {
+      "id": "chapel",
+      "name": "Old Chapel",
+      "position": [
+        500,
+        820
+      ],
+      "kind": "ruin",
+      "radius": 24,
+      "about": "Near the bottom of the Meadow Cruise."
+    }
+  ],
+  "races": [
+    {
+      "id": "pp-meadow",
+      "name": "Meadow Cruise",
+      "route": "meadow-cruise",
+      "type": "downhill",
+      "difficulty": "easy",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    },
+    {
+      "id": "pp-wall",
+      "name": "The Wall",
+      "route": "the-wall",
+      "type": "downhill",
+      "difficulty": "hard",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    }
+  ],
+  "interactions": [
+    {
+      "id": "board",
+      "name": "Summit race board",
+      "position": [
+        40,
+        -1000
+      ],
+      "kind": "race-board",
+      "radius": 18,
+      "event": "race.offer",
+      "about": "Choose a mini race and invite nearby friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "jam",
+      "name": "Old Chapel trick jam",
+      "position": [
+        450,
+        800
+      ],
+      "kind": "trick-zone",
+      "radius": 18,
+      "event": "trick.land",
+      "about": "Share a two-minute trick score with friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "camera",
+      "name": "Base Village photo perch",
+      "position": [
+        0,
+        1180
+      ],
+      "kind": "photo",
+      "radius": 18,
+      "event": "photo.capture",
+      "about": "Get the whole group into a summit picture.",
+      "cooldownSeconds": 10
+    }
+  ],
+  "ramps": [
+    {
+      "id": "wall-kicker",
+      "position": [
+        -320,
+        -40
+      ],
+      "heading": 3.0,
+      "length": 26,
+      "width": 16,
+      "height": 2.4
+    },
+    {
+      "id": "fall-table",
+      "position": [
+        80,
+        300
+      ],
+      "heading": 3.1,
+      "length": 30,
+      "width": 18,
+      "height": 2.6
+    }
+  ],
+  "surfaceZones": [],
+  "quests": [
+    {
+      "id": "powderpeak-welcome",
+      "name": "Welcome to Powder Peak Resort",
+      "start": "summit",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "hut",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "chapel",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "summit",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "powderpeak-summit",
+      "name": "Top of the World",
+      "start": "summit",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "village",
+          "count": 1
+        },
+        {
+          "event": "photo.capture",
+          "target": "camera",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    }
+  ],
+  "coordinateSystem": {
+    "units": "metres",
+    "horizontal": [
+      "x",
+      "z"
+    ],
+    "up": "y",
+    "heading": "radians: 0 points +z; positive rotates towards +x"
+  },
+  "status": "Made by tools/make_worlds.py.",
+  "boundary": {
+    "softMargin": 100,
+    "policy": "warn-and-respawn",
+    "respawn": "last-safe-pad",
+    "cliffWidth": 340,
+    "cliffHeight": 700,
+    "sceneryApron": 1600
+  },
+  "spawnPads": [
+    {
+      "id": "spawn-1",
+      "position": [
+        -24,
+        -1018
+      ],
+      "heading": 0.0
+    },
+    {
+      "id": "spawn-2",
+      "position": [
+        -19,
+        -1018
+      ],
+      "heading": 0.0
+    },
+    {
+      "id": "spawn-3",
+      "position": [
+        -14,
+        -1018
+      ],
+      "heading": 0.0
+    },
+    {
+      "id": "spawn-4",
+      "position": [
+        -24,
+        -1024
+      ],
+      "heading": 0.0
+    },
+    {
+      "id": "spawn-5",
+      "position": [
+        -19,
+        -1024
+      ],
+      "heading": 0.0
+    },
+    {
+      "id": "spawn-6",
+      "position": [
+        -14,
+        -1024
+      ],
+      "heading": 0.0
+    }
+  ],
+  "safePads": [
+    {
+      "id": "summit",
+      "position": [
+        0,
+        -1000
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -24,
+        -1018
+      ]
+    },
+    {
+      "id": "village",
+      "position": [
+        0,
+        1180
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -24,
+        1162
+      ]
+    },
+    {
+      "id": "hut",
+      "position": [
+        -620,
+        150
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -644,
+        132
+      ]
+    },
+    {
+      "id": "ridge",
+      "position": [
+        700,
+        -300
+      ],
+      "radius": 32,
+      "riderPosition": [
+        676,
+        -318
+      ]
+    },
+    {
+      "id": "chapel",
+      "position": [
+        500,
+        820
+      ],
+      "radius": 32,
+      "riderPosition": [
+        476,
+        802
+      ]
+    }
+  ],
+  "features": {
+    "lifts": [
+      {
+        "id": "pp-express",
+        "name": "Summit Express",
+        "from": [
+          -170,
+          1210
+        ],
+        "to": [
+          -130,
+          -880
+        ],
+        "speed": 18
+      },
+      {
+        "id": "pp-ridge",
+        "name": "Ridge Chair",
+        "from": [
+          260,
+          1210
+        ],
+        "to": [
+          320,
+          -860
+        ],
+        "speed": 16
+      }
+    ]
+  },
+  "resort": true
+}

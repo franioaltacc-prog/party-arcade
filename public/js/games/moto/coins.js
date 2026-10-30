@@ -2,7 +2,7 @@
    flips, mini races and challenges) and spent on engine upgrades that only work in free ride. Races and
    challenges always use the stock engine, so they stay fair. Kept in this browser, like free-ride records.
    Unrevvd (the mountain bikes) has its own coins and its own upgrades, in a wallet of their own (MTB). */
-import { goldAll } from './chutes.js';
+import { goldAll, weeklyGold } from './chutes.js';
 const { store } = PA;
 
 /** Free-ride engines. stats multiply the free-ride bike's power, drag, turbo power, turbo recharge and gearing
@@ -84,6 +84,7 @@ export const CAMS = [
   { id: 'goggles', name: 'Goggles', emoji: '🥽', price: 400, about: 'Proper MTB goggles, frame and all', cam: 'goggles', fov: 0 },
   { id: 'gopro', name: 'Action cam', emoji: '📹', price: 800, about: 'A wide fisheye view and a REC light, like a real helmet cam', cam: 'gopro', fov: 16 },
   { id: 'gold', name: 'Golden visor', emoji: '🏅', price: 0, about: 'For gold medals on the Timber, Frozen and Night Runs', cam: 'gold', fov: 0, lock: () => (goldAll() ? null : '🔒 3 golds') },
+  { id: 'champ', name: 'Champion visor', emoji: '🏆', price: 0, about: 'For a gold medal in a Weekly Challenge', cam: 'gold', fov: 0, lock: () => (weeklyGold() ? null : '🔒 Weekly gold') },
 ];
 /** Gear bought with another wallet's coins (bank): the same shape as a wallet (owned, the one in use). */
 function makeGear(key, items, bank) {

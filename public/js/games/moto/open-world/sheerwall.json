@@ -864,6 +864,17 @@
         "turn": 0.4,
         "trail": 30
       }
+    ],
+    "parks": [
+      {
+        "id": "sheer-climb",
+        "kind": "climb",
+        "name": "Hill Climb",
+        "near": [
+          -750,
+          1250
+        ]
+      }
     ]
   }
 }

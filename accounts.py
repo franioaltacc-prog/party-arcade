@@ -166,6 +166,14 @@ SOLO["mch-cup"] = ("mchcup", 75000, 1_200_000)
 FASTEST.update({"mch-daily", "mch-cup"})
 BOARDS["mch_cup"] = ("🏆 Unrevvd: Downhill World Cup", "mchcup.best", "asc", "time")
 daily_key = lambda: "mchdaily" + datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d")   # (UTC days, like the browser)
+# The Weekly Challenge: one race challenge a week, in turn (UTC weeks since 1970, like the browser's chutes.js), with a
+# board of its own for the week ("mch-weekly"; the stat is mchweekly<week>).
+week_number = lambda: int(time.time() // 86400 // 7)
+weekly_key = lambda: f"mchweekly{week_number()}"
+weekly_challenge = lambda: MOTO_CHALLENGES[week_number() % len(MOTO_CHALLENGES)] if MOTO_CHALLENGES else None
+SOLO["mch-weekly"] = ("mchweekly", 3000, 1_200_000)   # (the real limits are this week's challenge's: see solo)
+FASTEST.add("mch-weekly")
+BOARDS["mch_weekly"] = ("🗓️ This week's Weekly Challenge", None, "asc", "time")
 GHOST_MAX = 250_000   # characters: a recorded run (8 frames a second, a few minutes)
 
 SCHEMA = [
@@ -927,6 +935,11 @@ class Accounts:
         prefix, lo, hi = SOLO[game]
         if game == "mch-daily":
             prefix = daily_key()
+        elif game == "mch-weekly":
+            c = weekly_challenge()
+            if not c:
+                raise AuthError("Unknown game.")
+            prefix, lo, hi = weekly_key(), _fastest_ms(c), int(c.get("limit", 600)) * 1000 + 5000
         value = int(value)
         if not lo <= value <= hi:
             raise AuthError("That score doesn't look right 🤔")
@@ -974,6 +987,8 @@ class Accounts:
         """The ghost for a solo game's board (today's for the Daily Chute), or None if it has none."""
         if game == "mch-daily":
             return "mch-daily-" + daily_key()[8:]
+        if game == "mch-weekly":
+            return "mch-weekly-" + weekly_key()[9:]
         return game if game in SOLO and game.startswith("mch-") else None
 
     async def ghost(self, game):
@@ -998,7 +1013,7 @@ class Accounts:
         text = json.dumps(data, separators=(",", ":"))
         if len(text) > GHOST_MAX or not isinstance(data.get("frames"), list):
             raise AuthError("That ghost is too big.")
-        prefix = daily_key() if game == "mch-daily" else SOLO[game][0]
+        prefix = daily_key() if game == "mch-daily" else weekly_key() if game == "mch-weekly" else SOLO[game][0]
         best = (await self.q("SELECT value FROM stats WHERE user_id = ? AND key = ?", user_id, f"{prefix}.best"))["rows"]
         if not best or int(best[0]["value"]) != ms:
             return {"kept": False}
@@ -1056,6 +1071,9 @@ class Accounts:
         if key == "mch_daily":
             stat = daily_key() + ".best"
             key = f"{key}:{stat}"   # (cached per day)
+        elif key == "mch_weekly":
+            stat = weekly_key() + ".best"
+            key = f"{key}:{stat}"   # (cached per week)
         cached = self.board_cache.get(key)
         if cached and time.time() - cached[0] < 15:
             rows = cached[1]

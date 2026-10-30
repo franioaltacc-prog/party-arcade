@@ -1397,6 +1397,7 @@ for _c in MOTO_CHALLENGES:
     GAME_TITLES[f"mch-{_c['id']}"] = GAME_TITLES[chute_key(_c["id"])] = f"{'Carvvd' if _c.get('board') else 'Unrevvd' if _c.get('vehicle') == 'mtb' else 'Revvd'} · {_c['name']}"
 GAME_TITLES["mch-daily"] = GAME_TITLES["mchdaily"] = "Unrevvd · Daily Chute"
 GAME_TITLES["mch-cup"] = GAME_TITLES["mchcup"] = "Unrevvd · Downhill World Cup"
+GAME_TITLES["mch-weekly"] = GAME_TITLES["mchweekly"] = "Revvd · Weekly Challenge"
 
 hub = Hub()
 

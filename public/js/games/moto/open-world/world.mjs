@@ -7,6 +7,7 @@ import {buildTerrain,routeLength,routePoint} from './terrain.mjs';
 import {terrainMaterial} from './materials.mjs';
 import {gridHeight} from './grounding.mjs';
 import {makeProps} from '../world.js';
+import {coverShader} from '../cover.js';
 import {buildingGeometry,signGeometry,textTexture,archGeometry,hayGeometry,stakeGeometry,flagGeometry} from './buildings.mjs';
 
 const CHUNK=250;
@@ -158,17 +159,18 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
  const drawSolid=solidProps&&terrain.gauntlets.length>0;
  const flora=(FLORA[theme]||FLORA.alpine).map(f=>!map.look?.flora||map.look.flora.includes(f.kind)?f:drawSolid&&/pine|rock/.test(f.kind)?{...f,per:0}:null).filter(Boolean);
  for(const spec of flora) {
-  const attempts=Math.round(spec.per*W*D/1e6*density*(spec.far?1:.8));
+  const attempts=Math.round(spec.per*W*D/1e6*density*(spec.far?1:.8)*(/pine/.test(spec.kind)?map.look?.forest||1:1));   // (look.forest: a thicker forest, as between a resort's runs)
   for(let i=0;i<attempts;i++) {
    const x=(random()-.5)*W,z=(random()-.5)*D,r1=random(),r2=random(),r3=random(),r4=random();
    if(spec.cluster&&cluster(x,z,spec.kind.length)<spec.cluster*.9+r1*.18)continue;
    if(terrain.cliffRise(x,z)>(spec.kind==='rock'?260:90))continue;
-   const road=terrain.roadAt(x,z);if(road&&road.distance<9+spec.clear)continue;
+   const road=terrain.roadAt(x,z);if(road&&road.distance<(map.look?.pisteClear??9)+spec.clear)continue;
+   if(terrain.forestReach&&/pine/.test(spec.kind)&&terrain.routeDist(x,z)<terrain.forestReach)continue;   // (a ski run's own forest of real trees is there: these only start behind it)
    if(terrain.rampAt(x,z).weight>0||terrain.featureAt(x,z).flat>.02)continue;
    if(keepOut.some(([p,r])=>Math.hypot(x-p[0],z-p[1])<r))continue;
    if(terrain.gauntletIn(x,z,40))continue;   // (a gauntlet has its own trees and rocks, below: the solid ones; none just round it either)
    if(lakeDist(x,z)<1.1||riverDist(x,z)<(river?river.width*.62:0))continue;
-   const y=renderHeightAt(x,z);if(spec.treeLine&&y>map.baseHeight+spec.treeLine+r2*80)continue;
+   const y=renderHeightAt(x,z),line=spec.treeLine&&(map.look?.treeLine??spec.treeLine);if(line&&y>map.baseHeight+line+r2*80)continue;   // (look.treeLine: a world's own tree line)
    if(coarseUp(x,z)<spec.slope)continue;
    const s=spec.size[0]+(spec.size[1]-spec.size[0])*Math.pow(r2,1.6);
    const key=Math.floor(x/CHUNK)+','+Math.floor(z/CHUNK);
@@ -186,6 +188,8 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
    list.get(spec).push({x:o.x,z:o.z,sink:spec.sink*o.s+(solid==='rocks'?o.s*.12:0),rot:o.rot,tilt:0,s:o.s,sy:o.s,shade:.9});
   }
  }
+ // look.solidForest: the trees off the runs are solid too (crash into one): a ski resort, where you keep to the pistes
+ if(map.look?.solidForest){const trunks=[];for(const chunk of chunks.values())for(const [spec,items] of chunk.lists)if(/pine/.test(spec.kind))for(const it of items)trunks.push({x:it.x,z:it.z,r:.42*it.s,tall:14*it.s});terrain.addSolids(trunks);}
  const geos=new Map();
  for(const spec of flora){const g={near:near.PROPS[spec.kind](),far:spec.far?far.PROPS[spec.kind]():null,mat:near.MATS[spec.kind]||near.propMat};geos.set(spec,g);disposables.push(g.near);if(g.far)disposables.push(g.far);
   if(map.look?.autumn&&(spec.kind==='broadleaf'||spec.kind==='shrub')){autumnize(g.near,map.seed);if(g.far)autumnize(g.far,map.seed);}}
@@ -247,6 +251,7 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
 
  // ---------------------------------------------------------------- buildings, signs and arches
  const buildMat=mat('build',()=>new THREE.MeshStandardMaterial({vertexColors:true,roughness:.82}));
+ if(map.theme==='snow')coverShader(buildMat,{snow:{value:.8}},'build');   // (snow settled on the decks, benches, rails and roofs)
  const solid=(geo,x,y,z,ry=0)=>{const m=new THREE.Mesh(geo,buildMat);m.position.set(x,y,z);m.rotation.y=ry;m.castShadow=true;m.receiveShadow=true;group.add(m);disposables.push(geo);return m;};
  const signGeo=signGeometry(theme);disposables.push(signGeo);
  for(const b of terrain.buildings) {
@@ -255,7 +260,7 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
   // a sign by the trail with the place's name
   const sx=trail.x+ax*(trail.width/2+5),sz=trail.z+az*(trail.width/2+5);
   const sign=solid(signGeo,sx,terrain.heightAt(sx,sz)-.15,sz,ry);
-  const tex=textTexture(spot.name,{bg:'#3b2a1c',fg:'#f7ecd6'}),signMat=new THREE.MeshStandardMaterial({map:tex,roughness:.8});disposables.push(tex,signMat);
+  const tex=textTexture(spot.name,{bg:'#3b2a1c',fg:'#f7ecd6'}),signMat=new THREE.MeshStandardMaterial({map:tex,roughness:.8});if(map.theme==='snow')coverShader(signMat,{snow:{value:.8}},'sign');disposables.push(tex,signMat);
   const face=new THREE.Mesh(new THREE.PlaneGeometry(5.7,1.35),signMat);face.position.set(0,2.3,-0.03);sign.add(face);disposables.push(face.geometry);
  }
  const accent=ACCENT[theme]||'#ff6a10';

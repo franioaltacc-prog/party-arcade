@@ -366,8 +366,9 @@
       const d = G.x0 + i * G.dx - b.x;
       if (T.terrain) {
         const wx=b.px+c*d, wz=b.pz+sn*d, surface=T.terrain.surfaceAt(wx,wz);
-        G.ys[i]=T.terrain.heightAt(wx,wz); G.s[i]=b.x+d;
+        G.ys[i]=(T.terrain.rideAt||T.terrain.heightAt)(wx,wz); G.s[i]=b.x+d;   // (rideAt: the tops of rails and boxes too)
         G.gr[i]=surface.grip; G.rr[i]=surface.roll;
+        if (G.mtb && G.mtb.powder) { if (surface.kind === 'snow') G.rr[i] += G.mtb.powder; else if (surface.kind === 'trail') G.rr[i] *= 0.5; }   // (a board in deep powder off the pistes; fast on the groomed ones)
         G.kd[i]=surface.kind==='mud'?SURFACE.mud:surface.kind==='ice'?SURFACE.ice:SURFACE.dirt;
         continue;
       }
@@ -846,6 +847,13 @@
       b.whip = Math.min(1, b.whip + DT * 3);
       if (b.whip >= 1 && !b.whipDone) { b.whipDone = true; b.combo.push(6); ev.push(['trick', 6]); }
     } else { b.whip = Math.max(0, b.whip - DT * 2.6); if (b.whip === 0) b.whipDone = false; }
+    if (b.board) {
+      // on a board the spin keeps going while it's held (180, 360, 540, 720…); let go and it settles on the nearest half turn
+      if (want === 7) b.spin += DT * TAU / 0.95;
+      else if (b.spin > 0) { const goal = Math.round(b.spin / Math.PI) * Math.PI; b.spin += clamp(goal - b.spin, -DT * 5, DT * 5); }
+      b.spinHeld = want === 7;
+      return;
+    }
     if (want === 7 && !b.spinHeld && b.spin === 0) b.spin = 1e-4;
     b.spinHeld = want === 7;
     if (b.spin > 0) {
@@ -853,7 +861,7 @@
       if (b.spin >= TAU) { b.spin = 0; b.combo.push(7); ev.push(['trick', 7]); }
     }
   }
-  function endTricks(b) { b.tk = -1; b.pose = 0; b.tkT = 0; b.tkDone = false; b.whip = 0; b.whipDone = false; b.spin = 0; }
+  function endTricks(b) { b.tk = -1; b.pose = 0; b.tkT = 0; b.tkDone = false; b.whip = 0; b.whipDone = false; b.spin = 0; b.revert = 0; }
 
   /** Air time, flips, tricks and landings. Flips and tricks only count when you land them cleanly.
       A flip is the bike's whole turn in the air less the change of slope between the takeoff and the landing
@@ -878,15 +886,21 @@
     if (b.air === 0) b.gslope = under;
     if (b.air > 0) {
       // touching down in the middle of a trick: bail
-      const mid = b.pose > 0.4 ? b.tk : b.whip > 0.5 ? 6 : b.spin > 0.6 && b.spin < TAU - 0.6 ? 7 : -1;
-      if (b.spin >= TAU - 0.6) b.combo.push(7);   // (as good as round)
+      let mid = b.pose > 0.4 ? b.tk : b.whip > 0.5 ? 6 : b.spin > 0.6 && b.spin < TAU - 0.6 ? 7 : -1;
+      if (b.spin >= TAU - 0.6 && !b.board) b.combo.push(7);   // (as good as round)
+      let halves = 0;
+      if (b.board && b.spin > 0) {   // (a board lands a spin on any half turn: a 180 or a 540 rides out backwards, then turns round)
+        halves = Math.round(b.spin / Math.PI); if (mid < 0 || mid === 7) mid = Math.abs(b.spin - halves * Math.PI) > 0.5 ? 7 : -1;
+      }
       endTricks(b);
+      if (halves % 2 && mid < 0) { b.spin = Math.PI; b.revert = 1; }   // (the board swings back round on the snow)
       if (mid >= 0 && !b.crashed) { crash(T, b, ev); ev.push(['bail', mid]); b.air = 0; return; }
       const air = b.air + b.airBase;
-      if (air > 0.3) b.landing = { air, raw: b.airRot, slope0: b.airSlope, rot: b.airRot - (under - b.airSlope), t: 0, both: f && r, height: b.airPeak - groundY(T, b.x), angle: Math.abs(b.a - slope(T, b.x)), combo: b.combo };
+      if (air > 0.3) b.landing = { air, raw: b.airRot, slope0: b.airSlope, rot: b.airRot - (under - b.airSlope), t: 0, both: f && r, height: b.airPeak - groundY(T, b.x), angle: Math.abs(b.a - slope(T, b.x)), combo: b.combo, halves };
       b.air = 0; b.airBase = 0; b.gslope = under;
     }
     b.ground += DT;
+    if (b.revert) { b.spin += DT * TAU / 0.6; if (b.spin >= TAU) { b.spin = 0; b.revert = 0; } }
     const L = b.landing;
     if (!L) return;
     L.t += DT;
@@ -903,14 +917,15 @@
     if (turns > 0) gain += 0.3 * turns;
     // trick points: each trick, each flip, and a bonus for putting several together
     const moves = L.combo || [];
-    let score = moves.reduce((t, i) => t + TRICKS[i].pts, 0) + turns * 50;
-    const parts = moves.length + turns;
+    const halves = L.halves || 0;
+    let score = moves.reduce((t, i) => t + TRICKS[i].pts, 0) + turns * 50 + halves * (12 + 4 * halves);   // (a board's spins: 180 32, 360 80, 540 144, 720 224 before combos)
+    const parts = moves.length + turns + (halves ? 1 : 0);
     if (parts > 1) score = Math.round(score * (1 + 0.25 * (parts - 1)));
     gain += 0.03 * moves.length;
     b.flips += turns;
     b.nitro = Math.min(1, b.nitro + gain);
-    b.lastLand = { air: L.air, turns, back: L.rot > 0, perfect, gain, tricks: moves, score };
-    ev.push(['land', { clean: true, air: L.air, turns, back: L.rot > 0, perfect, gain, height: L.height, tricks: moves, score }]);
+    b.lastLand = { air: L.air, turns, back: L.rot > 0, perfect, gain, tricks: moves, score, spin: halves };
+    ev.push(['land', { clean: true, air: L.air, turns, back: L.rot > 0, perfect, gain, height: L.height, tricks: moves, score, spin: halves }]);
   }
 
   function crash(T, b, ev) {

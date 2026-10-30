@@ -923,6 +923,26 @@
         "turn": 0.4,
         "trail": 30
       }
+    ],
+    "parks": [
+      {
+        "id": "wild-pump",
+        "kind": "pump",
+        "name": "Pump Track",
+        "near": [
+          -450,
+          950
+        ]
+      },
+      {
+        "id": "wild-jumps",
+        "kind": "jumps",
+        "name": "Dirt Jumps",
+        "near": [
+          -350,
+          650
+        ]
+      }
     ]
   },
   "bike": true

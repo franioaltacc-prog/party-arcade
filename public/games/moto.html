@@ -28,6 +28,20 @@
     .mx-app.riding .mx-shade, .mx-app.riding .mx-ui { opacity: 0; visibility: hidden; pointer-events: none; }
     .mx-app:not(.riding) .mx-hud, .mx-app:not(.riding) .mx-btns, .mx-app:not(.riding) .mx-touch, .mx-app:not(.riding) #hud-center { display: none !important; }
     .mx-app.riding { touch-action: none; user-select: none; -webkit-user-select: none; }
+    /* photo mode and replays (studio.js): just the picture, and a bar of controls at the bottom */
+    .mx-app.photo .mx-hud, .mx-app.photo .mx-btns, .mx-app.photo .mx-touch, .mx-app.photo #hud-center, .mx-app.photo .mx-fx,
+    .mx-app.replay .mx-hud, .mx-app.replay .mx-btns, .mx-app.replay .mx-touch, .mx-app.replay #hud-center, .mx-app.replay .mx-fx { display: none !important; }
+    .mx-app.photo { cursor: grab; }
+    .mx-studio { position: absolute; left: 50%; bottom: max(14px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 5; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;
+      max-width: calc(100% - 24px); padding: 8px 10px; border-radius: 16px; background: rgba(10,14,24,.72); border: 1px solid rgba(255,255,255,.18); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); font-family: var(--kanit); cursor: default; }
+    .mx-studio button { height: 34px; padding: 0 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.08); color: #fff; font: inherit; font-size: .9rem; cursor: pointer; }
+    .mx-studio button:hover, .mx-studio button.on { background: rgba(198,244,50,.25); border-color: var(--hi); }
+    .mx-studio .tip { font-size: .85rem; opacity: .85; padding: 0 4px; }
+    .mx-app.photo .mx-studio .tip { flex-basis: 100%; text-align: center; }
+    .mx-studio .rp { color: #ff5a4a; font-style: italic; letter-spacing: .04em; }
+    .mx-studio input[type=range] { accent-color: var(--hi); }
+    .mx-studio .seek { width: min(320px, 50vw); }
+    .mx-studio .lens { font-size: 1rem; }
 
     /* ---------------------------------------------------------------- menus */
     .mx-ui { position: absolute; inset: 0; display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior: contain; transition: opacity .35s, visibility .35s;
@@ -501,6 +515,8 @@
       <button id="mx-mute" title="Sound on/off (M)" aria-label="Sound on or off">🔊</button>
       <button id="mx-trials" hidden title="Mini races" aria-label="Mini races">🏁</button>
       <button id="mx-cam" title="Camera (C)" aria-label="Change camera">🎥</button>
+      <button id="mx-photo" title="Photo mode (P)" aria-label="Photo mode">📷</button>
+      <button id="mx-replay" title="Replay the last minute (V)" aria-label="Watch a replay">🎬</button>
     </div>
     <div class="mx-touch" id="mx-touch">
       <div class="grp"><button data-k="left" aria-label="Steer left">◀</button><button data-k="right" aria-label="Steer right">▶</button></div>

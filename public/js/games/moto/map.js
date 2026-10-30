@@ -42,6 +42,12 @@ export function createMap(ctx) {
     for (const g of terrain.gaps) places.push({ kind: 'gap', icon: GAP_ICON[g.kind] || '🔥', name: `${GAP_NAME[g.kind] || 'Gap jump'} · ${Math.round(g.gap)} m`, about: g.kind === 'chasm' ? 'Clear it or fall in.' : `Clear it or end up in the ${g.kind === 'lava' ? 'lava' : 'water'}.`, x: g.cx, z: g.cz, go: g.retry });
     for (const p of terrain.pools) places.push({ kind: 'pool', icon: p.kind === 'lava' ? '🌋' : p.kind === 'tar' ? '🛢️' : '💧', name: POOL_NAME[p.kind] || 'Pool', about: p.kind === 'water' ? 'Deep water.' : 'Don’t ride into it!', x: p.x, z: p.z, go: null, small: true });
     terrain.parks.forEach((pk) => places.push({ kind: 'park', icon: '🏁', name: 'Send-it jump park', about: 'Five tabletops, bigger and bigger.', x: pk.ramps[2].position[0], z: pk.ramps[2].position[1], go: { position: pk.start, heading: pk.heading } }));
+    const PARK = { halfpipe: ['🛹', 'Ride up the walls and get air out of the top.'], rails: ['🛤️', 'Rails and boxes to slide along: hit the little kicker in front of one.'],
+      pump: ['🌀', 'Rollers and banked turns: pump round it without pedalling.'], jumps: ['🦘', 'Four doubles in a row.'],
+      climb: ['⛰️', 'As steep as it gets. Make it to the flag at the top.'], arena: ['🏟️', 'Two huge doubles, a crowd and the judges.'] };
+    for (const f of terrain.parkList || []) places.push({ kind: 'park', icon: (PARK[f.park] || ['🏁'])[0], name: f.name, about: (PARK[f.park] || ['', ''])[1], x: f.cx, z: f.cz, go: f.start });
+    for (const L of def.features?.lifts || []) places.push({ kind: 'lift', icon: '🚡', name: L.name || 'Chairlift', about: 'Ride slowly into the bottom station to take a chair to the top.', x: L.from[0], z: L.from[1],
+      go: { position: [L.from[0] + (L.to[1] - L.from[1]) / Math.hypot(L.to[0] - L.from[0], L.to[1] - L.from[1]) * 8, L.from[1] - (L.to[0] - L.from[0]) / Math.hypot(L.to[0] - L.from[0], L.to[1] - L.from[1]) * 8], heading: Math.atan2(L.to[0] - L.from[0], L.to[1] - L.from[1]) } });   // (right beside the bottom station: it takes you straight up)
     for (const race of def.races) {
       const route = def.routes.find((r) => r.id === race.route); const p = route.points[0];
       if (!places.some((q) => q.kind === 'race' && Math.hypot(q.x - p[0], q.z - p[1]) < 40)) places.push({ kind: 'race', icon: '⏱️', name: 'Mini races start', about: 'Start a mini race with the flag button.', x: p[0], z: p[1], go: null, small: true });

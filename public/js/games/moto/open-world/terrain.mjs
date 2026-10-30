@@ -54,13 +54,13 @@ export function buildTerrain(world) {
  }
  /** Mountain ranges round the edge: rideable foothills up to the edge of the world, then the real peaks rising
   * beyond it (where you can't ride, but can see), with ribs and gullies down their faces. */
- const B=world.boundary, rimWidth=B.cliffWidth||300, rimHeight=B.cliffHeight||520;
+ const B=world.boundary, rimWidth=B.cliffWidth||300, rimHeight=B.cliffHeight||520, rise=B.rise??1;   // (rise: how steeply the mountains beyond climb; under 1, gentler and further off)
  function cliffRise(x,z) {
   const edge=Math.min(W/2-Math.abs(x),D/2-Math.abs(z)), t=1-edge/rimWidth;
   if(t<=0) return 0;
   const crest=ridged(x/520,z/520,seed+111,4), ribs=ridged(x/150,z/150,seed+131,2), inside=Math.min(t,1), beyond=Math.max(0,t-1);
   let y=rimHeight*.3*Math.pow(smooth(inside),1.6)*(.7+.6*crest);
-  y+=beyond*rimWidth*(.8+.5*crest)*smooth(beyond*2)+rimHeight*.9*crest*crest*smooth(beyond*.9);
+  y+=(beyond*rimWidth*(.8+.5*crest)*smooth(beyond*2)+rimHeight*.9*crest*crest*smooth(beyond*.9))*rise;
   y+=smooth(t*.9)*(28+40*smooth(beyond))*ribs+smooth(t*1.4)*12*fbm(x/60,z/60,seed+903);
   return y*(.2+.8*sampleMask(trailMask,x,z));   // (trails near the edge run up valleys instead of over the ridges)
  }
@@ -213,6 +213,94 @@ export function buildTerrain(world) {
   const depth=p.depth||5,pool={id:p.id,kind,pool:true,x:spot.cx,z:spot.cz,cx:spot.cx,cz:spot.cz,rx,rz,turn,c:Math.cos(turn),s:Math.sin(turn),base:spot.base,depth,level:spot.base-(kind==='lava'?1.4:1),reach:reach*1.7};
   pools.push(pool);features.push(pool);
  }
+ // ---------------------------------------------------------------- parks
+ // A halfpipe and a rail garden (Carvvd), a pump track and a line of dirt jumps (Unrevvd), a hill climb and a freestyle
+ // arena (Revvd). Each is shaped into the ground on the nearest clear ground to its anchor (a halfpipe on a slope, so a
+ // board keeps its speed; the rest on the level): local "along" (a) and "across" (c) metres from its start. Rails and
+ // boxes are solid only to ride on (railAt): the renderer draws them, the ground under them stays as it is.
+ const PARK={
+  halfpipe:{len:130,half:23,run:26,tail:24,tilt:[.07,.3],dev:6},
+  rails:{len:64,half:16,run:18,tail:14,tilt:[.04,.18],dev:5},
+  pump:{len:76,half:26,run:4,tail:4,tilt:[0,.06],dev:6},
+  jumps:{len:96,half:10,run:34,tail:24,tilt:[0,.08],dev:5},
+  climb:{len:350,half:86,run:20,tail:10,tilt:[0,.08],dev:14},
+  arena:{len:160,half:46,run:6,tail:6,tilt:[0,.04],dev:7},
+ };
+ const parks2=[];
+ for(const p of F.parks||[]) {
+  const K=PARK[p.kind]; if(!K) continue;
+  const [ax,az]=anchorOf(p),along0=p.heading??headingNear(ax,az),a0=-K.run,a1=K.len+K.tail;
+  let placed=null;
+  search: for(let d=0;d<=600;d+=30) for(let k=0;k<(d?16:1);k++) for(const turn of [0,Math.PI,Math.PI/2,-Math.PI/2,.5,-.5,Math.PI+.5,Math.PI-.5]) {
+   const h=along0+turn,sx=Math.sin(h),sz=Math.cos(h),cx=ax+Math.cos(k*.3927)*d,cz=az+Math.sin(k*.3927)*d;
+   const mid=(a0+a1)/2,lx=cx-sx*mid,lz=cz-sz*mid,pts=[];let ok=true;
+   for(let e=a0-10;e<=a1+10&&ok;e+=8) for(const side of [-K.half-8,-K.half/2,0,K.half/2,K.half+8]) {
+    const ex=lx+sx*e+sz*side,ez=lz+sz*e-sx*side;
+    if(!inBounds(ex,ez,rimWidth+70)||routeDist(ex,ez)<(p.trail??20)||wet(ex,ez,50)||world.spots.some(s=>Math.hypot(ex-s.position[0],ez-s.position[1])<60)||pads.some(q=>Math.hypot(ex-q.position[0],ez-q.position[1])<(q.riderPosition?70:40))||!clearOfFeatures(ex,ez,24)||gauntletIn(ex,ez,30)){ok=false;break;}
+    pts.push([e,rawHeight(ex,ez)]);
+   }
+   if(!ok)continue;
+   const n=pts.length,me=pts.reduce((a,q)=>a+q[0],0)/n,my=pts.reduce((a,q)=>a+q[1],0)/n,tilt=pts.reduce((a,q)=>a+(q[0]-me)*(q[1]-my),0)/pts.reduce((a,q)=>a+(q[0]-me)**2,0),base=my-tilt*me;
+   const down=p.kind==='halfpipe'||p.kind==='rails'?-tilt:Math.abs(tilt);   // (a halfpipe and a rail garden run downhill: a board has no pedals)
+   if(down>=K.tilt[0]&&down<=K.tilt[1]&&pts.every(q=>Math.abs(q[1]-base-tilt*q[0])<K.dev)){ placed={lx,lz,h,sx,sz,base,tilt,cx,cz}; break search; }
+  }
+  if(!placed){ console.warn('park: no room for',p.id); continue; }
+  const P0=placed,f={id:p.id,park:p.kind,name:p.name||p.kind,x:P0.lx,z:P0.lz,heading:P0.h,s:P0.sx,c:P0.sz,base:P0.base,tilt:P0.tilt,len:K.len,half:K.half,run:K.run,tail:K.tail,cx:P0.cx,cz:P0.cz,reach:Math.hypot((a1-a0)/2,K.half)+20};
+  f.at=(a,c)=>[f.x+f.s*a+f.c*c,f.z+f.c*a-f.s*c];
+  f.go=(a,c=0,turn=0)=>({position:f.at(a,c),heading:f.heading+turn});
+  f.start=f.go(-K.run+6);
+  if(p.kind==='rails') f.items=[{c:-8,a:6,len:10,h:.55,w:.9},{c:0,a:10,len:12,h:.75,w:.14,rail:true},{c:8,a:6,len:9,h:.55,w:.9},{c:-8,a:36,len:12,h:.75,w:.14,rail:true},{c:0,a:38,len:11,h:.6,w:.9},{c:8,a:36,len:14,h:.8,w:.14,rail:true}];
+  if(p.kind==='pump') Object.assign(f,{c0:16,S:40,R:12,tw:4.4,laps:p.laps||3,start:f.go(16+3,12)});
+  if(p.kind==='arena') Object.assign(f,{c0:34,S:90,R:24,tw:10,start:f.go(34+4,24)});
+  if(f.c0!=null){ f.loopLen=2*f.S+2*Math.PI*f.R; f.loop=(x,z)=>{const dx=x-f.x,dz=z-f.z;return stadium(dx*f.s+dz*f.c,dx*f.c-dz*f.s,f);}; }   // (where you are round its loop)
+  if(p.kind==='climb') Object.assign(f,{H:p.height||110,L:170,top:f.at(179,0),start:f.go(-10)});
+  parks2.push(f);features.push(f);
+ }
+ /** The nearest point on a stadium-shaped loop (two straights S long, ends round centres c0 and c0 + S, radius R):
+     t = metres round it (the top straight first, along +a), d = how far outside the line. */
+ function stadium(a,c,f){
+  const {c0,S,R}=f;
+  if(a>=c0&&a<=c0+S) return c>=0?{t:a-c0,d:c-R,bend:false,u:(a-c0)/S}:{t:S+Math.PI*R+(c0+S-a),d:-c-R,bend:false,u:(c0+S-a)/S};
+  const ox=a<c0?c0:c0+S,ang=Math.atan2(c,a-ox),r=Math.hypot(a-ox,c);
+  if(a>c0+S) return {t:S+(Math.PI/2-ang)*R,d:r-R,bend:true,u:(Math.PI/2-ang)/Math.PI};
+  const a2=ang<0?ang+2*Math.PI:ang; return {t:2*S+Math.PI*R+(3*Math.PI/2-a2)*R,d:r-R,bend:true,u:(3*Math.PI/2-a2)/Math.PI};   // (u: 0..1 along this straight or bend)
+ }
+ /** What a park does to the ground at its local (a, c): { dy, weight } (weight: packed, the look of a trail). */
+ function parkShape(f,a,c){
+  const ac=Math.abs(c);
+  if(f.park==='halfpipe'){
+   if(a<0) return {dy:8*Math.pow(-a/f.run,1.5)*(1-smooth((ac-5)/4)),weight:ac<6?1:0};   // (a steep drop-in at the top, for speed)
+   if(a>f.len) return {dy:0,weight:ac<5?1:0};
+   const fw=4.5,R=5,deck=3,k=smooth(a/14)*(1-smooth((a-f.len+14)/14));
+   let h=ac<fw?0:ac<fw+R*.97?R-Math.sqrt(Math.max(0,R*R-(ac-fw)**2)):ac<fw+R+deck?R:Math.max(0,R-(ac-fw-R-deck)*.75);
+   return {dy:h*k,weight:ac<fw+R+deck?1:0};
+  }
+  if(f.park==='rails'){
+   let dy=0;
+   for(const it of f.items){ const u=a-(it.a-4),across=Math.abs(c-it.c); if(u>0&&u<4&&across<(it.rail?1.1:1.4)) dy=Math.max(dy,(it.h-.04)*smooth(u/4)*(1-smooth((across-(it.rail?.6:.9))/.5))); }
+   return {dy,weight:ac<12?1:0};
+  }
+  if(f.park==='jumps'){
+   if(ac>6) return {dy:0,weight:0};
+   const side=1-smooth((ac-3.5)/2.5);let dy=0;
+   for(const j of [8,30,52,74]){ const u=a-j; if(u>0&&u<6) dy=1.9*Math.pow(u/6,1.6); else if(u>=11&&u<19) dy=1.9*(1-smooth((u-11)/8)); }
+   return {dy:dy*side,weight:ac<5?1:0};
+  }
+  if(f.park==='climb'){
+   const {H,L}=f,u=a/L;let h=a<0?0:a<L?H*(.25*u+.75*u*u):a<L+18?H:Math.max(0,H*(1-smooth((a-L-18)/160)));   // (steep from the start, and steeper: about 48° at the top)
+   h=Math.max(0,h-Math.max(0,ac-8)*1.4);
+   return {dy:h,weight:ac<8&&a>-20&&a<f.L+18?1:0};
+  }
+  if(f.park==='pump'||f.park==='arena'){
+   const L=stadium(a,c,f),hw=f.tw/2,ad=Math.abs(L.d);let top=0;
+   const ends=smooth(L.u/.3)*smooth((1-L.u)/.3);   // (the banking and the rollers fade in and out at each end, so they join up)
+   if(f.park==='pump') top=L.bend?.35+clamp((L.d+hw)/f.tw,0,1)*2.2*ends:.35+.45*(1-Math.cos(L.u*f.S/7.5*Math.PI*2))/2*ends;
+   else if(L.bend) top=.2+clamp((L.d+hw)/f.tw,0,1)*1.9*ends;
+   else { const u=L.t<f.S?L.t:L.t-f.S-Math.PI*f.R; top=u>14&&u<26?3.6*Math.pow((u-14)/12,1.5):u>=44&&u<56?3.6*(1-smooth((u-44)/12)):0; }   // (a big double on each straight)
+   return {dy:ad<hw?top:top*(1-smooth((ad-hw)/3)),weight:ad<hw+1?1:0};
+  }
+  return {dy:0,weight:0};
+ }
  const featureGrid=new Map(); for(const f of features) insert(featureGrid,f,f.cx-f.reach,f.cx+f.reach,f.cz-f.reach,f.cz+f.reach);
  const FLAT={flat:0,base:0,dy:0,weight:0,hazard:null};
  /** What a gap jump or pool does to the ground at (x, z): flatten it towards base (flat 0..1), then add dy;
@@ -220,6 +308,12 @@ export function buildTerrain(world) {
  function featureAt(x,z) {
   const list=featureGrid.get(Math.floor(x/cell)+','+Math.floor(z/cell)); if(!list) return FLAT;
   for(const f of list) {
+   if(f.park) {
+    const dx=x-f.x,dz=z-f.z,a=dx*f.s+dz*f.c,c=dx*f.c-dz*f.s,out=Math.max(-f.run-a,a-f.len-f.tail,0),side=Math.max(0,Math.abs(c)-f.half);
+    if(out>16||side>16) continue;
+    const flat=(1-smooth(out/14))*(1-smooth(side/14)),sh=out>0||side>0?{dy:0,weight:0}:parkShape(f,a,c);
+    return {flat,base:f.base+f.tilt*clamp(a,-f.run,f.len+f.tail),dy:sh.dy,weight:sh.weight,hazard:null};
+   }
    if(f.pool) {
     const dx=x-f.x,dz=z-f.z,a=(dx*f.c-dz*f.s)/f.rx,b=(dx*f.s+dz*f.c)/f.rz,d=Math.hypot(a,b); if(d>1.7) continue;
     const wob=d*(1+.08*(noise(x/14,z/14,seed+401)-.5));
@@ -309,7 +403,7 @@ export function buildTerrain(world) {
   for(const z of world.surfaceZones.filter(s=>s.surface==='sand')) dunes.push({x:z.position[0],z:z.position[1],radius:z.radius*1.9,height:7.5});
   const extra=centre(160); if(extra)dunes.push({x:extra[0],z:extra[1],radius:330,height:9});
  } else if(theme==='snow') {
-  for(let i=0;i<7;i++){ const radius=60+r()*70,c=centre(radius+60); if(c)mesas.push({x:c[0],z:c[1],radius,height:30+r()*45,stretch:1+r()*.5,turn:r()*Math.PI,tiers:1,crag:true}); }
+  for(let i=0;i<(spec.crags===false?0:7);i++){ const radius=60+r()*70,c=centre(radius+60); if(c)mesas.push({x:c[0],z:c[1],radius,height:30+r()*45,stretch:1+r()*.5,turn:r()*Math.PI,tiers:1,crag:true}); }   // ("crags": false: a smooth wooded hill)
  } else {
   for(let i=0;i<8;i++){ const radius=45+r()*60,c=centre(radius+60); if(c)mesas.push({x:c[0],z:c[1],radius,height:16+r()*26,stretch:1+r()*.6,turn:r()*Math.PI,tiers:1,crag:true}); }
  }
@@ -366,7 +460,36 @@ export function buildTerrain(world) {
  const obstacles=[];
  for(const b of buildings)if(b.solid)obstacles.push({x:b.x,z:b.z,r:b.solid,tall:b.tall});
  for(const a of arches)for(const side of [-1,1])obstacles.push({x:a.x+Math.cos(a.heading)*a.width/2*side,z:a.z-Math.sin(a.heading)*a.width/2*side,r:1.1,tall:10});
+ // ---------------------------------------------------------------- a ski run's forest: real trees either side
+ // features.forest: { clear (metres past the run's edge before the first trees), loose: [depth, spacing] (a thin
+ // fringe you can weave through), dense: [depth, spacing] (a wall of them), outer: spacing (the rest of the hillside
+ // out to the mountains, with a few clearings), cuts: [[x, z, radius]] (clearings: the top, the lodge) }. The
+ // chairlifts' lines are cut through. Every tree is solid, and drawn exactly here (nature.mjs forestScenery).
+ const forestTrees=[],FS=world.features?.forest;
+ const forestReach=FS?(FS.clear??3)+FS.loose[0]+FS.dense[0]:0;
+ if(FS){
+  const r=rng(seed*11+5),lines=(world.features.lifts||[]).map(L=>[L.from,L.to]),c0=FS.clear??3;
+  const bands=[[FS.loose[1],c0,c0+FS.loose[0],.7],[FS.dense[1],c0+FS.loose[0],forestReach,.92]];if(FS.outer)bands.push([FS.outer,forestReach,Infinity,.88]);
+  for(const [gap,lo,hi,fill] of bands)   // (scattered on a grid, each one somewhere in its square)
+   for(let gx=-W/2;gx<W/2;gx+=gap)for(let gz=-D/2;gz<D/2;gz+=gap){
+    const keep=r()<fill,x=gx+r()*gap,z=gz+r()*gap,sc=.8+r()*.55,rot=r()*6.28,k=Math.floor(r()*3);
+    if(!keep||cliffRise(x,z)>30)continue;
+    const d=routeDist(x,z);if(d<lo||d>=hi)continue;
+    if(hi===Infinity&&noise(x/110,z/110,seed+71)<.3)continue;   // (the odd clearing out in the woods)
+    if(lines.some(([a,b])=>segDist(x,z,a,b)<9||Math.hypot(x-a[0],z-a[1])<26||Math.hypot(x-b[0],z-b[1])<26))continue;   // (the line, and room round each station to get on and off)
+    if((FS.cuts||[]).some(([cx,cz,cr])=>Math.hypot(x-cx,z-cz)<cr))continue;
+    forestTrees.push({x,z,s:sc,r:.42*sc,tall:16,rot,k});
+   }
+ }
+ /** The nearest point on any trail's middle line to (x, z): { x, z, heading (along the trail), distance (past its
+     edge), half (its half-width) }. */
+ function trailNearest(x,z){
+  let best=null;
+  for(const s of segments){const t=clamp(((x-s.a[0])*s.dx+(z-s.a[1])*s.dz)/s.l2,0,1),px=s.a[0]+s.dx*t,pz=s.a[1]+s.dz*t,d=Math.hypot(x-px,z-pz)-s.width;if(!best||d<best.distance)best={x:px,z:pz,heading:Math.atan2(s.dx,s.dz),distance:d,half:s.width};}
+  return best;
+ }
  const solidGrid=new Map(); for(const g of gauntlets) for(const o of [...g.trees,...g.rocks,...g.stumps,...g.logs.flatMap(l=>l.parts)]) insert(solidGrid,o,o.x-o.r,o.x+o.r,o.z-o.r,o.z+o.r,20);
+ for(const o of forestTrees) insert(solidGrid,o,o.x-o.r,o.x+o.r,o.z-o.r,o.z+o.r,20);
  /** A solid thing the bike can't ride through at (x, z): { x, z, r, top } or null (a building, an arch post, or a
      gauntlet's tree, rock, stump or log: jump high enough and you clear the low ones). */
  function obstacleAt(x,z){
@@ -374,6 +497,8 @@ export function buildTerrain(world) {
   if(solidGrid.size) for(const o of solidGrid.get(Math.floor(x/20)+','+Math.floor(z/20))||[]) if(Math.hypot(x-o.x,z-o.z)<o.r) return {...o,top:(o.top??=heightAt(o.x,o.z)+o.tall)};
   return null;
  }
+ /** More solid things ({ x, z, r, tall }): a resort's forest, from the renderer once it has placed the trees. */
+ function addSolids(list){ for(const o of list) insert(solidGrid,o,o.x-o.r,o.x+o.r,o.z-o.r,o.z+o.r,20); }
  /** The solid things (trees, rocks, stumps, logs) whose middles are within range metres of (x, z). */
  function obstaclesNear(x,z,range){
   const out=[];if(!solidGrid.size)return out;const seen=new Set();
@@ -397,6 +522,18 @@ export function buildTerrain(world) {
   const w=wild(x,z); if(w>0) y+=landform(x,z)*w;
   return shore(x,z,y+cliffRise(x,z));
  }
+ /** A rail or box under (x, z) to ride on: { y: its top, item, park } or null. */
+ const railParks=parks2.filter(f=>f.park==='rails');
+ function railAt(x,z){
+  for(const f of railParks){
+   const dx=x-f.x,dz=z-f.z,a=dx*f.s+dz*f.c; if(a<-5||a>f.len+5) continue;
+   const c=dx*f.c-dz*f.s;
+   for(const it of f.items) if(a>=it.a&&a<=it.a+it.len&&Math.abs(c-it.c)<(it.rail?.32:it.w/2+.08)) return {y:f.base+f.tilt*a+it.h,item:it,park:f,a,c};
+  }
+  return null;
+ }
+ /** The height you ride on: the ground, or the top of a rail or box. */
+ function rideAt(x,z){ const y=heightAt(x,z); if(!railParks.length) return y; const r=railAt(x,z); return r&&r.y>y?r.y:y; }
  function surfaceAt(x,z) {
   if(features.length&&featureAt(x,z).weight>.5) return {kind:'trail',grip:.96,roll:.01};   // (gap jumps are packed dirt, whatever's round them)
   for(const s of world.surfaceZones) if(Math.hypot(x-s.position[0],z-s.position[1])<s.radius) return {kind:s.surface,grip:s.grip,roll:s.roll};
@@ -431,5 +568,5 @@ export function buildTerrain(world) {
   return gates;
  }
  return {world,rawHeight,cliffRise,heightAt,roadAt,rampAt,surfaceAt,normalAt,inBounds,nearestSafePad,gatesFor,wild,ramps,parks,mesas,routeDist,buildings,arches,obstacles,obstacleAt,obstaclesNear,
-  featureAt,hazardAt,boostAt,tintAt,gaps,pools,boosts,gauntlets,gauntletIn};
+  featureAt,hazardAt,boostAt,tintAt,gaps,pools,boosts,gauntlets,gauntletIn,parkList:parks2,railAt,rideAt,addSolids,forestTrees,forestReach,trailNearest};
 }

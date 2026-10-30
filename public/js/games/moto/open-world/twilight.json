@@ -1,0 +1,447 @@
+{
+  "schemaVersion": 1,
+  "id": "twilight",
+  "name": "Twilight Slope",
+  "tagline": "One long run under the lights, forest all round.",
+  "theme": "snow",
+  "seed": 7321,
+  "size": [
+    1500,
+    3400
+  ],
+  "baseHeight": 40,
+  "spawn": [
+    -5,
+    -1090
+  ],
+  "spawnHeading": 0.004587,
+  "palette": {
+    "sky": "#4a5f8c",
+    "low": "#b9c8d6",
+    "high": "#ffffff",
+    "trail": "#8d9fae",
+    "water": "#6391aa",
+    "accent": "#2a7fff"
+  },
+  "look": {
+    "sky": {
+      "sun": [
+        2,
+        215
+      ],
+      "turbidity": 2,
+      "rayleigh": 3,
+      "mie": 0.004,
+      "exposure": 1.3,
+      "fog": 0.5,
+      "fogColor": "#5d6f99",
+      "sunColor": "#9fb2ff",
+      "sunI": 0.45,
+      "hemi": [
+        "#a4b8ea",
+        "#4a557a",
+        1.5
+      ],
+      "envI": 0.6
+    },
+    "flora": [
+      "snowbank"
+    ],
+    "pisteClear": 40,
+    "dusk": true,
+    "floodlights": {
+      "every": 50
+    },
+    "corridor": 45
+  },
+  "terrain": {
+    "noise": 3,
+    "scale": 140,
+    "crags": false,
+    "hills": [
+      [
+        0,
+        -1550,
+        300,
+        8000,
+        1700
+      ],
+      [
+        -430,
+        0,
+        75,
+        230,
+        4000
+      ],
+      [
+        430,
+        0,
+        75,
+        230,
+        4000
+      ]
+    ]
+  },
+  "regions": [
+    {
+      "name": "Hilltop",
+      "position": [
+        -5,
+        -1090
+      ]
+    },
+    {
+      "name": "Base Lodge",
+      "position": [
+        0,
+        1075
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "id": "twilight-run",
+      "name": "\ud83d\udd35 Twilight Run",
+      "points": [
+        [
+          -5,
+          -1090
+        ],
+        [
+          -12,
+          -800
+        ],
+        [
+          0,
+          -450
+        ],
+        [
+          14,
+          -100
+        ],
+        [
+          8,
+          300
+        ],
+        [
+          -6,
+          650
+        ],
+        [
+          0,
+          1040
+        ]
+      ],
+      "width": 74,
+      "shoulder": 26,
+      "piste": "blue"
+    }
+  ],
+  "spots": [
+    {
+      "id": "top",
+      "name": "Hilltop",
+      "position": [
+        -5,
+        -1090
+      ],
+      "kind": "checkpoint",
+      "radius": 24,
+      "about": "The top of the Twilight Run, where the chairlift drops you."
+    },
+    {
+      "id": "base",
+      "name": "Base Lodge",
+      "position": [
+        0,
+        1075
+      ],
+      "kind": "cabin",
+      "radius": 24,
+      "about": "The bottom of the run: the hotel, the lodge and both lifts."
+    }
+  ],
+  "races": [
+    {
+      "id": "tw-run",
+      "name": "Twilight Run",
+      "route": "twilight-run",
+      "type": "downhill",
+      "difficulty": "easy",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    }
+  ],
+  "interactions": [
+    {
+      "id": "board",
+      "name": "Hilltop race board",
+      "position": [
+        35,
+        -1090
+      ],
+      "kind": "race-board",
+      "radius": 18,
+      "event": "race.offer",
+      "about": "Choose a mini race and invite nearby friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "jam",
+      "name": "Base Lodge trick jam",
+      "position": [
+        -50,
+        1055
+      ],
+      "kind": "trick-zone",
+      "radius": 18,
+      "event": "trick.land",
+      "about": "Share a two-minute trick score with friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "camera",
+      "name": "Base Lodge photo perch",
+      "position": [
+        0,
+        1075
+      ],
+      "kind": "photo",
+      "radius": 18,
+      "event": "photo.capture",
+      "about": "Get the whole group into a summit picture.",
+      "cooldownSeconds": 10
+    }
+  ],
+  "ramps": [],
+  "surfaceZones": [],
+  "quests": [
+    {
+      "id": "twilight-welcome",
+      "name": "Welcome to Twilight Slope",
+      "start": "top",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "base",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "base",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "top",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "twilight-summit",
+      "name": "Top of the World",
+      "start": "top",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "base",
+          "count": 1
+        },
+        {
+          "event": "photo.capture",
+          "target": "camera",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    }
+  ],
+  "coordinateSystem": {
+    "units": "metres",
+    "horizontal": [
+      "x",
+      "z"
+    ],
+    "up": "y",
+    "heading": "radians: 0 points +z; positive rotates towards +x"
+  },
+  "status": "Made by tools/make_worlds.py.",
+  "boundary": {
+    "softMargin": 100,
+    "policy": "warn-and-respawn",
+    "respawn": "last-safe-pad",
+    "cliffWidth": 90,
+    "cliffHeight": 110,
+    "sceneryApron": 1600,
+    "rise": 0.3
+  },
+  "spawnPads": [
+    {
+      "id": "spawn-1",
+      "position": [
+        -29,
+        -1108
+      ],
+      "heading": 0.004587
+    },
+    {
+      "id": "spawn-2",
+      "position": [
+        -24,
+        -1108
+      ],
+      "heading": 0.004587
+    },
+    {
+      "id": "spawn-3",
+      "position": [
+        -19,
+        -1108
+      ],
+      "heading": 0.004587
+    },
+    {
+      "id": "spawn-4",
+      "position": [
+        -29,
+        -1114
+      ],
+      "heading": 0.004587
+    },
+    {
+      "id": "spawn-5",
+      "position": [
+        -24,
+        -1114
+      ],
+      "heading": 0.004587
+    },
+    {
+      "id": "spawn-6",
+      "position": [
+        -19,
+        -1114
+      ],
+      "heading": 0.004587
+    }
+  ],
+  "safePads": [
+    {
+      "id": "top",
+      "position": [
+        -5,
+        -1090
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -29,
+        -1108
+      ]
+    },
+    {
+      "id": "base",
+      "position": [
+        0,
+        1075
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -24,
+        1057
+      ]
+    }
+  ],
+  "features": {
+    "lifts": [
+      {
+        "id": "tw-chair",
+        "name": "Hill Chair",
+        "from": [
+          -60,
+          1035
+        ],
+        "to": [
+          -60,
+          -1065
+        ],
+        "speed": 16
+      },
+      {
+        "id": "tw-nursery",
+        "name": "Nursery Chair",
+        "from": [
+          56,
+          1035
+        ],
+        "to": [
+          56,
+          690
+        ],
+        "speed": 6
+      }
+    ],
+    "forest": {
+      "clear": 3,
+      "loose": [
+        32,
+        9
+      ],
+      "dense": [
+        75,
+        4.8
+      ],
+      "outer": 6.5,
+      "cuts": [
+        [
+          -5,
+          -1100,
+          45
+        ],
+        [
+          0,
+          1130,
+          130
+        ],
+        [
+          150,
+          1060,
+          70
+        ]
+      ]
+    },
+    "lodge": {
+      "position": [
+        150,
+        1075
+      ],
+      "heading": -1.57,
+      "floors": 6
+    }
+  },
+  "resort": true
+}

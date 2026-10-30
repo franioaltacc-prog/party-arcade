@@ -6,6 +6,45 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.20.0', date: '2026-10-30', emoji: '🌆', title: 'Twilight Slope', items: [
+      'New Carvvd map: 🌆 Twilight Slope. One long, wide run straight down a forested hill at dusk, with floodlights all the way down, a chairlift beside it, a beginners’ chair at the bottom and a hotel with its windows lit',
+      'Proper snowy spruces, branches all the way to the ground, covering the whole hill. Head into the trees a little way if you like, but go too far and you’re put back on the run',
+      'The hill is gentle at the top and bottom and steeper in the middle, like a real slope, and the mountains round it are far off, so it feels like a valley',
+      'New challenge: 🌆 Under the Lights, from the top to the lodge',
+      'Fixed: the Top to Bottom medal times on Powder Peak were impossible to beat',
+    ] },
+    { v: '3.19.0', date: '2026-10-30', emoji: '🏔️', title: 'Parks, a ski resort, skis and lots more', items: [
+      'New: ⛷️ Powder Peak Resort. Start on the summit and pick one of four marked runs down through the forest (🟢 🔵 🔴 ⚫), then take a chairlift back up. The trees are solid, so keep to the runs',
+      'Carvvd: skis! Pick a snowboard or skis. Skiers pole along when slow, tuck at speed and plant a pole in each turn',
+      'Carvvd: spins of any size (hold X for a 180, 360, 540 or 720), a halfpipe, a rail garden to slide along, deep powder off the pistes (slower) and fast groomed pistes, and a chairlift on Frostpeak',
+      'Carvvd: pick the weather for free ride: ☀️ clear, 🌨️ snowing or 🌬️ a blizzard (you can hardly see, and the wind pushes you about)',
+      'New challenges: 🌊 Avalanche! (outrun it to the lake), Halfpipe Session, Rail Jam and Top to Bottom (Carvvd); Pump Track and Dirt Jump Jam (Unrevvd); Hill Climb and the Freestyle Arena with three judges (Revvd)',
+      '🏮 Lantern Relay (rooms): two teams pass a lantern down the Midnight Chute',
+      '🗓️ Weekly Challenge: one challenge a week for everybody, with its own leaderboard. Win gold for the 🏆 Champion board and visor',
+      '📷 Photo mode (P): freeze the moment, fly the camera round, save the picture. 🎬 Replays (V): watch your last minute back from TV cameras',
+      'Tyre tracks in mud, sand, dirt and snow; in a room everyone’s snow grooves are their own colour',
+      'Mud builds up on you and your bike in the Storm Run',
+      'Fixed: snowboarders leaned so far into turns that they went into the snow',
+      'Faster: the chairlift and the parks draw much more cheaply, and the snowfall is worked out by the graphics card',
+    ] },
+    { v: '3.18.3', date: '2026-10-30', emoji: '🌨️', title: 'Let it snow', items: [
+      'It snows on the snowy maps now (Frostpeak and the Frost Chute): big soft flakes drifting down on the wind',
+      'The falling snow slowly fills in the grooves your board leaves, so old lines fade away after a minute or so',
+      'Snow settles on you as you ride: your hat, shoulders, backpack and board turn white over a couple of minutes. Crash and it gets knocked off',
+      'The lookouts, benches, rails and signs have snow lying on top of them',
+    ] },
+    { v: '3.18.2', date: '2026-10-30', emoji: '🏂', title: 'Snowboarding comes alive', items: [
+      'Your snowboarder moves now: knees bent, leaning into every carve (out over the toes one way, sat back over the heels the other), arms out for balance, looking down the hill',
+      'Going slowly? Hold W and they push along with the back foot. Faster, W tucks them down low for speed',
+      'They tuck up in the air and sink into big landings. The trick keys are board grabs now: Mute, Indy, Melon, Nose, Tail and Stalefish',
+      'Your board cuts a groove in the snow behind it, so you can look back at your line (everyone in your room leaves one too). Slide sideways and it scrapes a wide one',
+      'Hard carves throw a spray of snow off the edge, and the snow glitters in the sun as you ride over it',
+    ] },
+    { v: '3.18.1', date: '2026-10-30', emoji: '🧑', title: 'New riders for Unrevvd and Carvvd', items: [
+      'Unrevvd has its own riders now: Street (T-shirt, jeans, red trainers), Punk and Hoodie. Pick one in the bike shop',
+      'Carvvd’s snowboarder: a winter jacket, snow trousers, a backpack, a bobble hat and goggles',
+      'On a snowboard your hands are open (nothing to grip)',
+    ] },
     { v: '3.18.0', date: '2026-10-30', emoji: '🏂', title: 'Carvvd, and the chutes get serious', items: [
       'New: 🏂 Carvvd, snowboarding. Its own tab: free ride the whole of Frostpeak on a snowboard, pick your board (Ice, Lava, Toxic, Aurora, Whiteout, Gold) and five challenges',
       'Carvvd challenges: the Snowboard Run (the Frost Chute), Falls to Lake (1.6 km down Frostpeak), Summit Air, Avalanche (top speed) and Midnight Carve (the Midnight Chute in the dark)',

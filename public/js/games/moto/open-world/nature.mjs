@@ -6,6 +6,7 @@
  * In a snowy world everything has snow on top. */
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 
 let loading=null;
 /** The models (a promise, shared): { pines: [{bark, leaves, far: {bark, leaves}}] (geometries), rocks: [geometry], stumps: [geometry],
@@ -51,6 +52,19 @@ export function loadAspens(){
   leaves.side=THREE.DoubleSide;leaves.alphaTest=.4;
   return {trees:[0,1,2].map(k=>({bark:geo('aspen'+k+'_bark'),leaves:geo('aspen'+k+'_leaves'),far:{bark:geo('aspen'+k+'_far_bark'),leaves:geo('aspen'+k+'_far_leaves')}})),mats:{bark,leaves}};
  }).catch(e=>{aspensLoading=null;throw e;}));
+}
+
+let sprucesLoading=null;
+/** Snowy-forest spruces (ez-tree's pine with low, drooping branches all the way down, like a real spruce; a promise,
+    shared): { pines: [{bark, leaves, far: {bark, leaves}}], mats: {bark, needles} }. Only for a ski run's forest. */
+export function loadSpruces(){
+ return sprucesLoading||(sprucesLoading=new GLTFLoader().loadAsync('/models/nature/spruces.glb').then(g=>{
+  const ms=[];g.scene.traverse(o=>{if(o.isMesh)ms.push(o);});
+  const geo=name=>ms.find(m=>m.name===name).geometry,bark=ms.find(m=>m.name==='pine0_bark').material,needles=ms.find(m=>m.name==='pine0_leaves').material;
+  for(const t of [bark.map,bark.normalMap])if(t){t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(2,7);}
+  needles.side=THREE.DoubleSide;needles.alphaTest=.4;
+  return {pines:[0,1,2].map(k=>({bark:geo('pine'+k+'_bark'),leaves:geo('pine'+k+'_leaves'),far:{bark:geo('pine'+k+'_far_bark'),leaves:geo('pine'+k+'_far_leaves')}})),mats:{bark,needles}};
+ }).catch(e=>{sprucesLoading=null;throw e;}));
 }
 
 const SLICE=30;
@@ -181,4 +195,67 @@ export function gauntletScenery(terrain,nature,group,{shadows=false,near=40,far=
 export function unitRock(nature,k){
  const geo=nature.rocks[k%nature.rocks.length].clone();geo.computeBoundingBox();const b=geo.boundingBox,half=Math.max(-b.min.x,b.max.x,-b.min.z,b.max.z);
  geo.scale(1/half,.7/b.max.y,1/half);return geo;
+}
+
+/** A painted snowy pine (for far off): dark needles in drooping tiers, snow along the top of each, a bit of trunk. */
+function pinePicture(){
+ const c=document.createElement('canvas');c.width=128;c.height=256;const g=c.getContext('2d');
+ let s=77;const r=()=>{s=(Math.imul(s,1664525)+1013904223)>>>0;return s/4294967296;};
+ g.fillStyle='#3a2a1e';g.fillRect(60,214,8,42);
+ for(let i=0;i<11;i++){
+  const t=i/10,y=216-t*200,w=58*(1-t*.86)+4,drop=16+8*(1-t);
+  g.fillStyle=i%2?'#1c3326':'#203a2b';
+  g.beginPath();g.moveTo(64,y-drop*1.6);
+  for(let k=0;k<=12;k++){const a=k/12,x=64-w+2*w*a,j=(r()-.5)*7;g.lineTo(x+j,y+Math.sin(a*Math.PI)*-6+drop*.35+(k%2?5:0));}
+  g.closePath();g.fill();
+  g.fillStyle='rgba(232,238,248,.92)';   // (snow on the tier)
+  g.beginPath();g.moveTo(64,y-drop*1.6+2);
+  for(let k=0;k<=8;k++){const a=k/8,x=64-w*.85+1.7*w*a;g.lineTo(x,y-drop*.35+Math.abs(a-.5)*drop*.9+(r()-.5)*4);}
+  for(let k=8;k>=0;k--){const a=k/8,x=64-w*.85+1.7*w*a;g.lineTo(x,y-drop*.35+Math.abs(a-.5)*drop*.9+5+r()*5);}
+  g.closePath();g.fill();
+ }
+ const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=4;return tex;
+}
+/** A ski run's forest (terrain.forestTrees, thousands of them): the full pines close by (within near metres), the
+    simpler ones further out (to mid), and beyond that a picture of a pine on two crossed cards (to far): the trees
+    are grouped in squares, 20 m for the full ones, 60 m for the simpler ones and 400 m for the pictures, and each
+    square switches as you come close. In a snowy world they have snow on them. Returns update(eye), dispose(). */
+export function forestScenery(terrain,nature,group,{shadows=false,snow=true,near=45,mid=130,far=1200}={}){
+ const NC=20,MB=60,FB=400,own=[],made=[],dummy=new THREE.Object3D(),tint=new THREE.Color(),hidden=new THREE.Matrix4().makeScale(0,0,0);
+ const kinds=nature.spruces||nature,M=kinds.mats;   // (spruces when they've loaded: loadSpruces)
+ const bark=snow?snowy(M.bark):M.bark,needles=snow?snowy(M.needles,.3):M.needles;if(snow)made.push(bark,needles);
+ const squares=(size)=>{const m=new Map();return {m,of(t){const k=Math.floor(t.x/size)+','+Math.floor(t.z/size);let v=m.get(k);if(!v)m.set(k,v={x0:Math.floor(t.x/size)*size,z0:Math.floor(t.z/size)*size,size,trees:[],meshes:[],on:false});v.trees.push(t);return v;}};};
+ const cells=squares(NC),blocks=squares(MB),bigs=squares(FB);
+ const trees=terrain.forestTrees.map(t=>{const o={...t,y:terrain.heightAt(t.x,t.z)-.15*t.s,shade:.84+(t.rot%1)*.26};dummy.position.set(o.x,o.y,o.z);dummy.rotation.set(0,o.rot,0);dummy.scale.setScalar(o.s);dummy.updateMatrix();o.m=dummy.matrix.clone();return o;});
+ for(const t of trees){t.cell=cells.of(t);t.block=blocks.of(t);t.big=bigs.of(t);}
+ const im=(geo,mat,list,key,cast,matrix=t=>t.m)=>{const m=new THREE.InstancedMesh(geo,mat,list.length);list.forEach((t,i)=>{t[key]=i;m.setMatrixAt(i,matrix(t));m.setColorAt(i,tint.setRGB(t.shade,t.shade,t.shade*.98));});m.computeBoundingSphere();m.castShadow=cast;m.receiveShadow=true;own.push(m);return m;};
+ // the full trees (a pair of meshes per kind of spruce in each square) and the simpler ones (t.mi: each tree's place
+ // in its kind's meshes, hidden while its full tree shows): each square's are only made the first time you come
+ // near it, and are only in the scene while you're near
+ const buildCell=c=>{c.built=true;for(let k=0;k<3;k++){const list=c.trees.filter(t=>t.k===k);if(!list.length)continue;const p=kinds.pines[k];
+  for(const [geo,mat] of [[p.bark,bark],[p.leaves,needles]])c.meshes.push(im(geo,mat,list,'ni',shadows));}};
+ const buildBlock=b=>{b.built=true;b.kinds=[];for(let k=0;k<3;k++){const list=b.trees.filter(t=>t.k===k);if(!list.length)continue;const p=kinds.pines[k].far,mtx=t=>t.cell.on?hidden:t.m;
+  b.kinds[k]=[im(p.bark,bark,list,'mi',false,mtx),im(p.leaves,needles,list,'mi',false,mtx)];b.meshes.push(...b.kinds[k]);}};
+ const show=(o,on)=>{for(const m of o.meshes)if(on)group.add(m);else m.removeFromParent();};
+ // the pictures: two crossed cards as tall and wide as the pines (t.fi: hidden while a closer one shows)
+ const box=kinds.pines[0].leaves.boundingBox||(kinds.pines[0].leaves.computeBoundingBox(),kinds.pines[0].leaves.boundingBox),tall=box.max.y,wide=Math.max(box.max.x-box.min.x,box.max.z-box.min.z)*.92;
+ const card=new THREE.PlaneGeometry(wide,tall*1.04).translate(0,tall*.52,0),cards=mergeGeometries([card,card.clone().rotateY(Math.PI/2)]);
+ {const n=cards.attributes.normal;for(let i=0;i<n.count;i++)n.setXYZ(i,0,1,0);}   // (lit like the snow from every side)
+ const picture=pinePicture(),cardMat=new THREE.MeshStandardMaterial({map:picture,alphaTest:.5,side:THREE.DoubleSide,roughness:1});made.push(picture,cardMat,card,cards);
+ for(const f of bigs.m.values()){const m=im(cards,cardMat,f.trees,'fi',false);group.add(m);f.meshes.push(m);f.im=m;}
+ const dist=(o,e)=>Math.hypot(Math.max(o.x0-e.x,0,e.x-o.x0-o.size),Math.max(o.z0-e.z,0,e.z-o.z0-o.size));
+ const touched=new Set();
+ return {
+  trees,bushes:[],lanterns:[],   // (nothing to ride through or pick up: just the trees)
+  update(eye){
+   touched.clear();
+   for(const c of cells.m.values()){const on=dist(c,eye)<near;if(on===c.on)continue;c.on=on;if(on&&!c.built)buildCell(c);show(c,on);
+    if(c.trees[0].block.built)for(const t of c.trees)for(const m of t.block.kinds[t.k]){m.setMatrixAt(t.mi,on?hidden:t.m);touched.add(m);}}
+   for(const b of blocks.m.values()){const on=dist(b,eye)<mid;if(on===b.on)continue;b.on=on;if(on&&!b.built)buildBlock(b);show(b,on);
+    for(const t of b.trees){t.big.im.setMatrixAt(t.fi,on?hidden:t.m);touched.add(t.big.im);}}
+   for(const f of bigs.m.values())f.im.visible=dist(f,eye)<far;
+   for(const m of touched)m.instanceMatrix.needsUpdate=true;
+  },
+  dispose(){for(const m of own){m.removeFromParent();m.dispose();}for(const m of made)m.dispose();},
+ };
 }

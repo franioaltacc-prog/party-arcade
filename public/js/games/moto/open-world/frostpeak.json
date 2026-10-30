@@ -1049,6 +1049,41 @@
         "height": 3.7,
         "width": 28
       }
+    ],
+    "parks": [
+      {
+        "id": "frost-pipe",
+        "kind": "halfpipe",
+        "name": "Halfpipe",
+        "near": [
+          -950,
+          950
+        ]
+      },
+      {
+        "id": "frost-rails",
+        "kind": "rails",
+        "name": "Rail garden",
+        "near": [
+          -1000,
+          1350
+        ]
+      }
+    ],
+    "lifts": [
+      {
+        "id": "frost-lift",
+        "name": "Falls Chairlift",
+        "from": [
+          -1105,
+          1075
+        ],
+        "to": [
+          -760,
+          -420
+        ],
+        "speed": 18
+      }
     ]
   }
 }

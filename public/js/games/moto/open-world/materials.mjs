@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 const palettes={
  dirt:[[116,88,59],[182,145,102]], grass:[[53,73,39],[111,121,64]],
- rock:[[74,80,84],[161,156,143]], snow:[[173,195,210],[246,250,251]]
+ rock:[[74,80,84],[161,156,143]], snow:[[190,206,222],[249,251,253]]
 };
 // (each world's own rock and dirt: red sandstone in the desert, cold blue-grey granite in the snow)
 const themed={
@@ -23,7 +23,7 @@ function texture(kind,theme,size=1024,look=null){
   let h=.52*tileNoise(u*8,v*8,8,seed)+.26*tileNoise(u*32,v*32,32,seed+9)+.15*tileNoise(u*128,v*128,128,seed+3)+.07*hash(x,y,seed);
   if(kind==='rock'){const seam=Math.abs(Math.sin(v*Math.PI*32+tileNoise(u*8,v*8,8,seed)*2));h=h*.72+Math.min(1,seam*5)*.28;}
   if(kind==='grass'){h=h*.8+tileNoise(u*256,v*256,256,seed+11)*.2;}
-  if(kind==='snow'){h=h*.8+.1+.1*Math.sin(v*Math.PI*32+Math.sin(u*Math.PI*8)*.8);}
+  if(kind==='snow'){h=h*.86+.07+.07*Math.sin(v*Math.PI*32+Math.sin(u*Math.PI*8)*.8);}   // (soft wind ripples)
   const i=(y*size+x)*4;for(let k=0;k<3;k++)pixels.data[i+k]=low[k]+(high[k]-low[k])*h;pixels.data[i+3]=h*155+70;
  }
  context.putImageData(pixels,0,0);const tex=new THREE.CanvasTexture(canvas);tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.anisotropy=8;tex.colorSpace=THREE.NoColorSpace;
@@ -45,7 +45,7 @@ export function terrainMaterial(map,sharedTextures=null,detailed=true){
  const textures=sharedTextures || Object.fromEntries(Object.keys(palettes).map(k=>[k,texture(k,map.theme,1024,map.look)]));
  const hole=new THREE.Vector4();
  const material=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.91,metalness:0});
- material.customProgramCacheKey=()=> 'ow-terrain-lod-v6-'+map.theme+'-'+detailed;
+ material.customProgramCacheKey=()=> 'ow-terrain-lod-v9-'+map.theme+'-'+detailed;
  material.onBeforeCompile=shader=>{
   for(const [key,value]of Object.entries(textures))shader.uniforms['ow'+key]={value};
   shader.uniforms.owHole={value:hole};
@@ -100,12 +100,28 @@ if(owTrail>.01){
  vec4 owRoad=${map.theme==='snow'?'vec4(owGround.rgb*vec3(.8,.84,.9),owGround.a)':map.theme==='desert'?'vec4(owSample(owdirt,owP.xz*1.7).rgb*vec3(.86,.8,.74),owGround.a*.6)':'owSample(owdirt,owP.xz)'};
  owGround=mix(owGround,owRoad,smoothstep(.15,.85,owTrail)*.9*(1.0-owCliff));
 }
+${map.theme==='snow'&&detailed?`
+// the groomed pistes: corduroy, the groomer's fine ridges running straight down the slope (close by only)
+{ vec2 owFall=normalize(owSurfaceNormal).xz; float owSl=length(owFall);
+  if(owTrail>.2&&owSl>.07){ vec2 owAc=vec2(-owFall.y,owFall.x)/owSl; float owCord=sin(dot(owPosition.xz,owAc)*14.0);
+   float owK=smoothstep(.2,.8,owTrail)*smoothstep(.07,.16,owSl)*smoothstep(16.0,5.0,length(cameraPosition-owPosition));
+   owGround.rgb*=1.0-.07*owK*(.5+.5*owCord); owGround.a=mix(owGround.a,.45+.3*owCord,.6*owK); } }`:''}
 float owMacro=texture2D(owrock,owPosition.xz*.008).a;
 vec3 owAlbedo=pow(owGround.rgb,vec3(2.2));
 diffuseColor.rgb*=owAlbedo*(.86+owMacro*.34);
 float owRelief=owGround.a*(owBiome>1.5?.09:.16);
 `).replace('#include <normal_fragment_maps>',`#include <normal_fragment_maps>
 ${detailed?'normal=owBump(-vViewPosition,normal,vec2(dFdx(owRelief),dFdy(owRelief)));':''}
+`).replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
+${detailed&&map.theme!=='desert'?`
+// snow glitters: the odd grain catches the sun, and which ones do changes as you move (only close by, where a grain is
+// bigger than a speck)
+if(owSnow>.5&&owCliff<.5){
+ vec3 owEye=cameraPosition-owPosition;float owDist=length(owEye);
+ vec3 owGrain=floor(owPosition*30.0)+floor(owEye/owDist*7.0)*17.0;
+ float owGlint=step(.996,fract(sin(dot(owGrain,vec3(12.9898,78.233,37.719)))*43758.5453));
+ totalEmissiveRadiance+=vec3(.9,.95,1.0)*owGlint*smoothstep(20.0,4.0,owDist)*(1.0-owTrail)*1.3;
+}`:''}
 `).replace('#include <roughnessmap_fragment>',`#include <roughnessmap_fragment>
 roughnessFactor=clamp(.78+owGround.a*.22-.09*owSnow,.65,1.0);
 `);

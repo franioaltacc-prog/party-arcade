@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import {Sky} from 'three/addons/objects/Sky.js';
 import {buildOpenWorld,autumnize} from './world.mjs';
-import {gauntletScenery} from './nature.mjs';
+import {gauntletScenery,forestScenery} from './nature.mjs';
+import {slopeScenery} from './slope.mjs';
+import {parkScenery} from './parks.mjs';
 import {terrainMaterial} from './materials.mjs';
 import {renderPolicy} from './render-policy.mjs';
 import {gridHeight} from './grounding.mjs';
@@ -24,7 +26,7 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false,nature=
  const OPEN={desert:{exposure:1.12,fog:.42},alpine:{sun:[38,205],turbidity:4,rayleigh:1.5,mie:.006,exposure:1.5,fog:.24,fogColor:'#b9c8cf'},snow:{sun:[24,232],turbidity:3,rayleigh:1.3,mie:.005,exposure:1.25,fog:.3,fogColor:'#c9d3e6'}};
  const base=THEMES[map.theme==='alpine'?'forest':map.theme]||THEMES.desert,o={...(OPEN[map.theme]||OPEN.desert),...(map.look?.sky||{})};   // (a world can set its own sun and haze)
  const theme={...base,...o,exposure:base.exposure*o.exposure,fog:o.fogColor||base.fog,fogD:base.fogD*o.fog};
- const night=!!map.look?.night;
+ const night=!!map.look?.night,dusk=!!map.look?.dusk;   // (dusk: the sun's down, the sky's deep blue, the lights are on)
 
  // ---------------------------------------------------------------- sky, sun, haze
  const sky=new Sky();sky.scale.setScalar(20000);const su=sky.material.uniforms;
@@ -73,7 +75,10 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false,nature=
   scene.add(spot,spot.target,glow);lamp={spot,glow};
  }
  const fxRoot=new THREE.Group();scene.add(fxRoot);const fx=particles(fxRoot,theme,null,quality);
- const forest=nature&&built.terrain.gauntlets.length?gauntletScenery(built.terrain,nature,scene,{shadows,snow:map.theme==='snow',night,autumn:!!map.look?.autumn,quality}):null;
+ const parks=parkScenery(built.terrain,scene,map,{shadows});   // (rails, banners, stands, chairlifts)
+ const forest=nature&&built.terrain.gauntlets.length?gauntletScenery(built.terrain,nature,scene,{shadows,snow:map.theme==='snow',night,autumn:!!map.look?.autumn,quality}):
+  nature&&built.terrain.forestTrees.length?forestScenery(built.terrain,nature,scene,{shadows:shadows&&!dusk,snow:map.theme==='snow',near:24+16*quality,mid:70+40*quality,far:3000}):null;   // (a ski run's forest)
+ const slope=map.look?.floodlights||map.features?.lodge?slopeScenery(built.terrain,scene,map):null;   // (floodlights down the run, the lodge)
  // ---------------------------------------------------------------- weather round the camera: rain or falling leaves
  const storm=!!map.look?.storm,leafFall=!!map.look?.autumn&&!!forest,hemi=scene.children.find(o=>o.isHemisphereLight);
  let drops=null;
@@ -86,6 +91,33 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false,nature=
    new THREE.Points(g,new THREE.PointsMaterial({color:'#d9822b',size:.13,transparent:true,opacity:.9,depthWrite:false}));
   mesh.frustumCulled=false;scene.add(mesh);drops={mesh,n,box,seed,p,t:0};
  }
+ // ---------------------------------------------------------------- snow falling on the snowy maps
+ // Big soft flakes close by and smaller ones further out, drifting down on a light wind (a box of them that moves with you).
+ // Each flake's fall is worked out on the graphics card from where it started and the time (nothing to move each frame).
+ let flakes=null,flakeTex=null;
+ const weatherKind=map.look?.weather||'snow',blizzard=weatherKind==='blizzard';
+ if(map.theme==='snow'&&!storm&&weatherKind!=='clear'){
+  const fc=document.createElement('canvas');fc.width=fc.height=32;const g=fc.getContext('2d'),grd=g.createRadialGradient(16,16,0,16,16,16);
+  grd.addColorStop(0,'rgba(255,255,255,1)');grd.addColorStop(.45,'rgba(255,255,255,.85)');grd.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=grd;g.fillRect(0,0,32,32);
+  flakeTex=new THREE.CanvasTexture(fc);flakeTex.colorSpace=THREE.SRGBColorSpace;
+  let ss=map.seed*37;const r=()=>{ss=(Math.imul(ss,1664525)+1013904223)>>>0;return ss/4294967296;};
+  flakes=[[.13,1400,16],[.08,2400,38]].map(([size,count,box])=>{
+   const n=Math.round(count*Math.min(1,quality+.2)*(blizzard?2.2:1)),p=new Float32Array(n*3),fl=new Float32Array(n*2);
+   for(let i=0;i<n;i++){p.set([r()*box*2,r()*box,r()*box*2],i*3);fl.set([.75+r()*.6,r()*6.28],i*2);}
+   const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(p,3));geo.setAttribute('fl',new THREE.BufferAttribute(fl,2));
+   const mat=new THREE.PointsMaterial({map:flakeTex,size,color:'#ffffff',transparent:true,opacity:.95,depthWrite:false});
+   const u={uT:{value:0},uEye:{value:new THREE.Vector3()},uBox:{value:box},uWind:{value:new THREE.Vector2(blizzard?7.5:.7,blizzard?2.2:.25)},uFall:{value:blizzard?1.7:1.15}};
+   mat.onBeforeCompile=sh=>{Object.assign(sh.uniforms,u);
+    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nattribute vec2 fl;\nuniform float uT,uBox,uFall;\nuniform vec3 uEye;\nuniform vec2 uWind;')
+     .replace('#include <begin_vertex>',`float fy=mod(position.y-uT*uFall*fl.x,uBox);
+vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye.x+uBox,uBox*2.0)-uBox,uEye.y-uBox*.3+fy,uEye.z+mod(position.z+uWind.y*uT+cos(uT*1.1+fl.y)*.35-uEye.z+uBox,uBox*2.0)-uBox);`);};
+   mat.customProgramCacheKey=()=>'snowfall';
+   const mesh=new THREE.Points(geo,mat);mesh.frustumCulled=false;scene.add(mesh);return {mesh,u};
+  });
+ }
+ let snowT=0;
+ if(blizzard){scene.fog.density*=3.4;sun.intensity*=.45;if(hemi)hemi.intensity*=.8;}   // (a blizzard: you can hardly see)
+ const wind=blizzard?{x:.96,z:.27}:null;
  let flashAt=performance.now()+4000+Math.random()*6000,flash=0;const baseHemi=hemi?.intensity??0,baseSun=sun.intensity;
  const world={onLightning:null};
  function weather(eye,dt){
@@ -100,6 +132,10 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false,nature=
      d.p.set([eye.x+((q[0]+sway-eye.x)%(d.box*2)+d.box*3)%(d.box*2)-d.box,eye.y-6+y,eye.z+((q[2]-eye.z)%(d.box*2)+d.box*3)%(d.box*2)-d.box],i*3);}
    }
    d.mesh.geometry.attributes.position.needsUpdate=true;
+  }
+  if(flakes){
+   snowT=(snowT+dt)%600;   // (wraps every 10 minutes, keeping the numbers small for the graphics card)
+   for(const f of flakes){f.u.uT.value=snowT;f.u.uEye.value.copy(eye);}
   }
   if(storm){
    const now=performance.now();
@@ -225,12 +261,12 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false,nature=
  const shadowMat=new THREE.MeshBasicMaterial({map:shadowTex,transparent:true,depthWrite:false,opacity:.3,polygonOffset:true,polygonOffsetFactor:-2});
  const contact=new THREE.Mesh(shadowGeo,shadowMat);contact.visible=!shadows;scene.add(contact);const up=new THREE.Vector3(0,1,0),normal=new THREE.Vector3();
  return {
-  free:true,scene,theme,fx,gates:[],ground:built.terrain,definition:map,policy,sun,coins,collect,lamp,night,forest,storm,
+  free:true,snowing:!!flakes,wind,parks,scene,theme,fx,gates:[],ground:built.terrain,definition:map,policy,sun,coins,collect,lamp,night,forest,storm,
   /** Called with each lightning flash in a storm (far: 0 close .. 1 far, for the thunder). */
   set onLightning(f){world.onLightning=f;},
   /** ahead: where to centre the detailed ground (a little ahead of a fast bike, so the ground it's riding into is ready). */
   update(point,dt,camera,ahead=point){
-   updatePatch(ahead);fx.update(dt,camera);built.update(camera.position);forest?.update(camera.position);weather(camera.position,dt);drawCoins(performance.now());drawHoops(performance.now());
+   updatePatch(ahead);fx.update(dt,camera);parks.update(dt);built.update(camera.position);forest?.update(camera.position);slope?.update(camera.position);weather(camera.position,dt);drawCoins(performance.now());drawHoops(performance.now());
    sun.position.copy(point).addScaledVector(sunDir,220);sun.target.position.copy(point);
    if(!shadows){
     const y=built.terrain.heightAt(point.x,point.z),nn=built.terrain.normalAt(point.x,point.z);
@@ -238,9 +274,9 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false,nature=
    }
   },
   dispose(){
-   samples.clear();built.dispose();forest?.dispose();geo.dispose();detail.dispose();shadowGeo.dispose();shadowMat.dispose();shadowTex.dispose();
+   samples.clear();built.dispose();parks.dispose();forest?.dispose();slope?.dispose();geo.dispose();detail.dispose();shadowGeo.dispose();shadowMat.dispose();shadowTex.dispose();
    for(const k of coverKinds){k.im.dispose();k.geo.dispose();}for(const m of [props.propMat,props.leafMat,props.cactusMat,pebbleProps.propMat,pebbleProps.leafMat,pebbleProps.cactusMat])m.dispose();
-   cloudTex.dispose();cloudMat.dispose();if(drops){drops.mesh.geometry.dispose();drops.mesh.material.dispose();}if(stars){stars.geometry.dispose();stars.material.dispose();}if(lamp){lamp.spot.dispose();lamp.glow.dispose();}coinMesh.dispose();coinGeo.dispose();coinMat.dispose();hoopMesh.dispose();hoopGeo.dispose();hoopMat.dispose();sky.geometry.dispose();sky.material.dispose();env?.dispose();
+   cloudTex.dispose();cloudMat.dispose();if(drops){drops.mesh.geometry.dispose();drops.mesh.material.dispose();}if(flakes){for(const f of flakes){f.mesh.geometry.dispose();f.mesh.material.dispose();}flakeTex.dispose();}if(stars){stars.geometry.dispose();stars.material.dispose();}if(lamp){lamp.spot.dispose();lamp.glow.dispose();}coinMesh.dispose();coinGeo.dispose();coinMat.dispose();hoopMesh.dispose();hoopGeo.dispose();hoopMat.dispose();sky.geometry.dispose();sky.material.dispose();env?.dispose();
    const textures=new Set();fxRoot.traverse(o=>{o.geometry?.dispose();if(o.material){for(const u of Object.values(o.material.uniforms||{}))if(u.value?.isTexture)textures.add(u.value);if(o.material.map)textures.add(o.material.map);o.material.dispose();}});textures.forEach(t=>t.dispose());
   }
  };

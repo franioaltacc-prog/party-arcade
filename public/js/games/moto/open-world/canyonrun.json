@@ -864,6 +864,17 @@
         "turn": 0.4,
         "trail": 30
       }
+    ],
+    "parks": [
+      {
+        "id": "canyon-arena",
+        "kind": "arena",
+        "name": "Freestyle Arena",
+        "near": [
+          -500,
+          1150
+        ]
+      }
     ]
   }
 }

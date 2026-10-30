@@ -144,6 +144,22 @@
       "areaKm2": 12.96,
       "gaps": 2,
       "pools": 1
+    },
+    {
+      "id": "powderpeak",
+      "name": "Powder Peak Resort",
+      "file": "powderpeak.json",
+      "areaKm2": 16.0,
+      "gaps": 0,
+      "pools": 0
+    },
+    {
+      "id": "twilight",
+      "name": "Twilight Slope",
+      "file": "twilight.json",
+      "areaKm2": 5.1,
+      "gaps": 0,
+      "pools": 0
     }
   ]
 }

@@ -41,7 +41,7 @@ def load_challenges():
     out = {}
     for c in data:
         try:
-            if c["kind"] == "race":
+            if c["kind"] in ("race", "relay") and "from" in c:
                 world = json.loads((WORLD_DIR / (c["world"] + ".json")).read_text(encoding="utf-8"))
                 pads = {p["id"]: p["position"] for p in world["safePads"]}
                 (ax, az), (bx, bz) = pads[c["from"]], pads[c["to"]]
@@ -64,9 +64,10 @@ def load_worlds():
 
 
 WORLDS = load_worlds()
-TOP_SCORE = {"air": 30.0, "flips": 80, "speed": 420.0, "tricks": 3000, "lanterns": 40}   # more than anyone can do with the stock engine
+TOP_SCORE = {"air": 30.0, "flips": 80, "speed": 420.0, "tricks": 8000, "lanterns": 40}   # more than anyone can do with the stock engine
 TAG_REACH = 4.5        # Forest Tag: how close (m) "it" has to be to tag someone (a little more than the browser asks for: lag)
 TAG_IMMUNE = 3.0       # ...and the seconds before the new "it" can tag anyone (no tagging straight back)
+PASS_REACH = 5.0       # Lantern Relay: how close (m) you have to be to hand the lantern to your teammate
 FASTEST_MS = 105.0     # nobody crosses a challenge course quicker than this many metres a second
 MIN_PLAYERS = 2
 COUNTDOWN = 4.0        # seconds from "go" to the gate dropping (the clients show 3-2-1)
@@ -78,7 +79,7 @@ def clean_style(st):
     """Someone's bike style, rider, rider kit, helmet and race number, tidied up (the browser draws whatever ids it knows)."""
     st = st if isinstance(st, dict) else {}
     out = {}
-    for k in ("model", "rider", "kit", "helmet", "car", "paint", "mtb"):   # (car and paint: the free-ride supercar; mtb: the mountain bike)
+    for k in ("model", "rider", "kit", "helmet", "car", "paint", "mtb", "mrider", "cgear"):   # (car and paint: the free-ride supercar; mtb, mrider: the mountain bike and its rider)
         v = str(st.get(k) or "")[:12]
         if v.isalnum() and v.isascii():
             out[k] = v.lower()
@@ -124,6 +125,8 @@ class Moto(Game):
             out.update(challenge=r["challenge"], kind=r["kind"], limit=r["limit"])
             if r["kind"] == "tag":
                 out.update(it=r["it"], itTimes=self.it_times())
+            if r["kind"] == "relay":
+                out.update(teams=r["teams"], carrier=r["carrier"], leg=r["leg"])
         if r.get("free"):
             out.update(free=r["free"], kind="free")
         return out
@@ -174,6 +177,8 @@ class Moto(Game):
             self.score(m, msg)
         elif t == "tag" and self.phase == "racing":
             self.tag(m, msg)
+        elif t == "pass" and self.phase == "racing":
+            self.pass_lantern(m, msg)
 
     def restart(self, host):
         """The room voted "play again": that counts as everyone readying up, so the next race starts."""
@@ -241,6 +246,10 @@ class Moto(Game):
                    for u in self.riders()}
         self.race = {"id": (self.race["id"] + 1) if self.race else 1, "track": None, "challenge": c["id"], "kind": c["kind"],
                      "limit": c["limit"], "start": time.time() + COUNTDOWN, "runners": runners, "finished": 0}
+        if c["kind"] == "relay":   # Lantern Relay: two teams (one, riding alone), each passing its lantern down the chute
+            ids = list(runners)
+            teams = {str(t): ids[t::2] for t in range(2 if len(ids) > 1 else 1)}
+            self.race.update(teams=teams, carrier={t: v[0] for t, v in teams.items()}, leg={t: 0 for t in teams}, team_place=0)
         if c["kind"] == "tag":   # Forest Tag: someone starts as "it"
             self.race.update(it=random.choice(list(runners)) if runners else None, it_since=self.race["start"], it_time={uid: 0.0 for uid in runners},
                              immune=self.race["start"] + TAG_IMMUNE)
@@ -323,6 +332,50 @@ class Moto(Game):
         r.update(it=target, it_since=now, immune=now + TAG_IMMUNE)
         self.broadcast("tag", it=target, by=m.uid, itTimes=r["it_time"])
 
+    def team_of(self, uid):
+        return next((t for t, v in self.race.get("teams", {}).items() if uid in v), None)
+
+    def pass_lantern(self, m, msg):
+        """Lantern Relay: the carrier rode up to the next rider in their team (checked against where both last said
+        they were), who takes the lantern on."""
+        r = self.race
+        t = self.team_of(m.uid)
+        if r.get("kind") != "relay" or t is None or r["carrier"][t] != m.uid or time.time() < r["start"]:
+            return
+        team, leg = r["teams"][t], r["leg"][t]
+        target = msg.get("id")
+        if leg + 1 >= len(team) or team[leg + 1] != target:
+            return
+        a, b = r["runners"][m.uid], r["runners"][target]
+        if "px" not in a or "px" not in b or math.hypot(a["px"] - b["px"], a["pz"] - b["pz"]) > PASS_REACH:
+            return
+        r["carrier"][t], r["leg"][t] = target, leg + 1
+        self.broadcast("relay", team=t, carrier=target, by=m.uid, leg=leg + 1)
+
+    def relay_finish(self, m, msg):
+        """Lantern Relay: the last rider of a team brought the lantern to the bottom: the whole team is done."""
+        r = self.race
+        t = self.team_of(m.uid)
+        if t is None or r["carrier"][t] != m.uid or r["leg"][t] != len(r["teams"][t]) - 1 or r["runners"][m.uid]["done"]:
+            return
+        ms = int(num(msg.get("time"), 0, 0, 3_600_000))
+        raced = time.time() - r["start"]
+        c = CHALLENGES.get(r["challenge"], {})
+        if ms < c.get("dist", 0) / FASTEST_MS * 1000 or ms / 1000 > raced + 3 or ms / 1000 < raced - 120:
+            self.send(m, "toast", text="That time didn't look right, so it doesn't count 🤔")
+            return
+        r["team_place"] += 1
+        for uid in r["teams"][t]:
+            r["runners"][uid].update(done=True, place=r["team_place"], time=ms)
+            r["finished"] += 1
+            self.broadcast("finish", id=uid, place=r["team_place"], time=ms)
+        if r["team_place"] == 1:
+            for uid in r["teams"][t]:
+                self.wins[uid] = self.wins.get(uid, 0) + 1
+        if self.everyone_done():
+            self.room.cancel(self.end_timer)
+            self.end_timer = self.room.later(1.5, self.end)
+
     def position(self, m, msg):
         run = self.race["runners"].get(m.uid)
         if not run or run["done"]:
@@ -346,7 +399,7 @@ class Moto(Game):
         out["b"] = 1 if msg.get("b") else 0
         # an air trick: which one (-1 none), how far into its pose, the whip and the 360 so far
         out["tk"] = int(num(msg.get("tk"), -1, -1, 7))
-        for k, top in (("tp", 1), ("wh", 1), ("sp", 6.3)):
+        for k, top in (("tp", 1), ("wh", 1), ("sp", 12.6)):   # (sp: a snowboard's spin goes up to a 720)
             out[k] = round(num(msg.get(k), 0, 0, top), 2)
         rg = msg.get("rg")
         if out["k"] and isinstance(rg, list) and len(rg) == 4:
@@ -355,6 +408,9 @@ class Moto(Game):
 
     def finish(self, m, msg):
         r = self.race
+        if r.get("kind") == "relay":
+            self.relay_finish(m, msg)
+            return
         run = r["runners"].get(m.uid)
         if not run or run["done"]:
             return
@@ -397,6 +453,11 @@ class Moto(Game):
     def on_offline(self, m):
         self.ready.pop(m.uid, None)
         r = self.race
+        if self.phase == "racing" and r and r.get("kind") == "relay" and (t := self.team_of(m.uid)) is not None and r["carrier"][t] == m.uid:
+            team, leg = r["teams"][t], r["leg"][t]   # (the carrier left: the next rider in their team takes the lantern)
+            if leg + 1 < len(team):
+                r["carrier"][t], r["leg"][t] = team[leg + 1], leg + 1
+                self.broadcast("relay", team=t, carrier=team[leg + 1], by=None, leg=leg + 1)
         if self.phase == "racing" and r and r.get("kind") == "tag" and r.get("it") == m.uid:   # ("it" left: someone else is it)
             others = [uid for uid in r["runners"] if uid != m.uid and (mm := self.room.members.get(uid)) and mm.online]
             if others:
@@ -478,7 +539,7 @@ class Moto(Game):
     def save_challenge(self, rows):
         c = CHALLENGES.get(self.race["challenge"], {"name": "Challenge"})
         n = len(rows)
-        unit = {"race": lambda r: f"{r['time'] / 1000:.2f}s", "air": lambda r: f"{r['score']:.2f}s of air",
+        unit = {"race": lambda r: f"{r['time'] / 1000:.2f}s", "relay": lambda r: f"{r['time'] / 1000:.2f}s as a team", "air": lambda r: f"{r['score']:.2f}s of air",
                 "flips": lambda r: f"{r['score']} flips", "speed": lambda r: f"{r['score']:.0f} km/h",
                 "tricks": lambda r: f"{r['score']} trick points", "lanterns": lambda r: f"{r['score']} lanterns",
                 "tag": lambda r: f"{r['score']:.1f}s being it"}.get(c.get("kind"), lambda r: "")

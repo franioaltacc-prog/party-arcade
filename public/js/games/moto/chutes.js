@@ -103,6 +103,21 @@ export function dailyChute(date = new Date()) {
 export const dailyChallenge = (d = dailyChute()) => ({ id: 'daily', world: 'daily', kind: 'race', name: 'Daily Chute', emoji: '📅', from: 'top', to: 'bottom', limit: 180, vehicle: 'mtb', cam: 'first', daily: d,
   about: 'A new gully every day, the same one for everybody. One leaderboard, for today only. Touch anything and you crash.' });
 
+// ------------------------------------------------------------------ the Weekly Challenge
+/** The week number (UTC weeks since 1970: the server counts them the same way). */
+export const weekNumber = (date = new Date()) => Math.floor(date.getTime() / 86400000 / 7);
+/** This week's challenge: one of the race challenges in turn (Revvd's, Unrevvd's and Carvvd's), the same for everybody,
+    with its own leaderboard for the week. all: every challenge (challenges.json's order, like the server's). */
+export function weeklyChallenge(all, date = new Date()) {
+  const races = all.filter((c) => c.kind === 'race' && !c.daily && !c.weekly);
+  if (!races.length) return null;
+  const n = weekNumber(date); const base = races[n % races.length];
+  return { ...base, id: 'weekly-' + n, base: base.id, weekly: { n }, name: 'Weekly: ' + base.name, emoji: '🗓️',
+    about: `This week's challenge, the same for everybody, with a leaderboard just for this week: ${base.about} Win gold for the 🏆 Champion prizes.` };
+}
+/** Whether you've won gold in a Weekly Challenge (it unlocks the Champion board and visor). */
+export const weeklyGold = () => store.get('moto_weekly_gold', null) != null;
+
 // ------------------------------------------------------------------ the Downhill World Cup
 /** Five chutes back to back: the times add up. */
 export const CUP = ['timber-run', 'autumn-run', 'storm-run', 'frozen-run', 'night-run'];
