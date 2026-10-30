@@ -1,0 +1,359 @@
+{
+  "schemaVersion": 1,
+  "id": "stormchute",
+  "name": "Storm Chute",
+  "tagline": "Hold on. It's slippery.",
+  "theme": "alpine",
+  "seed": 7369,
+  "size": [
+    220,
+    640
+  ],
+  "baseHeight": 40,
+  "spawn": [
+    0,
+    -262
+  ],
+  "spawnHeading": 0.0,
+  "palette": {
+    "sky": "#4d565e",
+    "low": "#22381c",
+    "high": "#4e6638",
+    "trail": "#4a3626",
+    "water": "#2c4f55",
+    "accent": "#7fb2ff"
+  },
+  "look": {
+    "flora": [],
+    "storm": true,
+    "mud": true,
+    "sky": {
+      "sun": [
+        34,
+        200
+      ],
+      "turbidity": 10,
+      "rayleigh": 3,
+      "mie": 0.02,
+      "exposure": 0.75,
+      "fog": 3.2,
+      "fogColor": "#4d565e",
+      "sunColor": "#a7b0bd",
+      "sunI": 0.9,
+      "hemi": [
+        "#6b7785",
+        "#20251c",
+        0.55
+      ]
+    },
+    "grass": [
+      [
+        34,
+        56,
+        28
+      ],
+      [
+        78,
+        98,
+        52
+      ]
+    ],
+    "dirt": [
+      [
+        58,
+        42,
+        30
+      ],
+      [
+        96,
+        74,
+        54
+      ]
+    ]
+  },
+  "terrain": {
+    "noise": 3,
+    "scale": 90,
+    "hills": [
+      [
+        0,
+        -330,
+        170,
+        620,
+        620
+      ],
+      [
+        0,
+        0,
+        -16,
+        34,
+        5000
+      ]
+    ]
+  },
+  "regions": [
+    {
+      "name": "Chute Top",
+      "position": [
+        0,
+        -262
+      ]
+    },
+    {
+      "name": "Chute Bottom",
+      "position": [
+        0,
+        262
+      ]
+    }
+  ],
+  "routes": [],
+  "spots": [
+    {
+      "id": "top",
+      "name": "Chute Top",
+      "position": [
+        0,
+        -262
+      ],
+      "kind": "lookout",
+      "radius": 24,
+      "about": "The top of the Storm Chute."
+    },
+    {
+      "id": "bottom",
+      "name": "Chute Bottom",
+      "position": [
+        0,
+        262
+      ],
+      "kind": "checkpoint",
+      "radius": 24,
+      "about": "The bottom of the Storm Chute."
+    }
+  ],
+  "races": [],
+  "interactions": [
+    {
+      "id": "board",
+      "name": "Chute Top race board",
+      "position": [
+        40,
+        -262
+      ],
+      "kind": "race-board",
+      "radius": 18,
+      "event": "race.offer",
+      "about": "Choose a mini race and invite nearby friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "jam",
+      "name": "Chute Bottom trick jam",
+      "position": [
+        -50,
+        242
+      ],
+      "kind": "trick-zone",
+      "radius": 18,
+      "event": "trick.land",
+      "about": "Share a two-minute trick score with friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "camera",
+      "name": "Chute Bottom photo perch",
+      "position": [
+        0,
+        262
+      ],
+      "kind": "photo",
+      "radius": 18,
+      "event": "photo.capture",
+      "about": "Get the whole group into a summit picture.",
+      "cooldownSeconds": 10
+    }
+  ],
+  "ramps": [],
+  "surfaceZones": [],
+  "quests": [
+    {
+      "id": "stormchute-welcome",
+      "name": "Welcome to Storm Chute",
+      "start": "top",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "bottom",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "bottom",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "top",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "stormchute-summit",
+      "name": "Top of the World",
+      "start": "top",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "bottom",
+          "count": 1
+        },
+        {
+          "event": "photo.capture",
+          "target": "camera",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    }
+  ],
+  "coordinateSystem": {
+    "units": "metres",
+    "horizontal": [
+      "x",
+      "z"
+    ],
+    "up": "y",
+    "heading": "radians: 0 points +z; positive rotates towards +x"
+  },
+  "status": "Made by tools/make_worlds.py.",
+  "boundary": {
+    "softMargin": 100,
+    "policy": "warn-and-respawn",
+    "respawn": "last-safe-pad",
+    "cliffWidth": 50,
+    "cliffHeight": 160,
+    "sceneryApron": 1600
+  },
+  "spawnPads": [
+    {
+      "id": "spawn-1",
+      "position": [
+        -24,
+        -280
+      ],
+      "heading": 0.0
+    },
+    {
+      "id": "spawn-2",
+      "position": [
+        -19,
+        -280
+      ],
+      "heading": 0.0
+    },
+    {
+      "id": "spawn-3",
+      "position": [
+        -14,
+        -280
+      ],
+      "heading": 0.0
+    },
+    {
+      "id": "spawn-4",
+      "position": [
+        -24,
+        -286
+      ],
+      "heading": 0.0
+    },
+    {
+      "id": "spawn-5",
+      "position": [
+        -19,
+        -286
+      ],
+      "heading": 0.0
+    },
+    {
+      "id": "spawn-6",
+      "position": [
+        -14,
+        -286
+      ],
+      "heading": 0.0
+    }
+  ],
+  "safePads": [
+    {
+      "id": "top",
+      "position": [
+        0,
+        -262
+      ],
+      "radius": 8,
+      "riderPosition": [
+        0,
+        -262
+      ]
+    },
+    {
+      "id": "bottom",
+      "position": [
+        0,
+        262
+      ],
+      "radius": 8,
+      "riderPosition": [
+        0,
+        262
+      ]
+    }
+  ],
+  "features": {},
+  "gauntlets": [
+    {
+      "id": "storm-run",
+      "from": [
+        0,
+        -258
+      ],
+      "to": [
+        0,
+        250
+      ],
+      "width": 64,
+      "fringe": 45,
+      "gap": 5.6,
+      "trees": 1150,
+      "rocks": 70,
+      "stumps": 30,
+      "logs": 18,
+      "jumps": 6,
+      "ferns": 420,
+      "bushes": 1100,
+      "branches": 160
+    }
+  ],
+  "hidden": true,
+  "buildings": false
+}

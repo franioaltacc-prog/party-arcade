@@ -38,10 +38,12 @@
     .mx-logo b { font: italic 900 clamp(1.5rem, 3vw, 2.1rem) var(--kanit); letter-spacing: .01em; text-shadow: 0 3px 14px rgba(0,0,0,.35); }
     .mx-logo b i { color: #ff7a1a; font-style: italic; }
     .mx-logo b.un i { color: #39d98a; }
+    .mx-logo b.carv i { color: #4cc9ff; }
     /* Unrevvd (the mountain bikes): its wordmark at the top of its screen */
     .mx-unrevvd { display: grid; line-height: .95; }
     .mx-unrevvd b { font: italic 900 clamp(2rem, 5vw, 3.1rem) var(--kanit); color: #fff; letter-spacing: .01em; text-shadow: 0 4px 18px rgba(0,0,0,.35); }
     .mx-unrevvd b i { color: #39d98a; font-style: italic; }
+    .mx-unrevvd.carv b i { color: #4cc9ff; }
     .mx-unrevvd small { font: 600 .72rem var(--kanit); letter-spacing: .26em; text-transform: uppercase; opacity: .8; }
     .mx-icons { margin-left: auto; display: flex; gap: 8px; align-items: center; }
     .mx-ib, .mx-icons .icon-btn { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 10px; border: 1px solid var(--line); background: var(--glass); color: #fff; font-size: 1.05rem; cursor: pointer; text-decoration: none !important; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); position: relative; }
@@ -107,6 +109,23 @@
     .mx-card2.red { --c1: #ff4a5e; --c2: #c81e3a; }
     .mx-card2.green { --c1: #34b36f; --c2: #1d7f4d; }
     .mx-card2.orange { --c1: #ff8a2a; --c2: #d4520f; }
+    .mx-card2.gold { --c1: #f2b318; --c2: #c27a06; }
+    .mx-medals { display: flex; flex-wrap: wrap; gap: 6px; font: 600 .76rem var(--kanit); }
+    .mx-medals span { padding: 2px 8px; border-radius: 7px; background: rgba(255,255,255,.08); opacity: .8; }
+    .mx-medals span.won { background: rgba(255,210,26,.28); opacity: 1; outline: 1px solid rgba(255,210,26,.6); }
+    .mx-chbtns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+    .mx-pill { font: 700 .78rem var(--kanit); color: #fff; padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.1); cursor: pointer; }
+    .mx-pill:hover { background: rgba(255,255,255,.2); }
+    .mx-pill.wide { justify-self: stretch; }
+    .mx-trail { display: flex; flex-wrap: wrap; gap: 4px 12px; font: 600 .78rem var(--kanit); align-items: baseline; }
+    .mx-trail b { flex-basis: 100%; font: 1rem var(--marker); text-transform: uppercase; }
+    .mx-chal .e { position: relative; }
+    .mx-chal .e .md { position: absolute; right: -8px; bottom: -6px; font-size: .9rem; font-style: normal; }
+    .mx-lb { display: flex; flex-direction: column; gap: 4px; min-width: min(360px, 80vw); }
+    .mx-lbrow { display: grid; grid-template-columns: 3em 1fr auto; gap: 8px; padding: 6px 10px; border-radius: 8px; background: rgba(127,127,127,.12); }
+    .mx-lbrow.me { background: rgba(255,210,26,.25); }
+    .mx-lbrow .rk { font-weight: 800; opacity: .7; }
+    .mx-lbrow .tm { font-variant-numeric: tabular-nums; font-weight: 700; }
     .mx-sticker { position: absolute; top: 9px; right: 9px; display: inline-flex; gap: 4px; align-items: center; padding: 2px 9px; border-radius: 6px; background: var(--hi); color: #13210a; font: .72rem var(--marker); transform: rotate(-3deg); box-shadow: 0 2px 0 rgba(0,0,0,.3); }
     .mx-sticker.gold { background: #ffd21a; color: #2b1d00; }
     .mx-sticker.dark { background: rgba(0,0,0,.4); color: #fff; box-shadow: none; }
@@ -382,6 +401,23 @@
     .mx-msg.on { opacity: 1; transform: none; }
     .mx-msg.bad { color: #fda4af; }
     .mx-msg.cp { color: #fde047; }
+    .mx-fx { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+    .mx-app:not(.riding) .mx-fx { display: none; }
+    .mx-fx > div { position: absolute; inset: 0; opacity: 0; }
+    .fx-speed { background: radial-gradient(ellipse at 50% 55%, transparent 48%, rgba(10,14,20,.55) 100%); transition: opacity .25s; }
+    .fx-leaves { background: radial-gradient(circle at 18% 70%, #2f5a1e 0 9%, transparent 10%), radial-gradient(circle at 80% 30%, #3d6b25 0 11%, transparent 12%), radial-gradient(circle at 60% 85%, #24461a 0 13%, transparent 14%), radial-gradient(circle at 30% 20%, #4a7a2c 0 8%, transparent 9%), radial-gradient(circle at 92% 78%, #2c5220 0 10%, transparent 11%), radial-gradient(circle at 8% 35%, #3a6524 0 9%, transparent 10%); filter: blur(3px); }
+    .fx-leaves.on { animation: fx-leaves .45s ease-out; }
+    @keyframes fx-leaves { 0% { opacity: .9; transform: scale(1.15) translateY(0); } 100% { opacity: 0; transform: scale(1.5) translateY(18%); } }
+    .fx-flash { background: #e8eeff; }
+    .fx-flash.on { animation: fx-flash .7s ease-out; }
+    @keyframes fx-flash { 0% { opacity: .85; } 12% { opacity: .1; } 22% { opacity: .65; } 100% { opacity: 0; } }
+    .fx-helmet.visor { opacity: 1; background: linear-gradient(180deg, rgba(255,150,40,.16), rgba(255,90,20,.1)); box-shadow: inset 0 0 90px rgba(0,0,0,.45); }
+    .fx-helmet.goggles { opacity: 1; background: radial-gradient(ellipse 75% 68% at 50% 46%, rgba(255,190,90,.06) 70%, rgba(10,12,16,.92) 96%); }
+    .fx-helmet.goggles::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 9% 13% at 50% 102%, rgba(10,12,16,.95) 92%, transparent 100%); }
+    .fx-helmet.gopro { opacity: 1; box-shadow: inset 0 0 140px 40px rgba(0,0,0,.55); }
+    .fx-helmet.gopro::after { content: '● REC'; position: absolute; left: 50%; top: 64px; transform: translateX(-50%); color: #ff4d4d; font: 800 14px/1 var(--kanit, sans-serif); letter-spacing: .08em; animation: fx-rec 1.2s steps(2) infinite; }
+    @keyframes fx-rec { 50% { opacity: .2; } }
+    .fx-helmet.gold { opacity: 1; background: linear-gradient(180deg, rgba(255,210,60,.18), rgba(255,170,0,.08)); box-shadow: inset 0 0 120px rgba(120,80,0,.5); }
     .mx-msg.small { font-size: clamp(1rem, 2.6vw, 1.4rem); font-weight: 800; }
     .mx-trick { position: absolute; left: 0; right: 0; top: 30%; text-align: center; pointer-events: none; opacity: 0; color: #fff; text-shadow: 0 3px 20px rgba(0,0,0,.45); }
     .mx-trick b { display: block; font-family: var(--marker); font-size: clamp(2rem, 7vw, 4.4rem); line-height: 1; transform: rotate(-3deg); }
@@ -447,6 +483,8 @@
     <div class="mx-load" id="mx-load"><div class="mx-spin"></div><span>Building the track…</span></div>
 
     <!-- the ride -->
+    <!-- screen effects in first person: a helmet cam's frame, the edges blurring at speed, leaves brushing past, lightning -->
+    <div class="mx-fx" id="hud-fx" aria-hidden="true"><div class="fx-helmet" id="fx-helmet"></div><div class="fx-speed" id="fx-speed"></div><div class="fx-leaves" id="fx-leaves"></div><div class="fx-flash" id="fx-flash"></div></div>
     <div class="mx-hud">
       <div class="mx-tl"><div class="mx-track" id="hud-track"></div><div class="mx-sub" id="hud-sub"></div><div class="mx-coins" id="hud-coins" hidden><span>🪙</span><b>0</b></div><div class="mx-board" id="hud-board"></div></div>
       <div class="mx-tr"><div class="mx-lab">TIME</div><div class="mx-time" id="hud-time">0:00.00</div><div class="mx-split" id="hud-split"></div></div>

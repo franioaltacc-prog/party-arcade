@@ -10,6 +10,7 @@ Free ride together: the host picks a world and everyone rides it at once, on the
 no race and no end. People can hop in and out while it's on (and someone joining the room rides straight in);
 the host ends it, or it ends when the last rider leaves."""
 import json
+import math
 import random
 import time
 from pathlib import Path
@@ -63,7 +64,9 @@ def load_worlds():
 
 
 WORLDS = load_worlds()
-TOP_SCORE = {"air": 30.0, "flips": 80, "speed": 420.0, "tricks": 3000}   # more than anyone can do with the stock engine
+TOP_SCORE = {"air": 30.0, "flips": 80, "speed": 420.0, "tricks": 3000, "lanterns": 40}   # more than anyone can do with the stock engine
+TAG_REACH = 4.5        # Forest Tag: how close (m) "it" has to be to tag someone (a little more than the browser asks for: lag)
+TAG_IMMUNE = 3.0       # ...and the seconds before the new "it" can tag anyone (no tagging straight back)
 FASTEST_MS = 105.0     # nobody crosses a challenge course quicker than this many metres a second
 MIN_PLAYERS = 2
 COUNTDOWN = 4.0        # seconds from "go" to the gate dropping (the clients show 3-2-1)
@@ -119,6 +122,8 @@ class Moto(Game):
         out = {"id": r["id"], "track": r["track"], "elapsed": time.time() - r["start"], "runners": r["runners"]}
         if r.get("challenge"):
             out.update(challenge=r["challenge"], kind=r["kind"], limit=r["limit"])
+            if r["kind"] == "tag":
+                out.update(it=r["it"], itTimes=self.it_times())
         if r.get("free"):
             out.update(free=r["free"], kind="free")
         return out
@@ -167,6 +172,8 @@ class Moto(Game):
             self.finish(m, msg)
         elif t == "score" and self.phase == "racing":
             self.score(m, msg)
+        elif t == "tag" and self.phase == "racing":
+            self.tag(m, msg)
 
     def restart(self, host):
         """The room voted "play again": that counts as everyone readying up, so the next race starts."""
@@ -234,6 +241,9 @@ class Moto(Game):
                    for u in self.riders()}
         self.race = {"id": (self.race["id"] + 1) if self.race else 1, "track": None, "challenge": c["id"], "kind": c["kind"],
                      "limit": c["limit"], "start": time.time() + COUNTDOWN, "runners": runners, "finished": 0}
+        if c["kind"] == "tag":   # Forest Tag: someone starts as "it"
+            self.race.update(it=random.choice(list(runners)) if runners else None, it_since=self.race["start"], it_time={uid: 0.0 for uid in runners},
+                             immune=self.race["start"] + TAG_IMMUNE)
         self.broadcast("start", race=self.race_public(), countdown=COUNTDOWN)
         self.room.cancel(self.end_timer)
         self.end_timer = self.room.later(COUNTDOWN + c["limit"] + 2, self.end)
@@ -284,18 +294,41 @@ class Moto(Game):
         v = num(msg.get("score"), -1)
         if v <= 0 or v > TOP_SCORE[kind]:   # (more than the stock engine can do: not believable)
             return
-        v = int(v) if kind in ("flips", "tricks") else round(v, 2)
+        v = int(v) if kind in ("flips", "tricks", "lanterns") else round(v, 2)
         if run["score"] is None or v > run["score"]:
             run["score"] = v
             if kind == "flips":
                 run["flips"] = v
             self.broadcast("score", id=m.uid, score=v)
 
+    def it_times(self, now=None):
+        """Forest Tag: how long (s) each rider has been "it" so far."""
+        r = self.race
+        out = dict(r["it_time"])
+        if r.get("it") in out:
+            out[r["it"]] += max(0.0, min(now or time.time(), r["start"] + r["limit"]) - max(r["it_since"], r["start"]))
+        return {k: round(v, 1) for k, v in out.items()}
+
+    def tag(self, m, msg):
+        """Forest Tag: "it" rode into someone (checked against where both of them last said they were)."""
+        r = self.race
+        now = time.time()
+        target = msg.get("id")
+        if r.get("kind") != "tag" or m.uid != r.get("it") or target == m.uid or target not in r["runners"] or now < r["immune"] or now > r["start"] + r["limit"]:
+            return
+        a, b = r["runners"][m.uid], r["runners"][target]
+        if "px" not in a or "px" not in b or math.hypot(a["px"] - b["px"], a["pz"] - b["pz"]) > TAG_REACH:
+            return
+        r["it_time"] = {k: v for k, v in self.it_times(now).items()}
+        r.update(it=target, it_since=now, immune=now + TAG_IMMUNE)
+        self.broadcast("tag", it=target, by=m.uid, itTimes=r["it_time"])
+
     def position(self, m, msg):
         run = self.race["runners"].get(m.uid)
         if not run or run["done"]:
             return
         run["x"] = round(num(msg.get("x"), run["x"], -50, 5000), 1)
+        run["px"], run["pz"] = num(msg.get("px"), 0, -1e4, 1e4), num(msg.get("pz"), 0, -1e4, 1e4)   # (where they are: for Forest Tag)
         run["cp"] = int(num(msg.get("cp"), run["cp"], -1, 50))
         # x: how far along the track; px/pz/h: where the bike is (seen from above) and which way it points;
         # the rest is its pose: height, pitch, rider, suspension, lean, roll and speed
@@ -363,6 +396,14 @@ class Moto(Game):
 
     def on_offline(self, m):
         self.ready.pop(m.uid, None)
+        r = self.race
+        if self.phase == "racing" and r and r.get("kind") == "tag" and r.get("it") == m.uid:   # ("it" left: someone else is it)
+            others = [uid for uid in r["runners"] if uid != m.uid and (mm := self.room.members.get(uid)) and mm.online]
+            if others:
+                now = time.time()
+                r["it_time"] = self.it_times(now)
+                r.update(it=random.choice(others), it_since=now, immune=now + TAG_IMMUNE)
+                self.broadcast("tag", it=r["it"], by=None, itTimes=r["it_time"])
         if self.free_ride():
             self.hop_out(m)
         elif self.phase == "racing" and self.everyone_done():
@@ -388,7 +429,14 @@ class Moto(Game):
             rows.append({"id": uid, "name": mm.name if mm else "Gone", "avatar": mm.avatar if mm else "👻",
                          "color": mm.color if mm else "#888888", **run})
         kind = self.race.get("kind")
-        if kind in TOP_SCORE:   # timed challenges: the best score wins (no score = last)
+        if kind == "tag":   # Forest Tag: the least time being "it" wins
+            times = self.it_times()
+            for r in rows:
+                r["score"] = times.get(r["id"], 0.0)
+            rows.sort(key=lambda r: r["score"])
+            for i, r in enumerate(rows):
+                r.update(done=True, place=i + 1 if i == 0 or r["score"] != rows[i - 1]["score"] else rows[i - 1]["place"])
+        elif kind in TOP_SCORE:   # timed challenges: the best score wins (no score = last)
             rows.sort(key=lambda r: (r["score"] is None, -(r["score"] or 0)))
             place = 0
             for i, r in enumerate(rows):
@@ -432,7 +480,8 @@ class Moto(Game):
         n = len(rows)
         unit = {"race": lambda r: f"{r['time'] / 1000:.2f}s", "air": lambda r: f"{r['score']:.2f}s of air",
                 "flips": lambda r: f"{r['score']} flips", "speed": lambda r: f"{r['score']:.0f} km/h",
-                "tricks": lambda r: f"{r['score']} trick points"}.get(c.get("kind"), lambda r: "")
+                "tricks": lambda r: f"{r['score']} trick points", "lanterns": lambda r: f"{r['score']} lanterns",
+                "tag": lambda r: f"{r['score']:.1f}s being it"}.get(c.get("kind"), lambda r: "")
         for r in rows:
             won = n >= 2 and r["done"] and r["place"] == 1
             stats = {"moto.challenges": ("add", 1)}

@@ -6,6 +6,24 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.18.0', date: '2026-10-30', emoji: '🏂', title: 'Carvvd, and the chutes get serious', items: [
+      'New: 🏂 Carvvd, snowboarding. Its own tab: free ride the whole of Frostpeak on a snowboard, pick your board (Ice, Lava, Toxic, Aurora, Whiteout, Gold) and five challenges',
+      'Carvvd challenges: the Snowboard Run (the Frost Chute), Falls to Lake (1.6 km down Frostpeak), Summit Air, Avalanche (top speed) and Midnight Carve (the Midnight Chute in the dark)',
+      'Medals on every chute: 🥇 🥈 🥉 target times, and gold on the Timber, Frozen and Night Runs wins the golden visor',
+      'Ghosts: race a see-through copy of your own best run, and the world record holder’s (turn them off in the challenge menu)',
+      'Leaderboards for every race challenge (log in to be on them)',
+      'New Unrevvd chutes: 🍂 Autumn Run (golden aspens), 🌫️ Fog Run (the fog rolls in and out) and ⛈️ Storm Run (rain, lightning and slippery mud)',
+      '📅 Daily Chute: a new gully every day, the same one for everybody, with a leaderboard just for today',
+      '🏆 Downhill World Cup: five chutes back to back, one total time and its own leaderboard',
+      '🏮 Lantern Hunt: collect the glowing lanterns in the Midnight Chute on your way down',
+      '🏷️ Forest Tag (rooms only): one rider is it, ride into someone to pass it on. The least time being it wins',
+      'Close calls: pass a tree within half a metre for +3 coins. Your heart beats louder the closer you get',
+      'Faster feels faster in first person: the bars shake and the edges darken. Bushes rustle and flash past when you ride through them',
+      'Crashing on your own goes into slow motion, and the camera flies out to watch you tumble',
+      'Watching a room race after you finish: ← → to switch rider, and see it from their eyes in first person',
+      'Bike shop: brighter lamps for the night, and helmet cams (tinted visor, goggles, an action cam)',
+      'Your trail stats: distance ridden, trees dodged, close calls and your longest run without a crash',
+    ] },
     { v: '3.17.0', date: '2026-10-30', emoji: '❄️', title: 'Unrevvd: Frozen Run and Night Run', items: [
       'New challenge, the Frozen Run: first person down the Frost Chute, a new gully buried in snow (snow on the trees, the rocks and the ground, and still snowing)',
       'New challenge, the Night Run: first person down the Midnight Chute in the dark. Your bike has a lamp, a few lanterns glow between the trees, and that’s all you can see',

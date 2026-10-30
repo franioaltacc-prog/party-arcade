@@ -355,6 +355,24 @@ with an import map), everything else is drawn and synthesised in code (no model,
   gauntlet; the nearest four are real lights). Gauntlets can also have `bushes` (ez-tree bushes in thickets round the
   trees, fewer on lower quality) and `branches`; they're only drawn, you ride through them. Leaf textures that Poly Haven
   ships as colour + alpha are joined by `tools/png_alpha.py`.
+- **More chutes (v3.18.0):** `chutes.js` holds the extras. Every race challenge has medal times (`"medals"` in
+  `challenges.json`, else a share of its limit), a best-time board (`mch-<id>` solo scores, `mch_<id>` boards in
+  `accounts.py`) and ghosts: a run is recorded at 8 frames a second as position messages (`ghostRecorder`), your best is
+  kept in the browser and the fastest on the board in the `ghosts` table (`ghost:get` / `ghost:put`: only kept if it's
+  the time you saved, and faster than the one there). Ghosts are drawn like other riders, by the challenge clock.
+  `chuteRun` watches near misses (`obstaclesNear` in `terrain.mjs`: +3 coins within half a metre, and how close the next
+  tree is for the heartbeat), bushes you ride through and the trail stats. New worlds: **Autumn Chute** (`"aspens"` in a
+  gauntlet: that share of the trees are ez-tree aspens with slimmer trunks, `loadAspens`; `"autumn"` tints leaves per
+  tree and drops leaves), **Fog Chute** (`"fogPulse"`), **Storm Chute** (`"storm"`: rain, lightning `onLightning`, and
+  `"mud"`: less grip) and **Tag Wood**. The **Daily Chute** is a chute's look with a seed from the date (`dailyChute`; one
+  board a day, `mch-daily`), the **Downhill World Cup** (`CUP`) rides five in a row (`mch-cup`). **Lantern Hunt** (kind
+  `lanterns`: collect them, most wins) and **Forest Tag** (kind `tag`, rooms only: the server picks who's it and checks a
+  `g:tag` against where both riders last were, with 3 s before you can tag back; least time being it wins).
+  **Carvvd** (snowboards, its own tab and logo: the `snow` screens in `menus.js`): challenges with `"board": true` and a
+  free ride on Frostpeak (`startFree(w, { board: true })`, `?board=1`). `boardify` in `bike.js` hides the bike, puts a
+  board (your colour, `BOARDS` in `game.js`) under the rider and turns them sideways; the physics is the mountain bike's
+  with almost no pedal power, so a board only really goes downhill (pick starts with no climbs). Gear (`Coins.LAMP`, `Coins.CAM`) only
+  changes the lamp and the first-person look, so it's allowed in challenges. Tests: `tests/chutebot.py`.
 
 ## Billiards
 Top-down pool with real physics (spin, banks, kisses, rattling jaws). `public/js/games/pool-core.js` is the table, the

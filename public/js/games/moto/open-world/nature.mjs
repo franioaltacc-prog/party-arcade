@@ -40,7 +40,30 @@ export function loadNature(){
  })().catch(e=>{loading=null;throw e;}));
 }
 
+let aspensLoading=null;
+/** The Autumn Chute's aspens (ez-tree, birch bark and aspen leaves; a promise, shared): { trees: [{bark, leaves, far:
+    {bark, leaves}}], mats: {bark, leaves} }. Only loaded for a world that has aspens. */
+export function loadAspens(){
+ return aspensLoading||(aspensLoading=new GLTFLoader().loadAsync('/models/nature/aspens.glb').then(g=>{
+  const ms=[];g.scene.traverse(o=>{if(o.isMesh)ms.push(o);});
+  const geo=name=>ms.find(m=>m.name===name).geometry,bark=ms.find(m=>m.name==='aspen0_bark').material,leaves=ms.find(m=>m.name==='aspen0_leaves').material;
+  for(const t of [bark.map,bark.normalMap])if(t){t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(1,4);}
+  leaves.side=THREE.DoubleSide;leaves.alphaTest=.4;
+  return {trees:[0,1,2].map(k=>({bark:geo('aspen'+k+'_bark'),leaves:geo('aspen'+k+'_leaves'),far:{bark:geo('aspen'+k+'_far_bark'),leaves:geo('aspen'+k+'_far_leaves')}})),mats:{bark,leaves}};
+ }).catch(e=>{aspensLoading=null;throw e;}));
+}
+
 const SLICE=30;
+/** A copy of a leaf material in autumn colours: each instance's colour (see AUTUMN) is the leaf's colour, the texture
+    only gives its light and shade. */
+function autumnal(material){
+ const m=material.clone();
+ m.onBeforeCompile=shader=>{shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>',`#if defined( USE_COLOR_ALPHA ) || defined( USE_COLOR ) || defined( USE_INSTANCING_COLOR )
+ diffuseColor.rgb=vec3(dot(diffuseColor.rgb,vec3(.299,.587,.114)))*2.3*vColor;
+#endif`);};
+ m.customProgramCacheKey=()=>'autumn';return m;
+}
+const AUTUMN=[[.95,.62,.12],[.92,.42,.08],[.75,.22,.07],[.98,.8,.2],[.85,.5,.1]];   // (gold, orange, red, yellow, amber)
 /** A copy of material with snow lying on everything that faces up (more on pine needles: base is how white they are
     all over), for a winter world. */
 function snowy(material,base=0){
@@ -54,21 +77,28 @@ function snowy(material,base=0){
  m.customProgramCacheKey=()=>'snowy'+base;return m;
 }
 /** Draws every gauntlet of terrain with the models in nature (from loadNature) into group. snow: snow on everything (and
-    no ferns); night: the lanterns light up (a few real lights, on the lanterns nearest you); quality (0..1): fewer bushes
+    no ferns); autumn: the leaves turn gold, orange and red, and nature.aspens (loadAspens) draws the aspens; night: the lanterns light up (a few real lights, on the lanterns nearest you); quality (0..1): fewer bushes
     when it's lower. Returns update(eye), which
-    shows the detailed trees in the slices within near metres of the eye, the simpler ones out to far, and dispose(). */
-export function gauntletScenery(terrain,nature,group,{shadows=false,near=40,far=330,snow=false,night=false,quality=1}={}){
+    shows the detailed trees in the slices within near metres of the eye, the simpler ones out to far, and dispose(),
+    and the lanterns and bushes ([{x, z, ...}]: you ride through bushes, and can pick lanterns up). */
+export function gauntletScenery(terrain,nature,group,{shadows=false,near=40,far=330,snow=false,night=false,autumn=false,quality=1}={}){
  const slices=new Map(),dummy=new THREE.Object3D(),tint=new THREE.Color(),own=[],made=[];
- const M=snow?Object.fromEntries(Object.entries(nature.mats).map(([k,m])=>[k,Array.isArray(m)?m.map(x=>snowy(x)):snowy(m,k==='needles'?.3:k==='leaves'?.4:0)])):nature.mats;
+ const M=snow?Object.fromEntries(Object.entries(nature.mats).map(([k,m])=>[k,Array.isArray(m)?m.map(x=>snowy(x)):snowy(m,k==='needles'?.3:k==='leaves'?.4:0)])):{...nature.mats};
  const rockMat=snow?nature.rockMat.map(m=>snowy(m)):nature.rockMat;
  if(snow)made.push(...Object.values(M).flat(),...rockMat);
+ const A=nature.aspens?{bark:nature.aspens.mats.bark,leaves:autumn?autumnal(nature.aspens.mats.leaves):nature.aspens.mats.leaves}:null;
+ if(autumn){M.leaves=autumnal(M.leaves);M.fern=autumnal(M.fern);made.push(M.leaves,M.fern);if(A)made.push(A.leaves);}
+ const fall=()=>AUTUMN[Math.floor(rnd()*AUTUMN.length)];
  const sliceOf=z=>{const k=Math.floor(z/SLICE);if(!slices.has(k))slices.set(k,{z0:k*SLICE,lists:new Map(),meshes:[]});return slices.get(k);};
  const add=(z,geo,mat,item,lod=null)=>{const lists=sliceOf(z).lists,key=geo.uuid+mat.uuid;if(!lists.has(key))lists.set(key,{geo,mat,lod,items:[]});lists.get(key).items.push(item);};   // (lod: 'near' or 'far' copies of a tree, 'bush' or 'bushfar' of a bush)
  const box=geo=>{if(!geo.boundingBox)geo.computeBoundingBox();return geo.boundingBox;};
  let seed=9173;const rnd=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
- const lanterns=[];
+ const lanterns=[],bushes=[];
  for(const g of terrain.gauntlets){
-  for(const t of g.trees){const p=nature.pines[t.k%nature.pines.length],y=terrain.heightAt(t.x,t.z)-.15*t.s;
+  for(const t of g.trees){
+   if(t.sp==='aspen'&&A){const p=nature.aspens.trees[t.k%3],item={x:t.x,y:terrain.heightAt(t.x,t.z)-.1*t.s,z:t.z,rot:t.rot,sx:t.s,sy:t.s,sz:t.s,shade:.9+(t.rot%1)*.15},leaf={...item,color:autumn?fall():null};
+    add(t.z,p.bark,A.bark,item,'near');add(t.z,p.leaves,A.leaves,leaf,'near');add(t.z,p.far.bark,A.bark,item,'far');add(t.z,p.far.leaves,A.leaves,leaf,'far');continue;}
+   const p=nature.pines[t.k%nature.pines.length],y=terrain.heightAt(t.x,t.z)-.15*t.s;
    const item={x:t.x,y,z:t.z,rot:t.rot,sx:t.s,sy:t.s,sz:t.s,shade:.86+(t.rot%1)*.24};
    for(const [geo,mat] of [[p.bark,M.bark],[p.leaves,M.needles]])add(t.z,geo,mat,item,'near');
    for(const [geo,mat] of [[p.far.bark,M.bark],[p.far.leaves,M.needles]])add(t.z,geo,mat,item,'far');}
@@ -85,7 +115,7 @@ export function gauntletScenery(terrain,nature,group,{shadows=false,near=40,far=
   for(let i=0;i<(snow?0:g.ferns);i++){
    const [x,z]=spot();if(!clear(x,z))continue;
    const k=Math.floor(rnd()*nature.ferns.length),s=1+rnd()*.8;
-   add(z,nature.ferns[k],M.fern,{x,y:terrain.heightAt(x,z)-.03,z,rot:rnd()*6.28,sx:s,sy:s,sz:s,shade:.85+rnd()*.3},'mid');
+   add(z,nature.ferns[k],M.fern,{x,y:terrain.heightAt(x,z)-.03,z,rot:rnd()*6.28,sx:s,sy:s,sz:s,shade:.85+rnd()*.3,color:autumn?[.62,.34,.1]:null},'mid');
   }
   for(let i=0;i<g.branches;i++){
    const [x,z]=spot();if(!clear(x,z,.6))continue;
@@ -99,8 +129,9 @@ export function gauntletScenery(terrain,nature,group,{shadows=false,near=40,far=
     const a=rnd()*6.28,d=t.r+.5+rnd()*1.1,x=t.x+Math.cos(a)*d,z=t.z+Math.sin(a)*d;
     if(terrain.rampAt(x,z).weight>0)continue;
     // (more of the lighter bush)
-    const b=nature.bushes[[0,1,1,2,1][Math.floor(rnd()*5)]],s=.8+rnd()*.6,item={x,y:terrain.heightAt(x,z)-.08,z,rot:rnd()*6.28,sx:s,sy:s*(.85+rnd()*.3),sz:s,shade:.7+rnd()*.35};
-    add(z,b.bark,M.twigs,item,'bush');add(z,b.leaves,M.leaves,item,'bush');add(z,b.far.leaves,M.leaves,item,'bushfar');   // (further off, the leaves hide the twigs)
+    const b=nature.bushes[[0,1,1,2,1][Math.floor(rnd()*5)]],s=.8+rnd()*.6,item={x,y:terrain.heightAt(x,z)-.08,z,rot:rnd()*6.28,sx:s,sy:s*(.85+rnd()*.3),sz:s,shade:.7+rnd()*.35},leaf={...item,color:autumn?fall():null};
+    bushes.push({x,z,r:.75*s});
+    add(z,b.bark,M.twigs,item,'bush');add(z,b.leaves,M.leaves,leaf,'bush');add(z,b.far.leaves,M.leaves,leaf,'bushfar');   // (further off, the leaves hide the twigs)
    }
   }
   for(let i=0;i<g.lanterns&&g.trees.length;i++){
@@ -114,7 +145,7 @@ export function gauntletScenery(terrain,nature,group,{shadows=false,near=40,far=
  for(const l of lanterns)add(l.z,nature.lantern,M.lantern,{x:l.x,y:l.y,z:l.z,rot:l.rot,sx:LANTERN,sy:LANTERN,sz:LANTERN,shade:night?.55:1},'mid');
  for(const slice of slices.values())for(const {geo,mat,lod,items} of slice.lists.values()){
   const im=new THREE.InstancedMesh(geo,mat,items.length);
-  items.forEach((it,i)=>{dummy.position.set(it.x,it.y,it.z);dummy.rotation.set(0,it.rot,0);dummy.scale.set(it.sx,it.sy,it.sz);dummy.updateMatrix();im.setMatrixAt(i,dummy.matrix);im.setColorAt(i,tint.setRGB(it.shade,it.shade,it.shade));});
+  items.forEach((it,i)=>{dummy.position.set(it.x,it.y,it.z);dummy.rotation.set(0,it.rot,0);dummy.scale.set(it.sx,it.sy,it.sz);dummy.updateMatrix();im.setMatrixAt(i,dummy.matrix);im.setColorAt(i,it.color?tint.setRGB(it.color[0]*it.shade,it.color[1]*it.shade,it.color[2]*it.shade):tint.setRGB(it.shade,it.shade,it.shade));});
   im.computeBoundingSphere();im.castShadow=shadows&&mat!==M.fern&&mat!==M.branches&&lod!=='far'&&lod!=='bushfar';im.receiveShadow=true;im.userData.lod=lod;group.add(im);slice.meshes.push(im);own.push(im);
  }
  // ---- the lanterns' flames: a glow you can see from far off in the dark, and real light from the nearest few
@@ -129,13 +160,15 @@ export function gauntletScenery(terrain,nature,group,{shadows=false,near=40,far=
   for(let i=0;i<4;i++){const p=new THREE.PointLight('#ffb35c',9,22,1.6);group.add(p);lights.push(p);}
  }
  return {
-  lanterns,
+  lanterns,bushes,
+  /** Put a lantern out (picked up in the Lantern Hunt), or all of them back on (out = false). */
+  lanternOut(l,out=true){if(l)l.out=out;else for(const x of lanterns)x.out=out;},
   update(eye){
    for(const s of slices.values()){const d=Math.max(s.z0-eye.z,0,eye.z-s.z0-SLICE),close=d<near;for(const m of s.meshes){const lod=m.userData.lod;m.visible=d<far&&(lod==='near'?close:lod==='far'?!close:lod==='bush'?d<25:lod==='bushfar'?d>=25&&d<far*.32:d<far*.6);}}
    if(glow){
     // (a lantern glows from up to 150 m off; the nearest four light up the ground round them)
-    for(let i=0;i<lanterns.length;i++){const l=lanterns[i],d=Math.hypot(l.x-eye.x,l.z-eye.z);glow.children[i].visible=d<150;}
-    const near4=lanterns.map(l=>[Math.hypot(l.x-eye.x,l.z-eye.z),l]).sort((a,b)=>a[0]-b[0]).slice(0,lights.length);
+    for(let i=0;i<lanterns.length;i++){const l=lanterns[i],d=Math.hypot(l.x-eye.x,l.z-eye.z);glow.children[i].visible=d<150&&!l.out;}
+    const near4=lanterns.filter(l=>!l.out).map(l=>[Math.hypot(l.x-eye.x,l.z-eye.z),l]).sort((a,b)=>a[0]-b[0]).slice(0,lights.length);
     lights.forEach((p,i)=>{const l=near4[i]?.[1];p.visible=!!l;if(l)p.position.set(l.x,l.y+.25*LANTERN,l.z);});
    }
   },

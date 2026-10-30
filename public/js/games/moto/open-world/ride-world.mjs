@@ -12,7 +12,9 @@ import {THEMES,particles,makeProps} from '../world.js';
  * detailed patch of ground round the rider and grass and pebbles scattered on it. nature: the real tree and rock
  * models (nature.mjs loadNature), for a gauntlet's solid trees and rocks (without them they're the scenery models).
  * A world with "look": {"night": true} is dark: no sun, stars, faint moonlight, thick black fog, and a lamp on the
- * bike (the returned lamp: the game points it where the bike goes). */
+ * bike (the returned lamp: the game points it where the bike goes). "fogPulse": [low, high, seconds]: the fog rolls in
+ * and out (its thickness goes between those times the world's). "storm": true: rain, and lightning now and then (the
+ * returned onLightning(far) hears about each flash). "autumn": leaves drifting down (and the trees turn). */
 export function buildRideWorld(map,quality=1,renderer=null,shadows=false,nature=null){
  const policy=renderPolicy(quality);
  const built=buildOpenWorld(map,{resolution:policy.resolution,chunkSegments:policy.chunkSegments,scenery:policy.scenery,detailed:false,solidProps:!nature});
@@ -71,7 +73,41 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false,nature=
   scene.add(spot,spot.target,glow);lamp={spot,glow};
  }
  const fxRoot=new THREE.Group();scene.add(fxRoot);const fx=particles(fxRoot,theme,null,quality);
- const forest=nature&&built.terrain.gauntlets.length?gauntletScenery(built.terrain,nature,scene,{shadows,snow:map.theme==='snow',night,quality}):null;
+ const forest=nature&&built.terrain.gauntlets.length?gauntletScenery(built.terrain,nature,scene,{shadows,snow:map.theme==='snow',night,autumn:!!map.look?.autumn,quality}):null;
+ // ---------------------------------------------------------------- weather round the camera: rain or falling leaves
+ const storm=!!map.look?.storm,leafFall=!!map.look?.autumn&&!!forest,hemi=scene.children.find(o=>o.isHemisphereLight);
+ let drops=null;
+ if(storm||leafFall){
+  const n=storm?Math.round(2600*Math.min(1,quality+.2)):500,box=storm?40:30,p=new Float32Array(n*(storm?6:3)),seed=[];
+  let ss=map.seed*31;const r=()=>{ss=(Math.imul(ss,1664525)+1013904223)>>>0;return ss/4294967296;};
+  for(let i=0;i<n;i++)seed.push([r()*box*2-box,r()*box,r()*box*2-box,.6+r()*.8,r()*6.28]);
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(p,3).setUsage(THREE.DynamicDrawUsage));
+  const mesh=storm?new THREE.LineSegments(g,new THREE.LineBasicMaterial({color:'#d2dcea',transparent:true,opacity:.6,depthWrite:false,fog:false})):
+   new THREE.Points(g,new THREE.PointsMaterial({color:'#d9822b',size:.13,transparent:true,opacity:.9,depthWrite:false}));
+  mesh.frustumCulled=false;scene.add(mesh);drops={mesh,n,box,seed,p,t:0};
+ }
+ let flashAt=performance.now()+4000+Math.random()*6000,flash=0;const baseHemi=hemi?.intensity??0,baseSun=sun.intensity;
+ const world={onLightning:null};
+ function weather(eye,dt){
+  if(map.look?.fogPulse){const [lo,hi,per]=map.look.fogPulse,t=performance.now()/1000,k=.5+.5*Math.sin(t*6.283/per+Math.sin(t*.29)*1.3);scene.fog.density=theme.fogD*(lo+(hi-lo)*k);}
+  if(drops){
+   const d=drops;d.t+=dt;
+   for(let i=0;i<d.n;i++){
+    const q=d.seed[i];
+    if(storm){const y=((q[1]-d.t*22*q[3])%d.box+d.box)%d.box,x=eye.x+((q[0]-eye.x)%(d.box*2)+d.box*3)%(d.box*2)-d.box,z=eye.z+((q[2]-eye.z)%(d.box*2)+d.box*3)%(d.box*2)-d.box,top=eye.y-8+y;
+     d.p.set([x,top,z,x+.15,top-.9,z],i*6);}
+    else{const y=((q[1]-d.t*1.1*q[3])%d.box+d.box)%d.box,sway=Math.sin(d.t*1.7+q[4])*1.2;
+     d.p.set([eye.x+((q[0]+sway-eye.x)%(d.box*2)+d.box*3)%(d.box*2)-d.box,eye.y-6+y,eye.z+((q[2]-eye.z)%(d.box*2)+d.box*3)%(d.box*2)-d.box],i*3);}
+   }
+   d.mesh.geometry.attributes.position.needsUpdate=true;
+  }
+  if(storm){
+   const now=performance.now();
+   if(now>flashAt){flashAt=now+7000+Math.random()*9000;flash=1;world.onLightning?.(Math.random());}
+   flash=Math.max(0,flash-dt*2.2);const f=flash>.7||(flash>.25&&flash<.45)?1:0;   // (two quick flashes)
+   if(hemi)hemi.intensity=baseHemi+f*2.5;sun.intensity=baseSun+f*1.5;
+  }
+ }
 
  // ---------------------------------------------------------------- detailed ground round the rider
  const half=policy.half,n=policy.segments,inner=half-12;
@@ -189,10 +225,12 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false,nature=
  const shadowMat=new THREE.MeshBasicMaterial({map:shadowTex,transparent:true,depthWrite:false,opacity:.3,polygonOffset:true,polygonOffsetFactor:-2});
  const contact=new THREE.Mesh(shadowGeo,shadowMat);contact.visible=!shadows;scene.add(contact);const up=new THREE.Vector3(0,1,0),normal=new THREE.Vector3();
  return {
-  free:true,scene,theme,fx,gates:[],ground:built.terrain,definition:map,policy,sun,coins,collect,lamp,night,
+  free:true,scene,theme,fx,gates:[],ground:built.terrain,definition:map,policy,sun,coins,collect,lamp,night,forest,storm,
+  /** Called with each lightning flash in a storm (far: 0 close .. 1 far, for the thunder). */
+  set onLightning(f){world.onLightning=f;},
   /** ahead: where to centre the detailed ground (a little ahead of a fast bike, so the ground it's riding into is ready). */
   update(point,dt,camera,ahead=point){
-   updatePatch(ahead);fx.update(dt,camera);built.update(camera.position);forest?.update(camera.position);drawCoins(performance.now());drawHoops(performance.now());
+   updatePatch(ahead);fx.update(dt,camera);built.update(camera.position);forest?.update(camera.position);weather(camera.position,dt);drawCoins(performance.now());drawHoops(performance.now());
    sun.position.copy(point).addScaledVector(sunDir,220);sun.target.position.copy(point);
    if(!shadows){
     const y=built.terrain.heightAt(point.x,point.z),nn=built.terrain.normalAt(point.x,point.z);
@@ -202,7 +240,7 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false,nature=
   dispose(){
    samples.clear();built.dispose();forest?.dispose();geo.dispose();detail.dispose();shadowGeo.dispose();shadowMat.dispose();shadowTex.dispose();
    for(const k of coverKinds){k.im.dispose();k.geo.dispose();}for(const m of [props.propMat,props.leafMat,props.cactusMat,pebbleProps.propMat,pebbleProps.leafMat,pebbleProps.cactusMat])m.dispose();
-   cloudTex.dispose();cloudMat.dispose();if(stars){stars.geometry.dispose();stars.material.dispose();}if(lamp){lamp.spot.dispose();lamp.glow.dispose();}coinMesh.dispose();coinGeo.dispose();coinMat.dispose();hoopMesh.dispose();hoopGeo.dispose();hoopMat.dispose();sky.geometry.dispose();sky.material.dispose();env?.dispose();
+   cloudTex.dispose();cloudMat.dispose();if(drops){drops.mesh.geometry.dispose();drops.mesh.material.dispose();}if(stars){stars.geometry.dispose();stars.material.dispose();}if(lamp){lamp.spot.dispose();lamp.glow.dispose();}coinMesh.dispose();coinGeo.dispose();coinMat.dispose();hoopMesh.dispose();hoopGeo.dispose();hoopMat.dispose();sky.geometry.dispose();sky.material.dispose();env?.dispose();
    const textures=new Set();fxRoot.traverse(o=>{o.geometry?.dispose();if(o.material){for(const u of Object.values(o.material.uniforms||{}))if(u.value?.isTexture)textures.add(u.value);if(o.material.map)textures.add(o.material.map);o.material.dispose();}});textures.forEach(t=>t.dispose());
   }
  };

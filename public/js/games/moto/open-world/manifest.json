@@ -102,6 +102,42 @@
       "pools": 0
     },
     {
+      "id": "autumnchute",
+      "name": "Autumn Chute",
+      "file": "autumnchute.json",
+      "areaKm2": 0.14,
+      "hidden": true,
+      "gaps": 0,
+      "pools": 0
+    },
+    {
+      "id": "fogchute",
+      "name": "Fog Chute",
+      "file": "fogchute.json",
+      "areaKm2": 0.14,
+      "hidden": true,
+      "gaps": 0,
+      "pools": 0
+    },
+    {
+      "id": "stormchute",
+      "name": "Storm Chute",
+      "file": "stormchute.json",
+      "areaKm2": 0.14,
+      "hidden": true,
+      "gaps": 0,
+      "pools": 0
+    },
+    {
+      "id": "tagwood",
+      "name": "Tag Wood",
+      "file": "tagwood.json",
+      "areaKm2": 0.06,
+      "hidden": true,
+      "gaps": 0,
+      "pools": 0
+    },
+    {
       "id": "sheerwall",
       "name": "Sheerwall Mesa",
       "file": "sheerwall.json",

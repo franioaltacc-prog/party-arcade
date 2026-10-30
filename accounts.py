@@ -135,6 +135,39 @@ for _t in MOTO_TRACKS:
     SOLO[f"moto-{_t['id']}"] = (f"moto{_t['id']}", int(_t["robot"] * MOTO_FASTEST * 1000), 3_600_000)
     FASTEST.add(f"moto-{_t['id']}")
 
+# Revvd's and Unrevvd's race challenges (public/js/games/moto/open-world/challenges.json): each one gets a best-time board and a
+# solo score ("mch-<id>"), and so do the Daily Chute (a new board every day: "mch-daily") and the Downhill World Cup
+# (five chutes back to back: "mch-cup").
+CHALLENGES_FILE = Path(__file__).resolve().parent / "public" / "js" / "games" / "moto" / "open-world" / "challenges.json"
+try:
+    MOTO_CHALLENGES = [c for c in json.loads(CHALLENGES_FILE.read_text(encoding="utf-8"))["challenges"] if c.get("kind") == "race"]
+except (OSError, ValueError, KeyError):
+    MOTO_CHALLENGES = []
+chute_key = lambda cid: "mch" + re.sub(r"[^a-z0-9]", "", str(cid).lower())
+
+
+def _fastest_ms(c):
+    """The quickest anyone could ride a race challenge: its start to finish distance at 105 m/s (like a room race)."""
+    try:
+        pads = {p["id"]: p["position"] for p in json.loads((CHALLENGES_FILE.parent / (c["world"] + ".json")).read_text(encoding="utf-8"))["safePads"]}
+        (ax, az), (bx, bz) = pads[c["from"]], pads[c["to"]]
+        return max(3000, int(math.hypot(ax - bx, az - bz) / 105 * 1000))
+    except (OSError, ValueError, KeyError):
+        return 15000
+
+
+for _c in MOTO_CHALLENGES:
+    BOARDS[f"mch_{_c['id']}"] = (f"{_c.get('emoji', '🚵')} {'Carvvd' if _c.get('board') else 'Unrevvd' if _c.get('vehicle') == 'mtb' else 'Revvd'}: {_c['name']}", f"{chute_key(_c['id'])}.best", "asc", "time")
+    SOLO[f"mch-{_c['id']}"] = (chute_key(_c["id"]), _fastest_ms(_c), int(_c.get("limit", 600)) * 1000 + 5000)
+    FASTEST.add(f"mch-{_c['id']}")
+BOARDS["mch_daily"] = ("📅 Unrevvd: today's Daily Chute", None, "asc", "time")   # (the stat changes every day: see daily_key)
+SOLO["mch-daily"] = ("mchdaily", 4800, 185_000)   # (a chute: 508 m, at 105 m/s)
+SOLO["mch-cup"] = ("mchcup", 75000, 1_200_000)
+FASTEST.update({"mch-daily", "mch-cup"})
+BOARDS["mch_cup"] = ("🏆 Unrevvd: Downhill World Cup", "mchcup.best", "asc", "time")
+daily_key = lambda: "mchdaily" + datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d")   # (UTC days, like the browser)
+GHOST_MAX = 250_000   # characters: a recorded run (8 frames a second, a few minutes)
+
 SCHEMA = [
     """CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -229,6 +262,14 @@ SCHEMA = [
         created INTEGER NOT NULL,
         updated INTEGER NOT NULL)""",
     # The calendar team's group chat (the last 300 messages are kept) and announcements (planner.py).
+    # The fastest run on each Unrevvd board, recorded, to race against as a ghost (key: the solo game, e.g.
+    # "mch-timber-run", or "mch-daily-20261030").
+    """CREATE TABLE IF NOT EXISTS ghosts (
+        key TEXT PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        ms INTEGER NOT NULL,
+        data TEXT NOT NULL,
+        ts INTEGER NOT NULL)""",
     """CREATE TABLE IF NOT EXISTS team_chat (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
@@ -884,6 +925,8 @@ class Accounts:
         if game not in SOLO:
             raise AuthError("Unknown game.")
         prefix, lo, hi = SOLO[game]
+        if game == "mch-daily":
+            prefix = daily_key()
         value = int(value)
         if not lo <= value <= hi:
             raise AuthError("That score doesn't look right 🤔")
@@ -907,7 +950,7 @@ class Accounts:
         best_key = "dashsolo.fewest" if game == "dash-solo" else f"{prefix}.best"
         before = await self.q("SELECT value FROM stats WHERE user_id = ? AND key = ?", user_id, best_key)
         old = before["rows"][0]["value"] if before["rows"] else None
-        gained, xp_before, xp_after = await self.record(user_id, prefix, "play", stats, self.solo_detail(game, value), xp=5, totals=False)
+        gained, xp_before, xp_after = await self.record(user_id, SOLO[game][0], "play", stats, self.solo_detail(game, value), xp=5, totals=False)
         better = old is None or (value < old if game in FASTEST else value > old)
         return {"best": better, "old": tidy(old), "gained": gained, "before": xp_before, "after": xp_after}
 
@@ -924,6 +967,48 @@ class Accounts:
         if game in FASTEST:
             return f"Finished in {value / 1000:.2f}s"
         return f"Scored {value:,}"
+
+    # -- Unrevvd ghosts ----------------------------------------------------------
+    @staticmethod
+    def ghost_key(game):
+        """The ghost for a solo game's board (today's for the Daily Chute), or None if it has none."""
+        if game == "mch-daily":
+            return "mch-daily-" + daily_key()[8:]
+        return game if game in SOLO and game.startswith("mch-") else None
+
+    async def ghost(self, game):
+        key = self.ghost_key(game)
+        if not key:
+            raise AuthError("Unknown leaderboard.")
+        rows = (await self.q("SELECT g.ms, g.data, u.name, u.color FROM ghosts g JOIN users u ON u.id = g.user_id WHERE g.key = ? AND u.banned = 0", key))["rows"]
+        if not rows:
+            return None
+        r = rows[0]
+        try:
+            data = json.loads(r["data"])
+        except ValueError:
+            return None
+        return {"ms": r["ms"], "name": r["name"], "color": r["color"], "data": data}
+
+    async def ghost_put(self, user_id, game, ms, data):
+        """Keep a run as the board's ghost if it's the fastest one yet and it's the time the rider saved (their best)."""
+        key = self.ghost_key(game)
+        if not key or not isinstance(ms, int) or not isinstance(data, dict):
+            raise AuthError("That ghost doesn't look right 🤔")
+        text = json.dumps(data, separators=(",", ":"))
+        if len(text) > GHOST_MAX or not isinstance(data.get("frames"), list):
+            raise AuthError("That ghost is too big.")
+        prefix = daily_key() if game == "mch-daily" else SOLO[game][0]
+        best = (await self.q("SELECT value FROM stats WHERE user_id = ? AND key = ?", user_id, f"{prefix}.best"))["rows"]
+        if not best or int(best[0]["value"]) != ms:
+            return {"kept": False}
+        old = (await self.q("SELECT ms FROM ghosts WHERE key = ?", key))["rows"]
+        if old and old[0]["ms"] <= ms:
+            return {"kept": False}
+        await self.q("INSERT INTO ghosts (key, user_id, ms, data, ts) VALUES (?, ?, ?, ?, ?) "
+                     "ON CONFLICT (key) DO UPDATE SET user_id = excluded.user_id, ms = excluded.ms, data = excluded.data, ts = excluded.ts",
+                     key, user_id, ms, text, now())
+        return {"kept": True}
 
     # -- profiles & leaderboards ---------------------------------------------
     async def profile(self, name):
@@ -968,6 +1053,9 @@ class Accounts:
         if key not in BOARDS:
             raise AuthError("Unknown leaderboard.")
         title, stat, order, fmt = BOARDS[key]
+        if key == "mch_daily":
+            stat = daily_key() + ".best"
+            key = f"{key}:{stat}"   # (cached per day)
         cached = self.board_cache.get(key)
         if cached and time.time() - cached[0] < 15:
             rows = cached[1]

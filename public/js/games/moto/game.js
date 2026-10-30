@@ -4,13 +4,14 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildWorld } from './world.js';
-import { makeBike, poseBike, disposeBike, preloadBike, bikesLoaded, LIVERIES, MODELS, MTB_MODELS, RIDERS, KITS, HELMETS } from './bike.js';
+import { makeBike, boardify, poseBike, disposeBike, preloadBike, bikesLoaded, LIVERIES, MODELS, MTB_MODELS, RIDERS, KITS, HELMETS } from './bike.js';
 import { createAudio } from './sound.js';
 import { createMenus } from './menus.js';
 import {buildRideWorld} from './open-world/ride-world.mjs';
-import {loadNature} from './open-world/nature.mjs';
+import {loadNature,loadAspens} from './open-world/nature.mjs';
 import {createTrial,stepTrial,trialBestKey} from './open-world/trials.mjs';
 import * as Coins from './coins.js';
+import * as Chutes from './chutes.js';
 import { createMap } from './map.js';
 import * as Car from './car.js';
 import { makeCar, poseCar, disposeCar, preloadCar, CAR_PAINTS, CAR_MODELS, paintable } from './car-model.js';
@@ -69,6 +70,12 @@ const myLivery = () => (Account.user && Account.user.look && Account.user.look.b
 prefs.style = Object.assign({ model: 'mx4', rider: 'biker', kit: 'match', helmet: 'match', number: null }, prefs.style);
 const myLook = () => ({ ...prefs.style, livery: myLivery() });
 const mtbLook = () => ({ ...myLook(), model: prefs.mtbModel });   // (Unrevvd: your mountain bike, same rider)
+/** A snowboard's "pedal power" and air drag (a mountain bike's are 1): barely any push, and it slides well. */
+const BOARD = { power: 0.3, drag: 0.85 };
+/** Carvvd's boards (only looks). */
+const BOARDS = { ice: { name: 'Ice', emoji: '🧊', color: '#2a7fff' }, lava: { name: 'Lava', emoji: '🌋', color: '#ff4a2a' }, toxic: { name: 'Toxic', emoji: '🧪', color: '#7dff3a' },
+  aurora: { name: 'Aurora', emoji: '🌌', color: '#b44dff' }, snow: { name: 'Whiteout', emoji: '🤍', color: '#eef3f8' }, gold: { name: 'Gold', emoji: '🥇', color: '#f2b318' } };
+const boardColor = () => (BOARDS[prefs.board] || BOARDS.ice).color;
 const netStyle = () => ({ ...prefs.style, car: prefs.carModel, paint: prefs.carPaint, mtb: prefs.mtbModel });   // (what the room sees: bike, rider, supercar and mountain bike)
 /** Pick your Unrevvd mountain bike. */
 function setMtbModel(id) {
@@ -231,6 +238,8 @@ function stopRide() {
   map.reset(); wayMarker = null;
   if(R.trialMarker){R.trialMarker.removeFromParent();R.trialMarker.geometry.dispose();R.trialMarker.material.dispose();R.trialMarker=null;}
   dropFinishMarker();
+  if (R.run) { R.run.save(false); R.run = null; }
+  dropGhosts(); dropTagMarker();
   R.running = false;R.paused=false;
   if (R.audio) { R.audio.stop(); R.audio = null; }
   for (const k of Object.keys(touch)) touch[k] = false;
@@ -268,8 +277,9 @@ function frame(now) {
   } else if (!R.gateDown) {
     R.gateDown = true; if (R.audio) { R.audio.beep(true); R.audio.gate(); } showCount('GO!');
   }
-  // fixed-step physics
-  R.acc += dt;
+  // fixed-step physics (a moment of slow motion when you crash on your own)
+  R.slow = Math.max(0, (R.slow || 0) - dt);
+  R.acc += R.slow > 0 ? dt * 0.35 : dt;
   let steps = 0;
   while (R.acc >= DT && steps < 14) { physicsStep(now); R.acc -= DT; steps++; }
   if (steps >= 14) R.acc = 0;
@@ -309,6 +319,7 @@ function physicsStep(now) {
       if (R.safeTrail.length > 24) R.safeTrail.shift();
     }
     if (R.challenge) challengeStep(b, now);
+    if (R.run && R.challenge && !R.challenge.done) R.run.step(b, Math.abs(b.x - xBefore));
   }
   if (b.crashed > crashTime()) {
     if(R.mode==='free'){R.trial=null;updateTrialMarker();}
@@ -372,6 +383,8 @@ function onEvent(k, d) {
   if (k === 'bail') { showMessage(`BAILED! ${C.TRICKS[d].name}`, 'bad', 1400); return; }
   if (k === 'crash') {
     if (R.audio) R.audio.crash();
+    R.run?.crash();
+    if (!online() && !R.override) R.slow = 0.9;
     R.cam.shake = C.P.CAM_CRASH_SHAKE;
     showMessage('CRASHED!', 'bad', 1300);
     burst(b.x, b.y, 26, 'puff', 1.4);
@@ -450,7 +463,7 @@ function showMessage(text, kind, ms) {
 }
 
 // ------------------------------------------------------------------ drawing a frame
-const tmpV = new THREE.Vector3(); const tmpV2 = new THREE.Vector3(); const tmpV3 = new THREE.Vector3();
+const tmpV = new THREE.Vector3(); const tmpV2 = new THREE.Vector3(); const tmpV3 = new THREE.Vector3(); const headV = new THREE.Vector3();
 const UPV = new THREE.Vector3(0, 1, 0);
 /** Turns a snapshot's upright-plane coordinates (x = odometer, y = height) into the world. */
 function placer(sn) {
@@ -482,9 +495,12 @@ function render(now, dt, alpha) {
   if (R.gateDown) for (const gg of w.gates) gg.rotation.z = Math.min(Math.PI / 2 * 0.95, gg.rotation.z + dt * 7);
   // other riders
   const leader = drawOthers(now, dt);
+  drawGhosts(now, dt); drawTagMarker(now);
+  if (R.run && R.audio && !R.finished) R.audio.heartbeat(R.run.danger);
   // dust, roost and smoke
   if (!R.spectate) effects(s, dt, place);
-  if (R.spectate && leader) updateCamera(leader.snap, dt, 20, leader.place);
+  const watched = R.spectate ? watching(leader) : null;
+  if (watched) updateCamera(watched.snap, dt, watched.snap.v || 20, watched.place, watched.model);
   else updateCamera(s, dt, speed, place);
   if (w.free) {
     // (the detailed ground is centred up to 30 m ahead of a fast bike)
@@ -512,6 +528,12 @@ function render(now, dt, alpha) {
 /** The ground height under a point in the world (near the track). */
 function groundUnder(x, z, hint, T = R.T) { if(T.terrain)return T.terrain.heightAt(x,z); const L = C.locate(T, x, z, hint); return C.heightAt(T, L.s, L.u); }
 
+/** The dark edges at speed in first person (0..1). */
+const fxSpeedEl = document.getElementById('fx-speed'); let fxSpeedNow = -1;
+/** The helmet cam's look over first person ('' none; see Coins.CAMS). */
+const fxHelmetEl = document.getElementById('fx-helmet'); let fxHelmetNow = null;
+function fxHelmet(k) { if (k !== fxHelmetNow) { fxHelmetNow = k; if (fxHelmetEl) fxHelmetEl.className = 'fx-helmet' + (k ? ' ' + k : ''); } }
+function fxSpeed(v) { v = Math.round(v * 20) / 20; if (v !== fxSpeedNow) { fxSpeedNow = v; if (fxSpeedEl) fxSpeedEl.style.opacity = v; } }
 const firstV = new THREE.Vector3(); const firstD = new THREE.Vector3(); const firstU = new THREE.Vector3(); const firstGrip = new THREE.Vector3();
 /** In first person the rider's own head is hidden (the camera is where it is). */
 function firstHead(m, hide) {
@@ -519,7 +541,7 @@ function firstHead(m, hide) {
   if (!head) return;
   if (m.fig) head.scale.setScalar(hide ? 0.001 : 1); else head.visible = !hide;
 }
-function updateCamera(s, dt, speed, place) {
+function updateCamera(s, dt, speed, place, model = R.model) {
   const cam = R.cam;
   // swing round behind the way the bike points, like a 3D racing game (smoothly, so steering isn't jerky)
   cam.h = cam.init ? lerpA(cam.h, s.h, 1 - Math.exp(-dt * C.P.CAM_HEADING)) : s.h;
@@ -530,39 +552,52 @@ function updateCamera(s, dt, speed, place) {
   const P = place(rag ? s.ragdoll.hip.x : s.x, rag ? s.ragdoll.hip.y : s.y, tmpV3);
   const air = Math.max(0, P.y - groundUnder(P.x, P.z, s.s) - 0.7);
   let want; let look; let fov = C.P.CAM_FOV + Math.min(C.P.CAM_FOV_RANGE, speed * C.P.CAM_SPEED_FOV) + (camera.aspect < 1 ? 18 : 0);   // (a tall phone screen needs a wider view)
-  const first = R.camMode === 'first' && !R.car && !s.crashed && !R.spectate;
-  firstHead(R.model, first);
+  const first = R.camMode === 'first' && !R.car && !s.crashed && (!R.spectate || (model && model !== R.model));   // (watching someone: from their eyes)
+  // (the head stays hidden while a crash's camera flies out of it, or you'd see the inside of the helmet)
+  const flyOut = R.camMode === 'first' && s.crashed && model?.fig ? model.fig.bones.CC_Base_Head.getWorldPosition(headV).distanceTo(camera.position) : Infinity;
+  const inHead = first || flyOut < 1.2;
+  if (R.headless && R.headless !== model) firstHead(R.headless, false);
+  firstHead(model, inHead); R.headless = inHead ? model : null;
   if (first) {
     // first person: where a rider's eyes would be, behind and above the hands on the bar (so the bar and your hands are
     // at the bottom of the view, whatever the speed), looking ahead the way the bike points. Everything is measured in
     // the bike's own frame (its forward and up), so in a flip the view turns over with the bike instead of staying level
     // and looking into the rider's body
-    const m = R.model; const ca = Math.cos(s.a); const sa = Math.sin(s.a); m.root.updateMatrixWorld(true);
+    const m = model; const ca = Math.cos(s.a); const sa = Math.sin(s.a); m.root.updateMatrixWorld(true);
     firstD.set(Math.cos(s.h) * ca, sa, Math.sin(s.h) * ca);
     firstU.set(-Math.cos(s.h) * sa, ca, -Math.sin(s.h) * sa);
     const B = m.fig && m.fig.bones;
     // (the hands on the bar, kept relative to the bike: a trick that lets go of the bar doesn't take the camera with it)
-    if (B && B.CC_Base_L_Hand && B.CC_Base_R_Hand) {
+    if (m.board) m.root.getWorldPosition(firstV).addScaledVector(firstU, 0.85).addScaledVector(firstD, 0.4);   // (a snowboard: eyes over the board)
+    else if (B && B.CC_Base_L_Hand && B.CC_Base_R_Hand) {
       if (!(s.tp > 0) || !firstGrip.ok) { B.CC_Base_L_Hand.getWorldPosition(firstV); B.CC_Base_R_Hand.getWorldPosition(tmpV); m.root.worldToLocal(firstV.add(tmpV).multiplyScalar(0.5)); firstGrip.copy(firstV); firstGrip.ok = true; }
       m.root.localToWorld(firstV.copy(firstGrip));
     } else m.parts.helmet.getWorldPosition(firstV).addScaledVector(firstD, 0.45).addScaledVector(firstU, -0.6);
-    camera.position.copy(firstV).addScaledVector(firstD, -0.4).addScaledVector(firstU, 0.7);
+    camera.position.copy(firstV).addScaledVector(firstD, m.board ? 0 : -0.4).addScaledVector(firstU, m.board ? 0.5 : 0.7);
     // (leaning right forward, as in a frontflip, brings the shoulders over the bar, in front of the camera: move up with
     // them. Riding normally the neck is about 0.25 m ahead, inside the near plane)
-    if (B && B.CC_Base_NeckTwist01) {
+    if (B && B.CC_Base_NeckTwist01 && !m.board) {
       const ahead = B.CC_Base_NeckTwist01.getWorldPosition(tmpV).sub(camera.position).dot(firstD) - 0.28;
       if (ahead > 0) camera.position.addScaledVector(firstD, ahead);
     }
     firstD.multiplyScalar(10).add(camera.position).addScaledVector(firstU, -4);
     if (cam.shake > 0) { cam.shake = Math.max(0, cam.shake - dt * 1.6); camera.position.y += (Math.random() - 0.5) * cam.shake * 0.3; }
+    // the faster you go, the more the bars shake under you (on the ground), and the edges of the view darken
+    const kmh = speed * 3.6; const rough = Math.max(0, kmh - 12) * 0.0009; const tt = performance.now() / 1000;
+    if (rough > 0 && !(R.bike && R.bike.air > 0.15)) camera.position.addScaledVector(firstU, (Math.sin(tt * 31) + Math.sin(tt * 47.3) * 0.6) * rough).addScaledVector(tmpV.crossVectors(firstD, firstU).normalize(), Math.sin(tt * 23.7) * rough * 0.6);
+    fxSpeed(Math.min(0.85, Math.max(0, (kmh - 22) / 30)));
+    fxHelmet(R.mtb && R.helmet ? R.helmet.cam : '');
     camera.up.copy(firstU); camera.lookAt(firstD);
-    const f = 84 + (camera.aspect < 1 ? 18 : 0);   // (the same at any speed: a wider view at speed pushed the bar out of the bottom when slow)
+    const f = 84 + (camera.aspect < 1 ? 18 : 0) + (R.mtb && R.helmet ? R.helmet.fov : 0);   // (an action cam is wider)   // (the same at any speed: a wider view at speed pushed the bar out of the bottom when slow)
     // (the near plane cuts away your own shoulders and back, just in front of the camera: the hands are further)
     if (Math.abs(camera.fov - f) > 0.05 || camera.near !== 0.62) { camera.fov += (f - camera.fov) * Math.min(1, dt * 4); camera.near = 0.62; camera.updateProjectionMatrix(); }
-    cam.init = false;   // (the other cameras start fresh when you switch back)
+    // (a crash, or switching camera, flies smoothly out from here to behind the bike)
+    cam.pos.copy(camera.position); cam.look.copy(firstD); cam.fov = camera.fov; cam.h = s.h; cam.init = true;
     return;
   }
-  if (camera.near !== 0.25) { camera.near = 0.25; camera.updateProjectionMatrix(); }
+  fxSpeed(0); fxHelmet('');
+  const near = flyOut < 2 ? 0.62 : 0.25;   // (still close to the rider: don't show the inside of their jacket)
+  if (camera.near !== near) { camera.near = near; camera.updateProjectionMatrix(); }
   camera.up.set(0, 1, 0);   // (first person tilts it with the bike)
   if (R.camMode === 'side') {
     want = P.clone().addScaledVector(Rt, 10.5 + air * 0.5).addScaledVector(D, 2).add(UPV.clone().multiplyScalar(1.8 + air * 0.25));
@@ -658,8 +693,8 @@ function hud(now) {
   $('#hud-nitro').style.width = `${Math.round(b.nitro * 100)}%`;
   $('#hud-nitro').parentNode.classList.toggle('on', b.boost);
   $('#hud-nitro').parentNode.classList.toggle('full', b.nitro >= 0.999);
-  $('#hud-sub').textContent = R.spectate ? 'WATCHING THE LEADER' : R.mode === 'online' && state.race ? `P${myPlace()} / ${Object.keys(state.race.runners).length}  ·  CP ${b.cp + 1}/${T.cps.length}` : `CHECKPOINT ${b.cp + 1} / ${T.cps.length}`;
-  $('#hud-left').textContent = R.mode==='free' ? R.trial ? `${R.trial.race.name} · LAP ${R.trial.lap}/${R.trial.race.laps}` : R.mtb ? 'UNREVVD · Q WHEELIE · R SAFE PAD' : 'FREE RIDE · SPACE TURBO · R SAFE PAD' : `${Math.max(0, Math.round(T.finish - b.s))} M LEFT`;
+  $('#hud-sub').textContent = R.spectate ? watchLine() : R.mode === 'online' && state.race ? `P${myPlace()} / ${Object.keys(state.race.runners).length}  ·  CP ${b.cp + 1}/${T.cps.length}` : `CHECKPOINT ${b.cp + 1} / ${T.cps.length}`;
+  $('#hud-left').textContent = R.mode==='free' ? R.trial ? `${R.trial.race.name} · LAP ${R.trial.lap}/${R.trial.race.laps}` : R.board ? 'CARVVD · A / D CARVE · R SAFE PAD' : R.mtb ? 'UNREVVD · Q WHEELIE · R SAFE PAD' : 'FREE RIDE · SPACE TURBO · R SAFE PAD' : `${Math.max(0, Math.round(T.finish - b.s))} M LEFT`;
   if(R.mode==='free')$('#hud-sub').textContent=R.trial?`GATE ${Math.min(R.trial.next+1,R.trial.gates.length)} / ${R.trial.gates.length}`:'EXPLORE AT YOUR OWN PACE';
   const ch = R.challenge;
   if (ch) {
@@ -667,9 +702,12 @@ function hud(now) {
     $('#hud-time').closest('.mx-tr').hidden = false;
     $('#hud-time').textContent = fmt(k === 'race' ? el : Math.max(0, ch.def.limit - el));   // (races count up, the rest count down)
     const togo = ch.finish ? Math.hypot(b.px - ch.finish[0], b.pz - ch.finish[1]) : 0;
-    $('#hud-sub').textContent = ch.done ? (k === 'race' && ch.elapsed < ch.def.limit ? 'FINISHED!' : 'TIME’S UP') : k === 'race' ? (togo > 950 ? `${(togo / 1000).toFixed(1)} KM TO THE FINISH` : `${Math.round(togo)} M TO THE FINISH`)
+    $('#hud-sub').textContent = R.spectate ? watchLine() : ch.done ? (k === 'race' && ch.elapsed < ch.def.limit ? 'FINISHED!' : 'TIME’S UP') : k === 'race' ? (togo > 950 ? `${(togo / 1000).toFixed(1)} KM TO THE FINISH` : `${Math.round(togo)} M TO THE FINISH`)
+      : k === 'lanterns' ? `🏮 ${ch.score} / ${world.forest?.lanterns.length || 0} · ${Math.round(togo)} M TO THE BOTTOM`
+      : k === 'tag' ? tagLine()
       : k === 'air' ? `BEST AIR ${ch.score.toFixed(2)} S` : k === 'flips' ? `${ch.score} FLIP${ch.score === 1 ? '' : 'S'}` : k === 'tricks' ? `${ch.score} TRICK POINTS` : `TOP ${Math.round(ch.score)} KM/H`;
-    $('#hud-left').textContent = ch.online && state.race ? `P${myPlace()} / ${Object.keys(state.race.runners).length} · ${k === 'race' ? 'FOLLOW THE GREEN BEAM' : 'TIME LEFT TOP RIGHT'}` : k === 'race' ? 'RIDE TO THE GREEN BEAM · ANY LINE YOU LIKE' : ch.def.about.toUpperCase();
+    $('#hud-left').textContent = ch.online && state.race ? `P${myPlace()} / ${Object.keys(state.race.runners).length} · ${k === 'race' ? 'FOLLOW THE GREEN BEAM' : k === 'tag' ? 'RIDE INTO SOMEONE TO TAG THEM' : 'TIME LEFT TOP RIGHT'}`
+      : k === 'race' ? 'RIDE TO THE GREEN BEAM · ANY LINE YOU LIKE' : k === 'lanterns' ? 'PICK UP THE LANTERNS · THE BOTTOM ENDS IT' : ch.def.about.toUpperCase();
   }
   // the waypoint you set on the big map: how far, on the line under the world's name
   const wp = R.mode === 'free' && !ch && !R.trial ? map.waypoint : null;
@@ -720,14 +758,16 @@ async function startFree(entry, opts = {}){
   const ch=opts.challenge||null;
   if(!opts.online&&inRoom()){UI.toast('Leave the online race room before riding on your own','bad');return;}
   stopRide();setRiding(true);clearTimeout(stage.timer);
-  const ride=R.ride=(R.ride||0)+1;R.mode='free';R.trial=null;R.spectate=false;R.challenge=null;R.freeOnline=!!(opts.online&&!ch);
+  const ride=R.ride=(R.ride||0)+1;R.mode='free';R.trial=null;R.spectate=false;R.challenge=null;R.onEnter=null;R.watchId=null;R.freeOnline=!!(opts.online&&!ch);
   fill($('#hud-center'),h('div',{class:'mx-loading'},'Building '+entry.name+'…'));$('#hud-time').closest('.mx-tr').hidden=true;
   try{
     const response=await fetch('/js/games/moto/open-world/'+entry.file);if(!response.ok)throw new Error('World unavailable');
     // on a mountain bike: an Unrevvd challenge, Unrevvd's free ride (opts.mtb), or a room's free ride with it picked
-    const mtb=ch?ch.vehicle==='mtb':opts.online?prefs.vehicle==='mtb':!!opts.mtb;
+    const mtb=ch?ch.vehicle==='mtb':opts.online?prefs.vehicle==='mtb':!!(opts.mtb||opts.board);
     const def=await response.json();await preloadBike(mtb?prefs.mtbModel:myLook().model);
-    const nature=def.gauntlets?.length?await loadNature().catch((e)=>{console.warn('nature models',e);return null;}):null;   // (real trees and rocks for a gauntlet)
+    if(opts.daily)Object.assign(def,{id:'daily',name:'Daily Chute',seed:opts.daily.seed});   // (today's gully: a chute's look, its own trees)
+    let nature=def.gauntlets?.length?await loadNature().catch((e)=>{console.warn('nature models',e);return null;}):null;   // (real trees and rocks for a gauntlet)
+    if(nature&&def.gauntlets.some(g=>g.aspens))nature={...nature,aspens:await loadAspens().catch(()=>null)};   // (the Autumn Chute's aspens)
     if(!ch&&!mtb&&prefs.vehicle==='car')await preloadCar(prefs.carModel);if(!riding||R.ride!==ride)return;
     for(const o of R.others.values())dropOther(o);R.others.clear();
     if(R.model){disposeModel(R.model);R.model=null;}
@@ -748,19 +788,22 @@ async function startFree(entry, opts = {}){
     }
     // the dirt bike, the mountain bike (its upgrades only in free ride too) or the supercar
     R.mtb=mtb;R.car=!ch&&!mtb&&prefs.vehicle==='car';R.V=R.car?Car:C;
-    R.T=C.groundTrack(world.ground,spawn,engine,mtb?(ch?{}:Coins.MTB.current().stats):null);R.bike=R.V.newBike(R.T);
-    R.model=R.car?makeCar(prefs.carModel,prefs.carPaint):makeBike(mtb?mtbLook():myLook());world.scene.add(R.model.root);
+    R.board=!!(ch?ch.board:opts.board);   // (Carvvd: a board instead of a bike, no pedalling: it's all gravity)
+    R.T=C.groundTrack(world.ground,spawn,engine,mtb?(R.board?BOARD:ch?{}:Coins.MTB.current().stats):null);R.bike=R.V.newBike(R.T);
+    R.model=R.car?makeCar(prefs.carModel,prefs.carPaint):makeBike(mtb?mtbLook():myLook());if(R.board)boardify(R.model,boardColor());world.scene.add(R.model.root);
     if(opts.online&&state.race){fillOthers(state.race);if(ch)for(const o of R.others.values())addOtherModel(o);}   // (free ride: each rider's bike or car appears with their first message)
     R.prev=R.cur=snap(R.bike);R.acc=0;R.last=performance.now();R.finished=false;R.cam.init=false;R.stuck=0;R.emitAcc=0;R.roll=0;R.best=null;R.beeped=0;R.safeTrail=[];R.retry=null;R.toPad=false;
     R.goAt=ch?Math.max(opts.goAt||0,performance.now()+(opts.online?600:3200)):0;R.gateDown=!ch;
     R.camMode=ch?.cam||prefs.cam;   // (a challenge can be ridden in first person)
-    R.trialMarker=null;R.finishMarker=finish?finishBeacon(finish):null;R.audio=createAudio({pedal:mtb});$('.mx-nlab').textContent='TURBO · SPACE / SHIFT';for(const el of $$('.mx-nitro, .mx-nlab'))el.style.display=mtb?'none':'';$('#mx-trials').hidden=!!ch;   // (a bicycle has no nitro)
-    $('#hud-track').textContent=ch?`${ch.emoji} ${ch.name}`:def.name;
+    R.trialMarker=null;R.finishMarker=finish?finishBeacon(finish):null;R.audio=createAudio({pedal:mtb});chuteExtras(ch);R.helmet=Coins.CAM.current();
+    if(world.lamp&&mtb){const L=Coins.LAMP.current().lamp;Object.assign(world.lamp.spot,{intensity:L.i,angle:L.angle,distance:L.dist});}   // (your bike lamp, from the shop)
+    if(world.storm){R.audio?.rain(1);world.onLightning=(far)=>{pulse($('#fx-flash'));R.audio?.thunder(far);};}$('.mx-nlab').textContent='TURBO · SPACE / SHIFT';for(const el of $$('.mx-nitro, .mx-nlab'))el.style.display=mtb?'none':'';$('#mx-trials').hidden=!!ch;   // (a bicycle has no nitro)
+    $('#hud-track').textContent=ch?`${ch.emoji} ${ch.name}${R.cup?` · World Cup ${R.cup.i+1}/${Chutes.CUP.length}`:''}`:def.name;
     fill($('#hud-center'));resize();drawMapBase();coinHud(purse().wallet().coins,0);R.running=true;requestAnimationFrame(frame);
     const url=new URL(location.href);url.searchParams.delete('solo');url.searchParams.delete('track');
     if(ch){url.searchParams.delete('free');url.searchParams.delete('world');history.replaceState(null,'',url);showMessage(ch.about,'small',5000);}
-    else{if(mtb)prefs.mtbWorld=def.id;else prefs.world=def.id;savePrefs();url.searchParams.set('free','1');url.searchParams.set('world',def.id);if(mtb&&!R.freeOnline)url.searchParams.set('mtb','1');else url.searchParams.delete('mtb');history.replaceState(null,'',url);
-      showMessage(R.freeOnline?'FREE RIDE TOGETHER · Esc goes back to the room':mtb?'UNREVVD · W pedals · Q pops a wheelie · R resets':'FREE RIDE · Collect the gold coins · Space / Shift turbo · R resets','small',4500);}
+    else{if(!R.board){if(mtb)prefs.mtbWorld=def.id;else prefs.world=def.id;savePrefs();}url.searchParams.set('free','1');url.searchParams.set('world',def.id);if(mtb&&!R.freeOnline)url.searchParams.set('mtb','1');else url.searchParams.delete('mtb');if(R.board)url.searchParams.set('board','1');else url.searchParams.delete('board');history.replaceState(null,'',url);
+      showMessage(R.freeOnline?'FREE RIDE TOGETHER · Esc goes back to the room':R.board?'CARVVD · Point it downhill · A / D carve · Q / E flip · R resets':mtb?'UNREVVD · W pedals · Q pops a wheelie · R resets':'FREE RIDE · Collect the gold coins · Space / Shift turbo · R resets','small',4500);}
   }catch(error){console.error(error);UI.toast('Could not load that world','bad');quit();}
 }
 
@@ -784,13 +827,14 @@ function coinHud(total, gained) {
 }
 
 // ------------------------------------------------------------------ challenges
-const fmtScore = (kind, v) => (kind === 'race' ? fmt(v) : kind === 'air' ? `${v.toFixed(2)} s` : kind === 'flips' ? `${v} flip${v === 1 ? '' : 's'}` : kind === 'tricks' ? `${v} pts` : `${Math.round(v)} km/h`);
+const fmtScore = (kind, v) => (kind === 'race' ? fmt(v) : kind === 'air' ? `${v.toFixed(2)} s` : kind === 'flips' ? `${v} flip${v === 1 ? '' : 's'}` : kind === 'tricks' ? `${v} pts`
+  : kind === 'lanterns' ? `${v} lantern${v === 1 ? '' : 's'}` : kind === 'tag' ? `${(+v).toFixed(1)} s it` : `${Math.round(v)} km/h`);
 const challengeBest = (id) => store.get('moto_ch_best_' + id, null);
 /** Where a challenge starts (lane: a few metres to the side, so a room doesn't stack up) and where it finishes. */
 function challengeStart(ch, ground, def, lane) {
   const pads = Object.fromEntries(def.safePads.map((p) => [p.id, p]));
   let pos; let head; let finish = null;
-  if (ch.kind === 'race') {
+  if (ch.kind === 'race' || ch.from) {   // (a race, or the Lantern Hunt: top to bottom too)
     const a = pads[ch.from]; finish = pads[ch.to].position; pos = a.riderPosition || a.position;
     head = Math.atan2(finish[0] - pos[0], finish[1] - pos[1]);
   } else if (ch.at === 'park' && ground.parks[0]) {
@@ -799,7 +843,7 @@ function challengeStart(ch, ground, def, lane) {
     const a = pads[ch.at] || def.safePads[0]; pos = a.riderPosition || a.position;
     head = ground.roadAt(...pos)?.heading ?? Math.atan2(-pos[0], -pos[1]);
   }
-  const off = lane * 2.6;
+  const off = lane * (ch.kind === 'tag' ? 5.5 : 2.6);   // (Forest Tag: spread out, or "it" tags someone straight away)
   return { spawn: { position: [pos[0] + Math.cos(head) * off, pos[1] - Math.sin(head) * off], heading: head }, finish };
 }
 /** A tall glowing column over the finish pad, seen from far away. */
@@ -827,8 +871,19 @@ function challengeStep(b, now) {
     ch.safe = { x: b.px, z: b.pz, h: Math.PI / 2 - b.h }; ch.safeAt = now;   // (clearOfTrees moves it off the line of a tree)
   }
   const kind = ch.def.kind;
+  R.ghostRec?.add(el, posMsg(b));
   if (kind === 'speed' && !b.crashed && onWheels) ch.score = Math.max(ch.score, Math.hypot(b.vx, b.vy) * 3.6);
   if (kind === 'race' && Math.hypot(b.px - ch.finish[0], b.pz - ch.finish[1]) < 40) { challengeDone(el); return; }
+  if (kind === 'lanterns') {
+    // ride past a lantern to pick it up; the run's over at the bottom
+    const f = world.forest;
+    if (f && !b.crashed) for (const l of f.lanterns) if (!l.out && Math.hypot(l.x - b.px, l.z - b.pz) < 3.4) { f.lanternOut(l); ch.score++; R.audio?.chime(); showMessage(`🏮 ${ch.score} / ${f.lanterns.length}`, 'cp', 900); }
+    if (Math.hypot(b.px - ch.finish[0], b.pz - ch.finish[1]) < 40) { challengeDone(null); return; }
+  }
+  if (kind === 'tag' && ch.online && state.race?.it === Net.id && now > (ch.tagAt || 0)) {
+    // you're it: ride into someone to pass it on (the server checks)
+    for (const o of R.others.values()) if (o.snap && Math.hypot(o.snap.px - b.px, o.snap.pz - b.pz) < 3) { Net.send('g:tag', { id: o.id }); ch.tagAt = now + 600; break; }
+  }
   if (el >= ch.def.limit) { challengeDone(null); return; }
   if (ch.online && kind !== 'race' && ch.score > ch.sent && now - ch.sentAt > 300) { ch.sent = ch.score; ch.sentAt = now; Net.send('g:score', { score: ch.score }); }
 }
@@ -845,25 +900,162 @@ function challengeDone(time) {
     else if (kind !== 'race' && ch.score > 0) Net.send('g:score', { score: ch.score });
     fill($('#hud-center'), h('div', { class: 'mx-card' }, h('h2', {}, kind === 'race' ? (ok ? '🏁 Finished!' : '⏱️ Out of time') : '⏱️ Time’s up!'),
       ok ? h('div', { class: 'mx-big' }, fmtScore(kind, score)) : null, h('p', { class: 'muted' }, 'Waiting for the others…')));
+    // then watch the ones still riding
+    setTimeout(() => {
+      if (R.challenge !== ch || !R.running || !state.race || !Object.entries(state.race.runners).some(([id, r]) => id !== Net.id && !r.done)) return;
+      R.spectate = true; R.cam.init = false; fill($('#hud-center')); showMessage('Watching the others · ← → to switch', 'small', 3000);
+    }, 2500);
     return;
   }
-  // on your own: your best on this device, and coins
+  // on your own: your best on this device, a medal, and coins
   const best = challengeBest(def.id);
   const better = ok && (best == null || (kind === 'race' ? score < best : score > best));
   if (better) store.set('moto_ch_best_' + def.id, score);
-  const pay = ok ? 40 + (better ? 30 : 0) : 0;
+  const medal = Chutes.medalOf(def, score); const firstMedal = Chutes.saveMedal(def.id, medal);
+  const goldBefore = Chutes.goldAll();
+  const pay = ok ? 40 + (better ? 30 : 0) + (medal >= 0 ? [60, 30, 15][medal] : 0) : 0;
   if (pay) payCoins(pay);
-  if (better && best != null) UI.confetti(160);
+  if (medal === 0) UI.confetti(220); else if (better && best != null) UI.confetti(160);
+  const close = R.run ? R.run.close : 0;
+  if (R.run) { R.run.save(ok); R.run = null; }
+  // the leaderboards (logged in) and the ghost of this run
+  if (ok && kind === 'race') {
+    const ms = Math.round(score * 1000); const game = chuteGame(def); const data = R.ghostRec?.data();
+    if (data && better) Chutes.saveMyGhost(ghostKey(def), ms, data);
+    if (!R.cup) Account.submit(game, ms).then((r) => { if (r && r.best && data && game.startsWith('mch-')) Net.request('ghost:put', { game, ms, data }).then((g) => { if (g.kept) UI.toast('👻 Your run is the new record ghost!', 'good', 3500); }).catch(() => {}); });
+  }
+  R.ghostRec = null;
+  if (R.cup) { cupNext(score); return; }
+  if (!goldBefore && Chutes.goldAll()) setTimeout(() => UI.toast('🏅 Gold on all three chutes! The golden visor is yours (Shop → Helmet cam)', 'good', 6000), 1200);
   const btn = (label, onClick, key) => h('button', { class: 'mx-go slim', type: 'button', onclick: onClick }, h('b', {}, label), key ? h('span', { class: 'mx-key' }, key) : null);
+  const times = kind === 'race' ? Chutes.medalTimes(def) : null;
+  const nextMedal = medal < 0 ? 2 : medal - 1;
   fill($('#hud-center'), h('div', { class: 'mx-card' },
-    h('div', { class: 'mx-medal' }, def.emoji),
-    h('h2', {}, def.name),
+    h('div', { class: 'mx-medal' }, medal >= 0 ? Chutes.MEDALS[medal][0] : def.emoji),
+    h('h2', {}, medal >= 0 ? `${Chutes.MEDALS[medal][1]} medal${firstMedal ? '!' : ''}` : def.name),
     h('div', { class: 'mx-big' }, ok ? fmtScore(kind, score) : kind === 'race' ? 'Out of time' : 'No score'),
     h('p', { class: 'muted' }, better ? (best == null ? 'Your first score!' : `🎉 New best! (was ${fmtScore(kind, best)})`) : best != null ? `Your best: ${fmtScore(kind, best)}` : 'Give it another go!'),
+    times && medal !== 0 && ok ? h('p', { class: 'small muted' }, `Next: ${Chutes.MEDALS[nextMedal][0]} ${fmt(times[nextMedal])}`) : null,
+    close ? h('p', { class: 'small muted' }, `😮 ${close} close call${close === 1 ? '' : 's'}`) : null,
     pay ? h('p', { class: 'small muted' }, `+${pay} 🪙`) : null,
     h('div', { class: 'btns' }, btn('🔁 Again', () => startChallengeSolo(def), 'ENTER'), btn('Menu', quit, 'ESC'))));
 }
-function startChallengeSolo(ch) {
+/** The solo leaderboard a race challenge's times go on (the Daily Chute has one a day). */
+const chuteGame = (ch) => (ch.daily ? 'mch-daily' : 'mch-' + ch.id);
+/** Where your own best run's ghost is kept on this device. */
+const ghostKey = (ch) => (ch.daily ? 'daily-' + ch.daily.day : ch.id);
+
+// ------------------------------------------------------------------ chutes: near misses, bushes, ghosts (chutes.js)
+/** A challenge starting in a forest: watch for near misses and bushes, record the run, and bring in the ghosts. */
+function chuteExtras(ch) {
+  dropGhosts(); R.run = null; R.ghostRec = null;
+  if (!ch) return;
+  if (world.forest) R.run = Chutes.chuteRun(world.ground, { bushes: world.forest.bushes,
+    onNear: () => { payCoins(3); showMessage('😮 CLOSE CALL! +3', 'cp', 900); R.audio?.whoosh(); },
+    onBush: () => { R.audio?.rustle(); if (R.camMode === 'first') pulse($('#fx-leaves')); } });
+  if (ch.kind === 'race' && !ch.online) { R.ghostRec = Chutes.ghostRecorder(); if (prefs.ghosts !== 'off') loadGhosts(ch); }
+}
+function pulse(el) { el.classList.remove('on'); void el.offsetWidth; el.classList.add('on'); }
+async function loadGhosts(ch) {
+  const ride = R.ride;
+  const mine = Chutes.myGhost(ghostKey(ch));
+  if (mine) addGhost(mine.data, '👻 Your best', '#7dd3ff');
+  if (!Account.user && !navigator.onLine) return;
+  try {
+    const { ghost } = await Net.request('ghost:get', { game: chuteGame(ch) });
+    if (R.ride !== ride || !ghost || (Account.user && ghost.name === Account.user.name && mine)) return;   // (your own record: already there)
+    addGhost(ghost.data, `🏆 ${ghost.name} · ${fmt(ghost.ms / 1000)}`, '#ffd34d');
+  } catch { /* offline: just your own */ }
+}
+function addGhost(data, label, color) {
+  const frames = Chutes.ghostFrames(data);
+  if (!frames || !frames.length || !world) return;
+  const model = makeBike({ ...mtbLook(), ghost: color }); if (R.board) boardify(model, color); world.scene.add(model.root);
+  const tag = nameTag(label, color); world.scene.add(tag);
+  R.ghosts.push({ frames, model, tag, ang: [0, 0] });
+}
+function dropGhosts() { for (const g of R.ghosts || []) dropOther(g); R.ghosts = []; }
+/** The ghosts ride the run as it was recorded, by the challenge's clock. */
+function drawGhosts(now, dt) {
+  const ch = R.challenge; if (!ch || !R.ghosts?.length) return;
+  const t = ch.elapsed * 1000;
+  for (const g of R.ghosts) {
+    const m = sampleBuf(g.frames, t); const end = g.frames[g.frames.length - 1].at;
+    const s = m && otherSnap(m, g);
+    // (gone a little after it finished, and out of the way when it's right on top of you)
+    const show = !!m && t < end + 1500 && (R.camMode !== 'first' || Math.hypot(s.px - R.bike.px, s.pz - R.bike.pz) > 2.2);
+    g.model.root.visible = g.tag.visible = show;
+    if (!show) continue;
+    g.ang[0] += (m.s / 3.6 / 0.35) * dt; g.ang[1] += (m.s / 3.6 / 0.34) * dt;
+    poseBike(g.model, s, placer(s), s.h, now / 1000);
+    g.tag.position.copy(g.model.root.position).add(tmpV.set(0, 2.1, 0));
+  }
+}
+
+// ------------------------------------------------------------------ Forest Tag
+/** The line under the challenge's name: who's it (and how long you've been it). */
+function tagLine() {
+  const it = state.race?.it; const mine = state.race?.itTimes?.[Net.id] ?? 0;
+  return it === Net.id ? `🏷️ YOU’RE IT! CATCH SOMEONE · YOU ${mine.toFixed(0)} S` : `🏷️ ${(playerOf(it).name || 'SOMEONE').toUpperCase()} IS IT · RUN! · YOU ${mine.toFixed(0)} S`;
+}
+/** A pink arrow over whoever is it. */
+function drawTagMarker(now) {
+  const it = R.challenge?.def.kind === 'tag' && state.race?.it;
+  const root = !it ? null : it === Net.id ? R.model?.root : R.others.get(it)?.model?.root;
+  if (!root) { if (R.tagMarker) R.tagMarker.visible = false; return; }
+  if (!R.tagMarker) {
+    R.tagMarker = new THREE.Mesh(new THREE.ConeGeometry(0.45, 0.9, 16).rotateX(Math.PI), new THREE.MeshBasicMaterial({ color: '#ff3fb8', fog: false }));
+    world.scene.add(R.tagMarker);
+  }
+  R.tagMarker.visible = true;
+  R.tagMarker.position.copy(root.position).add(tmpV.set(0, 3 + Math.sin(now / 180) * 0.25, 0));
+  R.tagMarker.rotation.y = now / 400;
+}
+function dropTagMarker() { if (R.tagMarker) { R.tagMarker.removeFromParent(); R.tagMarker.geometry.dispose(); R.tagMarker.material.dispose(); R.tagMarker = null; } }
+
+// ------------------------------------------------------------------ the Downhill World Cup (five chutes in a row)
+function startCup() {
+  R.cup = { i: 0, total: 0, times: [] };
+  cupRide();
+}
+function cupRide() {
+  const ch = CHALLENGES.find((c) => c.id === Chutes.CUP[R.cup.i]);
+  if (!ch) { R.cup = null; quit(); return; }
+  startChallengeSolo(ch, true);
+}
+/** A chute of the cup done: time (s), or null if you ran out of time (that's the end of the cup). */
+function cupNext(time) {
+  const cup = R.cup; const n = Chutes.CUP.length; const ch = CHALLENGES.find((c) => c.id === Chutes.CUP[cup.i]);
+  const btn = (label, onClick, key) => h('button', { class: 'mx-go slim', type: 'button', onclick: onClick }, h('b', {}, label), key ? h('span', { class: 'mx-key' }, key) : null);
+  R.onEnter = null;
+  if (time == null) {
+    R.cup = null; R.onEnter = startCup;
+    fill($('#hud-center'), h('div', { class: 'mx-card' }, h('div', { class: 'mx-medal' }, '🏆'), h('h2', {}, 'Out of the World Cup'), h('p', { class: 'muted' }, `You ran out of time in ${ch.name} (chute ${cup.i + 1} of ${n}).`),
+      h('div', { class: 'btns' }, btn('🔁 Start again', startCup, 'ENTER'), btn('Menu', quit, 'ESC'))));
+    return;
+  }
+  cup.total += time; cup.times.push(time); cup.i++;
+  if (cup.i < n) {
+    const next = CHALLENGES.find((c) => c.id === Chutes.CUP[cup.i]); R.onEnter = cupRide;
+    fill($('#hud-center'), h('div', { class: 'mx-card' }, h('div', { class: 'mx-medal' }, '🏆'), h('h2', {}, `Chute ${cup.i} of ${n} done`), h('div', { class: 'mx-big' }, fmt(cup.total)),
+      h('p', { class: 'muted' }, `${ch.name}: ${fmt(time)}. Next: ${next.emoji} ${next.name}`),
+      h('div', { class: 'btns' }, btn('Next chute', cupRide, 'ENTER'), btn('Menu', () => { R.cup = null; quit(); }, 'ESC'))));
+    return;
+  }
+  R.cup = null; R.onEnter = startCup;
+  const ms = Math.round(cup.total * 1000); const best = store.get('moto_cup_best', null); const better = !best || ms < best;
+  if (better) store.set('moto_cup_best', ms);
+  payCoins(better ? 400 : 250); UI.confetti(260);
+  Account.submit('mch-cup', ms);
+  fill($('#hud-center'), h('div', { class: 'mx-card' }, h('div', { class: 'mx-medal' }, '🏆'), h('h2', {}, 'World Cup finished!'), h('div', { class: 'mx-big' }, fmt(cup.total)),
+    h('p', { class: 'muted' }, better ? (best ? `🎉 New best! (was ${fmt(best / 1000)})` : 'Your first World Cup!') : `Your best: ${fmt(best / 1000)}`),
+    h('p', { class: 'small muted' }, cup.times.map((t, i) => `${CHALLENGES.find((c) => c.id === Chutes.CUP[i]).emoji} ${fmt(t)}`).join('  ·  ')),
+    h('p', { class: 'small muted' }, `+${better ? 400 : 250} 🪙`),
+    h('div', { class: 'btns' }, btn('🔁 Again', startCup, 'ENTER'), btn('Menu', quit, 'ESC'))));
+}
+function startChallengeSolo(ch, cup = false) {
+  if (!cup) R.cup = null;   // (riding anything else ends a World Cup)
+  if (ch.daily) { const entry = WORLDS.find((w) => w.id === ch.daily.look); if (entry) startFree(entry, { challenge: ch, daily: ch.daily }); return; }
   const entry = WORLDS.find((w) => w.id === ch.world);
   if (entry) startFree(entry, { challenge: ch });
 }
@@ -994,12 +1186,13 @@ function stageTrack(id) {
 }
 /** Menus with just you: your bike (or the paint job you're looking at in the garage). */
 function stageSolo(livery, screen) {
-  const mtb = /^mtb/.test(screen || '');   // (Unrevvd's screens: your mountain bike)
-  const shot = mtb ? screen.slice(3) : screen;
+  const snow = /^snow/.test(screen || '');   // (Carvvd's screens: you on your snowboard, on the snow track)
+  const mtb = snow || /^mtb/.test(screen || '');   // (Unrevvd's screens: your mountain bike)
+  const shot = snow ? screen.slice(4) : mtb ? screen.slice(3) : screen;
   stage.shot = SHOTS[shot] ? shot : 'home';
-  stage.list = [{ id: 'me', look: mtb ? mtbLook() : { ...myLook(), ...(livery ? { livery } : {}) } }];
+  stage.list = [{ id: 'me', look: snow ? { ...mtbLook(), board: boardColor() } : mtb ? mtbLook() : { ...myLook(), ...(livery ? { livery } : {}) } }];
   if (mtb) preloadBike(prefs.mtbModel).then(() => placeStage());
-  stageTrack(prefs.track);
+  stageTrack(snow ? 'snow' : prefs.track);
 }
 /** In a room: everyone's bike in the start gate, with name tags (✔ = ready). */
 function stageRoom() {
@@ -1027,7 +1220,7 @@ function placeStage() {
     if (!sb) { sb = { id: e.id, model: null, tag: null, tagKey: '' }; stage.bikes.set(e.id, sb); }
     const lookKey = JSON.stringify(e.look) + bikesLoaded();
     if (sb.model && sb.lookKey !== lookKey) { disposeBike(sb.model); sb.model = null; }
-    if (!sb.model) { sb.model = makeBike(e.look); sb.lookKey = lookKey; }
+    if (!sb.model) { sb.model = makeBike(e.look); if (e.look.board) boardify(sb.model, e.look.board); sb.lookKey = lookKey; }
     if (sb.model.root.parent !== world.scene) world.scene.add(sb.model.root);
     sb.model.root.visible = true;
     const b = C.newBike(T, T.start, stage.list.length > 1 ? LANES[i] : 0);
@@ -1139,7 +1332,8 @@ addEventListener('keydown', (e) => {
   else if (e.code === 'KeyC' && !e.repeat) camBtn.click();
   else if (e.code === 'KeyM' && !e.repeat) map.open();   // (mute is the 🔊 button while riding)
   else if (e.code === 'Enter' && R.mode === 'solo' && (R.finished || performance.now() > R.goAt)) startSolo(R.def);
-  else if (e.code === 'Enter' && R.challenge && R.challenge.done && !R.challenge.online) startChallengeSolo(R.challenge.def);
+  else if (e.code === 'Enter' && R.challenge && R.challenge.done && !R.challenge.online) { if (R.onEnter) R.onEnter(); else startChallengeSolo(R.challenge.def); }
+  else if ((e.code === 'ArrowLeft' || e.code === 'ArrowRight') && R.spectate && !e.repeat) switchWatch(e.code === 'ArrowRight' ? 1 : -1);
 });
 addEventListener('keyup', (e) => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k of Object.keys(keys)) keys[k] = false; });
@@ -1185,6 +1379,7 @@ function addOtherModel(o) {
   o.lane = laneFor(o.id);
   const st = state.styles[o.id] || {};
   o.model = makeBike({ ...st, ...(R.mtb ? { model: MTB_MODELS[st.mtb] ? st.mtb : 'dh' } : {}), ghost: o.color });   // (an Unrevvd challenge: everyone's on a mountain bike)
+  if (R.board) boardify(o.model, o.color);   // (everyone in a Carvvd challenge is on a board)
   world.scene.add(o.model.root);
   o.tag = nameTag(o.name, o.color);
   world.scene.add(o.tag);
@@ -1242,9 +1437,10 @@ function otherSnap(m, o) {
   };
 }
 const DELAY = 130;   // draw the others a moment in the past, so there are always two messages to blend between
-function sampleOther(o, now) {
-  const buf = o.buf; if (!buf.length) return null;
-  const t = now - DELAY;
+function sampleOther(o, now) { return sampleBuf(o.buf, now - DELAY); }
+/** A position message at time t (ms), blended between the two around it in buf ([{at, ...}], oldest first). */
+function sampleBuf(buf, t) {
+  if (!buf.length) return null;
   let i = buf.length - 1;
   while (i > 0 && buf[i - 1].at > t) i--;
   const b = buf[i]; const a = buf[Math.max(0, i - 1)];
@@ -1255,6 +1451,21 @@ function sampleOther(o, now) {
   for (const f of ['x', 'y', 'rx', 'ry', 'c0', 'c1', 'c2', 'c3', 'st', 'l', 's', 'px', 'pz', 'ro', 'tp', 'wh']) out[f] = L(a[f] || 0, b[f] || 0);
   out.a = lerpA(a.a, b.a, k); out.h = lerpA(a.h, b.h, k);
   return out;
+}
+/** Watching the others (after you finish, or a race you joined late): the one picked with ← → (the leader at first). */
+function watching(leader) {
+  const o = R.watchId && R.others.get(R.watchId);
+  return o && o.snap && o.model?.root.visible ? o : leader && leader.snap ? leader : null;
+}
+function switchWatch(dir) {
+  const list = [...R.others.values()].filter((o) => o.snap && o.model);
+  if (!list.length) return;
+  const i = list.findIndex((o) => o.id === R.watchId);
+  R.watchId = list[((i < 0 ? 0 : i + dir) + list.length) % list.length].id; R.cam.init = false;
+}
+function watchLine() {
+  const o = R.watchId && R.others.get(R.watchId);
+  return `WATCHING ${o ? o.name.toUpperCase() : 'THE LEADER'} · ← → SWITCH · C CAMERA`;
 }
 function drawOthers(now, dt) {
   if (!online() || !world) return null;
@@ -1287,6 +1498,10 @@ function sendPos(force) {
   const b = R.bike;
   if (!b || R.spectate || (R.finished && !force) || !state.race) return;
   R.sentAt = performance.now();
+  Net.send('g:pos', posMsg(b));
+}
+/** Your bike's position message (what the others, and a ghost, need to draw it). */
+function posMsg(b) {
   const r2 = (v) => Math.round(v * 1000) / 1000;
   // x = how far along the track (for the order), px/pz/h = where you are and which way you point,
   // the rest is the bike's pose in its upright plane (relative to the frame)
@@ -1296,7 +1511,7 @@ function sendPos(force) {
   if (R.car) Object.assign(msg, { v: 1, ro: r2(b.roll), st: r2(b.steer), c0: r2(b.comp[0]), c1: r2(b.comp[1]), c2: r2(b.comp[2]), c3: r2(b.comp[3]) });   // (the supercar)
   else if (R.mtb) msg.v = 2;   // (a mountain bike)
   if (b.crashed && b.rider) msg.rg = [r2(b.rider.hip.x - b.x), r2(b.rider.hip.y), r2(b.rider.head.x - b.x), r2(b.rider.head.y)];
-  Net.send('g:pos', msg);
+  return msg;
 }
 function standings() {
   if (!state.race) return [];
@@ -1309,7 +1524,8 @@ function standings() {
       const at = me && R.bike ? [R.bike.px, R.bike.pz] : last ? [last.px, last.pz] : null;
       const score = me ? R.challenge.score : r.score ?? 0;
       return { id, done: r.done, place: r.place, x: f ? (at ? -Math.hypot(at[0] - f[0], at[1] - f[1]) : -1e9) : score, score };
-    }).sort((p, q) => (race.kind === 'race' ? (p.done !== q.done ? (p.done ? -1 : 1) : p.done ? p.place - q.place : q.x - p.x) : q.score - p.score));
+    }).map((r) => (race.kind === 'tag' ? { ...r, score: race.itTimes?.[r.id] ?? 0 } : r))
+      .sort((p, q) => (race.kind === 'race' ? (p.done !== q.done ? (p.done ? -1 : 1) : p.done ? p.place - q.place : q.x - p.x) : race.kind === 'tag' ? p.score - q.score : q.score - p.score));
   }
   return Object.entries(state.race.runners).map(([id, r]) => {
     const x = id === Net.id && R.bike ? R.bike.s : (R.others.get(id) || {}).x ?? r.x;
@@ -1323,7 +1539,7 @@ function drawBoard() {
     const p = playerOf(r.id);
     const o = R.others.get(r.id);
     const k = state.race && state.race.challenge && state.race.kind;
-    const extra = k && k !== 'race' ? (r.score ? ` · ${fmtScore(k, r.score)}` : '') : r.done ? ' 🏁' : '';   // (timed challenges: everyone's best so far)
+    const extra = k === 'tag' ? (state.race.it === r.id ? ' · 🏷️ IT' : ` · ${fmtScore(k, r.score)}`) : k && k !== 'race' ? (r.score ? ` · ${fmtScore(k, r.score)}` : '') : r.done ? ' 🏁' : '';   // (timed challenges: everyone's best so far)
     return h('div', { class: r.id === Net.id ? 'me' : '' }, h('i', { style: { background: (o && o.color) || p.color || '#888' } }), R.freeOnline ? p.name : `${i + 1}. ${p.name}`, extra);
   }));
 }
@@ -1411,6 +1627,14 @@ Net.on('g:finish', (m) => {
     fill($('#hud-center'), h('div', { class: 'mx-card' }, h('h2', {}, nth), h('div', { class: 'mx-big' }, fmt(m.time / 1000)), h('p', { class: 'muted' }, 'Waiting for the others…')));
   } else UI.toast(`🏁 ${playerOf(m.id).name} finished ${m.place === 1 ? 'first!' : `#${m.place}`}`, m.place === 1 ? 'good' : '', 2200);
 });
+Net.on('g:tag', (m) => {
+  if (!state.race) return;
+  state.race.it = m.it; state.race.itTimes = m.itTimes;
+  if (!R.running || !R.challenge) return;
+  if (m.it === Net.id) { showMessage('🏷️ YOU’RE IT!', 'bad', 1600); R.audio?.crash(); }
+  else if (m.by === Net.id) { showMessage('TAGGED! 🏷️ RUN!', 'cp', 1400); R.audio?.chime(); }
+  else showMessage(`🏷️ ${playerOf(m.it).name} is it`, 'small', 1200);
+});
 Net.on('g:hurry', (m) => { if (R.running && !R.finished && !R.spectate) showMessage(`Someone finished! ${m.seconds}s left`, 'bad', 3000); });
 Net.on('g:toast', (m) => UI.toast(m.text, 'bad', 3500));
 /** How a results row's score reads: a time, or a challenge score with its unit. */
@@ -1448,7 +1672,7 @@ async function init() {
     get unlocked() { return unlocked; }, get bikeList() { return bikeList; }, bikeHints, myLivery, chooseLivery,
     chat: chatEl,
     startSolo,startFree,get worlds(){return WORLDS.filter((w)=>!w.hidden);},get allWorlds(){return WORLDS;},   // (a hidden world is only for its challenge)
-    get challenges() { return CHALLENGES; }, challengeBest, fmtScore, startChallengeSolo, challengeFriends: (c) => { pendingChallenge = c.id; }, Coins,
+    get challenges() { return CHALLENGES; }, challengeBest, fmtScore, startChallengeSolo, Chutes, startCup, challengeFriends: (c) => { pendingChallenge = c.id; }, Coins,
     watchRace: () => { if (state.race) startRace(state.race, 0, true); },
     MODELS, RIDERS, KITS, HELMETS, get style() { return prefs.style; }, setStyle,
     setCam: (k) => { prefs.cam = R.camMode = k; savePrefs(); },
@@ -1458,7 +1682,7 @@ async function init() {
     setCarModel: (k) => { prefs.carModel = k; savePrefs(); Sfx.play('click'); preloadCar(k); if (inRoom()) Net.send('g:style', { style: netStyle() }); },
     setCarPaint: (k) => { prefs.carPaint = k; savePrefs(); Sfx.play('click'); if (inRoom()) Net.send('g:style', { style: netStyle() }); },
     rideWithFriends: (w, vehicle) => { pendingFree = w.id; if (vehicle) { prefs.vehicle = vehicle; savePrefs(); } },
-    MTB_MODELS, setMtbModel, startMtbFree: (w) => startFree(w, { mtb: true }),
+    MTB_MODELS, setMtbModel, startMtbFree: (w) => startFree(w, { mtb: true }), BOARDS, startBoardFree: (w) => startFree(w, { board: true }),
     setQuality: (k) => { prefs.quality = k; savePrefs(); worldKey = null; resize(); if (stage.trackId) stageTrack(stage.trackId); },
     stage: { solo: stageSolo, room: stageRoom },
   });
@@ -1472,7 +1696,7 @@ async function init() {
   Lobby.ChatBox(chatEl, { title: '' });
   chatEl.prepend(h('div', { class: 'mx-h' }, 'Chat'));
   if (qs.get('room')) menus.show('joining');   // (the lobby is joining it)
-  else if(qs.get('free')){const mtb=qs.get('mtb')==='1';menus.show(mtb?'mtbworlds':'worlds');const w=WORLDS.find(w=>w.id===qs.get('world')&&!w.hidden);if(w){await loadUnlocks();startFree(w,{mtb});}}
+  else if(qs.get('free')){const mtb=qs.get('mtb')==='1',board=qs.get('board')==='1';menus.show(board?'snow':mtb?'mtbworlds':'worlds');const w=WORLDS.find(w=>w.id===qs.get('world')&&!w.hidden);if(w){await loadUnlocks();startFree(w,{mtb,board});}}
   else if (qs.get('solo')) {
     const t = qs.get('track') && DATA.tracks.find((x) => x.id === qs.get('track'));
     menus.show('tracks');
@@ -1484,7 +1708,7 @@ async function init() {
   if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {   // testing on your own computer only
     // (the browser pane used for testing barely runs animation frames, so tests drive the game by hand)
     let fake = 0;
-    window.__moto = { R, C, keys, touch, startSolo, trackDef, stage, get menus() { return menus; }, get world() { return world; }, get renderer() { return renderer; }, get camera() { return camera; },
+    window.__moto = { R, C, keys, touch, startSolo, trackDef, stage, get state() { return state; }, get menus() { return menus; }, get world() { return world; }, get renderer() { return renderer; }, get camera() { return camera; },
       /** Draw one frame of the menu scene (the test pane hardly runs animation frames). */
       drawMenu(dt = 1 / 60) { if (world && !riding) stageFrame(performance.now(), dt); },
       /** Run the game for `seconds` of game time with these controls held, then draw one frame. */

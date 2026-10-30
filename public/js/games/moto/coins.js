@@ -2,6 +2,7 @@
    flips, mini races and challenges) and spent on engine upgrades that only work in free ride. Races and
    challenges always use the stock engine, so they stay fair. Kept in this browser, like free-ride records.
    Unrevvd (the mountain bikes) has its own coins and its own upgrades, in a wallet of their own (MTB). */
+import { goldAll } from './chutes.js';
 const { store } = PA;
 
 /** Free-ride engines. stats multiply the free-ride bike's power, drag, turbo power, turbo recharge and gearing
@@ -58,6 +59,8 @@ function makeWallet(key, items) {
       return { ok: true };
     },
     equip(id) { const w = read(); if (!w.owned.includes(id)) return false; w.engine = id; write(w); return true; },
+    /** Pay n coins for something else (gear): false if there aren't enough. */
+    spend(n) { const w = read(); if (w.coins < n) return false; w.coins -= n; write(w); return true; },
     /** The upgrade in use (or the one with this id). */
     current: (id = read().engine) => items.find((e) => e.id === id) || items[0],
   };
@@ -65,6 +68,49 @@ function makeWallet(key, items) {
 
 const MOTO = makeWallet('moto_coins_v1', ENGINES);
 export const MTB = makeWallet('mtb_coins_v1', MTB_PARTS);
+
+/** Unrevvd gear for the chutes, bought with Unrevvd coins. It doesn't make you any faster, so it works in challenges
+    too. Lamps light the night (i: brightness, angle: how wide, dist: how far); helmet cams change how first person
+    looks (fov: a wider view). lock: () => why you can't have it yet (or null). */
+export const LAMPS = [
+  { id: 'stock', name: 'Stock lamp', emoji: '🔦', price: 0, about: 'A small lamp on the bars', lamp: { i: 260, angle: 0.52, dist: 85 } },
+  { id: 'led', name: 'LED lamp', emoji: '💡', price: 300, about: 'Brighter, and it reaches further', lamp: { i: 430, angle: 0.56, dist: 115 } },
+  { id: 'flood', name: 'Flood light', emoji: '🌕', price: 700, about: 'A much wider beam: you see the trees beside you too', lamp: { i: 400, angle: 0.86, dist: 95 } },
+  { id: 'dual', name: 'Dual beam', emoji: '🚨', price: 1500, about: 'Two pro lamps: bright, wide and far', lamp: { i: 680, angle: 0.76, dist: 145 } },
+];
+export const CAMS = [
+  { id: 'stock', name: 'Bare eyes', emoji: '👀', price: 0, about: 'Just you and the trees', cam: '', fov: 0 },
+  { id: 'visor', name: 'Tinted visor', emoji: '🟠', price: 200, about: 'An orange visor: warmer light, darker edges', cam: 'visor', fov: 0 },
+  { id: 'goggles', name: 'Goggles', emoji: '🥽', price: 400, about: 'Proper MTB goggles, frame and all', cam: 'goggles', fov: 0 },
+  { id: 'gopro', name: 'Action cam', emoji: '📹', price: 800, about: 'A wide fisheye view and a REC light, like a real helmet cam', cam: 'gopro', fov: 16 },
+  { id: 'gold', name: 'Golden visor', emoji: '🏅', price: 0, about: 'For gold medals on the Timber, Frozen and Night Runs', cam: 'gold', fov: 0, lock: () => (goldAll() ? null : '🔒 3 golds') },
+];
+/** Gear bought with another wallet's coins (bank): the same shape as a wallet (owned, the one in use). */
+function makeGear(key, items, bank) {
+  function read() {
+    const w = store.get(key, null) || {};
+    const owned = Array.isArray(w.owned) ? w.owned.filter((id) => items.some((e) => e.id === id)) : [];
+    for (const e of items) if (!e.price && !owned.includes(e.id) && !(e.lock && e.lock())) owned.push(e.id);   // (the free ones, once they're unlocked)
+    return { coins: bank.wallet().coins, owned, engine: owned.includes(w.engine) ? w.engine : 'stock' };
+  }
+  const write = (w) => store.set(key, { owned: w.owned, engine: w.engine });
+  return {
+    items,
+    wallet: () => read(),
+    buy(id) {
+      const e = items.find((x) => x.id === id); const w = read();
+      if (!e || w.owned.includes(id)) return { ok: false, error: 'You already have that' };
+      if (e.lock && e.lock()) return { ok: false, error: 'Win it first' };
+      if (!bank.spend(e.price)) return { ok: false, error: `You need ${(e.price - w.coins).toLocaleString('en-US')} more coins` };
+      w.owned.push(id); w.engine = id; write(w);
+      return { ok: true };
+    },
+    equip(id) { const w = read(); if (!w.owned.includes(id)) return false; w.engine = id; write(w); return true; },
+    current: (id = read().engine) => items.find((e) => e.id === id) || items[0],
+  };
+}
+export const LAMP = makeGear('mtb_lamp_v1', LAMPS, MTB);
+export const CAM = makeGear('mtb_cam_v1', CAMS, MTB);
 export const wallet = MOTO.wallet;
 export const onWallet = MOTO.onWallet;
 export const earn = MOTO.earn;

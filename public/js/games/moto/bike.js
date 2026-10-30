@@ -830,6 +830,42 @@ const poleLeg = [V(1, 0.15, -0.35), V(1, 0.15, 0.35)];
     (positions in the side-on plane), place(x, y, out) turns a plane point into world space (its lane is built in),
     heading: the track's direction there. */
 const grips = V(0, 0); const pegs = [V(0, 0), V(0, 0)];
+/** Turn a mountain bike model into a snowboard: the bike is hidden, a board goes under the rider's feet, and the rider
+    stands sideways on it (the rider group turned a quarter turn, so their feet are along the board and their arms
+    out for balance), a little lower than on a bike. Call poseBoard after poseBike each frame. */
+export function boardify(m, color = '#2a7fff') {
+  for (const c of m.root.children) if (c !== m.rider) c.visible = false;
+  const top = new THREE.Color(color);
+  const geo = new RoundedBoxGeometry(1.5, 0.035, 0.3, 3, 0.012);
+  // (turned-up tips: the ends of the board lifted)
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) { const x = pos.getX(i); const e = Math.max(0, Math.abs(x) - 0.55); pos.setY(i, pos.getY(i) + e * e * 0.9); }
+  geo.computeVertexNormals();
+  const mat = m.ghost ? m.materials.plastic : new THREE.MeshStandardMaterial({ color: top, roughness: 0.35, metalness: 0.15 });
+  const board = new THREE.Mesh(geo, mat); board.castShadow = !m.ghost;
+  for (const x of [-0.24, 0.24]) {   // (the bindings)
+    const b = new THREE.Mesh(new RoundedBoxGeometry(0.16, 0.06, 0.24, 2, 0.02), m.ghost ? mat : new THREE.MeshStandardMaterial({ color: '#1b1f27', roughness: 0.6 }));
+    b.position.set(x, 0.04, 0); board.add(b);
+  }
+  m.root.add(board);
+  m.board = board; m.pedal = null; m.stance = 0.26; m.steers = false;
+  m.rider.rotation.y = -Math.PI / 2; m.rider.position.y = -0.3;
+  m.pegs = new THREE.Vector3(0, 0, 0); m.grips = new THREE.Vector3(0.18, 0.45, 0);
+  return m;
+}
+/** The board under the wheels' contact points (the physics still rides on two wheels), and the rider's feet on it. */
+export function poseBoard(m) {
+  if (!m.board) return;
+  const f = m.frontWheel.position; const r = m.rearWheel.position;
+  m.board.position.set((f.x + r.x) / 2, (f.y + r.y) / 2 - 0.32, 0);
+  m.board.rotation.z = Math.atan2(f.y - r.y, f.x - r.x);
+  // (the feet in the rider's own frame: the rider group is lowered 0.3 and scaled by k, and turned so its sideways is
+  // along the board; poseBike divides the grips by k itself)
+  const k = m.rider.scale.x; const y = m.board.position.y + 0.3;
+  m.pegs.set(0, (y + 0.05) / k, 0);
+  m.grips.set(0.2, y + 1.0, 0);
+}
+
 export function poseBike(m, s, place, heading, t) {
   const root = m.root;
   place(s.x, s.y, root.position);
@@ -870,6 +906,7 @@ export function poseBike(m, s, place, heading, t) {
   m.flame.visible = m.flame2.visible = !!s.boost;
   if (s.boost) { const f = 0.8 + Math.sin(t * 60) * 0.15 + Math.random() * 0.15; m.flame.scale.set(1, f, 1); m.flame2.scale.set(1, f * 0.9, 1); }
 
+  if (m.board) poseBoard(m);   // (a snowboard: the board, and where the feet go)
   // the rider (on a bicycle the rider is drawn bigger: points on the bike are divided by k to get the rider's own)
   const P = m.parts; const fig = m.fig; const k = m.rider.scale.x; const pd = m.pedal;
   if (pd) {
@@ -938,7 +975,7 @@ export function poseBike(m, s, place, heading, t) {
     }
     // legs: hip → knee (forward, gripping the bike) → ankle over the peg
     tB.set(hipC.x, hipC.y - 0.03, z * 0.1);
-    const peg = pegs[i]; const fz = pd ? 0.13 : 0.2;   // (a bicycle's pedals are closer together than footpegs)
+    const peg = pegs[i]; const fz = m.stance || (pd ? 0.13 : 0.2);   // (a bicycle's pedals are closer together than footpegs; a snowboarder's feet further apart)
     tD.set(peg.x - 0.02, peg.y + 0.12, z * fz);
     const foot = tk && (tk.feet || (i === 0 ? tk.foot : null));
     if (foot) tD.lerp(tA.set(foot[0], foot[1], foot[2] * (tk.feet ? z : 1)), tp);

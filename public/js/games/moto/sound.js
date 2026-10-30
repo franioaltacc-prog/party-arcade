@@ -109,7 +109,8 @@ export function createAudio({ pedal = false } = {}) {
     tick = { o, g, stop() { try { o.stop(); } catch { /* done */ } } };
   }
   const others = new Map();
-  let lastSpeed=0,load=0;
+  const rain = makeLoop(ctx, master, 'highpass', 1400, 0.4);   // (a storm: only heard when it's raining)
+  let lastSpeed=0,load=0,beatAt=0;
   const shot = (fn) => { if (!Sfx.muted) { try { fn(); } catch { /* audio unavailable */ } } };
   function thud(strength) {
     const t = ctx.currentTime;
@@ -153,6 +154,41 @@ export function createAudio({ pedal = false } = {}) {
         e.set(o.rpm, o.thr, false, level, Math.max(-0.8, Math.min(0.8, o.lane * 0.2 - o.dist * 0.01)));
       }
     },
+    /** Your heart, beating faster and louder the closer you ride to a tree (danger 0..1: 0 = quiet). */
+    heartbeat(danger) {
+      const t = ctx.currentTime;
+      if (danger < 0.05 || Sfx.muted || t < beatAt) return;
+      beatAt = t + 0.75 - danger * 0.4;
+      for (const [dt, v] of [[0, 1], [0.16, 0.7]]) {
+        const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(62, t + dt); o.frequency.exponentialRampToValueAtTime(38, t + dt + 0.14);
+        const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t + dt); g.gain.exponentialRampToValueAtTime(0.5 * v * danger, t + dt + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + dt + 0.16);
+        o.connect(g).connect(master); o.start(t + dt); o.stop(t + dt + 0.18);
+      }
+    },
+    /** Leaves brushing past: riding through a bush. */
+    rustle() { shot(() => { Sfx.noise(0.35, 0.16, 0.01, 3200); Sfx.noise(0.25, 0.08, 0.12, 5200); }); },
+    /** A tree flashing past, close: a near miss. */
+    whoosh() {
+      shot(() => {
+        const t = ctx.currentTime; const n = ctx.createBufferSource(); n.buffer = noiseBuffer(ctx, 0.4);
+        const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 2; f.frequency.setValueAtTime(500, t); f.frequency.exponentialRampToValueAtTime(2400, t + 0.12); f.frequency.exponentialRampToValueAtTime(400, t + 0.35);
+        const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.35, t + 0.1); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.38);
+        n.connect(f).connect(g).connect(master); n.start(t);
+      });
+    },
+    /** A lantern picked up (a bright two-note chime). */
+    chime() { shot(() => { Sfx.tone(1318, 0.18, 'sine', 0.08); Sfx.tone(1976, 0.3, 'sine', 0.07, 0, 0.08); }); },
+    /** Rain on the leaves (0..1). */
+    rain(v) { rain.set(Sfx.muted ? 0 : v * 0.12, 1400 + v * 800); },
+    /** Thunder, after the flash (far: 0 close .. 1 far: quieter and later). */
+    thunder(far = 0.5) {
+      shot(() => {
+        const t = ctx.currentTime + 0.3 + far * 2.2; const n = ctx.createBufferSource(); n.buffer = noiseBuffer(ctx, 3);
+        const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(420 - far * 200, t); f.frequency.exponentialRampToValueAtTime(70, t + 2.6);
+        const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.9 - far * 0.5, t + 0.08); g.gain.exponentialRampToValueAtTime(0.0001, t + 2.8);
+        n.connect(f).connect(g).connect(master); n.start(t);
+      });
+    },
     land(strength) { shot(() => thud(strength)); },
     crash() { shot(() => { thud(1.2); Sfx.noise(0.5, 0.25, 0.02, 600); Sfx.tone(180, 0.18, 'square', 0.04, -120, 0.05); }); },
     checkpoint() { shot(() => { Sfx.tone(988, 0.1, 'triangle', 0.08); Sfx.tone(1480, 0.22, 'triangle', 0.08, 0, 0.09); }); },
@@ -160,7 +196,7 @@ export function createAudio({ pedal = false } = {}) {
     beep(go) { shot(() => Sfx.tone(go ? 880 : 440, go ? 0.45 : 0.18, 'square', 0.06)); },
     gate() { shot(() => { Sfx.noise(0.12, 0.2, 0, 1200); Sfx.tone(300, 0.08, 'square', 0.05, -100); }); },
     stop() {
-      engine.stop(); wind.stop(); scrub.stop(); nitro.stop(); if (tyres) tyres.stop(); if (tick) tick.stop();
+      engine.stop(); wind.stop(); scrub.stop(); nitro.stop(); rain.stop(); if (tyres) tyres.stop(); if (tick) tick.stop();
       for (const e of others.values()) e.stop();
       others.clear();
       setTimeout(() => { try { master.disconnect(); } catch { /* gone */ } }, 600);

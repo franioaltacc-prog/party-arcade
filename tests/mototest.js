@@ -173,7 +173,7 @@ const flat = C.build({ id: 'flat', name: 'Flat', course: ['flat 20', 'start', 'f
 // Free-ride engine upgrades (bought with coins): each is faster, the shop's top speeds are true, and
 // a track with no engine (races, challenges) is the stock bike.
 {
- const ENGINES=Function(readFile('public/js/games/moto/coins.js').replace('const { store } = PA;','const store={get(){return null;},set(){}};').replace(/export /g,'')+'; return ENGINES;')();
+ const ENGINES=Function(readFile('public/js/games/moto/coins.js').replace(/^import .*$/m,'const goldAll=()=>false;').replace('const { store } = PA;','const store={get(){return null;},set(){}};').replace(/export /g,'')+'; return ENGINES;')();
  const pad={position:[0,0],heading:Math.PI/2};
  const flat={heightAt:()=>0,normalAt:()=>({x:0,y:1,z:0}),surfaceAt:()=>({kind:'trail',grip:.96,roll:.01}),inBounds:()=>true,nearestSafePad:()=>pad};
  let last=0,ok=true,why='';
@@ -191,7 +191,7 @@ const flat = C.build({ id: 'flat', name: 'Flat', course: ['flat 20', 'start', 'f
 // hills slowly, coasts much faster downhill, wheelies when you lean back, stops without going over the bars, and each
 // upgrade's listed speed is true.
 {
- const PARTS=Function(readFile('public/js/games/moto/coins.js').replace('const { store } = PA;','const store={get(){return null;},set(){}};').replace(/export /g,'')+'; return MTB_PARTS;')();
+ const PARTS=Function(readFile('public/js/games/moto/coins.js').replace(/^import .*$/m,'const goldAll=()=>false;').replace('const { store } = PA;','const store={get(){return null;},set(){}};').replace(/export /g,'')+'; return MTB_PARTS;')();
  const pad={position:[0,0],heading:Math.PI/2};
  const slope=(g)=>({heightAt:(x)=>x*g,normalAt:()=>{const n=Math.hypot(g,1);return{x:-g/n,y:1/n,z:0};},surfaceAt:()=>({kind:'trail',grip:.96,roll:.01}),inBounds:()=>true,nearestSafePad:()=>pad});
  const ride=(g,inp,secs,stats={})=>{const T=C.groundTrack(slope(g),pad,null,stats),b=C.newBike(T);let crashed=false;for(let i=0;i<120*secs;i++){C.step(T,b,inp);if(b.crashed)crashed=true;}return{kmh:Math.hypot(b.vx,b.vy)*3.6,b,crashed};};

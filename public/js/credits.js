@@ -45,7 +45,7 @@
     ['💛', '“Lamborghini Aventador” by Arion Digital (CC BY 4.0, Sketchfab)', 'the Aventador supercar in Revvd free ride'],
     ['🚵', '“Low- Poly Bicycle # 5” by Sidra (CC BY 4.0, Sketchfab)', 'the Downhill Pro mountain bike in Unrevvd (split into moving parts)'],
     ['🌲', '“MTB Mongoose Tyax” by Saushkin (CC BY 4.0, Sketchfab)', 'the Trail Hardtail mountain bike in Unrevvd (split into moving parts, made lighter for the web)'],
-    ['🌲', 'ez-tree by Daniel Greenheck (MIT)', 'the pine trees and bushes in the Timber, Frost and Midnight Chutes (made with it, with its bark, needle and leaf textures)'],
+    ['🌲', 'ez-tree by Daniel Greenheck (MIT)', 'the pine trees, aspens and bushes in the chutes (made with it, with its bark, needle and leaf textures)'],
     ['🪨', '“Rock Moss Set 01” and “02” by Kless Gyzen (CC0, Poly Haven)', 'the mossy rocks in the Timber Chute (made lighter for the web)'],
     ['🪵', '“Tree Stump 01”, “Tree Stump 02” and “Dead Tree Trunk” by Rob Tuytel, “Fern 02” by Rob Tuytel and Rico Cilliers, “Dry Branches Medium 01” by Rico Cilliers (CC0, Poly Haven)', 'the stumps, fallen logs, ferns and dry branches in the chutes'],
     ['🏮', '“Wooden Lantern 01” by James Ray Cock (CC0, Poly Haven)', 'the lanterns in the Midnight Chute'],

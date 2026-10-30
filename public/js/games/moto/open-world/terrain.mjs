@@ -142,7 +142,8 @@ export function buildTerrain(world) {
   for(let tries=0;g.trees.length<(gs.trees||0)&&tries<gs.trees*40;tries++) {
    const along=r()*L,across=(r()*2-1)*(half+fringe),[x,z]=at(along,across);
    if(clearStart(along,across)||!ok(x,z,6)||!free(x,z,gap))continue;
-   const sc=.75+r()*.4; g.trees.push({x,z,s:sc,r:.42*sc,tall:16,rot:r()*6.28,k:Math.floor(r()*3)});   // (r: the trunk)
+   const sc=.75+r()*.4,aspen=gs.aspens&&r()<gs.aspens;   // (aspens: "aspens" is their share; slimmer trunks)
+   g.trees.push({x,z,s:sc,r:(aspen?.22:.42)*sc,tall:16,rot:r()*6.28,k:Math.floor(r()*3),...(aspen?{sp:'aspen'}:{})});   // (r: the trunk)
   }
   for(let tries=0;g.rocks.length<(gs.rocks||0)&&tries<gs.rocks*40;tries++) {
    const along=30+r()*(L-30),across=(r()*2-1)*(half+fringe*.5),[x,z]=at(along,across);
@@ -373,6 +374,13 @@ export function buildTerrain(world) {
   if(solidGrid.size) for(const o of solidGrid.get(Math.floor(x/20)+','+Math.floor(z/20))||[]) if(Math.hypot(x-o.x,z-o.z)<o.r) return {...o,top:(o.top??=heightAt(o.x,o.z)+o.tall)};
   return null;
  }
+ /** The solid things (trees, rocks, stumps, logs) whose middles are within range metres of (x, z). */
+ function obstaclesNear(x,z,range){
+  const out=[];if(!solidGrid.size)return out;const seen=new Set();
+  for(let gx=Math.floor((x-range)/20);gx<=Math.floor((x+range)/20);gx++)for(let gz=Math.floor((z-range)/20);gz<=Math.floor((z+range)/20);gz++)
+   for(const o of solidGrid.get(gx+','+gz)||[])if(!seen.has(o)&&Math.hypot(x-o.x,z-o.z)<range){seen.add(o);out.push(o);}
+  return out;
+ }
 
  /** Water's edge: the ground right next to a lake or river is never lower than its water (or you could ride along
      beneath the surface, and see the water's edge hanging in the air). Lava, deep in its crater or channel, too. */
@@ -394,6 +402,7 @@ export function buildTerrain(world) {
   for(const s of world.surfaceZones) if(Math.hypot(x-s.position[0],z-s.position[1])<s.radius) return {kind:s.surface,grip:s.grip,roll:s.roll};
   const road=roadAt(x,z), jump=road?.trail?0:rampAt(x,z).weight;
   if(jump>.5) return {kind:'trail',grip:.96,roll:.01};
+  if(world.look?.mud&&!road?.trail) return {kind:'mud',grip:.64,roll:.035};   // (a storm's soaked ground: slippery and draggy)
   return {kind:road?.trail?'trail':theme==='desert'?'sand':theme==='snow'?'snow':'grass',grip:road?.trail ? .96 : .82,roll:road?.trail ? .01 : .02};
  }
  /** The fluid (or drop) the bike is over at (x, z): { kind: lava | water | ice | chasm, level, retry? } or null.
@@ -421,6 +430,6 @@ export function buildTerrain(world) {
   for(let i=0;i<=count;i++) { const p=routePoint(route,len*i/count); gates.push({...p,y:heightAt(p.x,p.z),radius:race.gateRadius,index:i}); }
   return gates;
  }
- return {world,rawHeight,cliffRise,heightAt,roadAt,rampAt,surfaceAt,normalAt,inBounds,nearestSafePad,gatesFor,wild,ramps,parks,mesas,routeDist,buildings,arches,obstacles,obstacleAt,
+ return {world,rawHeight,cliffRise,heightAt,roadAt,rampAt,surfaceAt,normalAt,inBounds,nearestSafePad,gatesFor,wild,ramps,parks,mesas,routeDist,buildings,arches,obstacles,obstacleAt,obstaclesNear,
   featureAt,hazardAt,boostAt,tintAt,gaps,pools,boosts,gauntlets,gauntletIn};
 }

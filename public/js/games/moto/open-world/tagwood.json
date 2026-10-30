@@ -1,0 +1,344 @@
+{
+  "schemaVersion": 1,
+  "id": "tagwood",
+  "name": "Tag Wood",
+  "tagline": "You're it.",
+  "theme": "alpine",
+  "seed": 8123,
+  "size": [
+    240,
+    240
+  ],
+  "baseHeight": 40,
+  "spawn": [
+    0,
+    0
+  ],
+  "spawnHeading": 0.0,
+  "palette": {
+    "sky": "#c4d6cc",
+    "low": "#3f6a33",
+    "high": "#8fae6a",
+    "trail": "#7a5a3e",
+    "water": "#3f8f95",
+    "accent": "#ff5fd2"
+  },
+  "look": {
+    "flora": [],
+    "sky": {
+      "sun": [
+        44,
+        160
+      ],
+      "turbidity": 4,
+      "rayleigh": 1.6,
+      "mie": 0.006,
+      "exposure": 1.2,
+      "fog": 1.4,
+      "fogColor": "#b9cbbf",
+      "sunColor": "#fff1d6"
+    },
+    "grass": [
+      [
+        52,
+        92,
+        40
+      ],
+      [
+        112,
+        146,
+        70
+      ]
+    ],
+    "dirt": [
+      [
+        96,
+        70,
+        48
+      ],
+      [
+        150,
+        116,
+        82
+      ]
+    ]
+  },
+  "terrain": {
+    "noise": 2,
+    "scale": 70,
+    "hills": [
+      [
+        0,
+        0,
+        -5,
+        120,
+        120
+      ]
+    ]
+  },
+  "regions": [
+    {
+      "name": "The Clearing",
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "North Edge",
+      "position": [
+        0,
+        -96
+      ]
+    }
+  ],
+  "routes": [],
+  "spots": [
+    {
+      "id": "clearing",
+      "name": "The Clearing",
+      "position": [
+        0,
+        0
+      ],
+      "kind": "checkpoint",
+      "radius": 24,
+      "about": "The middle of Tag Wood."
+    },
+    {
+      "id": "north",
+      "name": "North Edge",
+      "position": [
+        0,
+        -96
+      ],
+      "kind": "lookout",
+      "radius": 24,
+      "about": "The north edge of Tag Wood."
+    }
+  ],
+  "races": [],
+  "interactions": [
+    {
+      "id": "board",
+      "name": "The Clearing race board",
+      "position": [
+        40,
+        0
+      ],
+      "kind": "race-board",
+      "radius": 18,
+      "event": "race.offer",
+      "about": "Choose a mini race and invite nearby friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "jam",
+      "name": "North Edge trick jam",
+      "position": [
+        -50,
+        -116
+      ],
+      "kind": "trick-zone",
+      "radius": 18,
+      "event": "trick.land",
+      "about": "Share a two-minute trick score with friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "camera",
+      "name": "North Edge photo perch",
+      "position": [
+        0,
+        -96
+      ],
+      "kind": "photo",
+      "radius": 18,
+      "event": "photo.capture",
+      "about": "Get the whole group into a summit picture.",
+      "cooldownSeconds": 10
+    }
+  ],
+  "ramps": [],
+  "surfaceZones": [],
+  "quests": [
+    {
+      "id": "tagwood-welcome",
+      "name": "Welcome to Tag Wood",
+      "start": "clearing",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "north",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "north",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "clearing",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "tagwood-summit",
+      "name": "Top of the World",
+      "start": "clearing",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "north",
+          "count": 1
+        },
+        {
+          "event": "photo.capture",
+          "target": "camera",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    }
+  ],
+  "coordinateSystem": {
+    "units": "metres",
+    "horizontal": [
+      "x",
+      "z"
+    ],
+    "up": "y",
+    "heading": "radians: 0 points +z; positive rotates towards +x"
+  },
+  "status": "Made by tools/make_worlds.py.",
+  "boundary": {
+    "softMargin": 100,
+    "policy": "warn-and-respawn",
+    "respawn": "last-safe-pad",
+    "cliffWidth": 40,
+    "cliffHeight": 60,
+    "sceneryApron": 1600
+  },
+  "spawnPads": [
+    {
+      "id": "spawn-1",
+      "position": [
+        -24,
+        -18
+      ],
+      "heading": 0.0
+    },
+    {
+      "id": "spawn-2",
+      "position": [
+        -19,
+        -18
+      ],
+      "heading": 0.0
+    },
+    {
+      "id": "spawn-3",
+      "position": [
+        -14,
+        -18
+      ],
+      "heading": 0.0
+    },
+    {
+      "id": "spawn-4",
+      "position": [
+        -24,
+        -24
+      ],
+      "heading": 0.0
+    },
+    {
+      "id": "spawn-5",
+      "position": [
+        -19,
+        -24
+      ],
+      "heading": 0.0
+    },
+    {
+      "id": "spawn-6",
+      "position": [
+        -14,
+        -24
+      ],
+      "heading": 0.0
+    }
+  ],
+  "safePads": [
+    {
+      "id": "clearing",
+      "position": [
+        0,
+        0
+      ],
+      "radius": 10,
+      "riderPosition": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "north",
+      "position": [
+        0,
+        -96
+      ],
+      "radius": 10,
+      "riderPosition": [
+        0,
+        -96
+      ]
+    }
+  ],
+  "features": {},
+  "gauntlets": [
+    {
+      "id": "tag-wood",
+      "from": [
+        0,
+        -100
+      ],
+      "to": [
+        0,
+        100
+      ],
+      "width": 170,
+      "fringe": 10,
+      "gap": 6.5,
+      "trees": 520,
+      "rocks": 24,
+      "stumps": 18,
+      "logs": 8,
+      "jumps": 3,
+      "ferns": 300,
+      "bushes": 500,
+      "branches": 80
+    }
+  ],
+  "hidden": true,
+  "buildings": false
+}
