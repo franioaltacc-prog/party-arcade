@@ -6,6 +6,12 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.17.0', date: '2026-10-30', emoji: '❄️', title: 'Unrevvd: Frozen Run and Night Run', items: [
+      'New challenge, the Frozen Run: first person down the Frost Chute, a new gully buried in snow (snow on the trees, the rocks and the ground, and still snowing)',
+      'New challenge, the Night Run: first person down the Midnight Chute in the dark. Your bike has a lamp, a few lanterns glow between the trees, and that’s all you can see',
+      'Bushes round the trees and dry branches on the ground in all three chutes (you ride through those, they’re soft), and the ferns look right now',
+      'Fixed: in first person you could see inside your own body in the air. The view now turns over with the bike in a flip, and stays put when a trick takes your hands off the bar',
+    ] },
     { v: '3.16.0', date: '2026-10-30', emoji: '🌲', title: 'Unrevvd: the Timber Chute', items: [
       'The Timber Run has its own map now, the Timber Chute: a narrow, steep gully packed tight with pine trees, rocks, stumps and fallen logs (only the challenge goes there, not free ride)',
       'Real-looking forest: proper pine trees with bark and needles, and scanned mossy rocks, stumps, logs and ferns',

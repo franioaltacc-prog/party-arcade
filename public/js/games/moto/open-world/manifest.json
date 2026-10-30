@@ -84,6 +84,24 @@
       "pools": 0
     },
     {
+      "id": "frostchute",
+      "name": "Frost Chute",
+      "file": "frostchute.json",
+      "areaKm2": 0.14,
+      "hidden": true,
+      "gaps": 0,
+      "pools": 0
+    },
+    {
+      "id": "nightchute",
+      "name": "Midnight Chute",
+      "file": "nightchute.json",
+      "areaKm2": 0.14,
+      "hidden": true,
+      "gaps": 0,
+      "pools": 0
+    },
+    {
       "id": "sheerwall",
       "name": "Sheerwall Mesa",
       "file": "sheerwall.json",

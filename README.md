@@ -335,7 +335,7 @@ with an import map), everything else is drawn and synthesised in code (no model,
   face. Its challenge, **The Big Drop** (dirt bikes), races from the Cliff Top to the valley floor: take the road, or
   ride off the edge (the free-ride landing absorbs an upright landing).
 - **The Timber Run (v3.15.0, own map in v3.16.0):** a world can have `gauntlets` (`{id, from, to, width, fringe, gap,
-  trees, rocks, stumps, logs, jumps, ferns}`; `terrain.mjs` places them from the world's seed): a corridor packed with
+  trees, rocks, stumps, logs, jumps, ferns, bushes, branches, lanterns}`; `terrain.mjs` places them from the world's seed): a corridor packed with
   solid trees (hit radius = the trunk; `gap` = closest two trunks), rocks, stumps and fallen logs (`obstacleAt`: jump
   high enough and you clear the low ones), with small kickers down it. `core.js` checks the front wheel, both bar ends,
   the middle and the rear wheel against them (`obstacleHit`). The run is in its own small world, **Timber Chute**
@@ -344,8 +344,17 @@ with an import map), everything else is drawn and synthesised in code (no model,
   `public/models/nature/`): ez-tree pines (`tools/pack_trees.py`; near and far versions, in 30 m slices) and Poly Haven
   scans of mossy rocks, a stump, a log and ferns (`tools/pack_nature.py` shrinks them); without the models it falls
   back to the scenery models. Its challenge (`"cam": "first"`) is ridden in first person (also the fourth camera on C):
-  the camera sits behind the rider's hands, with the near plane cutting away the rider's own back. After a crash you
-  restart on a clear line (`clearOfTrees` in `game.js`).
+  the camera sits behind the rider's hands, measured in the bike's own frame (so it turns over in a flip, and stays on
+  the bar when a trick lets go), with the near plane cutting away the rider's own back. After a crash you restart on a
+  clear line (`clearOfTrees` in `game.js`).
+- **Frozen Run and Night Run (v3.17.0):** two more hidden gullies built the same way. **Frost Chute** (`frostchute.json`,
+  theme `snow`): `gauntletScenery(..., {snow: true})` puts snow on everything that faces up (`snowy()` in `nature.mjs`)
+  and the ground is a Poly Haven snow photo (`"look": {"photo": {"snow": [colour, height, brightness]}}`, loaded over the
+  made-up texture in `materials.mjs`). **Midnight Chute** (`nightchute.json`, `"look": {"night": true}`): no sky or sun,
+  stars, thick black fog, a lamp on the bike (`world.lamp`, aimed in `game.js`) and glowing lanterns (`"lanterns"` in a
+  gauntlet; the nearest four are real lights). Gauntlets can also have `bushes` (ez-tree bushes in thickets round the
+  trees, fewer on lower quality) and `branches`; they're only drawn, you ride through them. Leaf textures that Poly Haven
+  ships as colour + alpha are joined by `tools/png_alpha.py`.
 
 ## Billiards
 Top-down pool with real physics (spin, banks, kisses, rattling jaws). `public/js/games/pool-core.js` is the table, the

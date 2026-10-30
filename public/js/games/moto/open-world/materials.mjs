@@ -1,4 +1,4 @@
-/** Tileable 1024² albedo + relief atlases, generated locally. No remote texture dependencies.
+/** Tileable 1024² albedo + relief atlases, generated locally (or a world's own photo of the ground, from this site).
  * World-space triplanar projection prevents stretched cliff faces. Macro and centimetre-scale
  * detail mix with slope/altitude snow coverage; derivative bump feeds StandardMaterial lighting.
  */
@@ -26,7 +26,20 @@ function texture(kind,theme,size=1024,look=null){
   if(kind==='snow'){h=h*.8+.1+.1*Math.sin(v*Math.PI*32+Math.sin(u*Math.PI*8)*.8);}
   const i=(y*size+x)*4;for(let k=0;k<3;k++)pixels.data[i+k]=low[k]+(high[k]-low[k])*h;pixels.data[i+3]=h*155+70;
  }
- context.putImageData(pixels,0,0);const tex=new THREE.CanvasTexture(canvas);tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.anisotropy=8;tex.colorSpace=THREE.NoColorSpace;return tex;
+ context.putImageData(pixels,0,0);const tex=new THREE.CanvasTexture(canvas);tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.anisotropy=8;tex.colorSpace=THREE.NoColorSpace;
+ // a world can use a real photo instead ("look": {"photo": {"snow": [colour image, height image, brightness]}}): it
+ // replaces this one when it has loaded (the height goes in the alpha, like the made-up one's; brightness, 0-255: lifts
+ // the photo's average to that, keeping its detail)
+ const photo=look?.photo?.[kind];
+ if(photo)Promise.all(photo.slice(0,2).map(src=>new Promise((ok,no)=>{const im=new Image();im.onload=()=>ok(im);im.onerror=no;im.src=src;}))).then(([colour,height])=>{
+  context.clearRect(0,0,size,size);context.drawImage(height,0,0,size,size);const h=context.getImageData(0,0,size,size).data;
+  context.clearRect(0,0,size,size);context.drawImage(colour,0,0,size,size);const px=context.getImageData(0,0,size,size);
+  let mean=0;for(let i=0;i<px.data.length;i+=4)mean+=(px.data[i]+px.data[i+1]+px.data[i+2])/3;mean/=px.data.length/4;
+  const k=photo[2]&&mean<photo[2]?(255-photo[2])/Math.max(1,255-mean):1;   // (scales the distance from white)
+  for(let i=0;i<px.data.length;i+=4){for(let c=0;c<3;c++)px.data[i+c]=255-(255-px.data[i+c])*k;px.data[i+3]=h[i]*.6+70;}
+  context.putImageData(px,0,0);tex.needsUpdate=true;
+ }).catch(e=>console.warn('ground photo',photo,e));
+ return tex;
 }
 export function terrainMaterial(map,sharedTextures=null,detailed=true){
  const textures=sharedTextures || Object.fromEntries(Object.keys(palettes).map(k=>[k,texture(k,map.theme,1024,map.look)]));

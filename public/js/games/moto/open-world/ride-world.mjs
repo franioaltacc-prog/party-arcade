@@ -10,7 +10,9 @@ import {THEMES,particles,makeProps} from '../world.js';
 
 /** The free-ride scene: sky and sun like the race tracks, distance-cullable ground and scenery, a budgeted
  * detailed patch of ground round the rider and grass and pebbles scattered on it. nature: the real tree and rock
- * models (nature.mjs loadNature), for a gauntlet's solid trees and rocks (without them they're the scenery models). */
+ * models (nature.mjs loadNature), for a gauntlet's solid trees and rocks (without them they're the scenery models).
+ * A world with "look": {"night": true} is dark: no sun, stars, faint moonlight, thick black fog, and a lamp on the
+ * bike (the returned lamp: the game points it where the bike goes). */
 export function buildRideWorld(map,quality=1,renderer=null,shadows=false,nature=null){
  const policy=renderPolicy(quality);
  const built=buildOpenWorld(map,{resolution:policy.resolution,chunkSegments:policy.chunkSegments,scenery:policy.scenery,detailed:false,solidProps:!nature});
@@ -20,15 +22,17 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false,nature=
  const OPEN={desert:{exposure:1.12,fog:.42},alpine:{sun:[38,205],turbidity:4,rayleigh:1.5,mie:.006,exposure:1.5,fog:.24,fogColor:'#b9c8cf'},snow:{sun:[24,232],turbidity:3,rayleigh:1.3,mie:.005,exposure:1.25,fog:.3,fogColor:'#c9d3e6'}};
  const base=THEMES[map.theme==='alpine'?'forest':map.theme]||THEMES.desert,o={...(OPEN[map.theme]||OPEN.desert),...(map.look?.sky||{})};   // (a world can set its own sun and haze)
  const theme={...base,...o,exposure:base.exposure*o.exposure,fog:o.fogColor||base.fog,fogD:base.fogD*o.fog};
+ const night=!!map.look?.night;
 
  // ---------------------------------------------------------------- sky, sun, haze
  const sky=new Sky();sky.scale.setScalar(20000);const su=sky.material.uniforms;
  su.turbidity.value=theme.turbidity;su.rayleigh.value=theme.rayleigh;su.mieCoefficient.value=theme.mie;su.mieDirectionalG.value=theme.mieG;
  const sunDir=new THREE.Vector3().setFromSphericalCoords(1,THREE.MathUtils.degToRad(90-Math.max(theme.sun[0],14)),THREE.MathUtils.degToRad(theme.sun[1]));
  // (the light never comes from lower than 14°, for sensible shadows, but the sky can show a real sunset)
- su.sunPosition.value.setFromSphericalCoords(1,THREE.MathUtils.degToRad(90-theme.sun[0]),THREE.MathUtils.degToRad(theme.sun[1]));scene.add(sky);
+ su.sunPosition.value.setFromSphericalCoords(1,THREE.MathUtils.degToRad(90-theme.sun[0]),THREE.MathUtils.degToRad(theme.sun[1]));
+ if(night)scene.background=new THREE.Color(theme.fog);else scene.add(sky);
  let env=null;
- if(renderer){
+ if(renderer&&!night){
   const pm=new THREE.PMREMGenerator(renderer),skyScene=new THREE.Scene(),sky2=new Sky();sky2.scale.setScalar(1000);
   for(const k of ['turbidity','rayleigh','mieCoefficient','mieDirectionalG','sunPosition'])sky2.material.uniforms[k].value=su[k].value;
   skyScene.add(sky2);env=pm.fromScene(skyScene,.02).texture;scene.environment=env;scene.environmentIntensity=theme.envI;pm.dispose();sky2.material.dispose();sky2.geometry.dispose();
@@ -49,10 +53,25 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false,nature=
  }
  const cloudTex=new THREE.CanvasTexture(cloudCanvas);cloudTex.colorSpace=THREE.SRGBColorSpace;
  const cloudMat=new THREE.SpriteMaterial({map:cloudTex,color:map.theme==='snow'?'#ffe2ec':'#ffffff',transparent:true,opacity:.75,fog:false,depthWrite:false});
- {let s=map.seed*7;const r=()=>{s=(Math.imul(s,1664525)+1013904223)>>>0;return s/4294967296;};
+ if(!night){let s=map.seed*7;const r=()=>{s=(Math.imul(s,1664525)+1013904223)>>>0;return s/4294967296;};
   for(let i=0;i<(map.theme==='desert'?16:30);i++){const c=new THREE.Sprite(cloudMat),a=r()*Math.PI*2,d=r()*map.size[0]*.9;c.position.set(Math.cos(a)*d,map.baseHeight+700+r()*500,Math.sin(a)*d);c.scale.set(700+r()*600,240+r()*140,1);scene.add(c);}}
+ // a night sky full of stars (beyond the fog)
+ let stars=null;
+ if(night){
+  const n=1800,p=new Float32Array(n*3);let ss=map.seed*13;const r=()=>{ss=(Math.imul(ss,1664525)+1013904223)>>>0;return ss/4294967296;};
+  for(let i=0;i<n;i++){const a=r()*Math.PI*2,y=.08+r()*.92,c=Math.sqrt(1-y*y);p.set([Math.cos(a)*c*4000,y*4000,Math.sin(a)*c*4000],i*3);}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(p,3));
+  stars=new THREE.Points(g,new THREE.PointsMaterial({color:'#dfe8ff',size:1.6,sizeAttenuation:false,fog:false,transparent:true,opacity:.85,depthWrite:false}));stars.frustumCulled=false;scene.add(stars);
+ }
+ // the lamp on the bike, and a little light round the rider so you can see your hands and the bars
+ let lamp=null;
+ if(night){
+  const spot=new THREE.SpotLight('#fff3dc',map.look.lamp??260,85,.52,.55,1.7),glow=new THREE.PointLight('#ffe9c8',3.5,5,2);
+  spot.castShadow=!!shadows;if(shadows){spot.shadow.mapSize.set(1024,1024);spot.shadow.camera.near=.5;spot.shadow.bias=-.0004;}
+  scene.add(spot,spot.target,glow);lamp={spot,glow};
+ }
  const fxRoot=new THREE.Group();scene.add(fxRoot);const fx=particles(fxRoot,theme,null,quality);
- const forest=nature&&built.terrain.gauntlets.length?gauntletScenery(built.terrain,nature,scene,{shadows}):null;
+ const forest=nature&&built.terrain.gauntlets.length?gauntletScenery(built.terrain,nature,scene,{shadows,snow:map.theme==='snow',night,quality}):null;
 
  // ---------------------------------------------------------------- detailed ground round the rider
  const half=policy.half,n=policy.segments,inner=half-12;
@@ -170,7 +189,7 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false,nature=
  const shadowMat=new THREE.MeshBasicMaterial({map:shadowTex,transparent:true,depthWrite:false,opacity:.3,polygonOffset:true,polygonOffsetFactor:-2});
  const contact=new THREE.Mesh(shadowGeo,shadowMat);contact.visible=!shadows;scene.add(contact);const up=new THREE.Vector3(0,1,0),normal=new THREE.Vector3();
  return {
-  free:true,scene,theme,fx,gates:[],ground:built.terrain,definition:map,policy,sun,coins,collect,
+  free:true,scene,theme,fx,gates:[],ground:built.terrain,definition:map,policy,sun,coins,collect,lamp,night,
   /** ahead: where to centre the detailed ground (a little ahead of a fast bike, so the ground it's riding into is ready). */
   update(point,dt,camera,ahead=point){
    updatePatch(ahead);fx.update(dt,camera);built.update(camera.position);forest?.update(camera.position);drawCoins(performance.now());drawHoops(performance.now());
@@ -183,7 +202,7 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false,nature=
   dispose(){
    samples.clear();built.dispose();forest?.dispose();geo.dispose();detail.dispose();shadowGeo.dispose();shadowMat.dispose();shadowTex.dispose();
    for(const k of coverKinds){k.im.dispose();k.geo.dispose();}for(const m of [props.propMat,props.leafMat,props.cactusMat,pebbleProps.propMat,pebbleProps.leafMat,pebbleProps.cactusMat])m.dispose();
-   cloudTex.dispose();cloudMat.dispose();coinMesh.dispose();coinGeo.dispose();coinMat.dispose();hoopMesh.dispose();hoopGeo.dispose();hoopMat.dispose();sky.geometry.dispose();sky.material.dispose();env?.dispose();
+   cloudTex.dispose();cloudMat.dispose();if(stars){stars.geometry.dispose();stars.material.dispose();}if(lamp){lamp.spot.dispose();lamp.glow.dispose();}coinMesh.dispose();coinGeo.dispose();coinMat.dispose();hoopMesh.dispose();hoopGeo.dispose();hoopMat.dispose();sky.geometry.dispose();sky.material.dispose();env?.dispose();
    const textures=new Set();fxRoot.traverse(o=>{o.geometry?.dispose();if(o.material){for(const u of Object.values(o.material.uniforms||{}))if(u.value?.isTexture)textures.add(u.value);if(o.material.map)textures.add(o.material.map);o.material.dispose();}});textures.forEach(t=>t.dispose());
   }
  };

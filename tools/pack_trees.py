@@ -4,15 +4,19 @@ needles so a forest stays light) and saved as JSON: [{bark: {p, n, uv, i}, leave
 them to metres and writes meshes pine<k>_bark and pine<k>_leaves with ez-tree's pine bark (colour and normal map,
 JPEG) and pine needle texture (PNG with its see-through parts), shrunk to MAX pixels with macOS `sips`. Six trees:
 three, then far-away versions of the same three (pine<k>_far_bark / _leaves: simpler branches, fewer bigger needles).
-    python3 tools/pack_trees.py trees.json eztree-assets/ public/models/nature/pines.glb 0.34 512"""
+    python3 tools/pack_trees.py trees.json eztree-assets/ public/models/nature/pines.glb 0.34 512
+Bushes the same way (ez-tree's Bush presets with ash leaves and oak bark; meshes bush<k>[_far]_bark / _leaves):
+    python3 tools/pack_trees.py bushes.json eztree-assets/ public/models/nature/bushes.glb 0.055 512 bush"""
 import json, os, struct, subprocess, sys, tempfile
 from array import array
 
 src, assets, dst, scale, MAX = sys.argv[1], sys.argv[2], sys.argv[3], float(sys.argv[4]), int(sys.argv[5])
+KIND = sys.argv[6] if len(sys.argv) > 6 else 'pine'
+TEX = {'pine': ('pine_color_1k.jpg', 'pine_normal_1k.jpg', 'pine_color.png'), 'bush': ('oak_color_1k.jpg', 'oak_normal_1k.jpg', 'ash_color.png')}[KIND]
 trees = json.load(open(src))
 images = {}
 with tempfile.TemporaryDirectory() as tmp:
-    for k, (name, fmt) in {'bark': ('pine_color_1k.jpg', 'jpeg'), 'barkN': ('pine_normal_1k.jpg', 'jpeg'), 'leaf': ('pine_color.png', 'png')}.items():
+    for k, (name, fmt) in {'bark': (TEX[0], 'jpeg'), 'barkN': (TEX[1], 'jpeg'), 'leaf': (TEX[2], 'png')}.items():
         o = os.path.join(tmp, k + '.' + ('jpg' if fmt == 'jpeg' else 'png'))
         subprocess.run(['sips', '-Z', str(MAX), '-s', 'format', fmt] + (['-s', 'formatOptions', '80'] if fmt == 'jpeg' else []) + [os.path.join(assets, name), '--out', o], check=True, capture_output=True)
         images[k] = (open(o, 'rb').read(), 'image/' + fmt)
@@ -41,7 +45,7 @@ for k, (data, mime) in images.items():
     G['images'].append({'bufferView': put(data), 'mimeType': mime}); G['textures'].append({'source': len(G['images']) - 1, 'sampler': 0}); tex[k] = len(G['textures']) - 1
 G['materials'] = [
     {'name': 'bark', 'pbrMetallicRoughness': {'baseColorTexture': {'index': tex['bark']}, 'metallicFactor': 0, 'roughnessFactor': 0.95}, 'normalTexture': {'index': tex['barkN']}},
-    {'name': 'needles', 'pbrMetallicRoughness': {'baseColorTexture': {'index': tex['leaf']}, 'metallicFactor': 0, 'roughnessFactor': 0.85}, 'alphaMode': 'MASK', 'alphaCutoff': 0.4, 'doubleSided': True},
+    {'name': 'needles' if KIND == 'pine' else 'leaves', 'pbrMetallicRoughness': {'baseColorTexture': {'index': tex['leaf']}, 'metallicFactor': 0, 'roughnessFactor': 0.85}, 'alphaMode': 'MASK', 'alphaCutoff': 0.4, 'doubleSided': True},
 ]
 for k, t in enumerate(trees):
     for part, mat in (('bark', 0), ('leaves', 1)):
@@ -50,7 +54,7 @@ for k, t in enumerate(trees):
         n = len(pos) // 3
         prim = {'attributes': {'POSITION': acc(pos, 3, 5126, 'VEC3', 34962, True), 'NORMAL': acc(g['n'], 3, 5126, 'VEC3', 34962), 'TEXCOORD_0': acc(g['uv'], 2, 5126, 'VEC2', 34962)},
                 'indices': acc(g['i'], 1, 5123 if n < 65536 else 5125, 'SCALAR', 34963), 'material': mat}
-        name = f'pine{k % 3}{"_far" if k >= 3 else ""}_{part}'   # (trees 3-5: the far versions of 0-2)
+        name = f'{KIND}{k % 3}{"_far" if k >= 3 else ""}_{part}'   # (trees 3-5: the far versions of 0-2)
         G['meshes'].append({'name': name, 'primitives': [prim]})
         G['nodes'].append({'name': name, 'mesh': len(G['meshes']) - 1}); G['scenes'][0]['nodes'].append(len(G['nodes']) - 1)
         print(f'{name}: {len(g["i"]) // 3} triangles, height {max(pos[1::3]):.1f} m')

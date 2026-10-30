@@ -341,7 +341,9 @@
       "stumps": 30,
       "logs": 18,
       "jumps": 6,
-      "ferns": 420
+      "ferns": 420,
+      "bushes": 1100,
+      "branches": 120
     }
   ],
   "hidden": true,

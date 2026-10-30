@@ -132,7 +132,7 @@ export function buildTerrain(world) {
  for(const gs of world.gauntlets||[]) {
   const r=rng(seed*7+gauntlets.length*131+17),[ax,az]=gs.from,[bx,bz]=gs.to,L=Math.hypot(bx-ax,bz-az),ux=(bx-ax)/L,uz=(bz-az)/L,half=gs.width/2,fringe=gs.fringe??18,gap=gs.gap??8.5;
   const at=(along,across)=>[ax+ux*along+uz*across,az+uz*along-ux*across];
-  const g={id:gs.id,from:gs.from,to:gs.to,ux,uz,L,half,fringe,trees:[],rocks:[],stumps:[],logs:[],ferns:gs.ferns||0};
+  const g={id:gs.id,from:gs.from,to:gs.to,ux,uz,L,half,fringe,trees:[],rocks:[],stumps:[],logs:[],ferns:gs.ferns||0,bushes:gs.bushes||0,branches:gs.branches||0,lanterns:gs.lanterns||0};   // (ferns, bushes, branches and lanterns: only drawn, nothing to crash into)
   for(let k=0;k<(gs.jumps||0);k++){ const [x,z]=at(L*(k+1)/(gs.jumps+1)+(r()-.5)*18,(r()-.5)*half*.9); ramps.push({id:gs.id+'-kick-'+k,position:[x,z],heading:Math.atan2(ux,uz),length:11,width:8,height:1.1+r()*.7,kind:'table',park:false,gauntlet:true}); }
   const onJump=(x,z,m)=>ramps.some(q=>q.gauntlet&&Math.hypot(x-q.position[0],z-q.position[1])<q.length/2+m);
   const all=()=>[...g.trees,...g.rocks,...g.stumps,...g.logs.flatMap(l=>l.parts)];

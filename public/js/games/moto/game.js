@@ -490,6 +490,13 @@ function render(now, dt, alpha) {
     // (the detailed ground is centred up to 30 m ahead of a fast bike)
     const lead = Math.min(30, Math.max(0, b.vx) * 0.7), p = R.model.root.position;
     w.update(p, dt, camera, aheadV.set(p.x + Math.cos(s.h) * lead, p.y, p.z + Math.sin(s.h) * lead));
+    if (w.lamp) {
+      // at night: the lamp on the bars shines where the bike points (and dips with it)
+      const ca = Math.cos(s.a), L = w.lamp;
+      L.spot.position.set(p.x + Math.cos(s.h) * 0.7, p.y + 1.25 + Math.sin(s.a) * 0.7, p.z + Math.sin(s.h) * 0.7);
+      L.spot.target.position.set(L.spot.position.x + Math.cos(s.h) * ca * 24, L.spot.position.y + Math.sin(s.a) * 24 - 4, L.spot.position.z + Math.sin(s.h) * ca * 24);
+      L.glow.position.set(p.x - Math.cos(s.h) * 0.2, p.y + 2.1, p.z - Math.sin(s.h) * 0.2);
+    }
   } else w.update(R.model.root.position, dt, camera);
   if (R.audio) {
     R.audio.update(b, dt, { scrub: b.scrub, surface: b.G ? C.surfaceAt(b.G, b.x) : 0 });
@@ -505,7 +512,7 @@ function render(now, dt, alpha) {
 /** The ground height under a point in the world (near the track). */
 function groundUnder(x, z, hint, T = R.T) { if(T.terrain)return T.terrain.heightAt(x,z); const L = C.locate(T, x, z, hint); return C.heightAt(T, L.s, L.u); }
 
-const firstV = new THREE.Vector3(); const firstD = new THREE.Vector3();
+const firstV = new THREE.Vector3(); const firstD = new THREE.Vector3(); const firstU = new THREE.Vector3(); const firstGrip = new THREE.Vector3();
 /** In first person the rider's own head is hidden (the camera is where it is). */
 function firstHead(m, hide) {
   const head = m?.fig ? m.fig.bones.CC_Base_Head : m?.parts?.helmet;
@@ -527,16 +534,28 @@ function updateCamera(s, dt, speed, place) {
   firstHead(R.model, first);
   if (first) {
     // first person: where a rider's eyes would be, behind and above the hands on the bar (so the bar and your hands are
-    // at the bottom of the view, whatever the speed), looking ahead the way the bike points and pitches
-    const m = R.model; const ca = Math.cos(s.a); m.root.updateMatrixWorld(true);
-    firstD.set(Math.cos(s.h) * ca, Math.sin(s.a), Math.sin(s.h) * ca);
+    // at the bottom of the view, whatever the speed), looking ahead the way the bike points. Everything is measured in
+    // the bike's own frame (its forward and up), so in a flip the view turns over with the bike instead of staying level
+    // and looking into the rider's body
+    const m = R.model; const ca = Math.cos(s.a); const sa = Math.sin(s.a); m.root.updateMatrixWorld(true);
+    firstD.set(Math.cos(s.h) * ca, sa, Math.sin(s.h) * ca);
+    firstU.set(-Math.cos(s.h) * sa, ca, -Math.sin(s.h) * sa);
     const B = m.fig && m.fig.bones;
-    if (B && B.CC_Base_L_Hand && B.CC_Base_R_Hand) { B.CC_Base_L_Hand.getWorldPosition(firstV); B.CC_Base_R_Hand.getWorldPosition(tmpV); firstV.add(tmpV).multiplyScalar(0.5); }   // (the hands on the bar)
-    else m.parts.helmet.getWorldPosition(firstV).addScaledVector(firstD, 0.45).add(tmpV.set(0, -0.6, 0));
-    camera.position.copy(firstV).addScaledVector(firstD, -0.4).add(tmpV.set(0, 0.7, 0));
-    firstD.multiplyScalar(10).add(camera.position).add(tmpV.set(0, -4, 0));
+    // (the hands on the bar, kept relative to the bike: a trick that lets go of the bar doesn't take the camera with it)
+    if (B && B.CC_Base_L_Hand && B.CC_Base_R_Hand) {
+      if (!(s.tp > 0) || !firstGrip.ok) { B.CC_Base_L_Hand.getWorldPosition(firstV); B.CC_Base_R_Hand.getWorldPosition(tmpV); m.root.worldToLocal(firstV.add(tmpV).multiplyScalar(0.5)); firstGrip.copy(firstV); firstGrip.ok = true; }
+      m.root.localToWorld(firstV.copy(firstGrip));
+    } else m.parts.helmet.getWorldPosition(firstV).addScaledVector(firstD, 0.45).addScaledVector(firstU, -0.6);
+    camera.position.copy(firstV).addScaledVector(firstD, -0.4).addScaledVector(firstU, 0.7);
+    // (leaning right forward, as in a frontflip, brings the shoulders over the bar, in front of the camera: move up with
+    // them. Riding normally the neck is about 0.25 m ahead, inside the near plane)
+    if (B && B.CC_Base_NeckTwist01) {
+      const ahead = B.CC_Base_NeckTwist01.getWorldPosition(tmpV).sub(camera.position).dot(firstD) - 0.28;
+      if (ahead > 0) camera.position.addScaledVector(firstD, ahead);
+    }
+    firstD.multiplyScalar(10).add(camera.position).addScaledVector(firstU, -4);
     if (cam.shake > 0) { cam.shake = Math.max(0, cam.shake - dt * 1.6); camera.position.y += (Math.random() - 0.5) * cam.shake * 0.3; }
-    camera.up.set(0, 1, 0); camera.lookAt(firstD);
+    camera.up.copy(firstU); camera.lookAt(firstD);
     const f = 84 + (camera.aspect < 1 ? 18 : 0);   // (the same at any speed: a wider view at speed pushed the bar out of the bottom when slow)
     // (the near plane cuts away your own shoulders and back, just in front of the camera: the hands are further)
     if (Math.abs(camera.fov - f) > 0.05 || camera.near !== 0.62) { camera.fov += (f - camera.fov) * Math.min(1, dt * 4); camera.near = 0.62; camera.updateProjectionMatrix(); }
@@ -544,6 +563,7 @@ function updateCamera(s, dt, speed, place) {
     return;
   }
   if (camera.near !== 0.25) { camera.near = 0.25; camera.updateProjectionMatrix(); }
+  camera.up.set(0, 1, 0);   // (first person tilts it with the bike)
   if (R.camMode === 'side') {
     want = P.clone().addScaledVector(Rt, 10.5 + air * 0.5).addScaledVector(D, 2).add(UPV.clone().multiplyScalar(1.8 + air * 0.25));
     look = P.clone().addScaledVector(D, 3).add(UPV.clone().multiplyScalar(0.6));
@@ -1054,7 +1074,7 @@ function stageFrame(now, dt) {
   const cam = stage.cam;
   if (!cam.init) { cam.pos.copy(wantV); cam.look.copy(focusV); cam.init = true; camera.fov = sh.fov; }
   cam.pos.lerp(wantV, 1 - Math.exp(-dt * 1.8)); cam.look.lerp(focusV, 1 - Math.exp(-dt * 2.6));
-  camera.position.copy(cam.pos); camera.lookAt(cam.look);
+  camera.position.copy(cam.pos); camera.up.set(0, 1, 0); camera.lookAt(cam.look);
   camera.fov += (sh.fov - camera.fov) * (1 - Math.exp(-dt * 2.5));
   // push the bikes right on a wide screen, so the menus on the left don't hide them
   const W = canvas.clientWidth || innerWidth; const H = canvas.clientHeight || innerHeight;

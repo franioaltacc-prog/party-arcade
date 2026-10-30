@@ -3,13 +3,18 @@ open worlds: each mesh in the scene becomes its own mesh (named after its node),
 origin (the ground stays at y = 0), scaled to metres, and made much lighter by merging the vertices that land in the
 same small cell (the cell is the mesh's longest side / DETAIL; vertices on either side of a texture seam stay apart).
 The colour and normal textures are kept (shrunk to MAX pixels, saved as JPEG with macOS `sips`): they carry the detail.
+Leaves (a see-through material): put the colour texture with its transparency beside the original as <name>_leaves.png
+(tools/png_alpha.py makes it) and it's used instead of the JPEG. ONE=1 (an environment variable) makes all the model's
+parts one mesh, each where the model puts it (a lantern's door and handle).
     python3 tools/pack_nature.py rock_moss_set_01/main.gltf public/models/nature/rocks-moss.glb 1 24 512
+    python3 tools/pack_nature.py fern_02/main.gltf public/models/nature/fern.glb 1 2000 512
     (args: source .gltf, output .glb, scale to metres, DETAIL, MAX; optional: comma-separated node names to keep)"""
 import json, math, os, struct, subprocess, sys, tempfile
 from array import array
 
 src, dst, scale, detail, MAX = sys.argv[1], sys.argv[2], float(sys.argv[3]), float(sys.argv[4]), int(sys.argv[5])
 keep = set(sys.argv[6].split(',')) if len(sys.argv) > 6 else None
+ONE = os.environ.get('ONE') == '1'
 base = os.path.dirname(src)
 J = json.load(open(src))
 BUF = [open(os.path.join(base, b['uri']), 'rb').read() for b in J['buffers']]
@@ -37,10 +42,16 @@ for n in J['nodes']:
     if 'mesh' not in n or (keep and n.get('name') not in keep): continue
     sx, sy, sz = node_scale(n)
     for p in J['meshes'][n['mesh']]['primitives']:
+        if p.get('material', 0) != 0: continue   # (only the first material's parts: a lantern's glass is drawn by the game)
         P, _ = view(p['attributes']['POSITION']); UV, _ = view(p['attributes']['TEXCOORD_0']); I, _ = view(p['indices'])
-        pts = [(P[i] * sx * scale, P[i + 1] * sy * scale, P[i + 2] * sz * scale) for i in range(0, len(P), 3)]
+        tx, ty, tz = n.get('translation', [0, 0, 0]) if ONE else (0, 0, 0)
+        pts = [((P[i] * sx + tx) * scale, (P[i + 1] * sy + ty) * scale, (P[i + 2] * sz + tz) * scale) for i in range(0, len(P), 3)]
         meshes.append((n.get('name', 'mesh'), pts, [(UV[i], UV[i + 1]) for i in range(0, len(UV), 2)], list(I)))
 
+if ONE:   # (all the parts as one mesh, where they are in the model: a lantern's body, door and handle)
+    pts, uvs, idx = [], [], []
+    for _, p_, u_, i_ in meshes: idx += [i + len(pts) for i in i_]; pts += p_; uvs += u_
+    meshes = [(meshes[0][0], pts, uvs, idx)]
 out_meshes = []
 for name, pts, uvs, idx in meshes:
     xs = [p[0] for p in pts]; ys = [p[1] for p in pts]; zs = [p[2] for p in pts]
@@ -88,9 +99,12 @@ if 'normalTexture' in mat: maps['normal'] = tex_uri(mat['normalTexture'])
 images = {}
 with tempfile.TemporaryDirectory() as tmp:
     for k, uri in maps.items():
+        leaves = os.path.join(base, os.path.splitext(uri)[0].replace('_diff_1k', '_leaves') + '.png')
+        if k == 'color' and mat.get('alphaMode') == 'MASK' and os.path.exists(leaves):
+            images[k] = (open(leaves, 'rb').read(), 'image/png'); continue   # (already the right size: png_alpha.py shrinks it)
         o = os.path.join(tmp, k + '.jpg')
         subprocess.run(['sips', '-Z', str(MAX), '-s', 'format', 'jpeg', '-s', 'formatOptions', '80', os.path.join(base, uri), '--out', o], check=True, capture_output=True)
-        images[k] = open(o, 'rb').read()
+        images[k] = (open(o, 'rb').read(), 'image/jpeg')
 
 out = bytearray(); views = []; accessors = []
 
@@ -112,17 +126,20 @@ def acc(values, n, ctype, kind, target, mm=False):
 G = {'asset': {'version': '2.0', 'generator': 'party-arcade pack_nature.py'}, 'scene': 0, 'scenes': [{'nodes': []}], 'nodes': [], 'meshes': []}
 img_i = {}
 G['images'] = []; G['textures'] = []; G['samplers'] = [{'magFilter': 9729, 'minFilter': 9987, 'wrapS': 10497, 'wrapT': 10497}]
-for k, data in images.items():
-    G['images'].append({'bufferView': put(data), 'mimeType': 'image/jpeg'}); G['textures'].append({'source': len(G['images']) - 1, 'sampler': 0}); img_i[k] = len(G['textures']) - 1
+for k, (data, mime) in images.items():
+    G['images'].append({'bufferView': put(data), 'mimeType': mime}); G['textures'].append({'source': len(G['images']) - 1, 'sampler': 0}); img_i[k] = len(G['textures']) - 1
 m = {'name': mat.get('name', 'nature'), 'pbrMetallicRoughness': {'baseColorTexture': {'index': img_i['color']}, 'metallicFactor': 0, 'roughnessFactor': 0.9}}
 if 'normal' in img_i: m['normalTexture'] = {'index': img_i['normal']}
 if mat.get('doubleSided'): m['doubleSided'] = True
 if mat.get('alphaMode'): m['alphaMode'] = mat['alphaMode']; m['alphaCutoff'] = mat.get('alphaCutoff', 0.5)
 G['materials'] = [m]
+shared = {}
 for name, V, N, T, tris in out_meshes:
-    pos = [c for p in V for c in p]; nor = [c for p in N for c in p]; uv = [c for p in T for c in p]; ind = [i for t in tris for i in t]
-    prim = {'attributes': {'POSITION': acc(pos, 3, 5126, 'VEC3', 34962, True), 'NORMAL': acc(nor, 3, 5126, 'VEC3', 34962), 'TEXCOORD_0': acc(uv, 2, 5126, 'VEC2', 34962)},
-            'indices': acc(ind, 1, 5123 if len(V) < 65536 else 5125, 'SCALAR', 34963), 'material': 0}
+    ind = [i for t in tris for i in t]
+    if id(V) not in shared:
+        pos = [c for p in V for c in p]; nor = [c for p in N for c in p]; uv = [c for p in T for c in p]
+        shared[id(V)] = {'POSITION': acc(pos, 3, 5126, 'VEC3', 34962, True), 'NORMAL': acc(nor, 3, 5126, 'VEC3', 34962), 'TEXCOORD_0': acc(uv, 2, 5126, 'VEC2', 34962)}
+    prim = {'attributes': dict(shared[id(V)]), 'indices': acc(ind, 1, 5123 if len(V) < 65536 else 5125, 'SCALAR', 34963), 'material': 0}
     G['meshes'].append({'name': name, 'primitives': [prim]})
     G['nodes'].append({'name': name, 'mesh': len(G['meshes']) - 1}); G['scenes'][0]['nodes'].append(len(G['nodes']) - 1)
 while len(out) % 4: out.append(0)
