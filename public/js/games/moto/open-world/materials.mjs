@@ -49,7 +49,7 @@ export function terrainMaterial(map,sharedTextures=null,detailed=true){
  const textures=sharedTextures || Object.fromEntries(Object.keys(palettes).map(k=>[k,texture(k,map.theme,1024,map.look)]));
  const hole=new THREE.Vector4();
  const material=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.91,metalness:0});
- material.customProgramCacheKey=()=> 'ow-terrain-lod-v9-'+map.theme+'-'+detailed+(map.sea?'-sea'+map.sea.level:'');
+ material.customProgramCacheKey=()=> 'ow-terrain-lod-v10-'+map.theme+'-'+detailed+(map.look?.paved?'-paved':'')+(map.sea?'-sea'+map.sea.level:'');
  material.onBeforeCompile=shader=>{
   for(const [key,value]of Object.entries(textures))shader.uniforms['ow'+key]={value};
   shader.uniforms.owHole={value:hole};
@@ -90,6 +90,10 @@ float owCaustic(vec2 p,float t){
 varying vec3 owPosition;
 varying vec3 owSurfaceNormal;
 varying float owTrail;
+// smooth noise for the big patches of colour across the land (so a hillside isn't one flat colour)
+float owH(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float owN(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(owH(i),owH(i+vec2(1.0,0.0)),f.x),mix(owH(i+vec2(0.0,1.0)),owH(i+vec2(1.0,1.0)),f.x),f.y);}
+float owFbm(vec2 p){return owN(p)*.55+owN(p*2.07+3.1)*.3+owN(p*4.3+7.7)*.15;}
 vec4 owSample(sampler2D tex,vec2 p){
  mat2 rot=mat2(.8,-.6,.6,.8);
  ${detailed?'return texture2D(tex,p)*.57+texture2D(tex,rot*p*.373+vec2(.31,.71))*.43;':'return texture2D(tex,p);'}
@@ -111,10 +115,26 @@ float owCliff=smoothstep(.20,.65,1.0-abs(normalize(owSurfaceNormal).y));
 float owSnow=${map.theme==='snow'?'1.0':map.theme==='alpine'?'smoothstep(250.0,450.0,owPosition.y)':'0.0'};
 vec4 owGround=owCliff>.25?owTri(${map.theme==='desert'?'owdirt':map.theme==='snow'?'owsnow':'owgrass'},owP,owWeights):owSample(${map.theme==='desert'?'owdirt':map.theme==='snow'?'owsnow':'owgrass'},owP.xz);
 ${map.theme==='alpine'?'if(owSnow>.01)owGround=mix(owGround,owSample(owsnow,owP.xz),owSnow);':''}
+// far away the fine pattern would show its repeats (and shimmer): it fades toward the texture's own average colour
+float owFar=smoothstep(30.0,240.0,length(cameraPosition-owPosition));
+${(()=>{const g=map.theme==='desert'?'owdirt':map.theme==='snow'?'owsnow':'owgrass';return `owGround.rgb=mix(owGround.rgb,${map.theme==='alpine'?`mix(textureLod(${g},vec2(.5),12.0).rgb,textureLod(owsnow,vec2(.5),12.0).rgb,owSnow)`:`textureLod(${g},vec2(.5),12.0).rgb`},owFar*.7);`;})()}
 vec4 owRock=owTri(owrock,owP*.65,owWeights);
+owRock.rgb=mix(owRock.rgb,textureLod(owrock,vec2(.5),12.0).rgb,owFar*.5);
 owRock.rgb*=.72+.5*texture2D(owrock,owPosition.xz*.0021+owPosition.y*.0013).a;   // (broad light and dark patches across a mountain face)
-${map.theme==='desert'?'owRock.rgb*=mix(vec3(.8,.66,.58),vec3(1.1,1.02,.92),.5+.5*sin(owPosition.y*.42+texture2D(owrock,owPosition.xz*.004).a*7.0));':''}
+owRock.rgb*=.86+.26*owN(vec2((owPosition.x+owPosition.z)*.06,owPosition.y*.005));   // (rain-worn streaks running down a cliff)
+${map.theme==='desert'?`{ // the rock's layers: uneven bands, wavy across the face; the thin ones fade out where they'd be thinner than a pixel or two
+ float owY=owPosition.y+(owFbm(owPosition.xz*.008)-.5)*22.0,owAA=1.0-smoothstep(.15,.6,fwidth(owY)*.25);
+ float owS=owN(vec2(owY*.07,.5))*.65+owN(vec2(owY*.25,4.5))*.35*owAA;
+ owRock.rgb*=mix(vec3(.8,.66,.58),vec3(1.1,1.02,.92),mix(.5,owS,.4+.6*owAA)); }`:''}
 if(owCliff>.02)owGround=mix(owGround,owRock,owCliff*(1.0-.3*owSnow));
+${map.look?.paved?`if(owCliff<.5){ // concrete: slabs 4 m square, each a touch lighter or darker, the joints between them, and stains
+ vec2 owSl=owPosition.xz/4.0,owF=abs(fract(owSl)-.5);float owE=.5-max(owF.x,owF.y),owW=fwidth(owSl.x)+fwidth(owSl.y);
+ float owJ=(1.0-smoothstep(.0015,.0015+owW*.8,owE))*(1.0-smoothstep(.03,.1,owW));   // (about a pixel wide, fading out far off)
+ owGround.rgb*=(.93+.14*owH(floor(owSl)))*(1.0-.22*owJ)*(.9+.2*owFbm(owPosition.xz*.12)); }`:`{ // big patches of colour across the land: lusher and drier ground, lighter and darker sand
+ float owM1=owFbm(owPosition.xz*.0045),owM2=owFbm(owPosition.xz*.021+7.3);
+ vec3 owTint=${map.theme==='desert'?'mix(vec3(.88,.84,.84),vec3(1.1,1.05,.95),owM1)':map.theme==='snow'?'mix(vec3(.95,.97,1.03),vec3(1.03,1.02,1.0),owM1)':'mix(mix(vec3(.66,.8,.7),vec3(.86,.96,.8),smoothstep(.15,.45,owM2)),vec3(1.18,1.08,.74),smoothstep(.35,.7,owM1))'};
+ ${map.theme==='alpine'?'owGround.rgb=mix(vec3(dot(owGround.rgb,vec3(.3,.59,.11))),owGround.rgb,.82);':''}
+ owGround.rgb*=mix(vec3(1.0),owTint*(${map.theme==='snow'?'.96+.08':'.88+.24'}*owM2),(1.0-owCliff)*(1.0-owSnow*${map.theme==='snow'?'0.0':'1.0'})); }`}
 if(owTrail>.01){
  // packed dirt (darker than the open ground round it)
  vec4 owRoad=${map.theme==='snow'?'vec4(owGround.rgb*vec3(.8,.84,.9),owGround.a)':map.theme==='desert'?'vec4(owSample(owdirt,owP.xz*1.7).rgb*vec3(.86,.8,.74),owGround.a*.6)':'owSample(owdirt,owP.xz)'};

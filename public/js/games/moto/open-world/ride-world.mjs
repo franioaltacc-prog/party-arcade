@@ -6,6 +6,7 @@ import {slopeScenery} from './slope.mjs';
 import {createOcean} from './ocean.mjs';
 import {parkScenery} from './parks.mjs';
 import {terrainMaterial,seaLight} from './materials.mjs';
+import {growWilds} from './wilds.mjs';
 import {renderPolicy} from './render-policy.mjs';
 import {gridHeight} from './grounding.mjs';
 import {routeLength,routePoint} from './terrain.mjs';
@@ -52,15 +53,35 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false,nature=
  }
  scene.add(sun,sun.target);
  scene.add(new THREE.HemisphereLight(theme.hemi[0],theme.hemi[1],theme.hemi[2]));
- // clouds drifting high over the map
- const cloudCanvas=document.createElement('canvas');cloudCanvas.width=256;cloudCanvas.height=128;{
-  const g=cloudCanvas.getContext('2d');let s=map.seed;const r=()=>{s=(Math.imul(s,1664525)+1013904223)>>>0;return s/4294967296;};
-  for(let i=0;i<18;i++){const x=256*(.2+r()*.6),y=128*(.45+r()*.2),rad=20+r()*34,grd=g.createRadialGradient(x,y,0,x,y,rad);grd.addColorStop(0,'rgba(255,255,255,.55)');grd.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=grd;g.fillRect(0,0,256,128);}
- }
- const cloudTex=new THREE.CanvasTexture(cloudCanvas);cloudTex.colorSpace=THREE.SRGBColorSpace;
- const cloudMat=new THREE.SpriteMaterial({map:cloudTex,color:map.theme==='snow'?'#ffe2ec':'#ffffff',transparent:true,opacity:.75,fog:false,depthWrite:false});
- if(!night){let s=map.seed*7;const r=()=>{s=(Math.imul(s,1664525)+1013904223)>>>0;return s/4294967296;};
-  for(let i=0;i<(map.theme==='desert'?16:30);i++){const c=new THREE.Sprite(cloudMat),a=r()*Math.PI*2,d=r()*map.size[0]*.9;c.position.set(Math.cos(a)*d,map.baseHeight+700+r()*500,Math.sin(a)*d);c.scale.set(700+r()*600,240+r()*140,1);scene.add(c);}}
+ // clouds: a layer high over the map (it follows the camera, the clouds stay put in the world and drift on the wind).
+ // Where a cloud is thicker towards the sun it's shaded; lit edges catch the sun's colour (orange at sunset). A storm
+ // is a heavy grey overcast, the desert's sky mostly clear. Far off they fade into the haze on the horizon.
+ const stormy=!!map.look?.storm,overcast=!!map.look?.fogPulse;
+ const cloudU={uT:{value:0},uSun:{value:new THREE.Vector3().copy(sunDir)},uCover:{value:stormy?.78:overcast?.7:map.theme==='desert'?.32:map.theme==='snow'?.5:.46},
+  uLit:{value:new THREE.Color(theme.sunColor).lerp(new THREE.Color('#ffffff'),map.look?.sky?.sun?.[0]<12?.45:.72).multiplyScalar(stormy?.42:dusk?.5:.98)},
+  uShade:{value:new THREE.Color(stormy?'#3a4048':dusk?'#3c4258':'#b2bccb').lerp(new THREE.Color(theme.fog),.25)},uHaze:{value:new THREE.Color(theme.fog)},uSeed:{value:(map.seed%997)*.37}};
+ const cloudMat=new THREE.ShaderMaterial({uniforms:cloudU,defines:{OCT:quality<.5?3:5,LIT:quality<.5?0:1},transparent:true,depthWrite:false,fog:false,side:THREE.DoubleSide,
+  vertexShader:'varying vec3 vW;void main(){vec4 w=modelMatrix*vec4(position,1.0);vW=w.xyz;gl_Position=projectionMatrix*viewMatrix*w;}',
+  fragmentShader:`uniform float uT,uCover,uSeed;uniform vec3 uSun,uLit,uShade,uHaze;varying vec3 vW;
+float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y);}
+float fbm(vec2 p){float s=0.0,a=.5;mat2 r=mat2(.8,-.6,.6,.8);for(int i=0;i<OCT;i++){s+=a*n(p);p=r*p*2.03+1.7;a*=.5;}return s;}
+void main(){
+ vec2 p=vW.xz*.0011+vec2(uSeed,uSeed*.7)+uT*vec2(.006,.002);
+ float c=clamp((fbm(p)-.5)*2.1+.5,0.0,1.0),d=smoothstep(1.0-uCover,1.0-uCover+.17,c);
+ float r=length(vW.xz-cameraPosition.xz);d*=1.0-smoothstep(6000.0,12000.0,r);
+ if(d<.004)discard;
+ float lit=.62;
+#if LIT
+ lit=clamp(.6+(c-clamp((fbm(p+normalize(uSun.xz+1e-4)*.05)-.5)*2.1+.5,0.0,1.0))*2.2,0.0,1.0);   // (thinner towards the sun: lit)
+#endif
+ vec3 col=mix(uShade,uLit,lit*.8+.2*(1.0-d));
+ col=mix(col,uHaze,smoothstep(2500.0,11000.0,r)*.7);
+ gl_FragColor=vec4(col,d*.94);
+}`});
+ const cloudLayer=new THREE.Mesh(new THREE.PlaneGeometry(26000,26000).rotateX(-Math.PI/2),cloudMat);
+ cloudLayer.position.y=(map.baseHeight||0)+(stormy?820:950);cloudLayer.frustumCulled=false;cloudLayer.renderOrder=-1;
+ if(!night)scene.add(cloudLayer);
  // a night sky full of stars (beyond the fog)
  let stars=null;
  if(night){
@@ -82,6 +103,9 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false,nature=
   spot.castShadow=!!shadows;if(shadows){spot.shadow.mapSize.set(1024,1024);spot.shadow.camera.near=.5;spot.shadow.bias=-.0004;}
   scene.add(spot,spot.target,glow);lamp={spot,glow};
  }
+ // real trees, bushes and flowers all over (wilds.mjs), once their models have loaded: till then, the drawn ones
+ let wilds=null,gone=false;
+ growWilds(built,map,scene,{quality,renderer,shadows,sunDir,sunColor:theme.sunColor,night}).then(w=>{if(gone){w?.dispose();return;}wilds=w;if(w)for(const k of coverKinds)if(k.drawn)k.im.visible=false;}).catch(e=>console.warn('wild plants',e));   // (the drawn bushes give way to the real ones)
  const fxRoot=new THREE.Group();scene.add(fxRoot);const fx=particles(fxRoot,theme,null,quality);
  const parks=parkScenery(built.terrain,scene,map,{shadows});   // (rails, banners, stands, chairlifts)
  const forest=nature&&built.terrain.gauntlets.length?gauntletScenery(built.terrain,nature,scene,{shadows,snow:map.theme==='snow',night,autumn:!!map.look?.autumn,quality}):
@@ -173,10 +197,21 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
  // ---------------------------------------------------------------- grass tufts and pebbles on the detailed ground
  let cs=map.seed+99;const crand=()=>{cs=(Math.imul(cs,1664525)+1013904223)>>>0;return cs/4294967296;};
  const props=makeProps(map.theme==='alpine'?'forest':map.theme,crand,1),pebbleProps=makeProps(map.theme==='alpine'?'forest':map.theme,crand,0);
+ // the grass sways in the wind: gusts roll across the field (each tuft a little out of step with its neighbours), the
+ // tips move most, and a storm blows harder
+ const breeze={uWindT:{value:0},uWindK:{value:map.look?.storm?2.2:1}};
+ props.leafMat.onBeforeCompile=sh=>{Object.assign(sh.uniforms,breeze);
+  sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform float uWindT,uWindK;').replace('#include <begin_vertex>',`#include <begin_vertex>
+#ifdef USE_INSTANCING
+{ vec3 r=instanceMatrix[3].xyz;float gust=.6+.4*sin(uWindT*.7-r.x*.045-r.z*.03);
+  float sw=(sin(uWindT*1.9+r.x*.35+r.z*.27)+.45*sin(uWindT*3.3+r.x*.9-r.z*.4))*gust*uWindK;
+  transformed.xz+=vec2(.8,.45)*(sw*.08+gust*.05*uWindK)*max(0.0,transformed.y)*max(0.0,transformed.y); }
+#endif`);};
+ props.leafMat.customProgramCacheKey=()=>'ow-grass-wind';
  const coverKinds=[
-  map.theme!=='snow'&&{geo:map.look?.autumn?autumnize(props.PROPS.grass(),map.seed):props.PROPS.grass(),mat:props.leafMat,max:Math.round((map.theme==='desert'?1500:3200)*Math.min(1,quality+.15)),every:map.theme==='desert'?.2:.5,size:[.8,1.5],sink:.04},
+  map.theme!=='snow'&&{geo:map.look?.autumn?autumnize(props.PROPS.grass(),map.seed):props.PROPS.grass(),mat:props.leafMat,max:Math.round((map.theme==='desert'?2600:7000)*Math.min(1,quality+.15)),every:map.theme==='desert'?.3:.75,size:[.8,1.5],sink:.04},
   {geo:pebbleProps.PROPS.rock(),mat:props.propMat,max:Math.round(500*Math.min(1,quality+.2)),every:.05,size:[.12,.45],sink:.06},
-  map.theme==='alpine'&&{geo:map.look?.autumn?autumnize(props.PROPS.shrub(),map.seed):props.PROPS.shrub(),mat:props.propMat,max:Math.round(260*quality),every:.025,size:[.5,.9],sink:.05},
+  map.theme==='alpine'&&{drawn:'shrub',geo:map.look?.autumn?autumnize(props.PROPS.shrub(),map.seed):props.PROPS.shrub(),mat:props.propMat,max:Math.round(260*quality),every:.025,size:[.5,.9],sink:.05},
  ].filter(Boolean).map(k=>{const im=new THREE.InstancedMesh(k.geo,k.mat,k.max);im.count=0;im.receiveShadow=true;im.frustumCulled=false;scene.add(im);return {...k,im};});
  const cHash=(x,z,s)=>{let h=Math.imul(x|0,374761393)^Math.imul(z|0,668265263)^s;h=Math.imul(h^(h>>>13),1274126177);return((h^(h>>>16))>>>0)/4294967296;};
  const cm=new THREE.Matrix4(),cq=new THREE.Quaternion(),cv=new THREE.Vector3(),cscale=new THREE.Vector3(),cup=new THREE.Vector3(0,1,0),ctint=new THREE.Color();
@@ -277,6 +312,9 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
   set onLightning(f){world.onLightning=f;},
   /** ahead: where to centre the detailed ground (a little ahead of a fast bike, so the ground it's riding into is ready). */
   update(point,dt,camera,ahead=point){
+   breeze.uWindT.value=(breeze.uWindT.value+dt)%600;
+   cloudU.uT.value=(cloudU.uT.value+dt)%2000;cloudLayer.position.x=camera.position.x;cloudLayer.position.z=camera.position.z;
+   wilds?.update(camera.position,dt);
    updatePatch(ahead);fx.update(dt,camera);parks.update(dt);built.update(camera.position);forest?.update(camera.position);slope?.update(camera.position);ocean?.update(camera.position,dt);weather(camera.position,dt);drawCoins(performance.now());drawHoops(performance.now());
    sun.position.copy(point).addScaledVector(sunDir,220);sun.target.position.copy(point);
    if(!shadows){
@@ -284,10 +322,12 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
     contact.position.set(point.x,y+.045,point.z);contact.quaternion.setFromUnitVectors(up,normal.set(nn.x,nn.y,nn.z));shadowMat.opacity=.3*Math.max(0,1-Math.max(0,point.y-y-.65)/7);
    }
   },
+  /** The real plants (wilds.mjs), once they've grown: { count, solids, update, dispose } or null. */
+  get wilds(){return wilds;},
   dispose(){
-   samples.clear();built.dispose();parks.dispose();forest?.dispose();slope?.dispose();ocean?.dispose();geo.dispose();detail.dispose();shadowGeo.dispose();shadowMat.dispose();shadowTex.dispose();
+   gone=true;wilds?.dispose();samples.clear();built.dispose();parks.dispose();forest?.dispose();slope?.dispose();ocean?.dispose();geo.dispose();detail.dispose();shadowGeo.dispose();shadowMat.dispose();shadowTex.dispose();
    for(const k of coverKinds){k.im.dispose();k.geo.dispose();}for(const m of [props.propMat,props.leafMat,props.cactusMat,pebbleProps.propMat,pebbleProps.leafMat,pebbleProps.cactusMat])m.dispose();
-   cloudTex.dispose();cloudMat.dispose();if(drops){drops.mesh.geometry.dispose();drops.mesh.material.dispose();}if(flakes){for(const f of flakes){f.mesh.geometry.dispose();f.mesh.material.dispose();}flakeTex.dispose();}if(stars){stars.geometry.dispose();stars.material.dispose();}if(lamp){lamp.spot.dispose();lamp.glow.dispose();}coinMesh.dispose();coinGeo.dispose();coinMat.dispose();hoopMesh.dispose();hoopGeo.dispose();hoopMat.dispose();sky.geometry.dispose();sky.material.dispose();env?.dispose();
+   cloudLayer.geometry.dispose();cloudMat.dispose();if(drops){drops.mesh.geometry.dispose();drops.mesh.material.dispose();}if(flakes){for(const f of flakes){f.mesh.geometry.dispose();f.mesh.material.dispose();}flakeTex.dispose();}if(stars){stars.geometry.dispose();stars.material.dispose();}if(lamp){lamp.spot.dispose();lamp.glow.dispose();}coinMesh.dispose();coinGeo.dispose();coinMat.dispose();hoopMesh.dispose();hoopGeo.dispose();hoopMat.dispose();sky.geometry.dispose();sky.material.dispose();env?.dispose();
    const textures=new Set();fxRoot.traverse(o=>{o.geometry?.dispose();if(o.material){for(const u of Object.values(o.material.uniforms||{}))if(u.value?.isTexture)textures.add(u.value);if(o.material.map)textures.add(o.material.map);o.material.dispose();}});textures.forEach(t=>t.dispose());
   }
  };

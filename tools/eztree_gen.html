@@ -1,0 +1,14 @@
+<!doctype html><html><body>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"}}</script>
+<script type="module">
+import { Tree } from 'https://cdn.jsdelivr.net/npm/@dgreenheck/ez-tree@1.1.0/build/ez-tree.es.js';
+const dump = (mesh) => { const g = mesh.geometry; return { p: Array.from(g.attributes.position.array), n: Array.from(g.attributes.normal.array), uv: Array.from(g.attributes.uv.array), i: Array.from(g.index.array) }; };
+window.make = (specs) => specs.map(([preset, seed, far]) => {
+  const t = new Tree(); t.loadPreset(preset); const o = t.options; o.seed = seed;
+  o.leaves.type = 'oak';
+  if (far) { for (const k of Object.keys(o.branch.sections)) o.branch.sections[k] = Math.max(1, Math.round(o.branch.sections[k] * 0.35)); for (const k of Object.keys(o.branch.segments)) o.branch.segments[k] = Math.max(3, Math.round(o.branch.segments[k] * 0.45)); o.leaves.count = Math.round(o.leaves.count * 0.5); o.leaves.size *= 2.0; o.leaves.billboard = 'single'; }
+  else { for (const k of Object.keys(o.branch.sections)) o.branch.sections[k] = Math.max(1, Math.round(o.branch.sections[k] * 0.7)); for (const k of Object.keys(o.branch.segments)) o.branch.segments[k] = Math.max(3, Math.round(o.branch.segments[k] * 0.75)); o.leaves.count = Math.round(o.leaves.count * 1.0); o.leaves.size *= 1.4; }
+  t.generate(); return { bark: dump(t.branchesMesh), leaves: dump(t.leavesMesh) };
+});
+window.ready = true;
+</script></body></html>

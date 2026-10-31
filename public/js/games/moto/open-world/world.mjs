@@ -220,6 +220,26 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
   b.items.forEach((item,i)=>{b.mesh.setMatrixAt(i,item.matrix);b.mesh.setColorAt(i,item.tint);});
   b.mesh.computeBoundingSphere();b.mesh.castShadow=false;b.mesh.receiveShadow=true;group.add(b.mesh);
  }
+ /** Whether a plant can grow at (x, z) by the same rules as the scenery above (off the trails by clear metres, off
+     jumps, pads, spawns, gauntlets, water and cliffs, and no steeper than slope (the ground's up, 0..1); below a tree
+     line, metres over the world's base, when one is given). wilds.mjs fills the worlds with real plants by it. */
+ function plantable(x,z,{clear=7,slope=.8,line=0,rise=90}={}){
+  if(!terrain.inBounds(x,z,8)||terrain.cliffRise(x,z)>rise)return false;
+  const road=terrain.roadAt(x,z);if(road&&road.distance<(map.look?.pisteClear??9)+clear)return false;
+  if(terrain.forestReach&&terrain.routeDist(x,z)<terrain.forestReach)return false;
+  if(terrain.rampAt(x,z).weight>0||terrain.featureAt(x,z).flat>.02||terrain.gauntletIn(x,z,40))return false;
+  if(keepOut.some(([p,r])=>Math.hypot(x-p[0],z-p[1])<r))return false;
+  if(lakeDist(x,z)<1.1||riverDist(x,z)<(river?river.width*.62:0)||wet(x,z))return false;
+  if(line&&renderHeightAt(x,z)>map.baseHeight+(map.look?.treeLine??line))return false;
+  return coarseUp(x,z)>=slope;
+ }
+ /** Stop drawing these kinds of the scenery (their real models are there instead: wilds.mjs). */
+ const hiddenKinds=new Set();
+ function hideKinds(kinds){
+  for(const k of kinds)hiddenKinds.add(k);
+  for(const chunk of chunks.values())for(const pair of chunk.meshes)if(hiddenKinds.has(pair.spec.kind))pair.near.visible=false;
+  for(const b of blocks.values())if(hiddenKinds.has(b.spec.kind))b.mesh.visible=false;
+ }
  /** Re-seat the scenery inside a rectangle on whatever ground is being drawn there now. */
  function syncScenery(heightAt=renderHeightAt,region=null){
   for(const chunk of chunks.values()){
@@ -242,12 +262,12 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
    const d=dist(chunk.x0,chunk.z0,CHUNK,eye);
    for(const pair of chunk.meshes){
     const close=d<pair.spec.near;if(close===pair.close)continue;
-    pair.close=close;pair.near.visible=close;
+    pair.close=close;pair.near.visible=close&&!hiddenKinds.has(pair.spec.kind);
     if(pair.far){for(const item of pair.items)pair.far.mesh.setMatrixAt(item.farIndex,close?hidden:item.matrix);touched.add(pair.far.mesh);}
    }
   }
   for(const m of touched)m.instanceMatrix.needsUpdate=true;
-  for(const b of blocks.values())b.mesh.visible=dist(b.x0,b.z0,BLOCK,eye)<b.spec.far;
+  for(const b of blocks.values())b.mesh.visible=dist(b.x0,b.z0,BLOCK,eye)<b.spec.far&&!hiddenKinds.has(b.spec.kind);
  }
 
  // ---------------------------------------------------------------- buildings, signs and arches
@@ -336,5 +356,5 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
  }
  const apron=new THREE.BufferGeometry();apron.setAttribute('position',new THREE.Float32BufferAttribute(ringPositions,3));apron.setAttribute('color',new THREE.Float32BufferAttribute(ringColors,3));apron.setAttribute('trailWeight',new THREE.Float32BufferAttribute(ringTrails,1));apron.setIndex(ringIndices);apron.computeVertexNormals();const mountainRim=new THREE.Mesh(apron,groundMat);mountainRim.receiveShadow=true;group.add(mountainRim);disposables.push(apron);
  update({x:map.spawn[0],z:map.spawn[1]});
- return {group,terrain,routes,minHeight,maxHeight,ground,layered,renderHeightAt,syncScenery,update(eye){update(eye);animate();},trueUp,dispose(){group.traverse(o=>{if(o.isInstancedMesh)o.dispose();});for(const d of [...new Set(disposables),...Object.values(mats)])d.dispose();}};
+ return {group,terrain,routes,minHeight,maxHeight,ground,layered,renderHeightAt,syncScenery,plantable,hideKinds,update(eye){update(eye);animate();},trueUp,dispose(){group.traverse(o=>{if(o.isInstancedMesh)o.dispose();});for(const d of [...new Set(disposables),...Object.values(mats)])d.dispose();}};
 }

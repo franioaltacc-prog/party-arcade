@@ -5,7 +5,10 @@ same small cell (the cell is the mesh's longest side / DETAIL; vertices on eithe
 The colour and normal textures are kept (shrunk to MAX pixels, saved as JPEG with macOS `sips`): they carry the detail.
 Leaves (a see-through material): put the colour texture with its transparency beside the original as <name>_leaves.png
 (tools/png_alpha.py makes it) and it's used instead of the JPEG. ONE=1 (an environment variable) makes all the model's
-parts one mesh, each where the model puts it (a lantern's door and handle).
+parts one mesh, each where the model puts it (a lantern's door and handle). MAT=k takes the parts drawn with the
+model's material k (and that material's textures) instead of the first; MAT=all takes every part (a model whose
+materials all share one texture, as a bush's twigs and leaves do), one mesh per node. MASK=1: see-through leaves
+(the _leaves.png beside the colour texture), whatever the model's own material says.
     python3 tools/pack_nature.py rock_moss_set_01/main.gltf public/models/nature/rocks-moss.glb 1 24 512
     python3 tools/pack_nature.py fern_02/main.gltf public/models/nature/fern.glb 1 2000 512
     (args: source .gltf, output .glb, scale to metres, DETAIL, MAX; optional: comma-separated node names to keep)"""
@@ -15,6 +18,8 @@ from array import array
 src, dst, scale, detail, MAX = sys.argv[1], sys.argv[2], float(sys.argv[3]), float(sys.argv[4]), int(sys.argv[5])
 keep = set(sys.argv[6].split(',')) if len(sys.argv) > 6 else None
 ONE = os.environ.get('ONE') == '1'
+MATI = os.environ.get('MAT', '0'); ALL = MATI == 'all'; MATI = 0 if ALL else int(MATI)
+MASK = os.environ.get('MASK') == '1'
 base = os.path.dirname(src)
 J = json.load(open(src))
 BUF = [open(os.path.join(base, b['uri']), 'rb').read() for b in J['buffers']]
@@ -41,12 +46,16 @@ meshes = []   # (name, positions, uvs, indices)
 for n in J['nodes']:
     if 'mesh' not in n or (keep and n.get('name') not in keep): continue
     sx, sy, sz = node_scale(n)
+    first = True
     for p in J['meshes'][n['mesh']]['primitives']:
-        if p.get('material', 0) != 0: continue   # (only the first material's parts: a lantern's glass is drawn by the game)
+        if not ALL and p.get('material', 0) != MATI: continue   # (only that material's parts: a lantern's glass is drawn by the game)
         P, _ = view(p['attributes']['POSITION']); UV, _ = view(p['attributes']['TEXCOORD_0']); I, _ = view(p['indices'])
         tx, ty, tz = n.get('translation', [0, 0, 0]) if ONE else (0, 0, 0)
         pts = [((P[i] * sx + tx) * scale, (P[i + 1] * sy + ty) * scale, (P[i + 2] * sz + tz) * scale) for i in range(0, len(P), 3)]
-        meshes.append((n.get('name', 'mesh'), pts, [(UV[i], UV[i + 1]) for i in range(0, len(UV), 2)], list(I)))
+        uvs = [(UV[i], UV[i + 1]) for i in range(0, len(UV), 2)]
+        if ALL and not first: _, p0, u0, i0 = meshes[-1]; i0 += [i + len(p0) for i in I]; p0 += pts; u0 += uvs   # (the node's parts together)
+        else: meshes.append((n.get('name', 'mesh'), pts, uvs, list(I)))
+        first = False
 
 if ONE:   # (all the parts as one mesh, where they are in the model: a lantern's body, door and handle)
     pts, uvs, idx = [], [], []
@@ -92,7 +101,8 @@ for name, pts, uvs, idx in meshes:
     print(f'{name}: {len(idx) // 3} -> {len(tris)} triangles, {len(V)} vertices, size {side:.2f} m')
 
 # textures: the first material's colour and normal maps
-mat = J['materials'][0]; pbr = mat.get('pbrMetallicRoughness', {})
+mat = dict(J['materials'][MATI]); pbr = mat.get('pbrMetallicRoughness', {})
+if MASK: mat.update(alphaMode='MASK', doubleSided=True)
 tex_uri = lambda t: J['images'][J['textures'][t['index']]['source']]['uri']
 maps = {'color': tex_uri(pbr['baseColorTexture'])}
 if 'normalTexture' in mat: maps['normal'] = tex_uri(mat['normalTexture'])

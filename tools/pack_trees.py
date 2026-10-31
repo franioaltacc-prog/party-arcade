@@ -8,14 +8,17 @@ three, then far-away versions of the same three (pine<k>_far_bark / _leaves: sim
 Bushes the same way (ez-tree's Bush presets with ash leaves and oak bark; meshes bush<k>[_far]_bark / _leaves):
     python3 tools/pack_trees.py bushes.json eztree-assets/ public/models/nature/bushes.glb 0.055 512 bush
 And aspens (ez-tree's Aspen Medium: birch bark, aspen leaves; meshes aspen<k>[_far]_bark / _leaves):
-    python3 tools/pack_trees.py aspens.json eztree-assets/ public/models/nature/aspens.glb 0.26 512 aspen"""
+    python3 tools/pack_trees.py aspens.json eztree-assets/ public/models/nature/aspens.glb 0.26 512 aspen
+And the open worlds' leafy trees (ez-tree's Oak Medium, Oak Large and Ash Medium, all with oak bark and leaves; meshes
+oak<k>[_far]_bark / _leaves; tools/eztree_gen.html makes the JSON):
+    python3 tools/pack_trees.py oaks.json eztree-assets/ public/models/nature/oaks.glb 0.16 512 oak"""
 import json, os, struct, subprocess, sys, tempfile
 from array import array
 
 src, assets, dst, scale, MAX = sys.argv[1], sys.argv[2], sys.argv[3], float(sys.argv[4]), int(sys.argv[5])
 KIND = sys.argv[6] if len(sys.argv) > 6 else 'pine'
 TEX = {'pine': ('pine_color_1k.jpg', 'pine_normal_1k.jpg', 'pine_color.png'), 'bush': ('oak_color_1k.jpg', 'oak_normal_1k.jpg', 'ash_color.png'),
-       'aspen': ('birch_color_1k.jpg', 'birch_normal_1k.jpg', 'aspen_color.png')}[KIND]
+       'aspen': ('birch_color_1k.jpg', 'birch_normal_1k.jpg', 'aspen_color.png'), 'oak': ('oak_color_1k.jpg', 'oak_normal_1k.jpg', 'oak_color.png')}[KIND]
 trees = json.load(open(src))
 images = {}
 with tempfile.TemporaryDirectory() as tmp:

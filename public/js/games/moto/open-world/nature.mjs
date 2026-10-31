@@ -70,17 +70,17 @@ export function loadSpruces(){
 const SLICE=30;
 /** A copy of a leaf material in autumn colours: each instance's colour (see AUTUMN) is the leaf's colour, the texture
     only gives its light and shade. */
-function autumnal(material){
+export function autumnal(material){
  const m=material.clone();
  m.onBeforeCompile=shader=>{shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>',`#if defined( USE_COLOR_ALPHA ) || defined( USE_COLOR ) || defined( USE_INSTANCING_COLOR )
  diffuseColor.rgb=vec3(dot(diffuseColor.rgb,vec3(.299,.587,.114)))*2.3*vColor;
 #endif`);};
  m.customProgramCacheKey=()=>'autumn';return m;
 }
-const AUTUMN=[[.95,.62,.12],[.92,.42,.08],[.75,.22,.07],[.98,.8,.2],[.85,.5,.1]];   // (gold, orange, red, yellow, amber)
+export const AUTUMN=[[.95,.62,.12],[.92,.42,.08],[.75,.22,.07],[.98,.8,.2],[.85,.5,.1]];   // (gold, orange, red, yellow, amber)
 /** A copy of material with snow lying on everything that faces up (more on pine needles: base is how white they are
     all over), for a winter world. */
-function snowy(material,base=0){
+export function snowy(material,base=0){
  const m=material.clone();
  m.onBeforeCompile=shader=>{shader.fragmentShader=shader.fragmentShader.replace('#include <lights_physical_fragment>',`{
   vec3 snowN=inverseTransformDirection(normal,viewMatrix);
