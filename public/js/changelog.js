@@ -6,6 +6,17 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.23.0', date: '2026-10-31', emoji: '💨', title: 'Faster-feeling rides, real trees and clouds', items: [
+      'Speed you can feel: at speed the edges of the screen smear gently, faint streaks of wind rush past you in the air, and the corners darken a touch. Turbo widens the view. It all grows with how fast you are for what you ride, so a skateboard flat out feels as quick as a supercar',
+      'Landings have weight: the camera dips and springs back when you come down from a jump (more from a big one, and a crash), and it trembles a little at full speed on the ground',
+      'Richer pictures: bright things glow (the sun on water and snow, your lamp and the lighthouse at night), and the colours have more contrast and life',
+      'Skyvvd: the camera flies close behind your wingsuit and keeps up at full speed, and the wind roars and flutters louder the faster and lower you fly',
+      'New sounds: a snowboard hisses through the snow (louder when you carve), and a skateboard rumbles on the concrete and clacks over the joints (they used the mountain bike’s ticking freewheel before)',
+      'Real trees and plants everywhere: oaks, ashes, pines and spruces, quiver trees and boulders in the deserts, bushes, ferns, nettles and dandelions on the ground, all swaying in the wind; trees and boulders are solid',
+      'A real cloud layer (orange at sunset, a dark ceiling in a storm)',
+      'Better ground: patches of colour, rock layers on the cliffs instead of stripes, concrete slabs on Concrete Coast',
+      'On low graphics quality none of the new effects run, so slower phones and computers stay smooth',
+    ] },
     { v: '3.22.1', date: '2026-10-31', emoji: '🧭', title: 'Tidier menus and real models for the new modes', items: [
       'The tabs fit on one line again: every mode is in the new 🧭 Modes tab (it shows the mode you’re in), with all seven in one grid. The home screen has a More modes card too',
       'Mode pages are shorter: the sky and snowfall pickers are one row each, and your vehicle’s colours are in the Garage (one tap from each mode). The Garage now has every vehicle, the snowmobile, buggy, wingsuit and skateboard included',

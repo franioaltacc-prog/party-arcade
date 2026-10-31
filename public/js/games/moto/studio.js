@@ -26,7 +26,7 @@ const v1 = new THREE.Vector3(); const v2 = new THREE.Vector3();
 
 /** The studio: app is the game's root element (it gets .photo / .replay while they're on). ground(x, z): the height
     there. Everything else comes from the game when it calls in. */
-export function createStudio({ app, camera, renderer, ground, onExit }) {
+export function createStudio({ app, camera, renderer, ground, onExit, draw }) {
   const bar = document.createElement('div'); bar.className = 'mx-studio'; bar.hidden = true; app.appendChild(bar);
   const btn = (label, title, onClick) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.title = title; b.addEventListener('click', (e) => { e.stopPropagation(); onClick(); }); return b; };
 
@@ -79,7 +79,7 @@ export function createStudio({ app, camera, renderer, ground, onExit }) {
   }
   function savePhoto() {
     if (!photo) return;
-    photoCamera(0); renderer.render(photo.scene, camera);
+    photoCamera(0); (draw || ((sc) => renderer.render(sc, camera)))(photo.scene);
     const a = document.createElement('a');
     let pic = renderer.domElement;
     if (FILTERS[filter][1]) {   // (the filter baked into the picture; where a browser can't, it saves without)

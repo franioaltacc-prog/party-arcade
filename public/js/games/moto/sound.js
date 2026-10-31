@@ -87,8 +87,10 @@ function makeLoop(ctx, out, type, freq, q) {
 }
 
 /** Start the sound for a ride (pedal: a mountain bike, with no engine: tyres, wind and the freewheel ticking
-    when you coast). Returns null if there's no audio. */
-export function createAudio({ pedal = false } = {}) {
+    when you coast). kind: what you ride when it has no engine and no freewheel: 'board' (a snowboard's hiss on the
+    snow), 'skate' (wheels rumbling on concrete, clacking over the joints) or 'wing' (only the wind, roaring).
+    Returns null if there's no audio. */
+export function createAudio({ pedal = false, kind = null } = {}) {
   const ctx = Sfx.ac && Sfx.ac();
   if (!ctx) return null;
   const master = ctx.createGain(); master.gain.value = Sfx.muted ? 0 : 1;
@@ -99,9 +101,9 @@ export function createAudio({ pedal = false } = {}) {
   const scrub = makeLoop(ctx, master, 'bandpass', 2400, 0.8);
   const nitro = makeLoop(ctx, master, 'highpass', 1800, 0.7);
   // a bicycle: knobbly tyres humming on the dirt, and the freewheel's quick clicks when you stop pedalling
-  const tyres = pedal ? makeLoop(ctx, master, 'lowpass', 240, 0.8) : null;
-  let tick = null;
-  if (pedal) {
+  const tyres = pedal && kind !== 'wing' ? makeLoop(ctx, master, kind === 'board' ? 'bandpass' : 'lowpass', kind === 'board' ? 3200 : kind === 'skate' ? 420 : 240, kind === 'board' ? 0.6 : 0.8) : null;
+  let tick = null; let jointAt = 0;
+  if (pedal && !kind) {
     const o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = 20;
     const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 2600;
     const g = ctx.createGain(); g.gain.value = 0;
@@ -133,12 +135,23 @@ export function createAudio({ pedal = false } = {}) {
       engine.set(b.crashed || pedal ? 1700 : b.rpm, b.crashed ? 0 : Math.min(1,b.thr*tune.SOUND_BASE_LOAD+load*tune.SOUND_ACCEL), b.limiter && !b.crashed, pedal ? 0 : 1, 0, dt);
       if (pedal) {
         const rolling = !b.crashed && (b.wh[0].ct || b.wh[1].ct);
-        tyres.set(rolling ? Math.min(0.2, speed * 0.012) : 0, 160 + speed * 14);
-        const t = ctx.currentTime; const coast = rolling && b.thr < 0.1 && speed > 1;
-        tick.g.gain.setTargetAtTime(coast ? Math.min(0.03, 0.008 + speed * 0.002) : 0, t, 0.05);
-        tick.o.frequency.setTargetAtTime(Math.max(8, Math.min(320, speed * 16)), t, 0.05);
+        if (kind === 'board') tyres?.set(rolling ? Math.min(0.24, speed * 0.014 + (b.slide || 0) * 0.08) : 0, 2400 + speed * 60);   // (the edge hissing through the snow, louder carving)
+        else if (kind === 'skate') {
+          tyres?.set(rolling ? Math.min(0.3, speed * 0.04) : 0, 260 + speed * 30);
+          // the wheels clacking over the joints in the concrete, quicker the faster you roll
+          jointAt -= dt * speed; if (rolling && speed > 1.5 && jointAt <= 0) { jointAt = 2.4; shot(() => Sfx.noise(0.04, Math.min(0.14, 0.04 + speed * 0.012), 0, 1800)); }
+        } else if (!kind) tyres?.set(rolling ? Math.min(0.2, speed * 0.012) : 0, 160 + speed * 14);
+        if (tick) {
+          const t = ctx.currentTime; const coast = rolling && b.thr < 0.1 && speed > 1;
+          tick.g.gain.setTargetAtTime(coast ? Math.min(0.03, 0.008 + speed * 0.002) : 0, t, 0.05);
+          tick.o.frequency.setTargetAtTime(Math.max(8, Math.min(320, speed * 16)), t, 0.05);
+        }
       }
-      wind.set(Math.min(0.35, speed * speed * 0.00035), 500 + speed * 25);
+      if (kind === 'wing') {
+        // a wingsuit: the wind is the whole sound, roaring and fluttering the faster you go (and louder still low over the ground)
+        const v = b.v || speed; const flutter = 1 + Math.sin(ctx.currentTime * 23) * 0.12 * Math.min(1, v / 50);
+        wind.set(b.crashed || b.landed ? 0 : Math.min(0.7, (v * v * 0.00028 + (b.near || 0) * 0.2) * flutter), 380 + v * 22 + (b.near || 0) * 500);
+      } else wind.set(Math.min(0.35, speed * speed * 0.00035), 500 + speed * 25);
       const slip = b.crashed ? 0 : Math.max(b.wh[1].ct ? b.wh[1].slip : 0, b.wh[0].ct ? b.wh[0].slip * 0.6 : 0, (extra.scrub || 0) * 0.6, b.slide || 0);
       scrub.set(Math.min(0.22, Math.max(0, slip - 0.6) * 0.05), extra.surface === 2 ? 3800 : extra.surface === 1 ? 900 : 2200);
       nitro.set(b.boost && !pedal ? 0.16 : 0, b.boost ? 2600 : 1800);   // (a bicycle's sprint is just legs)

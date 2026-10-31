@@ -19,6 +19,8 @@ import { createAvalanche } from './avalanche.js';
 import { createTow } from './tow.js';
 import * as Career from './career.js';
 import { createMap } from './map.js';
+import { createPost } from './post.js';
+import { makeStreaks } from './streaks.js';
 import * as Car from './car.js';
 import * as Wing from './wing.js';
 import { makeCar, poseCar, disposeCar, preloadCar, preloadExtra, CAR_PAINTS, CAR_MODELS, paintable } from './car-model.js';
@@ -52,7 +54,7 @@ const fmt = (s) => {
 };
 const touchDevice = matchMedia('(pointer: coarse)').matches;
 const qualityLevel = () => (prefs.quality === 'auto' ? (touchDevice ? 'medium' : 'high') : prefs.quality);
-const QUALITY = { high: { pr: 2, scenery: 1, shadows: true }, medium: { pr: 1.4, scenery: 0.65, shadows: true }, low: { pr: 1, scenery: 0.4, shadows: false } };
+const QUALITY = { high: { pr: 2, scenery: 1, shadows: true, post: true, bloom: true }, medium: { pr: 1.4, scenery: 0.65, shadows: true, post: true, bloom: true }, low: { pr: 1, scenery: 0.4, shadows: false } };   // (post: the glow, colour and speed effects, post.js)
 
 // what the player has unlocked (bike paint jobs)
 let unlocked = new Set(['factory']);
@@ -173,10 +175,18 @@ function setupRenderer() {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   camera = new THREE.PerspectiveCamera(60, 16 / 9, 0.25, 9000);
-  studio = createStudio({ app: $('#mx'), camera, renderer, ground: (x, z) => (R.T ? groundUnder(x, z, R.bike ? R.bike.s : 0) : 0), onExit: () => { R.cam.init = false; R.last = performance.now(); } });
+  post = createPost(renderer); post.set(QUALITY[qualityLevel()]);
+  studio = createStudio({ app: $('#mx'), camera, renderer, draw: (scene) => post.draw(scene, camera), ground: (x, z) => (R.T ? groundUnder(x, z, R.bike ? R.bike.s : 0) : 0), onExit: () => { R.cam.init = false; R.last = performance.now(); } });
   return true;
 }
 let studio = null;   // photo mode and replays (studio.js)
+let post = null; let streaks = null;   // the glow, colour and speed effects (post.js), and the wind streaks (streaks.js)
+/** A new world's effects: how much things glow, the colours, and wind streaks the colour of its air. */
+function worldFx(def) {
+  const L = def.look || {}; const snow = def.theme === 'snow';
+  post?.set(QUALITY[qualityLevel()]); post?.look({ night: !!(L.night || L.dusk), snow, fog: !!(L.fogPulse || L.storm || L.weather === 'blizzard') });
+  streaks?.dispose(); streaks = makeStreaks(world.scene, { snow, night: !!L.night });
+}
 function resize() {
   if (!renderer) return;
   const q = QUALITY[qualityLevel()];
@@ -184,6 +194,7 @@ function resize() {
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, R.mode==='free' ? (prefs.quality==='high'?1.5:qualityLevel()==='low'?1:1.2) : q.pr) * (R.prScale || 1));
   renderer.setSize(w, hh, false);
   camera.aspect = w / hh; camera.updateProjectionMatrix();
+  post?.resize();
 }
 addEventListener('resize', resize);
 function loadWorld(def) {
@@ -197,7 +208,7 @@ function loadWorld(def) {
   world = buildWorld(renderer, physicsTrack(def), { quality: q.scenery });
   renderer.shadowMap.enabled = q.shadows;
   renderer.toneMappingExposure = world.theme.exposure;
-  worldKey = key;
+  worldKey = key; worldFx(def);
   return world;
 }
 
@@ -477,7 +488,7 @@ function onEvent(k, d) {
     if (R.audio) R.audio.crash();
     R.run?.crash();
     if (!online() && !R.override) R.slow = 0.9;
-    R.cam.shake = C.P.CAM_CRASH_SHAKE;
+    R.cam.shake = C.P.CAM_CRASH_SHAKE; R.cam.dipV = -5;
     showMessage(R.chain?.n > 1 && b.t < R.chain.until ? `CRASHED! · COMBO ×${Math.min(5, R.chain.n)} LOST` : 'CRASHED!', 'bad', 1300); R.chain = null;
     burst(b.x, b.y, 26, 'puff', 1.4);
     if (online()) sendPos(true);
@@ -485,6 +496,7 @@ function onEvent(k, d) {
     const strength = Math.min(1.5, d.air * 0.8);
     if (R.audio) R.audio.land(strength);
     R.cam.shake = Math.max(R.cam.shake, Math.min(C.P.CAM_SHAKE_MAX, d.air * C.P.CAM_LAND_SHAKE));
+    if (d.air > 0.25) R.cam.dipV = Math.min(R.cam.dipV || 0, -Math.min(7, 1.2 + d.air * 3));   // (the camera dips with the landing, updateCamera)
     burst(b.x, b.y - 0.4, Math.round(4 + d.air * 10), 'puff', 0.8 + d.air * 0.3);
     if (d.clean && d.score > 0) {
       // a combo: land trick after trick, each within 5 s of the last, and the points multiply (up to ×5)
@@ -617,6 +629,7 @@ function render(now, dt, alpha) {
   if (R.run && R.audio && !R.finished) R.audio.heartbeat(R.run.danger);
   // dust, roost and smoke
   if (!R.spectate) effects(s, dt, place);
+  speedFx(b, dt);
   const watched = R.spectate ? watching(leader) : null;
   if (watched) updateCamera(watched.snap, dt, watched.snap.v || 20, watched.place, watched.model);
   else updateCamera(s, dt, speed, place);
@@ -639,7 +652,7 @@ function render(now, dt, alpha) {
   }
   // gold coins (free ride and challenges)
   if (w.collect && !R.spectate && !b.crashed) { const got = w.collect(b.px, b.y, b.pz, performance.now(), () => showMessage('⭕ THROUGH THE HOOP! +15', 'cp', 1200)); if (got) { payCoins(got); Sfx.play('coin'); } }
-  renderer.render(w.scene, camera);
+  post.draw(w.scene, camera, R.fxK || 0);
   if (now - R.hudAt > 60) { R.hudAt = now; hud(now); }
   if (online() && now - R.sentAt > 80) sendPos(false);
 }
@@ -721,7 +734,7 @@ function liftFrame(now, dt) {
   camera.lookAt(seat.x, seat.y + 0.5, seat.z);
   L.mine = true; L.chairs[0].position.copy(L.line(R.lift.d, 1)); L.chairs[0].rotation.y = L.heading;   // (one of the chairs is yours)
   world.update(m.root.position, dt, camera);
-  renderer.render(world.scene, camera);
+  post.draw(world.scene, camera);
   if (now - R.hudAt > 200) { R.hudAt = now; hud(now); }
 }
 function endLift() {
@@ -742,7 +755,7 @@ function studioFrame(now, dt) {
     studio.replayCamera(p, s.h, s.v || 0, dt);
     world.update(p, dt, camera);
   } else studio.photoCamera(dt);
-  renderer.render(world.scene, camera);
+  post.draw(world.scene, camera);
 }
 const studioOk = () => R.running && world && R.model && !online() && performance.now() > R.goAt && !map.isOpen;
 function startPhoto() {
@@ -771,6 +784,25 @@ function firstHead(m, hide) {
   const head = m?.fig ? m.fig.bones.CC_Base_Head : m?.parts?.helmet;
   if (!head) return;
   if (m.fig) head.scale.setScalar(hide ? 0.001 : 1); else head.visible = !hide;
+}
+/** How fast it feels: your real speed (from how far the model moved) against what's fast for this vehicle, 0 to 1.
+    It drives the screen's speed effects (post.js) and the wind streaks; a wingsuit low over the ground feels flat out. */
+const fxVel = new THREE.Vector3(); const fxAt = new THREE.Vector3(); const fxD = new THREE.Vector3();
+function speedFx(b, dt) {
+  const p = R.model.root.position;
+  if (dt > 0) {
+    fxD.subVectors(p, fxAt).divideScalar(dt);
+    if (fxD.length() > 120 || R.spectate) fxD.set(0, 0, 0);   // (a respawn jumps: not speed)
+    fxVel.lerp(fxD, Math.min(1, dt * 8));
+  }
+  fxAt.copy(p);
+  const top = R.wing ? 60 : R.buggy ? 36 : R.car ? 55 : R.skate ? 9 : R.tow ? 16 : R.board ? 20 : R.mtb ? 16 : R.sled ? 34 : R.water ? 24 : 40;
+  const v = fxVel.length();
+  let k = b.crashed ? 0 : Math.max(0, Math.min(1, (v - top * 0.4) / (top * 0.6)));
+  if (R.wing && b.near) k = Math.max(k, Math.min(1, b.near * 1.4));
+  if (b.boost) k = Math.min(1, k + 0.25);
+  R.fxK = k;
+  streaks?.update(camera, fxVel, k);
 }
 function updateCamera(s, dt, speed, place, model = R.model) {
   const cam = R.cam;
@@ -816,7 +848,7 @@ function updateCamera(s, dt, speed, place, model = R.model) {
     // the faster you go, the more the bars shake under you (on the ground), and the edges of the view darken
     const kmh = speed * 3.6; const rough = Math.max(0, kmh - 12) * 0.0009; const tt = performance.now() / 1000;
     if (rough > 0 && !(R.bike && R.bike.air > 0.15)) camera.position.addScaledVector(firstU, (Math.sin(tt * 31) + Math.sin(tt * 47.3) * 0.6) * rough).addScaledVector(tmpV.crossVectors(firstD, firstU).normalize(), Math.sin(tt * 23.7) * rough * 0.6);
-    fxSpeed(Math.min(0.85, Math.max(0, (kmh - 22) / 30)));
+    fxSpeed(post?.on ? 0 : Math.min(0.85, Math.max(0, (kmh - 22) / 30)));   // (with post.js on, its own speed effect does this)
     fxHelmet(R.mtb && R.helmet ? R.helmet.cam : '');
     camera.up.copy(firstU); camera.lookAt(firstD);
     const f = 84 + (camera.aspect < 1 ? 18 : 0) + (R.mtb && R.helmet ? R.helmet.fov : 0);   // (an action cam is wider)   // (the same at any speed: a wider view at speed pushed the bar out of the bottom when slow)
@@ -837,16 +869,22 @@ function updateCamera(s, dt, speed, place, model = R.model) {
   } else if (R.camMode === 'close') {
     want = P.clone().addScaledVector(D, -4.2).add(UPV.clone().multiplyScalar(1.7 + air * 0.25));
     look = P.clone().addScaledVector(D, 5).add(UPV.clone().multiplyScalar(0.9));
+  } else if (R.wing) {
+    // a wingsuit: close behind and just above, the way flying games follow you (the flyer big on the screen, the ground rushing under)
+    want = P.clone().addScaledVector(D, -4.6).add(UPV.clone().multiplyScalar(1.25));
+    look = P.clone().addScaledVector(D, 8).add(UPV.clone().multiplyScalar(0.2));
   } else {
     // Cork7-style chase: behind and above, looking ahead
     const far = R.car ? 2 : 1;   // (the car is longer and wider: sit further back and higher)
     want = P.clone().addScaledVector(D, -5 * far).add(UPV.clone().multiplyScalar((2.0 + air * 0.3) * (R.car ? 1.6 : 1)));
     look = P.clone().addScaledVector(D, 5 * far).add(UPV.clone().multiplyScalar(1.0 + air * 0.2));
   }
+  // turbo: the view widens (the world stretches past you)
+  if (R.bike?.boost) fov += 7;
   // keep the camera out of the ground
   want.y = Math.max(want.y, groundUnder(want.x, want.z, s.s) + 1.1);
   if (!cam.init) { cam.pos.copy(want); cam.look.copy(look); cam.fov = fov; cam.init = true; }
-  const kPos = 1 - Math.exp(-dt * (R.camMode === 'side' ? 6 : C.P.CAM_FOLLOW));
+  const kPos = 1 - Math.exp(-dt * (R.camMode === 'side' ? 6 : R.wing ? 22 : C.P.CAM_FOLLOW));   // (a wingsuit at 160 km/h: a loose follow would leave it a dot far ahead)
   const kLook = 1 - Math.exp(-dt * C.P.CAM_LOOK);
   cam.pos.lerp(want, kPos); cam.look.lerp(look, kLook);
   cam.fov += (fov - cam.fov) * (1 - Math.exp(-dt * C.P.CAM_FOV_RATE));
@@ -855,7 +893,13 @@ function updateCamera(s, dt, speed, place, model = R.model) {
     cam.shake = Math.max(0, cam.shake - dt * 1.6);
     camera.position.x += (Math.random() - 0.5) * cam.shake * 0.5; camera.position.y += (Math.random() - 0.5) * cam.shake * 0.5;
   }
-  camera.lookAt(cam.look);
+  // a landing pushes the camera down and it springs back (you feel the weight come down), and at speed on the ground
+  // it trembles a little
+  const sd = Math.min(dt, 1 / 30); cam.dipV = (cam.dipV || 0) + (-110 * (cam.dip || 0) - 13 * (cam.dipV || 0)) * sd; cam.dip = (cam.dip || 0) + cam.dipV * sd;
+  camera.position.y += cam.dip;
+  const onGround = R.bike && !R.wing && (R.bike.wh[0].ct || R.bike.wh[1].ct);
+  if (onGround && R.fxK > 0) { const tt = performance.now() / 1000, a = R.fxK * 0.035; camera.position.y += (Math.sin(tt * 37) + Math.sin(tt * 53.7) * 0.6) * a; camera.position.x += Math.sin(tt * 29.3) * a * 0.6; }
+  camera.lookAt(fxD.copy(cam.look).setY(cam.look.y + cam.dip * 0.5));
   if (Math.abs(camera.fov - cam.fov) > 0.05) { camera.fov = cam.fov; camera.updateProjectionMatrix(); }
 }
 
@@ -1082,7 +1126,7 @@ async function startFree(entry, opts = {}){
     if(R.model){disposeModel(R.model);R.model=null;}
     for(const sb of stage.bikes.values()){sb.model.root.removeFromParent();sb.tag?.removeFromParent();}
     dropTrails();dropAvalanche();R.tow?.dispose();R.tow=null;if(world)world.dispose();world=null;worldKey=null;
-    const q=QUALITY[qualityLevel()];world=buildRideWorld(def,q.scenery,renderer,q.shadows,nature);worldKey='free:'+def.id;
+    const q=QUALITY[qualityLevel()];world=buildRideWorld(def,q.scenery,renderer,q.shadows,nature);worldKey='free:'+def.id;worldFx(def);
     renderer.shadowMap.enabled=q.shadows;renderer.toneMappingExposure=world.theme.exposure;
     R.def=def;
     let spawn,engine=null,finish=null;
@@ -1108,7 +1152,7 @@ async function startFree(entry, opts = {}){
     R.prev=R.cur=snap(R.bike);R.acc=0;R.last=performance.now();R.finished=false;R.cam.init=false;R.stuck=0;R.emitAcc=0;R.roll=0;R.best=null;R.beeped=0;R.safeTrail=[];R.retry=null;R.toPad=false;
     R.goAt=ch?Math.max(opts.goAt||0,performance.now()+(opts.online?600:3200)):0;R.gateDown=!ch;
     R.camMode=ch?.cam||prefs.cam;   // (a challenge can be ridden in first person)
-    R.trialMarker=null;R.finishMarker=finish?finishBeacon(finish):null;R.audio=createAudio({pedal:mtb||R.wing||R.skate});chuteExtras(ch);R.helmet=Coins.CAM.current();
+    R.trialMarker=null;R.finishMarker=finish?finishBeacon(finish):null;R.audio=createAudio({pedal:mtb||R.wing||R.skate,kind:R.wing?'wing':R.skate?'skate':R.board?'board':null});chuteExtras(ch);R.helmet=Coins.CAM.current();
     if(world.lamp&&mtb){const L=Coins.LAMP.current().lamp;Object.assign(world.lamp.spot,{intensity:L.i,angle:L.angle,distance:L.dist});}   // (your bike lamp, from the shop)
     if(world.storm){R.audio?.rain(1);world.onLightning=(far)=>{pulse($('#fx-flash'));R.audio?.thunder(far);};}$('.mx-nlab').textContent='TURBO · SPACE / SHIFT';for(const el of $$('.mx-nitro, .mx-nlab'))el.style.display=mtb||tow||R.wing||R.skate?'none':'';$('#mx-trials').hidden=!!ch;   // (a bicycle has no nitro)
     $('#hud-track').textContent=ch?`${ch.emoji} ${ch.name}${R.cup?` · World Cup ${R.cup.i+1}/${Chutes.CUP.length}`:''}`:def.name;
@@ -1738,7 +1782,7 @@ function stageFrame(now, dt) {
   stage.off += (want - stage.off) * (1 - Math.exp(-dt * 3));
   if (Math.abs(stage.off) > 0.5) camera.setViewOffset(W, H, -stage.off, 0, W, H); else { camera.clearViewOffset(); camera.updateProjectionMatrix(); }
   world.update(focusV, dt, camera);
-  renderer.render(world.scene, camera);
+  post.draw(world.scene, camera);
 }
 
 // ------------------------------------------------------------------ buttons and keys
@@ -2202,10 +2246,20 @@ async function init() {
   if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {   // testing on your own computer only
     // (the browser pane used for testing barely runs animation frames, so tests drive the game by hand)
     let fake = 0;
-    window.__moto = { R, C, keys, touch, startSolo, trackDef, stage, get state() { return state; }, get menus() { return menus; }, get world() { return world; }, get renderer() { return renderer; }, get camera() { return camera; },
+    window.__moto = { R, C, keys, touch, startSolo, trackDef, stage, get state() { return state; }, get menus() { return menus; }, get world() { return world; }, get renderer() { return renderer; }, get post() { return post; }, get camera() { return camera; },
       /** Draw one frame of the menu scene (the test pane hardly runs animation frames). */
       drawMenu(dt = 1 / 60) { if (world && !riding) stageFrame(performance.now(), dt); },
       /** Run the game for `seconds` of game time with these controls held, then draw one frame. */
+      /** Play `seconds` like the real game: a frame drawn every 1/60 s (so the camera and speed effects move as they do when you ride). */
+      play(seconds, held = {}) {
+        if (!R.bike) return null;
+        R.running = false; if (!fake) fake = performance.now();
+        R.override = typeof held === 'function' ? held : null;
+        for (const k of Object.keys(touch)) touch[k] = false;
+        if (!R.override) Object.assign(touch, held);
+        for (let f = 0; f < Math.round(seconds * 60); f++) { for (let i = 0; i < Math.round(1 / 60 / DT); i++) { fake += DT * 1000; if (fake >= R.goAt && !R.gateDown) R.gateDown = true; physicsStep(fake); } render(fake, 1 / 60, 1); }
+        return { speed: Math.hypot(R.bike.vx, R.bike.vy) * 3.6, fx: R.fxK };
+      },
       advance(seconds, held = {}) {
         if (!R.bike) return null;
         R.running = false;

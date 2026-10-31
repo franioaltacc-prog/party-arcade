@@ -417,6 +417,11 @@ with an import map), everything else is drawn and synthesised in code (no model,
   Challenges: `park` (start at a park; laps: `lapStep`), `avalanche` (`avalanche.js`, `avalancheStep`), `judges`, and
   the room-only Lantern Relay (`kind: relay`: teams, `g:pass`, the team finishes together; `games/moto/game.py`).
   The Weekly Challenge: `weeklyChallenge` in `chutes.js` and `weekly_challenge` in `accounts.py` (the same pick).
+  The look and feel of speed: `post.js` (bloom, colour grade, edge smear, speed lines and vignette after the scene is
+  drawn; off on low quality; `worldFx` in `game.js` tunes it per world), `streaks.js` (wind streaks in the air),
+  `speedFx` (how fast it feels for this vehicle, `R.fxK`) and the landing dip in `updateCamera`. Sounds without an
+  engine: `createAudio({ kind })` in `sound.js` ('board', 'skate', 'wing'). Tests: `__moto.play(s, held)` draws real
+  60 fps frames, unlike `advance`.
   Photo mode and replays: `studio.js` (the replay is the last minute of `R.rec`). Gear (`Coins.LAMP`, `Coins.CAM`) only
   changes the lamp and the first-person look, so it's allowed in challenges. Tests: `tests/chutebot.py`.
 
