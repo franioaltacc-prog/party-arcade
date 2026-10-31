@@ -6,6 +6,14 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.23.2', date: '2026-11-01', emoji: '🛩️', title: 'Skyvvd: jump out of a plane', items: [
+      'You start in a real jump plane now, not out of nowhere: you stand on the step outside its door, under the wing, with the engine droning and the wind roaring, high over the mountain',
+      'Free flight: the plane circles past the drop point, and you jump when you like with W or Space. You tumble away into the fall and the plane flies on without you',
+      'Crash, or land under your parachute and press Space, and you’re back up in the plane for another go',
+      'Challenges: the plane brings you in during the countdown and you’re out at GO, from the same spot, height and speed as before, so medal times and leaderboards stay fair',
+      'Jumping with Space doesn’t pull your parachute straight away: let go first, then press it again',
+      'The plane is “Small Airplane” by Vojtěch Balák (CC BY 3.0, via Poly Pizza)',
+    ] },
     { v: '3.23.0', date: '2026-10-31', emoji: '💨', title: 'Faster-feeling rides, real trees and clouds', items: [
       'Speed you can feel: at speed the edges of the screen smear gently, faint streaks of wind rush past you in the air, and the corners darken a touch. Turbo widens the view. It all grows with how fast you are for what you ride, so a skateboard flat out feels as quick as a supercar',
       'Landings have weight: the camera dips and springs back when you come down from a jump (more from a big one, and a crash), and it trembles a little at full speed on the ground',

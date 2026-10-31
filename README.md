@@ -410,7 +410,13 @@ with an import map), everything else is drawn and synthesised in code (no model,
   (`sled`: `sledify`, the dirt bike's physics with `SLED`), Drivvd (`buggy`: `car.js` `setSpec('buggy')`, the
   buggy built in `car-model.js`), Skyvvd (`wing`: `wing.js`, its own flight physics, drawn and followed like a car;
   the flyer and parachute in `car-model.js`) and Grindvvd (`skate`: `skateify`, the mountain bike's physics with
-  `SKATE`, on Concrete Coast, `skateplaza`, a `"paved"` world). Their model files: `public/models/moto/buggy.glb`, `parachute.glb` (`preloadExtra` in `car-model.js`; the buggy's wheels are found by position and put on springs in `fitBuggy`) and `skateboard.glb` (`preloadSkateboard` in `bike.js`); the wingsuit's flyer is your rider in its T-pose (`makeWingsuit` in `game.js`). The menus: one Modes tab (`MODES`, `modeKey` in `menus.js`). Challenges newer than the Weekly pool carry `"since"`
+  `SKATE`, on Concrete Coast, `skateplaza`, a `"paved"` world). Their model files: `public/models/moto/buggy.glb`, `parachute.glb` (`preloadExtra` in `car-model.js`; the buggy's wheels are found by position and put on springs in `fitBuggy`) and `skateboard.glb` (`preloadSkateboard` in `bike.js`); the wingsuit's flyer is your rider in its T-pose (`makeWingsuit` in `game.js`). Skyvvd's jump plane: `plane.js`
+  (`plane.glb`, "Small Airplane" by Vojtěch Balák, CC BY 3.0 via Poly Pizza; a box-built one stands in until it has
+  loaded). `R.plane` / `R.jump` in `game.js` (`boardPlane`, `planeStep`, `leavePlane`, `backToPlane`; you stand on its
+  step: `inPlane`, held with `Wing.ride`, `comp[1]` set). Free flight: it circles past the drop point (clear of the
+  hills) until W or Space; a challenge's jump run has the door over the drop point at GO and you're out then, from
+  just where `Wing.place` puts you, so times stay comparable; a crash in a challenge puts you straight back out there,
+  the plane flying on. Its drone: `plane()` in `sound.js`. The menus: one Modes tab (`MODES`, `modeKey` in `menus.js`). Challenges newer than the Weekly pool carry `"since"`
   (kept out of it). Gate courses: a challenge's `"gates"` ([x, z, radius, height?], `gateStep`). The sky for free
   ride: `SKIES` / `applySky` in `game.js`. Career: `career.js` (worked out from medals and bests). Today's challenge:
   `todaysChallenge` in `chutes.js`. Friends' ghosts: `ghost:friends` and the `my_ghosts` table in `accounts.py`.
