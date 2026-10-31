@@ -23,6 +23,7 @@ import { createPost } from './post.js';
 import { makeStreaks } from './streaks.js';
 import * as Car from './car.js';
 import * as Wing from './wing.js';
+import { createPlane, preloadPlane, SPEED } from './plane.js';
 import { makeCar, poseCar, disposeCar, preloadCar, preloadExtra, CAR_PAINTS, CAR_MODELS, paintable } from './car-model.js';
 
 const { $, $$, h, fill, Net, Sfx, UI, store, Account, Unlocks } = PA;
@@ -316,7 +317,7 @@ function stopRide() {
   if(R.trialMarker){R.trialMarker.removeFromParent();R.trialMarker.geometry.dispose();R.trialMarker.material.dispose();R.trialMarker=null;}
   dropFinishMarker();
   if (R.run) { R.run.save(false); R.run = null; }
-  dropGhosts(); dropTagMarker(); dropRelayLanterns(); dropAvalanche(); R.tow?.dispose(); R.tow = null; R.chain = null;
+  dropGhosts(); dropTagMarker(); dropRelayLanterns(); dropAvalanche(); R.tow?.dispose(); R.tow = null; R.chain = null; R.plane?.dispose(); R.plane = null; R.jump = null;
   studio?.stop(); R.rec.clear(); R.lift = null; R.grind = null; R.pipe = null;
   R.running = false;R.paused=false;
   if (R.audio) { R.audio.stop(); R.audio = null; }
@@ -374,8 +375,10 @@ const aheadV = new THREE.Vector3();
 function physicsStep(now) {
   const b = R.bike; const T = R.T;
   R.prev = R.cur;
-  const holding = now < R.goAt || b.hold > 0 || R.spectate;
   const inp = R.spectate || R.finished ? { gas: 0, brake: R.finished ? 1 : 0, lean: 0, nitro: false } : R.override ? R.override(R.T, b) : controls();
+  if (R.plane) { R.plane.update(DT); if (R.jump) planeStep(b, inp, now); }
+  if (R.noChute) { if (inp.nitro) inp.nitro = false; else R.noChute = false; }   // (Space jumped you out: let go of it before it pulls the parachute)
+  const holding = now < R.goAt || b.hold > 0 || R.spectate || !!R.jump;
   if (b.hold > 0) { b.hold -= DT; b.t += DT; }
   const before={x:b.px,y:b.y,z:b.pz}; const xBefore=b.x;
   const ev = R.V.step(T, b, { ...inp, ...(R.tow ? { gas: 0, brake: 0, nitro: false } : null), hold: holding, calm: calm() });
@@ -409,23 +412,55 @@ function physicsStep(now) {
     if(R.mode==='free'){R.trial=null;updateTrialMarker();}
     // in a challenge you go back to where you last were on your wheels (a safe pad could be a shortcut)
     let where;
-    if (R.challenge) { const sp = clearOfTrees(T, R.challenge.safe); R.V.place(T, b, { position: [sp.x, sp.z], heading: sp.h }); where = 'where you were'; }
+    if (R.challenge) { const sp = clearOfTrees(T, R.challenge.safe); R.V.place(T, b, { position: [sp.x, sp.z], heading: sp.h }); where = R.wing ? 'the plane' : 'where you were'; }
     else if (R.mode === 'free') {
       // free ride: another go at the gap you fell into, else where you were riding a few seconds ago (R and the
       // world edge go to a safe pad)
       const back = R.tow ? R.tow.behind() : R.toPad ? null : R.retry ? { ...R.retry, gap: true } : R.safeTrail.findLast((p) => p.t < now - crashTime() * 1000 - 2500);
       R.V.respawn(T, b, 0, back ? { position: back.position || [back.x, back.z], heading: back.heading ?? back.h } : null);
-      where = R.wing ? 'the helicopter' : R.tow ? 'the end of the rope' : back ? (back.gap ? 'the run-in: have another go!' : 'where you were riding') : 'a safe riding pad';
+      where = R.wing ? 'the plane' : R.tow ? 'the end of the rope' : back ? (back.gap ? 'the run-in: have another go!' : 'where you were riding') : 'a safe riding pad';
       R.retry = null; R.toPad = false; R.safeTrail.length = 0;
     } else { C.respawn(T, b); where = b.cp >= 0 ? `checkpoint ${b.cp + 1}` : 'the start'; }
+    if (R.wing) backToPlane();
     R.prev = snap(b); R.cam.init = false;
     showMessage(`Back to ${where}`, 'small', 1000);
   }
   // stuck (e.g. sitting in a pit): offer to go back
   const sp = Math.hypot(b.vx, b.vy);
-  R.stuck = !b.crashed && b.hold <= 0 && now > R.goAt && !R.finished && sp < 0.6 ? R.stuck + DT : 0;
+  R.stuck = !b.crashed && b.hold <= 0 && now > R.goAt && !R.finished && !R.jump && sp < 0.6 ? R.stuck + DT : 0;
   if (R.stuck > 4 && R.stuck - DT <= 4 && !R.challenge) showMessage(R.mode==='free'?'Press R to return to a safe pad':'Stuck? Press R to go back to the checkpoint', 'small', 2500);
   R.cur = snap(b);
+}
+
+/** Skyvvd: into the plane. A challenge's jump run has its door over the drop point at GO, and you're out then (from
+    just where place() put you, as everyone is: the clock starts as before); free flight circles past the drop point
+    until you jump (W or Space, pressed afresh). */
+function boardPlane() {
+  const b = R.bike; const lead = R.challenge ? Math.max(0, (R.goAt - performance.now()) / 1000) : 7;
+  R.plane.run(b.px, b.y, b.pz, b.h, lead, !R.challenge);
+  R.jump = { auto: !!R.challenge, armed: false }; R.cam.init = false;
+  if (!R.challenge) { const d = R.plane.door; Wing.ride(b, d.x, d.y, d.z, R.plane.pose.h, SPEED); }
+}
+/** Back to the plane after a crash or a landing: free flight, into it again; a challenge puts you straight back out
+    where you jumped (the clock is running), the plane flying on just ahead. */
+function backToPlane() {
+  if (!R.plane) return;
+  if (!R.challenge) { boardPlane(); return; }
+  const b = R.bike; R.plane.run(b.px, b.y, b.pz, b.h, 0); R.plane.release();
+}
+/** On the plane's step: you go along with it (free flight), until you jump, or GO throws you out (a challenge). */
+function planeStep(b, inp, now) {
+  const J = R.jump; const d = R.plane.door;
+  if (J.auto) { if (now >= R.goAt) leavePlane(false); return; }
+  Wing.ride(b, d.x, d.y, d.z, R.plane.pose.h, SPEED);
+  if (!(inp.gas > 0.5 || inp.nitro)) J.armed = true; else if (J.armed && b.hold <= 0) leavePlane(true);
+}
+function leavePlane(here) {
+  const b = R.bike; const d = R.plane.door;
+  if (here) Wing.place(R.T, b, { position: [d.x, d.z], heading: Math.PI / 2 - R.plane.pose.h, y: d.y });
+  R.plane.release(); R.jump = null; R.noChute = true; R.tumble = 1;
+  R.prev = R.cur = snap(b);
+  showMessage('GO!', 'cp', 900); R.audio?.whoosh();
 }
 
 /** Where to start again in a gauntlet (a forest of solid trees): if the line straight ahead runs into a tree or rock
@@ -481,7 +516,7 @@ function onEvent(k, d) {
   if (k === 'pad') { showMessage('⚡ BOOST!', 'cp', 700); if (R.audio) R.audio.checkpoint(); return; }
   if (k === 'chute') { showMessage('🪂 PARACHUTE!', 'cp', 1000); return; }   // (Skyvvd)
   if (k === 'landed') { showMessage('LANDED! · Space to fly again', 'cp', 2500); if (R.mode === 'free') payCoins(10); R.audio?.checkpoint(); return; }
-  if (k === 'relaunch') { R.V.respawn(R.T, b); R.prev = snap(b); R.cam.init = false; showMessage('Back up in the helicopter', 'small', 1200); return; }
+  if (k === 'relaunch') { R.V.respawn(R.T, b); backToPlane(); R.prev = snap(b); R.cam.init = false; showMessage('Back up in the plane', 'small', 1200); return; }
   if (k === 'trick') { trickPop(d); return; }
   if (k === 'bail') { showMessage(`BAILED! ${trickName(d)}`, 'bad', 1400); return; }
   if (k === 'crash') {
@@ -594,12 +629,24 @@ function makeWingsuit(color, ghost = null) {
   m.flyer = r; return m;
 }
 const WING_FIT = { x: -1.0, y: 0.12, turn: 0 };
+/** Skyvvd: out on the plane's step by its door, before you jump; and just after, a tumble as you fall away
+    (only the model turns over: the physics is already flying). The plane's engine is heard from here. */
+function inPlane(m, dt) {
+  const P = R.plane;
+  if (R.jump) { const d = P.door; m.root.position.set(d.x, d.y + 0.15, d.z); m.root.rotation.set(P.pose.bank, -P.pose.h - 0.5, 1.15, 'YZX'); }   // (facing forward and a little out, nearly upright)
+  else if (R.tumble > 0) {
+    R.tumble = Math.max(0, R.tumble - dt * 1.4);
+    m.root.rotateX((1 - R.tumble) ** 0.5 * Math.PI * 2 * (R.tumble > 0 ? 1 : 0));
+  }
+  const far = R.jump ? 0 : P.visible ? camera.position.distanceTo(P.door) : Infinity;
+  R.audio?.plane(R.jump ? 1 : Math.max(0, 1 - far / 500) ** 2 * 0.8);
+}
 function render(now, dt, alpha) {
   const w = world; const b = R.bike;
   const s = mix(R.prev, R.cur, alpha);
   const place = placer(s);
   const speed = Math.hypot(b.vx, b.vy);
-  if (R.car) poseCar(R.model, s);
+  if (R.car) { poseCar(R.model, s); if (R.plane) inPlane(R.model, dt); }
   else {
   // lean into turns like a real bike: tan(lean) = sideways acceleration / gravity
   const want = b.crashed || !(b.wh[0].ct || b.wh[1].ct) ? 0 : Math.atan(b.vx * b.yaw / C.P.G);
@@ -651,7 +698,7 @@ function render(now, dt, alpha) {
     if (online()) R.audio.others(otherSounds(b));
   }
   // gold coins (free ride and challenges)
-  if (w.collect && !R.spectate && !b.crashed) { const got = w.collect(b.px, b.y, b.pz, performance.now(), () => showMessage('⭕ THROUGH THE HOOP! +15', 'cp', 1200)); if (got) { payCoins(got); Sfx.play('coin'); } }
+  if (w.collect && !R.spectate && !b.crashed && !R.jump) { const got = w.collect(b.px, b.y, b.pz, performance.now(), () => showMessage('⭕ THROUGH THE HOOP! +15', 'cp', 1200)); if (got) { payCoins(got); Sfx.play('coin'); } }
   post.draw(w.scene, camera, R.fxK || 0);
   if (now - R.hudAt > 60) { R.hudAt = now; hud(now); }
   if (online() && now - R.sentAt > 80) sendPos(false);
@@ -869,6 +916,10 @@ function updateCamera(s, dt, speed, place, model = R.model) {
   } else if (R.camMode === 'close') {
     want = P.clone().addScaledVector(D, -4.2).add(UPV.clone().multiplyScalar(1.7 + air * 0.25));
     look = P.clone().addScaledVector(D, 5).add(UPV.clone().multiplyScalar(0.9));
+  } else if (R.jump) {
+    // in the plane: from beside it and a little behind, under the wing: you on the step, the whole plane and the drop below
+    want = R.plane.toWorld(-5, 0.6, 11, new THREE.Vector3()); look = R.plane.toWorld(4, -2.2, -1, new THREE.Vector3());
+    fov = 66 + (camera.aspect < 1 ? 18 : 0);
   } else if (R.wing) {
     // a wingsuit: close behind and just above, the way flying games follow you (the flyer big on the screen, the ground rushing under)
     want = P.clone().addScaledVector(D, -4.6).add(UPV.clone().multiplyScalar(1.25));
@@ -1040,7 +1091,7 @@ function hud(now) {
   $('#hud-nitro').parentNode.classList.toggle('on', b.boost);
   $('#hud-nitro').parentNode.classList.toggle('full', b.nitro >= 0.999);
   $('#hud-sub').textContent = R.spectate ? watchLine() : R.mode === 'online' && state.race ? `P${myPlace()} / ${Object.keys(state.race.runners).length}  ·  CP ${b.cp + 1}/${T.cps.length}` : `CHECKPOINT ${b.cp + 1} / ${T.cps.length}`;
-  $('#hud-left').textContent = R.mode==='free' ? R.trial ? `${R.trial.race.name} · LAP ${R.trial.lap}/${R.trial.race.laps}` : R.tow ? 'WAKEBOARD · CUT ACROSS THE WAKE · R BACK TO THE ROPE' : R.skate ? 'GRINDVVD · PUSH W · GRIND THE RAILS · R SAFE PAD' : R.wing ? `SKYVVD · PROXIMITY ${Math.round(b.prox || 0)} · SPACE PARACHUTE · R HELICOPTER` : R.sled ? 'SLEDVVD · SPACE TURBO · R SAFE PAD' : R.buggy ? 'DRIVVD · SPACE TURBO · R SAFE PAD' : R.water ? 'WAVVD · SPACE TURBO · R SAFE PAD' : R.board ? 'CARVVD · A / D CARVE · R SAFE PAD' : R.mtb ? 'UNREVVD · Q WHEELIE · R SAFE PAD' : 'FREE RIDE · SPACE TURBO · R SAFE PAD' : `${Math.max(0, Math.round(T.finish - b.s))} M LEFT`;
+  $('#hud-left').textContent = R.mode==='free' ? R.trial ? `${R.trial.race.name} · LAP ${R.trial.lap}/${R.trial.race.laps}` : R.tow ? 'WAKEBOARD · CUT ACROSS THE WAKE · R BACK TO THE ROPE' : R.skate ? 'GRINDVVD · PUSH W · GRIND THE RAILS · R SAFE PAD' : R.wing ? `SKYVVD · PROXIMITY ${Math.round(b.prox || 0)} · ${R.jump ? 'W / SPACE JUMP OUT' : 'SPACE PARACHUTE · R BACK TO THE PLANE'}` : R.sled ? 'SLEDVVD · SPACE TURBO · R SAFE PAD' : R.buggy ? 'DRIVVD · SPACE TURBO · R SAFE PAD' : R.water ? 'WAVVD · SPACE TURBO · R SAFE PAD' : R.board ? 'CARVVD · A / D CARVE · R SAFE PAD' : R.mtb ? 'UNREVVD · Q WHEELIE · R SAFE PAD' : 'FREE RIDE · SPACE TURBO · R SAFE PAD' : `${Math.max(0, Math.round(T.finish - b.s))} M LEFT`;
   if(R.mode==='free')$('#hud-sub').textContent=R.trial?`GATE ${Math.min(R.trial.next+1,R.trial.gates.length)} / ${R.trial.gates.length}`:'EXPLORE AT YOUR OWN PACE';
   const ch = R.challenge;
   if (ch) {
@@ -1120,12 +1171,12 @@ async function startFree(entry, opts = {}){
     let nature=def.gauntlets?.length||def.features?.forest?await loadNature().catch((e)=>{console.warn('nature models',e);return null;}):null;   // (real trees and rocks for a gauntlet or a ski run's forest)
     if(nature&&def.gauntlets?.some(g=>g.aspens))nature={...nature,aspens:await loadAspens().catch(()=>null)};   // (the Autumn Chute's aspens)
     if(nature&&def.features?.forest)nature={...nature,spruces:await loadSpruces().catch(()=>null)};   // (a ski run's spruces)
-    if(veh==='buggy'||veh==='wing'||veh==='skate')await (veh==='buggy'?preloadExtra('buggy'):veh==='wing'?preloadExtra('parachute'):preloadSkateboard());   // (the newer modes' model files)
+    if(veh==='buggy'||veh==='wing'||veh==='skate')await (veh==='buggy'?preloadExtra('buggy'):veh==='wing'?Promise.all([preloadExtra('parachute'),preloadPlane()]):preloadSkateboard());   // (the newer modes' model files)
     if(!ch&&!mtb&&!water&&!veh&&prefs.vehicle==='car')await preloadCar(prefs.carModel);if(!riding||R.ride!==ride)return;
     for(const o of R.others.values())dropOther(o);R.others.clear();
     if(R.model){disposeModel(R.model);R.model=null;}
     for(const sb of stage.bikes.values()){sb.model.root.removeFromParent();sb.tag?.removeFromParent();}
-    dropTrails();dropAvalanche();R.tow?.dispose();R.tow=null;if(world)world.dispose();world=null;worldKey=null;
+    dropTrails();dropAvalanche();R.tow?.dispose();R.tow=null;R.plane?.dispose();R.plane=null;R.jump=null;if(world)world.dispose();world=null;worldKey=null;
     const q=QUALITY[qualityLevel()];world=buildRideWorld(def,q.scenery,renderer,q.shadows,nature);worldKey='free:'+def.id;worldFx(def);
     renderer.shadowMap.enabled=q.shadows;renderer.toneMappingExposure=world.theme.exposure;
     R.def=def;
@@ -1138,19 +1189,20 @@ async function startFree(entry, opts = {}){
       spawn={...pad,heading:park?park.heading:Math.atan2(-pad.position[0],-pad.position[1])};
       if(R.freeOnline){const side=laneFor(Net.id)*3;spawn.position=[pad.position[0]+Math.cos(spawn.heading)*side,pad.position[1]-Math.sin(spawn.heading)*side];}   // (riding together: side by side)
       engine=Coins.engineOf().stats;   // (bought engine upgrades only work in free ride)
-      if(veh==='wing'){const hp=[...def.safePads].sort((p,q)=>world.ground.heightAt(...q.position)-world.ground.heightAt(...p.position))[0];spawn={position:hp.riderPosition||hp.position,heading:0};}   // (Skyvvd: the helicopter drops you over the highest point)
+      if(veh==='wing'){const hp=[...def.safePads].sort((p,q)=>world.ground.heightAt(...q.position)-world.ground.heightAt(...p.position))[0];spawn={position:hp.riderPosition||hp.position,heading:0};}   // (Skyvvd: the plane drops you over the highest point)
     }
     if(tow){R.tow=createTow(world.scene,world.ground,world.ocean);spawn=R.tow.behind();engine={power:0,drag:1,turbo:0,regen:0,gear:1};}   // (no engine: the boat pulls you)
     // the dirt bike, the mountain bike (its upgrades only in free ride too) or the supercar
     R.mtb=mtb;R.water=water;R.veh=veh;R.sled=sled;R.buggy=veh==='buggy';R.wing=veh==='wing';R.skate=veh==='skate';R.car=R.buggy||R.wing||!ch&&!mtb&&!water&&!veh&&prefs.vehicle==='car';R.V=R.wing?Wing:R.car?Car:C;if(R.car&&!R.wing)Car.setSpec(R.buggy?'buggy':'super');   // (Skyvvd's wingsuit is drawn and followed like a car)   // (Drivvd's buggy: the car on long springs)
     R.board=!!(ch?ch.board:opts.board);   // (Carvvd: a board instead of a bike, no pedalling: it's all gravity)
     R.T=C.groundTrack(world.ground,spawn,water&&!tow?JETSKI:sled?SLED:engine,veh==='skate'?SKATE:mtb?(R.board?(ch?BOARD:BOARD_FREE):ch?{}:Coins.MTB.current().stats):null);R.bike=R.V.newBike(R.T);R.bike.board=R.board||tow||veh==='skate';   // (a board spins 180s, 540s…)
-    if(R.wing){R.T.launch=spawn;if(!ch){const g=world.ground,[x0,z0]=spawn.position;let best=null;for(let a=0;a<6.28;a+=0.2){const d=[0,1,2,3].reduce((m,k)=>m+g.heightAt(x0+Math.sin(a)*(300+k*300),z0+Math.cos(a)*(300+k*300)),0);if(!best||d<best.d)best={d,a};}spawn.heading=best.a;R.T.launch=spawn;R.V.place(R.T,R.bike,spawn);}}   // (free flight: out of the helicopter facing the way the mountain falls away)
+    if(R.wing){R.T.launch=spawn;if(!ch){const g=world.ground,[x0,z0]=spawn.position;let best=null;for(let a=0;a<6.28;a+=0.2){const d=[0,1,2,3].reduce((m,k)=>m+g.heightAt(x0+Math.sin(a)*(300+k*300),z0+Math.cos(a)*(300+k*300)),0);if(!best||d<best.d)best={d,a};}spawn.heading=best.a;R.T.launch=spawn;R.V.place(R.T,R.bike,spawn);}}   // (free flight: out of the plane facing the way the mountain falls away)
     R.model=R.wing?makeWingsuit(wingColor()):R.buggy?makeCar('buggy',buggyPaint()):R.car?makeCar(prefs.carModel,prefs.carPaint):makeBike(R.board?boardLook():mtb||veh==='skate'?mtbLook():water?jetLook():myLook());if(R.board)boardify(R.model,boardColor(),gear());if(tow){boardify(R.model,jetColor(),'board');R.model.wakes=true;}else if(water)jetskify(R.model,jetColor());else if(sled)sledify(R.model,sledColor());else if(R.skate)skateify(R.model,skateColor());world.scene.add(R.model.root);coverOn(R.model);
     R.tracks=createTracks(world.scene,(x,z)=>world.ground.heightAt(x,z),(x,z)=>world.ground.surfaceAt(x,z),{snowing:world.snowing});   // (grooves and tyre tracks)
     if(opts.online&&state.race){fillOthers(state.race);if(ch)for(const o of R.others.values())addOtherModel(o);}   // (free ride: each rider's bike or car appears with their first message)
     R.prev=R.cur=snap(R.bike);R.acc=0;R.last=performance.now();R.finished=false;R.cam.init=false;R.stuck=0;R.emitAcc=0;R.roll=0;R.best=null;R.beeped=0;R.safeTrail=[];R.retry=null;R.toPad=false;
-    R.goAt=ch?Math.max(opts.goAt||0,performance.now()+(opts.online?600:3200)):0;R.gateDown=!ch;
+    R.goAt=ch?Math.max(opts.goAt||0,performance.now()+(opts.online?600:3200)):0;R.gateDown=!ch;R.noChute=false;R.tumble=0;
+    if(R.wing){R.plane=createPlane(world.scene,world.ground);boardPlane();R.prev=R.cur=snap(R.bike);}   // (Skyvvd: you start in the jump plane)
     R.camMode=ch?.cam||prefs.cam;   // (a challenge can be ridden in first person)
     R.trialMarker=null;R.finishMarker=finish?finishBeacon(finish):null;R.audio=createAudio({pedal:mtb||R.wing||R.skate,kind:R.wing?'wing':R.skate?'skate':R.board?'board':null});chuteExtras(ch);R.helmet=Coins.CAM.current();
     if(world.lamp&&mtb){const L=Coins.LAMP.current().lamp;Object.assign(world.lamp.spot,{intensity:L.i,angle:L.angle,distance:L.dist});}   // (your bike lamp, from the shop)
@@ -1160,7 +1212,7 @@ async function startFree(entry, opts = {}){
     const url=new URL(location.href);url.searchParams.delete('solo');url.searchParams.delete('track');
     if(ch){url.searchParams.delete('free');url.searchParams.delete('world');history.replaceState(null,'',url);showMessage(ch.about,'small',5000);}
     else{if(!R.board&&!water){if(mtb)prefs.mtbWorld=def.id;else prefs.world=def.id;savePrefs();}if(water)url.searchParams.set('water','1');else url.searchParams.delete('water');if(tow)url.searchParams.set('tow','1');else url.searchParams.delete('tow');if(veh)url.searchParams.set('veh',veh);else url.searchParams.delete('veh');url.searchParams.set('free','1');url.searchParams.set('world',def.id);if(mtb&&!R.freeOnline)url.searchParams.set('mtb','1');else url.searchParams.delete('mtb');if(R.board)url.searchParams.set('board','1');else url.searchParams.delete('board');history.replaceState(null,'',url);
-      showMessage(R.freeOnline?'FREE RIDE TOGETHER · Esc goes back to the room':R.skate?'GRINDVVD · W push · A / D carve · ride onto a rail to grind · Q / E flip · 1–6 tricks · X spin':R.wing?'SKYVVD · W dive · S flare · A / D turn · fly low for proximity points · Space: parachute':R.buggy?'DRIVVD · W/S drive · A/D steer · Q handbrake · Space turbo · Q/E tip the nose in the air':sled?'SLEDVVD · W throttle · climb anything · Q / E flip · Space turbo · R resets':tow?'WAKEBOARD · A / D carve out wide, then cut back hard across the wake to fly · Q / E flip · X spin · 1–6 grab':water?'WAVVD · W throttle · A / D steer · jump the waves · Q / E flip · Space turbo':R.board?'CARVVD · Point it downhill · A / D carve · Q / E flip · R resets':mtb?'UNREVVD · W pedals · Q pops a wheelie · R resets':'FREE RIDE · Collect the gold coins · Space / Shift turbo · R resets','small',4500);}
+      showMessage(R.freeOnline?'FREE RIDE TOGETHER · Esc goes back to the room':R.skate?'GRINDVVD · W push · A / D carve · ride onto a rail to grind · Q / E flip · 1–6 tricks · X spin':R.wing?'SKYVVD · W or Space: jump out of the plane · then W dive · S flare · A / D turn · fly low for proximity points · Space: parachute':R.buggy?'DRIVVD · W/S drive · A/D steer · Q handbrake · Space turbo · Q/E tip the nose in the air':sled?'SLEDVVD · W throttle · climb anything · Q / E flip · Space turbo · R resets':tow?'WAKEBOARD · A / D carve out wide, then cut back hard across the wake to fly · Q / E flip · X spin · 1–6 grab':water?'WAVVD · W throttle · A / D steer · jump the waves · Q / E flip · Space turbo':R.board?'CARVVD · Point it downhill · A / D carve · Q / E flip · R resets':mtb?'UNREVVD · W pedals · Q pops a wheelie · R resets':'FREE RIDE · Collect the gold coins · Space / Shift turbo · R resets','small',4500);}
   }catch(error){console.error(error);UI.toast('Could not load that world','bad');quit();}
 }
 
@@ -2000,7 +2052,7 @@ function drawOthers(now, dt) {
     if (R.freeOnline && last) ensureOtherModel(o, last);
     if (!o.model) continue;
     const m = sampleOther(o, now);
-    const show = !!m && !(R.freeOnline && now - last.at > 4000);   // (free ride: someone who stopped sending, e.g. in a menu, fades out)
+    const show = !!m && !(R.freeOnline && now - last.at > 4000) && !(R.wing && R.jump);   // (a Skyvvd challenge's countdown: they're in the plane with you)   // (free ride: someone who stopped sending, e.g. in a menu, fades out)
     o.model.root.visible = show; if (o.tag) o.tag.visible = show;
     if (!show) continue;
     o.ang[0] += (m.s / 3.6 / 0.35) * dt; o.ang[1] += (m.s / 3.6 / 0.34) * dt;

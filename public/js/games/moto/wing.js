@@ -1,4 +1,4 @@
-/* Skyvvd: a wingsuit. You jump out of a helicopter over a high point and glide: W tips you into a dive (faster, steeper), S flares
+/* Skyvvd: a wingsuit. You jump out of a plane over a high point (plane.js) and glide: W tips you into a dive (faster, steeper), S flares
    (flatter, and you slow down; hold it too long and you stall), A / D bank and turn. Fly low over the ground at speed
    for proximity points. Space pulls the parachute: you float down slowly and can steer it in; land under it and
    you're safe (R or Space again goes back up to launch). Touch the ground in the wingsuit and you crash.
@@ -27,17 +27,25 @@ export function newBike(T) {
   return b;
 }
 
-/** Put the flyer at spot ({ position: [x, z], heading (map heading) }): out of the helicopter, 120 m above it, at 25 m/s. */
+/** Put the flyer at spot ({ position: [x, z], heading (map heading), y (optional: the height) }): out of the plane,
+    120 m above it (or at y), at 25 m/s. */
 export const DROP = 120;
 export function place(T, b, spot) {
   const g = T.terrain;
   b.px = spot.position[0]; b.pz = spot.position[1]; b.h = Math.PI / 2 - (spot.heading || 0);
-  b.y = g.heightAt(b.px, b.pz) + DROP; b.v = 25; b.gam = 0.45; b.bank = 0; b.chute = 0; b.landed = 0;
-  b.crashed = 0; b.air = 0; b.steer = 0; b.near = 0;
+  b.y = spot.y ?? g.heightAt(b.px, b.pz) + DROP; b.v = 25; b.gam = 0.45; b.bank = 0; b.chute = 0; b.landed = 0;
+  b.crashed = 0; b.air = 0; b.steer = 0; b.near = 0; b.comp[1] = 0;
   sync(b);
 }
 
-/** Back to the launch point (a wingsuit can't take off from where it fell). */
+/** Still in the plane, on the step by its door: the flyer goes along with it (x, y, z, heading h: b.h's angles; v:
+    its speed), held. comp[1] says so (the sound has the wind roaring in through the door). */
+export function ride(b, x, y, z, h, v = 0) {
+  b.px = x; b.pz = z; b.y = y; b.h = h; b.v = v; b.gam = 0; b.bank = 0; b.chute = 0; b.landed = 0; b.crashed = 0;
+  sync(b); b.comp[1] = 1;
+}
+
+/** Back to the launch point (a wingsuit can't take off from where it fell: back up in the plane). */
 export function respawn(T, b, u = 0, spot = null) {
   const keep = { crashes: b.crashes, flips: b.flips, maxSpeed: b.maxSpeed, t: b.t, x: b.x, prox: b.prox };
   place(T, b, T.launch || spot || T.spawn);

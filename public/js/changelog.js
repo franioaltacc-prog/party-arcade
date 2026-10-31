@@ -6,6 +6,13 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.23.2', date: '2026-11-01', emoji: '🛩️', title: 'Skyvvd: jump out of a plane', items: [
+      'You start in a real jump plane now, not out of nowhere: you stand on the step outside its door, under the wing, with the engine droning and the wind roaring, high over the mountain',
+      'Free flight: the plane circles past the drop point, and you jump when you like with W or Space. You tumble away into the fall and the plane flies on without you',
+      'Crash, or land under your parachute and press Space, and you’re back up in the plane for another go',
+      'Challenges: the plane brings you in during the countdown and you’re out at GO, from the same spot, height and speed as before, so medal times and leaderboards stay fair',
+      'Jumping with Space doesn’t pull your parachute straight away: let go first, then press it again',
+      'The plane is “Small Airplane” by Vojtěch Balák (CC BY 3.0, via Poly Pizza)',
     { v: '3.23.1', date: '2026-11-01', emoji: '🌲', title: 'Fuller worlds: real woods, far tree lines, much more on the ground', items: [
       'The trees grow in woods now, not one here and one there: thick forests with edges that thin out into meadows, leafy woods and pine woods in their own parts of the map, and the odd lone tree out in the open. Five to eight times as many trees on the green and snowy worlds',
       'Snowy worlds: dense dark-green spruce forests with snow on them, the same colour up close and far off',

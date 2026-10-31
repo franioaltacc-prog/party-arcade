@@ -88,7 +88,7 @@ function makeLoop(ctx, out, type, freq, q) {
 
 /** Start the sound for a ride (pedal: a mountain bike, with no engine: tyres, wind and the freewheel ticking
     when you coast). kind: what you ride when it has no engine and no freewheel: 'board' (a snowboard's hiss on the
-    snow), 'skate' (wheels rumbling on concrete, clacking over the joints) or 'wing' (only the wind, roaring).
+    snow), 'skate' (wheels rumbling on concrete, clacking over the joints) or 'wing' (only the wind, roaring, and the plane).
     Returns null if there's no audio. */
 export function createAudio({ pedal = false, kind = null } = {}) {
   const ctx = Sfx.ac && Sfx.ac();
@@ -102,7 +102,7 @@ export function createAudio({ pedal = false, kind = null } = {}) {
   const nitro = makeLoop(ctx, master, 'highpass', 1800, 0.7);
   // a bicycle: knobbly tyres humming on the dirt, and the freewheel's quick clicks when you stop pedalling
   const tyres = pedal && kind !== 'wing' ? makeLoop(ctx, master, kind === 'board' ? 'bandpass' : 'lowpass', kind === 'board' ? 3200 : kind === 'skate' ? 420 : 240, kind === 'board' ? 0.6 : 0.8) : null;
-  let tick = null; let jointAt = 0;
+  let tick = null; let jointAt = 0; let planeEng = null;
   if (pedal && !kind) {
     const o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = 20;
     const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 2600;
@@ -147,7 +147,8 @@ export function createAudio({ pedal = false, kind = null } = {}) {
           tick.o.frequency.setTargetAtTime(Math.max(8, Math.min(320, speed * 16)), t, 0.05);
         }
       }
-      if (kind === 'wing') {
+      if (kind === 'wing' && b.comp?.[1]) wind.set(0.3, 1100);   // (still in the plane: the wind roaring in through its open door)
+      else if (kind === 'wing') {
         // a wingsuit: the wind is the whole sound, roaring and fluttering the faster you go (and louder still low over the ground)
         const v = b.v || speed; const flutter = 1 + Math.sin(ctx.currentTime * 23) * 0.12 * Math.min(1, v / 50);
         wind.set(b.crashed || b.landed ? 0 : Math.min(0.7, (v * v * 0.00028 + (b.near || 0) * 0.2) * flutter), 380 + v * 22 + (b.near || 0) * 500);
@@ -155,6 +156,13 @@ export function createAudio({ pedal = false, kind = null } = {}) {
       const slip = b.crashed ? 0 : Math.max(b.wh[1].ct ? b.wh[1].slip : 0, b.wh[0].ct ? b.wh[0].slip * 0.6 : 0, (extra.scrub || 0) * 0.6, b.slide || 0);
       scrub.set(Math.min(0.22, Math.max(0, slip - 0.6) * 0.05), extra.surface === 2 ? 3800 : extra.surface === 1 ? 900 : 2200);
       nitro.set(b.boost && !pedal ? 0.16 : 0, b.boost ? 2600 : 1800);   // (a bicycle's sprint is just legs)
+    },
+    /** Skyvvd's jump plane: its engine droning, level 0..1 (1: you're in it; quieter, and a little lower, as it flies off). */
+    plane(level) {
+      if (!planeEng && level > 0.01) planeEng = makeEngine(ctx, master, 0.9);
+      if (!planeEng) return;
+      if (level <= 0.01) { planeEng.stop(); planeEng = null; return; }
+      planeEng.set(2300 + level * 300, 0.5, false, level);
     },
     /** Other riders: id -> { rpm, thr, dist (m, signed: + ahead), lane } — only the closest few are heard. */
     others(list) {
@@ -209,7 +217,7 @@ export function createAudio({ pedal = false, kind = null } = {}) {
     beep(go) { shot(() => Sfx.tone(go ? 880 : 440, go ? 0.45 : 0.18, 'square', 0.06)); },
     gate() { shot(() => { Sfx.noise(0.12, 0.2, 0, 1200); Sfx.tone(300, 0.08, 'square', 0.05, -100); }); },
     stop() {
-      engine.stop(); wind.stop(); scrub.stop(); nitro.stop(); rain.stop(); if (tyres) tyres.stop(); if (tick) tick.stop();
+      engine.stop(); wind.stop(); scrub.stop(); nitro.stop(); rain.stop(); if (tyres) tyres.stop(); if (tick) tick.stop(); planeEng?.stop();
       for (const e of others.values()) e.stop();
       others.clear();
       setTimeout(() => { try { master.disconnect(); } catch { /* gone */ } }, 600);

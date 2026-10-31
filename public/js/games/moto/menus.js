@@ -127,10 +127,10 @@ export function createMenus(ctx) {
       worlds: ['golddunes', 'redrock', 'canyonrun'], colours: Object.entries(ctx.CAR_PAINTS).map(([k, p]) => [k, p.name, p.color]),
       pref: 'buggyPaint', colour: () => ctx.buggyPaint(),
       how: 'W / S drive and brake, A / D steer, Q is the handbrake (slide it round the turns). The long springs soak up the bumps and jumps, and it grips off the trails better than the supercar. Space turbo, Q / E tip the nose in the air. Drivvd shares Revvd’s coins.' },
-    wing: { name: 'Skyvvd', logo: ['SKY', 'VV', 'D'], tag: 'Wingsuits · out of the helicopter · fly the mountains', emoji: '🪂', cls: 'sky',
+    wing: { name: 'Skyvvd', logo: ['SKY', 'VV', 'D'], tag: 'Wingsuits · out of the plane · fly the mountains', emoji: '🪂', cls: 'sky',
       worlds: ['powderpeak', 'frostpeak', 'sheerwall'], colours: [['#ff4fa3', 'Flamingo'], ['#ff6a00', 'Blaze'], ['#ffd23a', 'Sun'], ['#2a7fff', 'Sky'], ['#7dff3a', 'Toxic'], ['#16181c', 'Night']],
       pref: 'wingColor', colour: () => ctx.wingColor(),
-      how: 'The helicopter drops you over the highest point. W tips you into a dive (faster, steeper), S flares (flatter, slower: too slow and you stall), A / D bank and turn. Fly low over the ground at speed for proximity points and coins. Space pulls the parachute: steer it in and land. Touch the ground in the wingsuit and you crash. R: back up in the helicopter.' },
+      how: 'You ride up in a jump plane over the highest point: W or Space jumps out (in a challenge you go at GO). W tips you into a dive (faster, steeper), S flares (flatter, slower: too slow and you stall), A / D bank and turn. Fly low over the ground at speed for proximity points and coins. Space pulls the parachute: steer it in and land. Touch the ground in the wingsuit and you crash. R: back up in the helicopter.' },
     skate: { name: 'Grindvvd', logo: ['GRIN', 'VV', 'D'], tag: 'Skateboards · rails · halfpipe · tricks', emoji: '🛹', cls: 'grind',
       worlds: ['skateplaza', 'wildwood', 'frostpeak'], colours: [['#ff4fa3', 'Bubblegum'], ['#c8a27a', 'Maple'], ['#2a7fff', 'Ocean'], ['#7dff3a', 'Slime'], ['#ffd23a', 'Banana'], ['#16181c', 'Blackout']],
       pref: 'skateColor', colour: () => ctx.skateColor(),
@@ -255,7 +255,7 @@ export function createMenus(ctx) {
             h('span', {}, `${(trail.m / 1000).toFixed(1)} km ridden`), h('span', {}, `${trail.dodged} trees dodged`), h('span', {}, `${trail.close} close calls`),
             h('span', {}, `${Math.round(trail.clean)} m longest clean run`), h('span', {}, `${trail.runs} chutes finished`)) : null),
         h('div', { class: 'mx-chlist grid' }, list.map((c) => challengeChip(c, c === sel, () => pick(c), false)))),
-      note(newer ? `Everyone rides the same in ${newer.name} challenges, so it’s fair. ${mode === 'wing' ? 'Crash and the helicopter takes you back to the start (the clock keeps going).' : 'Crash and you go back to where you last were on your wheels.'}`
+      note(newer ? `Everyone rides the same in ${newer.name} challenges, so it’s fair. ${mode === 'wing' ? 'Crash and you’re back out of the plane at the start (the clock keeps going).' : 'Crash and you go back to where you last were on your wheels.'}`
         : water ? 'Everyone rides the same jet ski in Wavvd challenges. Crash and you go back to where you last were on the water.'
         : snow ? 'Everyone rides the same board in Carvvd challenges: no pedals, it’s all gravity. Crash and you go back to where you last were on your feet.'
         : mtb ? 'Everyone rides with stock legs in Unrevvd challenges, so it’s fair. Crash and you go back to where you last were on your wheels.'
