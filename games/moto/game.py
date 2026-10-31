@@ -6,7 +6,7 @@ along the track) a few times a second; the server passes that on so everyone see
 order, checks finish times, decides the places and saves the results. The tracks are data
 (public/js/games/moto/tracks.json), so a track added there can be raced here too.
 
-Free ride together: the host picks a world and everyone rides it at once, on their dirt bike, mountain bike or supercar, with
+Free ride together: the host picks a world and everyone rides it at once, on their dirt bike, mountain bike, supercar, snowboard or jet ski, with
 no race and no end. People can hop in and out while it's on (and someone joining the room rides straight in);
 the host ends it, or it ends when the last rider leaves."""
 import json
@@ -44,8 +44,8 @@ def load_challenges():
             if c["kind"] in ("race", "relay") and "from" in c:
                 world = json.loads((WORLD_DIR / (c["world"] + ".json")).read_text(encoding="utf-8"))
                 pads = {p["id"]: p["position"] for p in world["safePads"]}
-                (ax, az), (bx, bz) = pads[c["from"]], pads[c["to"]]
-                c = {**c, "dist": ((ax - bx) ** 2 + (az - bz) ** 2) ** 0.5}
+                path = [pads[c["from"]]] + [g[:2] for g in c.get("gates", [])] + ([pads[c["to"]]] if c.get("to") else [])   # (a gate course: through every gate)
+                c = {**c, "dist": sum(((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5 for a, b in zip(path, path[1:]))}
             out[c["id"]] = c
         except (OSError, ValueError, KeyError):
             continue
@@ -57,14 +57,14 @@ CHALLENGES = load_challenges()
 
 def load_worlds():
     try:
-        # (a hidden world is only for its challenge: never a room's free ride)
-        return [w["id"] for w in json.loads((WORLD_DIR / "manifest.json").read_text(encoding="utf-8"))["worlds"] if not w.get("hidden")]
+        # (a hidden world is only for its challenge: never a room's free ride, except one that's free to ride, like Azure Bay)
+        return [w["id"] for w in json.loads((WORLD_DIR / "manifest.json").read_text(encoding="utf-8"))["worlds"] if not w.get("hidden") or w.get("roomFree")]
     except (OSError, ValueError, KeyError):
         return []
 
 
 WORLDS = load_worlds()
-TOP_SCORE = {"air": 30.0, "flips": 80, "speed": 420.0, "tricks": 8000, "lanterns": 40}   # more than anyone can do with the stock engine
+TOP_SCORE = {"air": 30.0, "flips": 80, "speed": 420.0, "tricks": 8000, "lanterns": 40, "surf": 6000}   # more than anyone can do with the stock engine
 TAG_REACH = 4.5        # Forest Tag: how close (m) "it" has to be to tag someone (a little more than the browser asks for: lag)
 TAG_IMMUNE = 3.0       # ...and the seconds before the new "it" can tag anyone (no tagging straight back)
 PASS_REACH = 5.0       # Lantern Relay: how close (m) you have to be to hand the lantern to your teammate
@@ -303,7 +303,7 @@ class Moto(Game):
         v = num(msg.get("score"), -1)
         if v <= 0 or v > TOP_SCORE[kind]:   # (more than the stock engine can do: not believable)
             return
-        v = int(v) if kind in ("flips", "tricks", "lanterns") else round(v, 2)
+        v = int(v) if kind in ("flips", "tricks", "lanterns", "surf") else round(v, 2)
         if run["score"] is None or v > run["score"]:
             run["score"] = v
             if kind == "flips":

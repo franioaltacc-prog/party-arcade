@@ -1,0 +1,564 @@
+{
+  "schemaVersion": 1,
+  "id": "skateplaza",
+  "name": "Concrete Coast",
+  "tagline": "A skate city: halfpipe, rails, ramps and a hill to bomb.",
+  "theme": "alpine",
+  "seed": 5151,
+  "size": [
+    1600,
+    1600
+  ],
+  "baseHeight": 10,
+  "spawn": [
+    0,
+    260
+  ],
+  "spawnHeading": 3.141593,
+  "palette": {
+    "sky": "#b9d3e6",
+    "low": "#8c8f94",
+    "high": "#b4b6b9",
+    "trail": "#a8a49c",
+    "water": "#3f8f95",
+    "accent": "#ff4fa3"
+  },
+  "look": {
+    "flora": [],
+    "paved": true,
+    "sky": {
+      "sun": [
+        42,
+        140
+      ],
+      "turbidity": 3,
+      "rayleigh": 1.3,
+      "mie": 0.005,
+      "exposure": 1.3,
+      "fog": 0.3,
+      "fogColor": "#c8d6e0",
+      "sunColor": "#fff3dc"
+    },
+    "grass": [
+      [
+        132,
+        133,
+        130
+      ],
+      [
+        170,
+        170,
+        166
+      ]
+    ],
+    "dirt": [
+      [
+        118,
+        116,
+        112
+      ],
+      [
+        156,
+        153,
+        147
+      ]
+    ]
+  },
+  "terrain": {
+    "noise": 1.2,
+    "scale": 220,
+    "crags": false,
+    "hills": [
+      [
+        0,
+        -560,
+        55,
+        420,
+        260
+      ]
+    ]
+  },
+  "regions": [
+    {
+      "name": "The Plaza",
+      "position": [
+        0,
+        260
+      ]
+    },
+    {
+      "name": "Bomb Hill",
+      "position": [
+        0,
+        -560
+      ]
+    },
+    {
+      "name": "Halfpipe",
+      "position": [
+        -280,
+        20
+      ]
+    },
+    {
+      "name": "Rail Garden",
+      "position": [
+        280,
+        20
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "id": "bomb-hill",
+      "name": "Bomb Hill",
+      "points": [
+        [
+          0,
+          -560
+        ],
+        [
+          60,
+          -400
+        ],
+        [
+          -40,
+          -220
+        ],
+        [
+          30,
+          -40
+        ],
+        [
+          0,
+          160
+        ],
+        [
+          0,
+          260
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20
+    },
+    {
+      "id": "plaza-loop",
+      "name": "Plaza Loop",
+      "points": [
+        [
+          0,
+          260
+        ],
+        [
+          260,
+          300
+        ],
+        [
+          380,
+          120
+        ],
+        [
+          260,
+          -100
+        ],
+        [
+          0,
+          -60
+        ],
+        [
+          -260,
+          -100
+        ],
+        [
+          -380,
+          120
+        ],
+        [
+          -260,
+          300
+        ],
+        [
+          0,
+          260
+        ]
+      ],
+      "width": 14,
+      "shoulder": 20,
+      "closed": true
+    }
+  ],
+  "spots": [
+    {
+      "id": "plaza",
+      "name": "The Plaza",
+      "position": [
+        0,
+        260
+      ],
+      "kind": "camp",
+      "radius": 24,
+      "about": "The middle of the park: everything's a push away."
+    },
+    {
+      "id": "hilltop",
+      "name": "Bomb Hill",
+      "position": [
+        0,
+        -560
+      ],
+      "kind": "lookout",
+      "radius": 24,
+      "about": "The top of the hill: a long smooth road down to the plaza."
+    },
+    {
+      "id": "pipe",
+      "name": "Halfpipe",
+      "position": [
+        -280,
+        20
+      ],
+      "kind": "checkpoint",
+      "radius": 24,
+      "about": "The big halfpipe."
+    },
+    {
+      "id": "rails",
+      "name": "Rail Garden",
+      "position": [
+        280,
+        20
+      ],
+      "kind": "checkpoint",
+      "radius": 24,
+      "about": "Rails and boxes to grind."
+    }
+  ],
+  "races": [
+    {
+      "id": "plaza-laps",
+      "name": "Plaza Laps",
+      "route": "plaza-loop",
+      "type": "circuit",
+      "difficulty": "easy",
+      "laps": 2,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    },
+    {
+      "id": "bomb",
+      "name": "Bomb Hill",
+      "route": "bomb-hill",
+      "type": "downhill",
+      "difficulty": "easy",
+      "laps": 1,
+      "players": [
+        1,
+        6
+      ],
+      "gateRadius": 22,
+      "countdown": 5,
+      "medalSeconds": null,
+      "description": "Follow the ordered gates."
+    }
+  ],
+  "interactions": [
+    {
+      "id": "board",
+      "name": "The Plaza race board",
+      "position": [
+        40,
+        260
+      ],
+      "kind": "race-board",
+      "radius": 18,
+      "event": "race.offer",
+      "about": "Choose a mini race and invite nearby friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "jam",
+      "name": "Rail Garden trick jam",
+      "position": [
+        230,
+        0
+      ],
+      "kind": "trick-zone",
+      "radius": 18,
+      "event": "trick.land",
+      "about": "Share a two-minute trick score with friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "camera",
+      "name": "Bomb Hill photo perch",
+      "position": [
+        0,
+        -560
+      ],
+      "kind": "photo",
+      "radius": 18,
+      "event": "photo.capture",
+      "about": "Get the whole group into a summit picture.",
+      "cooldownSeconds": 10
+    }
+  ],
+  "ramps": [],
+  "surfaceZones": [
+    {
+      "id": "plaza-concrete",
+      "position": [
+        0,
+        60
+      ],
+      "radius": 560,
+      "surface": "trail",
+      "grip": 0.95,
+      "roll": 0.012
+    },
+    {
+      "id": "hill-road",
+      "position": [
+        0,
+        -360
+      ],
+      "radius": 260,
+      "surface": "trail",
+      "grip": 0.95,
+      "roll": 0.012
+    }
+  ],
+  "quests": [
+    {
+      "id": "skateplaza-welcome",
+      "name": "Welcome to Concrete Coast",
+      "start": "plaza",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "pipe",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "rails",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "plaza",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "skateplaza-summit",
+      "name": "Top of the World",
+      "start": "plaza",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "hilltop",
+          "count": 1
+        },
+        {
+          "event": "photo.capture",
+          "target": "camera",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    }
+  ],
+  "coordinateSystem": {
+    "units": "metres",
+    "horizontal": [
+      "x",
+      "z"
+    ],
+    "up": "y",
+    "heading": "radians: 0 points +z; positive rotates towards +x"
+  },
+  "status": "Made by tools/make_worlds.py.",
+  "boundary": {
+    "softMargin": 100,
+    "policy": "warn-and-respawn",
+    "respawn": "last-safe-pad",
+    "cliffWidth": 120,
+    "cliffHeight": 200,
+    "sceneryApron": 1600,
+    "rise": 0.5
+  },
+  "spawnPads": [
+    {
+      "id": "spawn-1",
+      "position": [
+        -24,
+        242
+      ],
+      "heading": 3.141593
+    },
+    {
+      "id": "spawn-2",
+      "position": [
+        -19,
+        242
+      ],
+      "heading": 3.141593
+    },
+    {
+      "id": "spawn-3",
+      "position": [
+        -14,
+        242
+      ],
+      "heading": 3.141593
+    },
+    {
+      "id": "spawn-4",
+      "position": [
+        -24,
+        236
+      ],
+      "heading": 3.141593
+    },
+    {
+      "id": "spawn-5",
+      "position": [
+        -19,
+        236
+      ],
+      "heading": 3.141593
+    },
+    {
+      "id": "spawn-6",
+      "position": [
+        -14,
+        236
+      ],
+      "heading": 3.141593
+    }
+  ],
+  "safePads": [
+    {
+      "id": "plaza",
+      "position": [
+        0,
+        260
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -24,
+        242
+      ]
+    },
+    {
+      "id": "hilltop",
+      "position": [
+        0,
+        -560
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -24,
+        -578
+      ]
+    },
+    {
+      "id": "pipe",
+      "position": [
+        -280,
+        20
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -304,
+        2
+      ]
+    },
+    {
+      "id": "rails",
+      "position": [
+        280,
+        20
+      ],
+      "radius": 32,
+      "riderPosition": [
+        256,
+        2
+      ]
+    }
+  ],
+  "features": {
+    "parks": [
+      {
+        "id": "sk-pipe",
+        "kind": "halfpipe",
+        "name": "Halfpipe",
+        "near": [
+          -280,
+          -40
+        ]
+      },
+      {
+        "id": "sk-rails",
+        "kind": "rails",
+        "name": "Rail Garden",
+        "near": [
+          280,
+          -40
+        ]
+      },
+      {
+        "id": "sk-jumps",
+        "kind": "jumps",
+        "name": "Jump Line",
+        "near": [
+          -300,
+          420
+        ]
+      },
+      {
+        "id": "sk-pump",
+        "kind": "pump",
+        "name": "Pump Track",
+        "near": [
+          300,
+          430
+        ]
+      },
+      {
+        "id": "sk-arena",
+        "kind": "arena",
+        "name": "Skate Arena",
+        "near": [
+          0,
+          560
+        ]
+      }
+    ]
+  },
+  "hidden": true
+}

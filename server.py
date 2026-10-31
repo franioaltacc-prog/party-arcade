@@ -26,7 +26,7 @@ import traceback
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-from accounts import MOTO_CHALLENGES, MOTO_TRACKS, Accounts, chute_key, AuthError, StoreError, level_info, parse_look, role_of
+from accounts import MOTO_CHALLENGES, MOTO_TRACKS, Accounts, chute_key, mode_name, AuthError, StoreError, level_info, parse_look, role_of
 from games import GAMES
 import tournaments
 from dashlevels import DashLevels, level_id
@@ -1090,6 +1090,8 @@ class Hub:
             return {"board": await acc.board(str(msg.get("board") or "xp"), c.account["id"] if c.account else None)}
         if t == "ghost:get":   # the record holder's run on an Unrevvd board, to race against
             return {"ghost": await acc.ghost(str(msg.get("game") or ""))}
+        if t == "ghost:friends":   # your friends' best runs on that board
+            return {"ghosts": await acc.friend_ghosts(self.need_login(c), str(msg.get("game") or ""))}
         if t == "ghost:put":
             uid = self.need_login(c)
             if acc.limited(f"ghost:{uid}", 20, 600):
@@ -1370,7 +1372,7 @@ class Hub:
 ACCOUNT_MESSAGES = {
     "dash:post", "dash:quota", "dash:mine", "dash:delete", "dash:get", "dash:list", "dash:like", "dash:play", "dash:queue", "dash:review",
     "auth:signup", "auth:login", "auth:logout", "account:update", "account:look", "account:password", "account:delete",
-    "profile:get", "players:find", "lb:boards", "lb:get", "stats:solo", "ghost:get", "ghost:put", "admin:unlock", "admin:overview", "admin:users",
+    "profile:get", "players:find", "lb:boards", "lb:get", "stats:solo", "ghost:get", "ghost:put", "ghost:friends", "admin:unlock", "admin:overview", "admin:users",
     "admin:user", "admin:announce", "admin:room", "admin:cheat", "plan:list", "plan:save", "plan:delete", "team:get", "team:say", "team:announce", "team:unsay", "team:unannounce", "friends:list", "friends:add", "friends:remove", "friends:invite", "friends:invite-no",
 }
 GAME_TITLES = {"dash": "Neon Dash", "life": "Family Life", "doodle": "Doodle Guess", "songs": "Song Rush", "volley": "Screen Volley", "blitz": "Party Blitz",
@@ -1394,7 +1396,7 @@ GAME_TITLES = {"dash": "Neon Dash", "life": "Family Life", "doodle": "Doodle Gue
 for _t in MOTO_TRACKS:
     GAME_TITLES[f"moto-{_t['id']}"] = GAME_TITLES[f"moto{_t['id']}"] = f"Revvd · {_t['name']}"
 for _c in MOTO_CHALLENGES:
-    GAME_TITLES[f"mch-{_c['id']}"] = GAME_TITLES[chute_key(_c["id"])] = f"{'Carvvd' if _c.get('board') else 'Unrevvd' if _c.get('vehicle') == 'mtb' else 'Revvd'} · {_c['name']}"
+    GAME_TITLES[f"mch-{_c['id']}"] = GAME_TITLES[chute_key(_c["id"])] = f"{mode_name(_c)} · {_c['name']}"
 GAME_TITLES["mch-daily"] = GAME_TITLES["mchdaily"] = "Unrevvd · Daily Chute"
 GAME_TITLES["mch-cup"] = GAME_TITLES["mchcup"] = "Unrevvd · Downhill World Cup"
 GAME_TITLES["mch-weekly"] = GAME_TITLES["mchweekly"] = "Revvd · Weekly Challenge"

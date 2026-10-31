@@ -561,8 +561,9 @@ export function buildTerrain(world) {
   return null;
  }
  /** The height you ride on: the ground, or the top of a rail or box. */
+ let seaExtra=null;   // (anything else raising the water: a ski boat's wake)
  function rideAt(x,z){
-  if(sea){ const y=landAt(x,z); return y<sea.level+2?Math.max(y,waveAt(x,z)):y; }   // (on the sea: the waves)
+  if(sea){ const y=landAt(x,z); return y<sea.level+2?Math.max(y,waveAt(x,z)+(seaExtra?seaExtra(x,z):0)):y; }   // (on the sea: the waves)
   const y=heightAt(x,z); if(!railParks.length) return y; const r=railAt(x,z); return r&&r.y>y?r.y:y;
  }
  function surfaceAt(x,z) {
@@ -602,5 +603,6 @@ export function buildTerrain(world) {
   return gates;
  }
  return {world,rawHeight,cliffRise,heightAt,bedAt:landAt,sea,waves:WAVES,waveAt,waveScale,waveTime,roadAt,rampAt,surfaceAt,normalAt,inBounds,nearestSafePad,gatesFor,wild,ramps,parks,mesas,routeDist,buildings,arches,obstacles,obstacleAt,obstaclesNear,
-  featureAt,hazardAt,boostAt,tintAt,gaps,pools,boosts,gauntlets,gauntletIn,parkList:parks2,railAt,rideAt,addSolids,forestTrees,forestReach,trailNearest};
+  featureAt,hazardAt,boostAt,tintAt,gaps,pools,boosts,gauntlets,gauntletIn,parkList:parks2,railAt,rideAt,addSolids,forestTrees,forestReach,trailNearest,
+  /** f(x, z): metres more water on top of the waves (null: none). */ setSeaExtra:f=>{seaExtra=f;}};
 }

@@ -43,6 +43,8 @@ function texture(kind,theme,size=1024,look=null){
 }
 /** The sea's clock (seconds, shared by every sea material: the waves, the light rippling on the seabed). */
 export const seaClock={value:0};
+/** How bright the daylight is (1 day .. 0 night): the light rippling on the seabed and through the waves fades with it. */
+export const seaLight={value:1};
 export function terrainMaterial(map,sharedTextures=null,detailed=true){
  const textures=sharedTextures || Object.fromEntries(Object.keys(palettes).map(k=>[k,texture(k,map.theme,1024,map.look)]));
  const hole=new THREE.Vector4();
@@ -52,7 +54,7 @@ export function terrainMaterial(map,sharedTextures=null,detailed=true){
   for(const [key,value]of Object.entries(textures))shader.uniforms['ow'+key]={value};
   shader.uniforms.owHole={value:hole};
   shader.uniforms.owBiome={value:map.theme==='desert'?0:map.theme==='snow'?2:1};
-  shader.uniforms.owTime=seaClock;
+  shader.uniforms.owTime=seaClock;shader.uniforms.owLight=seaLight;
   shader.vertexShader=shader.vertexShader.replace('#include <common>',`#include <common>
 attribute float trailWeight;
 varying vec3 owPosition;
@@ -69,7 +71,7 @@ uniform sampler2D owgrass;
 uniform sampler2D owrock;
 uniform sampler2D owsnow;
 uniform float owBiome;
-uniform float owTime;
+uniform float owTime,owLight;
 uniform vec4 owHole;
 // light rippling on the seabed (caustics): the bright edges between moving cells
 float owCaustic(vec2 p,float t){
@@ -145,7 +147,7 @@ if(owSnow>.5&&owCliff<.5){
 }`:''}
 ${map.sea?`{ // sunlight focused by the waves, dancing on the seabed (fading with depth)
  float owD=${map.sea.level.toFixed(2)}-owPosition.y;
- if(owD>-.05)totalEmissiveRadiance+=vec3(.75,.95,1.0)*owCaustic(owPosition.xz*.32,owTime*1.4)*smoothstep(-.05,.35,owD)*exp(-owD*.11)*${detailed?'.55':'.35'};
+ if(owD>-.05)totalEmissiveRadiance+=vec3(.75,.95,1.0)*owCaustic(owPosition.xz*.32,owTime*1.4)*smoothstep(-.05,.35,owD)*exp(-owD*.11)*owLight*${detailed?'.55':'.35'};
 }`:''}
 `).replace('#include <roughnessmap_fragment>',`#include <roughnessmap_fragment>
 roughnessFactor=clamp(.78+owGround.a*.22-.09*owSnow,.65,1.0);

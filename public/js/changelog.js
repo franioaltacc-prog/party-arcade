@@ -6,6 +6,21 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.22.0', date: '2026-10-31', emoji: '🎖️', title: 'Four new modes, Career, and lots more for every mode', items: [
+      'New mode: 🛷 Sledvvd. Snowmobiles on Frostpeak, Powder Peak and Twilight Slope. Lots of pull from low down, so it climbs where a bike can’t. Four challenges, including the Summit Climb all the way up Powder Peak',
+      'New mode: 🚙 Drivvd. A rally buggy with big knobbly tyres and long soft springs that soak up the jumps, on the desert worlds. Three challenges, including a Desert Rally stage with checkpoints',
+      'New mode: 🪂 Skyvvd. Jump out of a helicopter in a wingsuit and fly the mountains: dive for speed, flare to hold height, fly low for proximity points, and pull the parachute to land. Two challenges: the Ring Run through nine rings in the sky, and the Summit Dive',
+      'New mode: 🛹 Grindvvd. Skateboards in a new skatepark, Concrete Coast, with a halfpipe, a rail garden, jumps, a pump track and a hill to bomb. Kickflips, heelflips, shuv-its, grabs and grinds. Three challenges',
+      'New: 🎖️ Career. Rookie to Legend, with events in every mode. Your medals and bests count, so you may have cleared some already. Each tier pays coins, and Pro and Legend unlock a jet ski colour and a board',
+      'Wavvd: 🏄 wakeboarding behind a boat (carve out wide, then cut across its wake to fly), the 🟠 Buoy Slalom, and 🏄 Surf Break (ride down the faces of the waves)',
+      'Pick the ☁️ sky for free ride on any world: day, sunset, night (with your lamp on and the moon out), rolling fog or a storm. At sea a storm whips up much bigger waves, and at night the lighthouse beams sweep the bay',
+      'Combos: land trick after trick, each within 5 seconds, and the points multiply (up to ×5). Crash and the combo’s gone',
+      '📅 Today’s challenge: each mode picks one of its challenges every day. Finish it for 150 bonus coins',
+      'Photo mode filters (🎨 or F): Warm, Cool, B&W, Vintage and Punchy, saved into the picture too',
+      'One garage for everything: the dirt bike, supercar, mountain bike, board and skis, and jet ski, all from the Garage tab',
+      'Race your friends’ ghosts: when you’re logged in, your friends’ best runs ride along with you in race challenges',
+      'Riding free with friends in a room: you can now pick a snowboard or a jet ski too, and the host can pick Azure Bay or Concrete Coast',
+    ] },
     { v: '3.21.0', date: '2026-10-31', emoji: '🌊', title: 'Wavvd: jet skis on the open water', items: [
       'New mode: 🌊 Wavvd. Ride a jet ski round Azure Bay: pine-covered islands, sandy beaches, a pier, a lighthouse, sea stacks and buoys',
       'Real waves you ride on: the swell rolls in, sharp crests and wide troughs, bigger out towards the open sea and calm in the shallows. Hit a wave face flat out and you fly (Q / E to flip)',

@@ -113,6 +113,8 @@ function makeModelCar(id, paintId) {
 /** Build a car: model ('revuelto', 'aventador', 'wedge'; a model file that hasn't loaded yet shows as the wedge),
     paint (CAR_PAINTS id; for the cars that can be painted). */
 export function makeCar(modelId = 'revuelto', paintId = 'arancio', ghost = null) {
+  if (modelId === 'buggy') return makeBuggy(paintId, ghost);
+  if (modelId === 'wing') return makeWing(paintId, ghost);
   if (CAR_MODELS[modelId]?.file) { if (fitted[modelId] && !ghost) return makeModelCar(modelId, paintId); preloadCar(modelId); }
   return makeWedge(paintId, ghost);
 }
@@ -174,13 +176,114 @@ function makeWedge(paintId = 'arancio', ghost = null) {
   return { root, body, wheels, car: true, ghost: !!ghost, materials: Object.values(M).filter((m, i, a) => a.indexOf(m) === i) };
 }
 
+/** Drivvd's rally buggy, built from code: a tube-frame cage over a floor pan, a short nose, the engine out back with
+    its exhaust and a spare wheel, a light bar on the roof, a helmeted driver, and four big knobbly tyres on long
+    springs (car.js's buggy spec: the ground is 0.87 m below the middle). */
+function makeBuggy(paintId = 'arancio', ghost = null) {
+  const GR = -0.87; const paintCol = (CAR_PAINTS[paintId] || CAR_PAINTS.arancio).color;
+  const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.15, ...o });
+  const M = ghost
+    ? (() => { const m = new THREE.MeshStandardMaterial({ color: ghost, transparent: true, opacity: 0.4, depthWrite: false }); return new Proxy({}, { get: () => m }); })()
+    : { paint: new THREE.MeshPhysicalMaterial({ color: paintCol, roughness: 0.32, metalness: 0.2, clearcoat: 0.8 }), tube: std('#24262b', { metalness: 0.6, roughness: 0.4 }),
+      black: std('#121316', { roughness: 0.7 }), tyre: std('#1a1a1a', { roughness: 0.95 }), rim: std('#b9bec6', { metalness: 0.8, roughness: 0.3 }), metal: std('#5d636d', { metalness: 0.7, roughness: 0.35 }),
+      lamp: new THREE.MeshStandardMaterial({ color: '#f4f8ff', emissive: '#fff4d6', emissiveIntensity: 1.5 }), suit: std('#e8452f', { roughness: 0.8 }), visor: std('#0d1117', { roughness: 0.1, metalness: 0.6 }) };
+  const root = new THREE.Group(); root.rotation.order = 'YZX';
+  const body = new THREE.Group(); root.add(body);
+  const add = (g, m, x = 0, y = 0, z = 0, parent = body) => { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); o.castShadow = !ghost; parent.add(o); return o; };
+  const up = new THREE.Vector3(0, 1, 0); const sideB = (pts, w, bv) => side(pts, w, bv).translate(0, GR - GROUND, 0);   // (side() measures from the supercar's ground)
+  const tube = (a, b, r = 0.032, mat = M.tube) => { const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), d = B.clone().sub(A); const o = add(new THREE.CylinderGeometry(r, r, d.length(), 8), mat, ...A.clone().addScaledVector(d, 0.5).toArray()); o.quaternion.setFromUnitVectors(up, d.normalize()); return o; };
+  // floor pan, nose and engine cover (painted), the seat
+  add(new THREE.BoxGeometry(2.3, 0.07, 1.05), M.black, -0.05, GR + 0.5, 0);
+  add(sideB([[1.75, 0.55], [1.55, 0.78], [0.55, 0.88], [0.55, 0.5], [1.4, 0.45]], 0.95, 0.05), M.paint);
+  add(sideB([[-0.85, 0.52], [-0.85, 1.02], [-1.25, 1.0], [-1.6, 0.75], [-1.62, 0.52]], 1.0, 0.05), M.paint);
+  add(new THREE.BoxGeometry(0.5, 0.34, 0.8), M.metal, -1.2, GR + 0.62, 0);   // (the engine)
+  add(new THREE.CylinderGeometry(0.06, 0.07, 0.5, 12).rotateZ(Math.PI / 2 - 0.25), M.rim, -1.6, GR + 0.95, 0.32);   // (the exhaust)
+  add(new THREE.BoxGeometry(0.55, 0.12, 0.5), M.black, -0.2, GR + 0.62, 0); add(new THREE.BoxGeometry(0.12, 0.6, 0.5), M.black, -0.45, GR + 0.9, 0).rotation.z = 0.15;
+  // the cage: two hoops, the roof rails, the side bars and a cross brace
+  const H = GR + 1.62; const W = 0.56;
+  for (const [x, top] of [[0.45, H - 0.06], [-0.75, H]]) { tube([x, GR + 0.52, -W], [x, top, -W * 0.92]); tube([x, GR + 0.52, W], [x, top, W * 0.92]); tube([x, top, -W * 0.92], [x, top, W * 0.92]); }
+  for (const k of [-1, 1]) { tube([0.45, H - 0.06, k * W * 0.92], [-0.75, H, k * W * 0.92]); tube([0.45, GR + 0.52, k * W], [1.5, GR + 0.62, k * 0.42]); tube([-0.75, H, k * W * 0.92], [-1.55, GR + 0.75, k * 0.45]); tube([0.45, GR + 0.85, k * W], [-0.75, GR + 0.85, k * W]); }
+  tube([-0.75, H, -W * 0.9], [0.45, GR + 0.85, W]);
+  tube([1.62, GR + 0.5, -0.5], [1.62, GR + 0.5, 0.5], 0.045);   // (the front bumper)
+  // the light bar on the roof and two spots on the cage
+  add(new THREE.BoxGeometry(0.1, 0.08, 0.95), M.black, 0.42, H + 0.02, 0);
+  for (let z = -0.38; z <= 0.39; z += 0.19) add(new THREE.BoxGeometry(0.02, 0.05, 0.13), M.lamp, 0.48, H + 0.02, z);
+  // the spare wheel on the back
+  add(new THREE.CylinderGeometry(0.3, 0.3, 0.2, 20).rotateZ(Math.PI / 2 - 0.4), M.tyre, -1.62, GR + 1.08, 0);
+  // the driver: suit, helmet with a dark visor, hands up on the wheel
+  add(new THREE.CapsuleGeometry(0.2, 0.35, 4, 10), M.suit, -0.25, GR + 1.0, 0);
+  add(new THREE.SphereGeometry(0.17, 16, 12), M.paint, -0.18, GR + 1.38, 0);
+  add(new THREE.BoxGeometry(0.06, 0.08, 0.2), M.visor, -0.03, GR + 1.38, 0);
+  add(new THREE.TorusGeometry(0.17, 0.02, 6, 20).rotateY(Math.PI / 2).rotateZ(-0.5), M.black, 0.15, GR + 1.05, 0);   // (the steering wheel)
+  // the wheels: a big knobbly tyre and a beadlock rim, each on its own spring
+  const WH = [[1.3, -0.92], [1.3, 0.92], [-1.25, -0.92], [-1.25, 0.92]];
+  const wheels = WH.map(([x, z]) => {
+    const g = new THREE.Group(); g.position.set(x, GR + 0.42, z * 1.02); root.add(g);
+    const spinG = new THREE.Group(); g.add(spinG);
+    const out = Math.sign(z);
+    add(new THREE.CylinderGeometry(0.42, 0.42, 0.34, 28).rotateX(Math.PI / 2), M.tyre, 0, 0, 0, spinG);
+    for (let k = 0; k < 18; k++) { const a = k / 18 * Math.PI * 2; const kn = add(new THREE.BoxGeometry(0.07, 0.05, 0.3), M.tyre, Math.cos(a) * 0.43, Math.sin(a) * 0.43, (k % 2 ? 0.03 : -0.03), spinG); kn.rotation.z = a; }
+    add(new THREE.CylinderGeometry(0.24, 0.24, 0.35, 20).rotateX(Math.PI / 2), M.rim, 0, 0, 0, spinG);
+    add(new THREE.CylinderGeometry(0.08, 0.08, 0.05, 14).rotateX(Math.PI / 2), M.black, 0, 0, out * 0.18, spinG);
+    // (the suspension arm and the coil, going in to the frame: they ride up and down with the wheel)
+    add(new THREE.BoxGeometry(0.08, 0.05, 0.5), M.tube, 0, 0.02, -out * 0.3, g);
+    add(new THREE.CylinderGeometry(0.06, 0.06, 0.45, 10), M.paint, 0, 0.3, -out * 0.28, g).rotation.x = out * 0.4;
+    return { g, spinG, x, z };
+  });
+  if (ghost) root.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.renderOrder = 2; } });
+  return { root, body, wheels, car: true, buggy: true, susp: { mount: -0.12, rest: 0.52, travel: 0.5 }, ghost: !!ghost, materials: Object.values(M).filter((m, i, a) => a.indexOf(m) === i) };
+}
+
+/** Skyvvd's wingsuit flyer (x forward, y up): lying flat, arms and legs spread with the wings between them, a helmet
+    and visor; and the parachute (hidden until it's pulled: wing.js passes how far open it is in the first spring). */
+function makeWing(color = '#ff4fa3', ghost = null) {
+  const std = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, ...o });
+  const M = ghost
+    ? (() => { const m = new THREE.MeshStandardMaterial({ color: ghost, transparent: true, opacity: 0.4, depthWrite: false, side: THREE.DoubleSide }); return new Proxy({}, { get: () => m }); })()
+    : { suit: std(color, { side: THREE.DoubleSide, roughness: 0.5 }), dark: std('#1b1f27', { side: THREE.DoubleSide }), white: std('#f2f4f7', { side: THREE.DoubleSide }),
+      helmet: new THREE.MeshPhysicalMaterial({ color: '#f2f4f7', roughness: 0.25, clearcoat: 1 }), visor: std('#0d1117', { roughness: 0.1, metalness: 0.7 }),
+      canopy: std(color, { side: THREE.DoubleSide, roughness: 0.7 }), canopy2: std('#f2f4f7', { side: THREE.DoubleSide, roughness: 0.7 }), line: new THREE.LineBasicMaterial({ color: '#dfe3ea' }) };
+  const root = new THREE.Group(); root.rotation.order = 'YZX';
+  const body = new THREE.Group(); root.add(body);
+  const add = (g, m, x = 0, y = 0, z = 0, parent = body) => { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); o.castShadow = !ghost; parent.add(o); return o; };
+  // the wing: its outline seen from above (x forward, the shape's y across), both halves
+  const half = [[0.42, 0], [0.32, 0.18], [0.16, 0.86], [0.02, 0.9], [-0.42, 0.42], [-0.62, 0.32], [-1.02, 0.2], [-1.08, 0]];
+  const shape = new THREE.Shape(); [...half, ...half.slice(1, -1).reverse().map(([x, z]) => [x, -z])].forEach(([x, z], i) => (i ? shape.lineTo(x, z) : shape.moveTo(x, z)));
+  add(new THREE.ExtrudeGeometry(shape, { depth: 0.03, bevelEnabled: false }).rotateX(Math.PI / 2), M.suit, 0, 0.02, 0);
+  for (const k of [-1, 1]) add(new THREE.BoxGeometry(0.06, 0.035, 0.7), M.white, 0.22, 0.03, k * 0.5).rotation.y = k * 0.1;   // (a stripe on each arm wing)
+  add(new THREE.CapsuleGeometry(0.16, 0.5, 4, 10).rotateZ(Math.PI / 2), M.dark, -0.05, 0.05, 0);   // the body
+  for (const k of [-1, 1]) {
+    add(new THREE.CapsuleGeometry(0.05, 0.75, 4, 8).rotateX(Math.PI / 2), M.suit, 0.2, 0.05, k * 0.48).rotation.y = k * 0.18;   // arms along the leading edge
+    add(new THREE.CapsuleGeometry(0.07, 0.6, 4, 8).rotateZ(Math.PI / 2), M.dark, -0.72, 0.04, k * 0.13).rotation.y = -k * 0.12;   // legs
+    add(new THREE.BoxGeometry(0.22, 0.09, 0.1), M.dark, -1.1, 0.05, k * 0.17);   // shoes
+  }
+  add(new THREE.SphereGeometry(0.14, 16, 12), M.helmet, 0.48, 0.07, 0);
+  add(new THREE.BoxGeometry(0.06, 0.07, 0.17), M.visor, 0.6, 0.06, 0);
+  // the parachute: a ram-air canopy (bent across), its lines to the shoulders
+  const chute = new THREE.Group(); chute.visible = false; root.add(chute);
+  const cg = new THREE.BoxGeometry(1.2, 0.22, 3.2, 6, 1, 16); const cp = cg.attributes.position;
+  for (let i = 0; i < cp.count; i++) { const z = cp.getZ(i); const x = cp.getX(i); cp.setY(i, cp.getY(i) - z * z * 0.1 + (x > 0 ? 0.06 : 0)); }
+  cg.computeVertexNormals();
+  add(cg, M.canopy, 0, 4.2, 0, chute);
+  for (const z of [-1.2, 0, 1.2]) add(new THREE.BoxGeometry(1.22, 0.23, 0.18), M.canopy2, 0, 4.2 - z * z * 0.1 + 0.002, z, chute);
+  const lines = [];
+  for (const z of [-1.5, -0.8, 0, 0.8, 1.5]) for (const x of [-0.5, 0.5]) lines.push(x, 4.1 - z * z * 0.1, z, 0, 0.55, Math.sign(z) * 0.12);
+  const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(lines, 3));
+  chute.add(new THREE.LineSegments(lg, M.line));
+  if (ghost) root.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.renderOrder = 2; } });
+  return { root, body, wheels: [], car: true, wing: true, chute, ghost: !!ghost, materials: Object.values(M).filter((m, i, a) => a.indexOf(m) === i) };
+}
+
 /** Move the car to a snapshot: s.px, s.pz, s.y, s.h (MotoCore heading), s.car = { p: pitch, r: roll, st: steer, w: [front spin, rear spin], c: [4 spring compressions] }. */
 export function poseCar(m, s) {
   const c = s.car || { p: 0, r: 0, st: 0, w: [0, 0], c: [0.12, 0.12, 0.12, 0.12] };
   m.root.position.set(s.px, s.y, s.pz);
   m.root.rotation.set(-c.r, -s.h, c.p, 'YZX');   // (heading, then pitch, then roll about the car's own length)
+  if (m.wing) {   // (the wingsuit: under the parachute you hang upright beneath it)
+    const k = Math.min(1, c.c[0] || 0); m.chute.visible = k > 0; m.chute.scale.set(1, 0.3 + 0.7 * k, 0.3 + 0.7 * k); m.body.rotation.z = k * 1.45; m.body.position.y = k * 0.55;
+  }
   m.wheels.forEach((wh, i) => {
-    wh.g.position.y = -0.2 - (0.34 - Math.min(c.c[i], 0.2)) + (wh.lift || 0);   // (the spring mount, less the spring's length now, but only a little way up into the arch; a bigger wheel sits higher)
+    wh.g.position.y = m.susp ? m.susp.mount - (m.susp.rest - Math.min(c.c[i], m.susp.travel)) : -0.2 - (0.34 - Math.min(c.c[i], 0.2)) + (wh.lift || 0);   // (the spring mount, less the spring's length now, but only a little way up into the arch; a bigger wheel sits higher)
     wh.g.rotation.y = i < 2 ? -c.st * 0.55 : 0;
     wh.spinG.rotation.z = -c.w[i < 2 ? 0 : 1];
   });

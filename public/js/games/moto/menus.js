@@ -21,6 +21,7 @@ export function createMenus(ctx) {
   let preview = null;   // the paint job shown on the bike in the garage
   let boardKey = 'moto_desert';
   let garageTab = 'bike';
+  let garageVeh = 'bike';   // (the garage: which vehicle you're looking at)
   let shopTab = 'bike';   // (Unrevvd's bike shop)
   let hideResults = null;
 
@@ -54,7 +55,7 @@ export function createMenus(ctx) {
         ctx.medalTimes(t).map((m, i) => h('span', {}, `${ctx.MEDALS[i][0]} ${fmt(m)}`))));
   }
 
-  const KIND = { race: '🏁 Race to the finish', air: '🚀 Longest jump', flips: '🤸 Most flips', speed: '⚡ Top speed', tricks: '🌟 Most trick points', lanterns: '🏮 Most lanterns', tag: '🏷️ Tag (rooms only)', relay: '🏮 Team relay (rooms only)' };
+  const KIND = { race: '🏁 Race to the finish', air: '🚀 Longest jump', flips: '🤸 Most flips', speed: '⚡ Top speed', tricks: '🌟 Most trick points', surf: '🏄 Most surf points', lanterns: '🏮 Most lanterns', tag: '🏷️ Tag (rooms only)', relay: '🏮 Team relay (rooms only)' };
   /** A challenge to pick: what it is, where, the goal and (big) your best on this device. */
   const worldName = (c) => (c.daily ? 'A new gully every day' : (ctx.allWorlds.find((w) => w.id === c.world) || {}).name || c.world);
   function challengeChip(c, on, onClick, big) {
@@ -62,7 +63,7 @@ export function createMenus(ctx) {
     const medal = c.kind === 'race' ? ctx.Chutes.bestMedal(c.id) : -1;
     return h('button', { class: 'mx-chal' + (on ? ' on' : ''), type: 'button', onclick: onClick, disabled: !onClick, title: c.about },
       h('span', { class: 'e' }, c.emoji, medal >= 0 ? h('i', { class: 'md' }, ctx.Chutes.MEDALS[medal][0]) : null),
-      h('span', { class: 'tx' }, h('b', {}, c.name), h('small', {}, `${world} · ${KIND[c.kind]}${c.kind === 'race' ? '' : ` · ${c.limit}s`}${c.board ? ' · 🏂 Snowboard' : c.vehicle === 'mtb' ? ' · 🚵 MTB' : ''}${c.cam === 'first' ? ' · 👀 First person' : ''}`),
+      h('span', { class: 'tx' }, h('b', {}, c.name, c.today ? h('i', { class: 'mx-today' + (ctx.Chutes.todayDone(c.id) ? ' done' : '') }, ctx.Chutes.todayDone(c.id) ? '📅 ✔' : '📅 TODAY') : null), h('small', {}, `${world} · ${KIND[c.kind]}${c.kind === 'race' ? '' : ` · ${c.limit}s`}${c.board ? ' · 🏂 Snowboard' : c.vehicle === 'mtb' ? ' · 🚵 MTB' : ''}${c.cam === 'first' ? ' · 👀 First person' : ''}`),
         big ? h('span', { class: 'ab' }, c.about) : null),
       big ? h('span', { class: 'best' }, best != null ? `Best ${ctx.fmtScore(c.kind, best)}` : 'Not tried yet') : null);
   }
@@ -96,6 +97,69 @@ export function createMenus(ctx) {
   }
 
   /** The free-ride worlds (mtb: Unrevvd's, on a mountain bike, its own bike park first). */
+  /** The jet ski's colour (Wavvd's menu and the garage). */
+  const COLOURS = [['#18b6d6', 'Lagoon'], ['#ff5a36', 'Coral'], ['#ffd23a', 'Sun'], ['#7c4dff', 'Ultra'], ['#16181c', 'Stealth'], ['#2ecc71', 'Reef'], ['#c3cad4', 'Pro', () => (ctx.Career.cleared('pro') ? null : '🔒 Clear the Pro tier in Career')]];
+  const jetGlass = (screen) => glass('Your jet ski', 'only looks: they all ride the same', h('div', { class: 'mx-liveries' }, COLOURS.map(([c, n, lock]) => h('button', {
+          class: 'mx-livery' + (ctx.jetColor() === c ? ' on' : '') + (lock?.() ? ' locked' : ''), type: 'button', style: { '--c1': c, '--c2': c }, title: lock?.() || n,
+          onclick: () => { if (lock?.()) { UI.toast(lock(), 'info', 2500); return; } ctx.prefs.jetColor = c; ctx.savePrefs(); Sfx.play('click'); show(screen); } }, lock?.() ? h('span', { class: 'lk' }, '🔒') : ctx.jetColor() === c ? h('span', { class: 'eq' }, 'ON') : null, h('b', { class: 'emo', style: { color: c } }, '●'), h('span', {}, n)))));
+  /** Carvvd's board and board-or-skis (its menu and the garage). */
+  const boardGlasses = (screen) => { const board = ctx.BOARDS[ctx.prefs.board] || Object.values(ctx.BOARDS)[0]; return [
+    glass('Your board', 'only looks: they all ride the same', h('div', { class: 'mx-liveries' }, Object.entries(ctx.BOARDS).map(([k, b]) => h('button', {
+          class: 'mx-livery' + (k === (ctx.prefs.board || 'ice') ? ' on' : '') + (b.lock?.() ? ' locked' : ''), type: 'button', style: { '--c1': b.color, '--c2': b.color }, title: b.lock?.() || b.name,
+          onclick: () => { if (b.lock?.()) { UI.toast(b.lock(), 'info', 2500); return; } ctx.prefs.board = k; ctx.savePrefs(); Sfx.play('click'); show(screen); } },
+        k === (ctx.prefs.board || 'ice') && !b.lock?.() ? h('span', { class: 'eq' }, 'ON') : b.lock?.() ? h('span', { class: 'lk' }, '🔒') : null, h('b', { class: 'emo' }, b.emoji), h('span', {}, b.name))))),
+    glass('Board or skis', 'the same speed, a different style', h('div', { class: 'mx-liveries' }, [['board', '🏂', 'Snowboard'], ['skis', '⛷️', 'Skis']].map(([k, e, n]) => h('button', {
+          class: 'mx-livery' + (ctx.gear() === k ? ' on' : ''), type: 'button', style: { '--c1': board.color, '--c2': board.color }, title: n,
+          onclick: () => { ctx.prefs.cgear = k; ctx.savePrefs(); Sfx.play('click'); show(screen); } }, ctx.gear() === k ? h('span', { class: 'eq' }, 'ON') : null, h('b', { class: 'emo' }, e), h('span', {}, n)))))]; };
+  /** The supercar's model and paint (free ride's menu and the garage). */
+  const carPickers = (screen) => [
+    h('div', { class: 'mx-seg' }, Object.entries(ctx.CAR_MODELS).map(([k, c]) => h('button', { class: 'mx-sb' + ((ctx.prefs.carModel || 'revuelto') === k ? ' on' : ''), type: 'button', title: c.about, onclick: () => { ctx.setCarModel(k); show(screen); } }, c.emoji + ' ' + c.name))),
+    ctx.paintable(ctx.prefs.carModel || 'revuelto') ? h('div', { class: 'mx-paints' }, Object.entries(ctx.CAR_PAINTS).map(([k, p]) => h('button', { class: 'mx-paint' + (ctx.prefs.carPaint === k ? ' on' : ''), type: 'button', title: p.name, 'aria-label': p.name, style: { '--c': p.color }, onclick: () => { ctx.setCarPaint(k); show(screen); } }))) : null];
+  /** Which mode's menu a challenge is in. */
+  const modeOf = (c) => (c.water ? 'water' : c.board ? 'snow' : c.vehicle || 'bike');
+  /** The newer vv modes: their name, logo, colour, the worlds they ride and how to drive. */
+  const NEWER = {
+    sled: { name: 'Sledvvd', logo: ['SLE', 'VV', 'D'], tag: 'Snowmobiles · deep snow · climb anything', emoji: '🛷', cls: 'sled',
+      worlds: ['frostpeak', 'powderpeak', 'twilight'], colours: [['#ff5a1f', 'Blaze'], ['#ffd23a', 'Arctic Sun'], ['#2a7fff', 'Glacier'], ['#16181c', 'Black Ice'], ['#7dff3a', 'Toxic'], ['#e8e9ec', 'White-out']],
+      pref: 'sledColor', colour: () => ctx.sledColor(),
+      how: 'W is the throttle, A / D steer, S brakes. It pulls hard from low down, so point it up any slope you like: it climbs where a bike can’t. Q / E lean and flip in the air, Space / Shift turbo. Sledvvd shares Revvd’s coins.' },
+    buggy: { name: 'Drivvd', logo: ['DRI', 'VV', 'D'], tag: 'Rally buggies · long travel · flat out off-road', emoji: '🚙', cls: 'buggy',
+      worlds: ['golddunes', 'redrock', 'canyonrun'], colours: Object.entries(ctx.CAR_PAINTS).map(([k, p]) => [k, p.name, p.color]),
+      pref: 'buggyPaint', colour: () => ctx.buggyPaint(),
+      how: 'W / S drive and brake, A / D steer, Q is the handbrake (slide it round the turns). The long springs soak up the bumps and jumps, and it grips off the trails better than the supercar. Space turbo, Q / E tip the nose in the air. Drivvd shares Revvd’s coins.' },
+    wing: { name: 'Skyvvd', logo: ['SKY', 'VV', 'D'], tag: 'Wingsuits · out of the helicopter · fly the mountains', emoji: '🪂', cls: 'sky',
+      worlds: ['powderpeak', 'frostpeak', 'sheerwall'], colours: [['#ff4fa3', 'Flamingo'], ['#ff6a00', 'Blaze'], ['#ffd23a', 'Sun'], ['#2a7fff', 'Sky'], ['#7dff3a', 'Toxic'], ['#16181c', 'Night']],
+      pref: 'wingColor', colour: () => ctx.wingColor(),
+      how: 'The helicopter drops you over the highest point. W tips you into a dive (faster, steeper), S flares (flatter, slower: too slow and you stall), A / D bank and turn. Fly low over the ground at speed for proximity points and coins. Space pulls the parachute: steer it in and land. Touch the ground in the wingsuit and you crash. R: back up in the helicopter.' },
+    skate: { name: 'Grindvvd', logo: ['GRIN', 'VV', 'D'], tag: 'Skateboards · rails · halfpipe · tricks', emoji: '🛹', cls: 'grind',
+      worlds: ['skateplaza', 'wildwood', 'frostpeak'], colours: [['#ff4fa3', 'Bubblegum'], ['#c8a27a', 'Maple'], ['#2a7fff', 'Ocean'], ['#7dff3a', 'Slime'], ['#ffd23a', 'Banana'], ['#16181c', 'Blackout']],
+      pref: 'skateColor', colour: () => ctx.skateColor(),
+      how: 'W pushes, A / D carve, S drags a foot to slow down. Ride up onto a rail or box to grind it. In the air: Q / E flip, X spins, 1–6 for kickflips, heelflips, shuv-its and grabs. Land trick after trick for a combo. Grindvvd shares Revvd’s coins.' },
+  };
+  /** A newer mode's menu: free ride on its worlds, its challenges, its colour. */
+  function newerHub(mode) {
+    const M = NEWER[mode]; back = () => show('home');
+    const worlds = M.worlds.map((id) => ctx.allWorlds.find((w) => w.id === id)).filter(Boolean);
+    const chs = ctx.challenges.filter((c) => modeOf(c) === mode);
+    const ride = (w) => w && ctx.startVehFree(w, mode);
+    primary = () => ride(worlds[0]);
+    return h('div', { class: 'mx-col' },
+      h('div', { class: 'mx-unrevvd ' + M.cls }, h('b', {}, M.logo[0], h('i', {}, M.logo[1]), M.logo[2]), h('small', {}, M.tag)),
+      h('div', { class: 'mx-two' },
+        card2('blue', M.emoji, 'Free ride', `${worlds[0]?.name || ''}: the whole map`, () => ride(worlds[0]), { sticker: 'NEW' }),
+        card2('orange', '🎯', 'Challenges', `${chs.length} to ride · medals and coins`, () => show(mode + 'challenges'), { sticker: 'NEW' })),
+      ...worlds.slice(1).map((w, i) => card2(i ? 'green' : 'purple', (WORLD_LOOK[w.id] || [])[1] || '🗺️', w.name, `Free ride on ${w.name}`, () => ride(w), { wide: true })),
+      go(`Ride ${worlds[0]?.name.split(' ')[0] || ''}`, M.name, () => ride(worlds[0])),
+      glass('Your paint', 'only looks', h('div', { class: 'mx-liveries' }, M.colours.map(([c, n, sw = c]) => h('button', {
+        class: 'mx-livery' + (M.colour() === c ? ' on' : ''), type: 'button', style: { '--c1': sw, '--c2': sw }, title: n,
+        onclick: () => { ctx.prefs[M.pref] = c; ctx.savePrefs(); Sfx.play('click'); show(mode); } }, M.colour() === c ? h('span', { class: 'eq' }, 'ON') : null, h('b', { class: 'emo', style: { color: sw } }, '●'), h('span', {}, n))))),
+      skyGlass(mode),
+      note(M.how));
+  }
+  /** The sky for free ride (any world, any vehicle): day, sunset, night, fog or a storm. */
+  const skyGlass = (screen) => glass('Sky', 'free ride on any world', h('div', { class: 'mx-liveries' }, Object.entries(ctx.SKIES).map(([k, w]) => h('button', {
+    class: 'mx-livery' + ((ctx.prefs.sky || 'day') === k ? ' on' : ''), type: 'button', style: { '--c1': '#3a4a66', '--c2': '#3a4a66' }, title: w.name,
+    onclick: () => { ctx.prefs.sky = k; ctx.savePrefs(); Sfx.play('click'); show(screen); } }, (ctx.prefs.sky || 'day') === k ? h('span', { class: 'eq' }, 'ON') : null, h('b', { class: 'emo' }, w.emoji), h('span', {}, w.name)))));
   function worldsScreen(mtb) {
     back = () => show(mtb ? 'mtb' : 'home');
     const list = mtb ? [...ctx.worlds].sort((a, b) => (b.bike ? 1 : 0) - (a.bike ? 1 : 0)) : ctx.worlds;
@@ -113,12 +177,12 @@ export function createMenus(ctx) {
       // ride the bike or the supercar (Revvd's free ride on your own only)
       mtb ? null : h('div', { class: 'mx-vehicle' },
         h('div', { class: 'mx-seg' }, [['bike', '🏍️ Dirt bike'], ['car', '🏎️ Supercar']].map(([k, label]) => h('button', { class: 'mx-sb' + ((ctx.prefs.vehicle === 'car' ? 'car' : 'bike') === k ? ' on' : ''), type: 'button', onclick: () => { ctx.setVehicle(k); show('worlds'); } }, label))),
-        ctx.prefs.vehicle === 'car' ? h('div', { class: 'mx-seg' }, Object.entries(ctx.CAR_MODELS).map(([k, c]) => h('button', { class: 'mx-sb' + ((ctx.prefs.carModel || 'revuelto') === k ? ' on' : ''), type: 'button', title: c.about, onclick: () => { ctx.setCarModel(k); show('worlds'); } }, c.emoji + ' ' + c.name))) : null,
-        ctx.prefs.vehicle === 'car' && ctx.paintable(ctx.prefs.carModel || 'revuelto') ? h('div', { class: 'mx-paints' }, Object.entries(ctx.CAR_PAINTS).map(([k, p]) => h('button', { class: 'mx-paint' + (ctx.prefs.carPaint === k ? ' on' : ''), type: 'button', title: p.name, 'aria-label': p.name, style: { '--c': p.color }, onclick: () => { ctx.setCarPaint(k); show('worlds'); } }))) : null,
+        ...(ctx.prefs.vehicle === 'car' ? carPickers('worlds') : []),
         h('small', {}, ctx.prefs.vehicle === 'car' ? 'W/S drive · A/D steer · Q handbrake (drift) · Space turbo · Q/E tip the nose in the air' : 'Challenges and races always use the bike')),
       // all the worlds at once, in a grid (no scrolling down a long list)
       h('div', { class: 'mx-wgrid' }, list.map((w) => { const [c, e] = WORLD_LOOK[w.id] || ['green', '🗺️'];
         return card2(c, e, w.name, what(w), () => start(w), { on: w === sel, sticker: w === sel ? 'LAST RIDDEN' : NEW_WORLDS.includes(w.id) ? 'NEW' : null, stickerCls: w === sel ? 'dark' : null }); })),
+      skyGlass(mtb ? 'mtbworlds' : 'worlds'),
       note(mtb ? 'Every world is rideable on a mountain bike: the Wildwood Bike Park is made for it. Climb, then fly down. Grab the gold coins and land flips for Unrevvd coins, and the flag button starts a mini race. R returns to a safe pad, M opens the map (pick a place to fast-travel up the hill).'
         : 'Grab the gold coins on the trails and over the jumps, land flips and finish mini races to earn coins, then buy faster engines in the garage (free ride only). Space / Shift for turbo, R returns to a safe pad, the flag button starts a mini race.'));
   }
@@ -138,13 +202,14 @@ export function createMenus(ctx) {
 
   /** The challenges of a mode: 'bike' (Revvd's), 'mtb' (Unrevvd's, on mountain bikes) or 'snow' (Carvvd's, on snowboards). */
   function challengesScreen(mode) {
-    const water = mode === 'water'; const mtb = mode !== 'bike' && !water; const snow = mode === 'snow'; const un = mode === 'mtb';
+    const water = mode === 'water'; const snow = mode === 'snow'; const un = mode === 'mtb'; const mtb = un || snow; const newer = NEWER[mode];
     back = () => show(mode === 'bike' ? 'home' : mode);
-    const list = ctx.challenges.filter((c) => (c.vehicle === 'mtb') === mtb && !!c.board === snow && !!c.water === water && !c.room);
+    const list = ctx.challenges.filter((c) => modeOf(c) === mode && !c.room);
+    const tdy = ctx.Chutes.todaysChallenge(list); if (tdy) list.splice(list.indexOf(tdy), 1, { ...tdy, today: true });   // (today's challenge: a bonus once a day)
     if (un) list.unshift(ctx.Chutes.dailyChallenge());   // (today's Daily Chute first)
-    const weekly = water ? null : ctx.Chutes.weeklyChallenge(ctx.challenges); if (weekly) list.unshift(weekly);   // (and this week's challenge before that, in every mode but Wavvd's)
+    const weekly = water || newer ? null : ctx.Chutes.weeklyChallenge(ctx.challenges); if (weekly) list.unshift(weekly);   // (and this week's challenge before that, in every mode but Wavvd's)
     if (!list.length) return h('div', { class: 'mx-col' }, backBtn('Challenges'), note('The challenges couldn’t load. Try again in a moment.'));
-    const key = water ? 'waterChallenge' : snow ? 'snowChallenge' : mtb ? 'mtbChallenge' : 'challenge';
+    const key = mode === 'bike' ? 'challenge' : mode + 'Challenge';
     const sel = list.find((c) => c.id === ctx.prefs[key]) || list[0];
     const pick = (c) => { if (c === sel) { ctx.startChallengeSolo(c); return; } ctx.prefs[key] = c.id; ctx.savePrefs(); Sfx.play('click'); show(screen); };
     primary = () => ctx.startChallengeSolo(sel);
@@ -157,13 +222,14 @@ export function createMenus(ctx) {
     const trail = ctx.Chutes.trailStats(); const cupBest = PA.store.get('moto_cup_best', null);
     const tag = ctx.challenges.find((c) => c.kind === 'tag'); const relay = ctx.challenges.find((c) => c.kind === 'relay');
     return h('div', { class: 'mx-col wide' },
-      backBtn(water ? 'Wavvd challenges' : snow ? 'Carvvd challenges' : mtb ? 'Unrevvd challenges' : 'Challenges'),
+      backBtn(newer ? `${newer.name} challenges` : water ? 'Wavvd challenges' : snow ? 'Carvvd challenges' : mtb ? 'Unrevvd challenges' : 'Challenges'),
       h('div', { class: 'mx-chsplit' },
         h('div', { class: 'mx-chpick' },
           h('div', { class: 'mx-glass mx-chdetail' },
             h('span', { class: 'e' }, sel.emoji), h('b', {}, sel.name),
             h('small', {}, `${world} · ${KIND[sel.kind]}${sel.kind === 'race' ? '' : ` · ${sel.limit} s`}${sel.cam === 'first' ? ' · 👀 First person' : ''}`),
             h('p', {}, sel.about),
+            sel.today ? h('span', { class: 'best' }, ctx.Chutes.todayDone(sel.id) ? '📅 Today’s challenge: bonus collected, a new one tomorrow' : '📅 Today’s challenge: finish it for +150 bonus coins') : null,
             h('span', { class: 'best' }, best != null ? `Your best: ${ctx.fmtScore(sel.kind, best)}` : 'Not tried yet'),
             times ? h('span', { class: 'mx-medals' }, times.map((t, i) => h('span', { class: i === won ? 'won' : '' }, `${ctx.Chutes.MEDALS[i][0]} ${ctx.fmt(t)}`))) : null,
             board ? h('span', { class: 'mx-chbtns' },
@@ -179,7 +245,8 @@ export function createMenus(ctx) {
             h('span', {}, `${(trail.m / 1000).toFixed(1)} km ridden`), h('span', {}, `${trail.dodged} trees dodged`), h('span', {}, `${trail.close} close calls`),
             h('span', {}, `${Math.round(trail.clean)} m longest clean run`), h('span', {}, `${trail.runs} chutes finished`)) : null),
         h('div', { class: 'mx-chlist grid' }, list.map((c) => challengeChip(c, c === sel, () => pick(c), false)))),
-      note(water ? 'Everyone rides the same jet ski in Wavvd challenges. Crash and you go back to where you last were on the water.'
+      note(newer ? `Everyone rides the same in ${newer.name} challenges, so it’s fair. ${mode === 'wing' ? 'Crash and the helicopter takes you back to the start (the clock keeps going).' : 'Crash and you go back to where you last were on your wheels.'}`
+        : water ? 'Everyone rides the same jet ski in Wavvd challenges. Crash and you go back to where you last were on the water.'
         : snow ? 'Everyone rides the same board in Carvvd challenges: no pedals, it’s all gravity. Crash and you go back to where you last were on your feet.'
         : mtb ? 'Everyone rides with stock legs in Unrevvd challenges, so it’s fair. Crash and you go back to where you last were on your wheels.'
         : 'Everyone rides the stock engine in challenges, so it’s fair. Crash and you go back to where you last were on your wheels.'));
@@ -202,8 +269,27 @@ export function createMenus(ctx) {
           card2('green', '🗺️', 'Free ride', `${ctx.worlds.length || 6} huge worlds · collect coins · faster engines`, () => show('worlds'), { sticker: `🪙 ${ctx.Coins.wallet().coins.toLocaleString('en-US')}`, stickerCls: 'dark' }),
           card2('orange', '🎯', 'Challenges', 'Downhill, big air, flips · solo or with friends', () => show('challenges'), { sticker: 'NEW' })),
         licence(),
+        card2('purple', '🎖️', 'Career', 'Rookie to Legend: events in every vv mode, rewards for each tier', () => show('career'), { wide: true, sticker: 'NEW' }),
         go(mode === 'solo' ? 'Ride' : 'Race', mode === 'solo' ? 'Pick a track' : 'Make a room or join friends', next),
         card2('green', '🏍️', 'Garage', `${Object.keys(ctx.MODELS).length} bikes · ${Object.keys(ctx.KITS).length - 1} rider kits · ${have} / ${ctx.bikeList.length || 1} paint jobs`, () => show('garage'), { wide: true, sticker: (ctx.MODELS[ctx.style.model] || {}).name || paint(ctx.myLivery()).name, stickerCls: 'dark' }));
+    },
+
+    /** Career: every vv mode in four tiers, Rookie to Legend (career.js). */
+    career() {
+      back = () => show('home');
+      const rows = ctx.Career.career(ctx.challenges, { best: ctx.challengeBest, medal: ctx.Chutes.bestMedal, fmtScore: ctx.fmtScore, medalTimes: ctx.Chutes.medalTimes });
+      const won = ctx.Career.claim(rows); if (won.length) setTimeout(() => ctx.careerReward(won), 60);
+      const mode = (c) => (c.water ? '🌊 Wavvd' : c.board ? '🏂 Carvvd' : c.vehicle === 'mtb' ? '🚵 Unrevvd' : c.vehicle === 'sled' ? '🛷 Sledvvd' : c.vehicle === 'buggy' ? '🚙 Drivvd' : c.vehicle === 'skate' ? '🛹 Grindvvd' : c.vehicle === 'wing' ? '🪂 Skyvvd' : '🏍️ Revvd');
+      const next = rows.find((r) => r.open && !r.cleared);
+      primary = () => { const e = next?.events.find((x) => !x.done); if (e) ctx.startChallengeSolo(e.c); };
+      return h('div', { class: 'mx-col wide' }, backBtn('Career'),
+        h('div', { class: 'mx-unrevvd car' }, h('b', {}, 'CA', h('i', {}, 'REE'), 'R'), h('small', {}, next ? `${next.emoji} ${next.name}: ${next.got} / ${next.need} done` : '🏆 Legend: every tier cleared')),
+        ...rows.map((r) => glass(`${r.emoji} ${r.name}`, r.cleared ? '✔ cleared' : r.open ? `${r.got} / ${r.need} to clear` : '🔒 clear the tier before',
+          h('div', { class: 'mx-chlist' }, r.events.map((e) => h('button', { class: 'mx-chal' + (e.done ? ' on' : ''), type: 'button', disabled: !r.open, title: e.c.about, onclick: () => ctx.startChallengeSolo(e.c) },
+            h('span', { class: 'e' }, e.c.emoji, e.done ? h('i', { class: 'md' }, '✔') : null),
+            h('span', { class: 'tx' }, h('b', {}, e.c.name), h('small', {}, `${mode(e.c)} · ${e.text}`))))),
+          note(`Reward: 🪙 ${r.coins} in Revvd and in Unrevvd${r.unlock ? `, and ${r.unlock}` : ''}${r.claimed ? ' · collected ✔' : ''}`))),
+        note('Your medals and bests in the challenges count (on this device), so what you’ve already done is there. Clear enough of a tier’s events and the next one opens.'));
     },
 
     tracks() {
@@ -226,23 +312,30 @@ export function createMenus(ctx) {
     mtbchallenges() { return challengesScreen('mtb'); },
     snowchallenges() { return challengesScreen('snow'); },
     waterchallenges() { return challengesScreen('water'); },
+    sled() { return newerHub('sled'); },
+    sledchallenges() { return challengesScreen('sled'); },
+    buggy() { return newerHub('buggy'); },
+    buggychallenges() { return challengesScreen('buggy'); },
+    wing() { return newerHub('wing'); },
+    wingchallenges() { return challengesScreen('wing'); },
+    skate() { return newerHub('skate'); },
+    skatechallenges() { return challengesScreen('skate'); },
 
     /** Wavvd: jet skis on the sea. Free ride round Azure Bay, challenges, and your jet ski's colour. */
     water() {
       back = () => show('home');
       const bay = ctx.allWorlds.find((w) => w.id === 'azurebay');
       const chs = ctx.challenges.filter((c) => c.water);
-      const COLOURS = [['#18b6d6', 'Lagoon'], ['#ff5a36', 'Coral'], ['#ffd23a', 'Sun'], ['#7c4dff', 'Ultra'], ['#16181c', 'Stealth'], ['#2ecc71', 'Reef']];
       primary = () => bay && ctx.startWaterFree(bay);
       return h('div', { class: 'mx-col' },
         h('div', { class: 'mx-unrevvd wav' }, h('b', {}, 'WA', h('i', {}, 'VV'), 'D'), h('small', {}, 'Jet skis · waves · open water')),
         h('div', { class: 'mx-two' },
           card2('blue', '🌊', 'Free ride', `${bay ? bay.name : 'Azure Bay'}: islands, beaches and waves to jump`, () => bay && ctx.startWaterFree(bay), { sticker: 'NEW' }),
-          card2('orange', '🎯', 'Challenges', `${chs.length} on the water: races round the buoys, big air off the waves`, () => show('waterchallenges'), { sticker: 'NEW' })),
+          card2('orange', '🎯', 'Challenges', `${chs.length} on the water: the buoy slalom, surfing the swell, big air off the waves`, () => show('waterchallenges'), { sticker: 'NEW' })),
+        card2('green', '🏄', 'Wakeboard', 'A boat pulls you round the bay: carve out wide, cut back across its wake and fly', () => bay && ctx.startTowFree(bay), { wide: true, sticker: 'NEW' }),
         go('Ride Azure Bay', 'Jet ski', () => bay && ctx.startWaterFree(bay)),
-        glass('Your jet ski', 'only looks: they all ride the same', h('div', { class: 'mx-liveries' }, COLOURS.map(([c, n]) => h('button', {
-          class: 'mx-livery' + (ctx.jetColor() === c ? ' on' : ''), type: 'button', style: { '--c1': c, '--c2': c }, title: n,
-          onclick: () => { ctx.prefs.jetColor = c; ctx.savePrefs(); Sfx.play('click'); show('water'); } }, ctx.jetColor() === c ? h('span', { class: 'eq' }, 'ON') : null, h('b', { class: 'emo', style: { color: c } }, '●'), h('span', {}, n))))),
+        jetGlass('water'),
+        skyGlass('water'),
         note('W is the throttle, A / D steer, S slows you down. Ride up the face of a wave and you take off: Q / E lean and flip, and land it level. Space / Shift turbo. Run aground and you grind to a stop. Wavvd shares Revvd’s coins.'));
     },
 
@@ -263,16 +356,11 @@ export function createMenus(ctx) {
         twilight ? card2('blue', '🌆', 'Twilight Slope', 'One long floodlit run down a forested hill at dusk, a chairlift beside it, the lodge at the bottom', () => ctx.startBoardFree(twilight), { wide: true, sticker: 'NEW' }) : null,
         resort ? card2('green', '⛷️', 'Powder Peak Resort', 'A real ski mountain: start on the summit, four marked runs down through the forest, two chairlifts back up', () => ctx.startBoardFree(resort), { wide: true, sticker: 'NEW' }) : null,
         go('Ride Frostpeak', `${board.emoji} ${board.name} board`, () => peak && ctx.startBoardFree(peak)),
-        glass('Your board', 'only looks: they all ride the same', h('div', { class: 'mx-liveries' }, Object.entries(ctx.BOARDS).map(([k, b]) => h('button', {
-          class: 'mx-livery' + (k === (ctx.prefs.board || 'ice') ? ' on' : '') + (b.lock?.() ? ' locked' : ''), type: 'button', style: { '--c1': b.color, '--c2': b.color }, title: b.lock?.() || b.name,
-          onclick: () => { if (b.lock?.()) { UI.toast(b.lock(), 'info', 2500); return; } ctx.prefs.board = k; ctx.savePrefs(); Sfx.play('click'); show('snow'); } },
-        k === (ctx.prefs.board || 'ice') && !b.lock?.() ? h('span', { class: 'eq' }, 'ON') : b.lock?.() ? h('span', { class: 'lk' }, '🔒') : null, h('b', { class: 'emo' }, b.emoji), h('span', {}, b.name))))),
-        glass('Board or skis', 'the same speed, a different style', h('div', { class: 'mx-liveries' }, [['board', '🏂', 'Snowboard'], ['skis', '⛷️', 'Skis']].map(([k, e, n]) => h('button', {
-          class: 'mx-livery' + (ctx.gear() === k ? ' on' : ''), type: 'button', style: { '--c1': board.color, '--c2': board.color }, title: n,
-          onclick: () => { ctx.prefs.cgear = k; ctx.savePrefs(); Sfx.play('click'); show('snow'); } }, ctx.gear() === k ? h('span', { class: 'eq' }, 'ON') : null, h('b', { class: 'emo' }, e), h('span', {}, n))))),
-        glass('Weather', 'for free ride on Frostpeak', h('div', { class: 'mx-liveries' }, Object.entries(ctx.WEATHER).map(([k, w]) => h('button', {
+        ...boardGlasses('snow'),
+        glass('Snowfall', 'for free ride on the snow', h('div', { class: 'mx-liveries' }, Object.entries(ctx.WEATHER).map(([k, w]) => h('button', {
           class: 'mx-livery' + ((ctx.prefs.weather || 'snow') === k ? ' on' : ''), type: 'button', style: { '--c1': '#3a4a66', '--c2': '#3a4a66' }, title: w.name,
           onclick: () => { ctx.prefs.weather = k; ctx.savePrefs(); Sfx.play('click'); show('snow'); } }, (ctx.prefs.weather || 'snow') === k ? h('span', { class: 'eq' }, 'ON') : null, h('b', { class: 'emo' }, w.emoji), h('span', {}, w.name))))),
+        skyGlass('snow'),
         note('No pedals: point it downhill and gravity does the rest. A / D carve, W pushes along, Q / E lean and flip, hold X to spin, 1–6 grab. Off the pistes is deep powder (slower); the groomed pistes are fast. Ride slowly into the chairlift to go up. Carvvd shares Unrevvd’s coins.'));
     },
 
@@ -366,6 +454,17 @@ export function createMenus(ctx) {
       back = () => { preview = null; show('home'); };
       const mine = ctx.myLivery(); const lvMine = ctx.LIVERIES[mine] || ctx.LIVERIES.factory; const st = ctx.style;
       if (!preview) preview = mine;
+      // every vehicle's looks in one place: the dirt bike's tabs, or the others' pickers
+      const VEH = [['bike', '🏍️ Dirt bike'], ['car', '🏎️ Supercar'], ['mtb', '🚵 Mountain bike'], ['snow', '🏂 Board & skis'], ['jet', '🌊 Jet ski']];
+      const vehRow = h('div', { class: 'mx-seg mx-veh' }, VEH.map(([k, label]) => h('button', { class: 'mx-sb' + (k === garageVeh ? ' on' : ''), type: 'button',
+        onclick: () => { Sfx.play('click'); if (k === 'mtb') { shopTab = 'bike'; show('mtbgarage'); return; } garageVeh = k; show('garage'); } }, label)));
+      if (garageVeh !== 'bike') {
+        const car = ctx.CAR_MODELS[ctx.prefs.carModel || 'revuelto'];
+        const [title, kids, about] = garageVeh === 'car' ? [`${car.emoji} ${car.name}`, [glass('Supercar', 'free ride', ...carPickers('garage'))], 'Drive it in Revvd’s free ride (pick 🏎️ Supercar there) and in rooms riding free together.']
+          : garageVeh === 'snow' ? ['Carvvd', boardGlasses('garage'), 'Your board and whether you ride a snowboard or skis, in Carvvd.']
+          : ['Wavvd', [jetGlass('garage')], 'Your jet ski’s colour in Wavvd (the wakeboard is the same colour).'];
+        return [h('div', { class: 'mx-col mid' }, backBtn('Garage'), vehRow, ...kids, note(about)), h('div', { class: 'mx-showcase' }, h('b', {}, title))];
+      }
       const TABS = [['bike', '🏍️ Bike'], ['engine', '⚡ Engine'], ['paint', '🎨 Paint'], ['rider', '🧍 Rider'], ['kit', '👕 Rider kit'], ['helmet', '⛑️ Helmet'], ['number', '#️⃣ Number']];
       const grid = (items, cur, onPick) => h('div', { class: 'mx-liveries' }, items.map(([id, label, c1, c2, opts = {}]) => h('button', {
         class: 'mx-livery' + (id === cur ? ' on' : '') + (opts.locked ? ' locked' : ''), type: 'button', style: { '--c1': c1, '--c2': c2 }, title: opts.title || label, onclick: () => onPick(id) },
@@ -413,7 +512,7 @@ export function createMenus(ctx) {
         name = `#${n}`;
       }
       return [
-        h('div', { class: 'mx-col mid' }, backBtn('Garage'),
+        h('div', { class: 'mx-col mid' }, backBtn('Garage'), vehRow,
           h('div', { class: 'mx-seg' }, TABS.map(([k, label]) => h('button', { class: 'mx-sb' + (k === garageTab ? ' on' : ''), type: 'button', onclick: () => { garageTab = k; preview = null; Sfx.play('click'); show('garage'); } }, label))),
           panel),
         h('div', { class: 'mx-showcase' }, h('b', {}, name), sub ? h('small', {}, sub) : null),
@@ -521,12 +620,12 @@ export function createMenus(ctx) {
     const seg = h('div', { class: 'mx-seg' }, [['race', '🏁 Track race'], ['challenge', '🎯 Challenge'], ['free', '🌍 Free ride']].map(([k, label]) => h('button', {
       class: 'mx-sb' + (k === mode ? ' on' : ''), type: 'button', disabled: !can,
       onclick: () => { if (k !== mode) { Net.send('g:settings', { mode: k }); Sfx.play('click'); } } }, label)));
-    const myRide = ctx.prefs.vehicle === 'car' || ctx.prefs.vehicle === 'mtb' ? ctx.prefs.vehicle : 'bike';
-    const rideSeg = mode === 'free' ? [h('div', { class: 'mx-lab' }, 'YOU RIDE'), h('div', { class: 'mx-seg' }, [['bike', '🏍️ Dirt bike'], ['mtb', '🚵 Mountain bike'], ['car', '🏎️ Supercar']].map(([k, label]) => h('button', {
+    const myRide = ['car', 'mtb', 'board', 'jet'].includes(ctx.prefs.vehicle) ? ctx.prefs.vehicle : 'bike';
+    const rideSeg = mode === 'free' ? [h('div', { class: 'mx-lab' }, 'YOU RIDE'), h('div', { class: 'mx-seg' }, [['bike', '🏍️ Dirt bike'], ['mtb', '🚵 Mountain bike'], ['car', '🏎️ Supercar'], ['board', '🏂 Snowboard'], ['jet', '🌊 Jet ski (on the sea)']].map(([k, label]) => h('button', {
       class: 'mx-sb' + (k === myRide ? ' on' : ''), type: 'button', onclick: () => { if (k !== myRide) { ctx.setVehicle(k); roomUpdate(); } } }, label)))] : null;
     fill(roomEls.track, h('div', { class: 'mx-h' }, isCh ? 'Challenge' : mode === 'free' ? 'World' : 'Track', h('span', { class: 'n' }, host ? 'you pick' : 'the host picks')), seg, rideSeg,
       mode === 'free'
-        ? h('div', { class: 'mx-chlist' }, ctx.worlds.map((w) => worldChip(w, st.settings.world === w.id,
+        ? h('div', { class: 'mx-chlist' }, ctx.allWorlds.filter((w) => !w.hidden || w.roomFree).map((w) => worldChip(w, st.settings.world === w.id,
           can ? () => { if (st.settings.world !== w.id) { Net.send('g:settings', { world: w.id }); Sfx.play('click'); } } : null)))
         : isCh
         ? h('div', { class: 'mx-chlist' }, ctx.challenges.map((c) => challengeChip(c, st.settings.challenge === c.id,
@@ -608,16 +707,17 @@ export function createMenus(ctx) {
   }
 
   // ---------------------------------------------------------------- tabs and switching screens
-  const TABS = [['ride', '🏁', 'Ride'], ['mtb', '🚵', 'Unrevvd'], ['snow', '🏂', 'Carvvd'], ['water', '🌊', 'Wavvd'], ['garage', '🏍️', 'Garage'], ['boards', '🏆', 'Leaderboards'], ['controls', '🎮', 'Controls']];
-  const tabOf = (s) => (['garage', 'boards', 'controls'].includes(s) ? s : /^mtb/.test(s || '') ? 'mtb' : /^snow/.test(s || '') ? 'snow' : /^water/.test(s || '') ? 'water' : 'ride');
+  const TABS = [['ride', '🏁', 'Ride'], ['mtb', '🚵', 'Unrevvd'], ['snow', '🏂', 'Carvvd'], ['water', '🌊', 'Wavvd'], ['sled', '🛷', 'Sledvvd'], ['buggy', '🚙', 'Drivvd'], ['wing', '🪂', 'Skyvvd'], ['skate', '🛹', 'Grindvvd'], ['career', '🎖️', 'Career'], ['garage', '🏍️', 'Garage'], ['boards', '🏆', 'Leaderboards'], ['controls', '🎮', 'Controls']];
+  const tabOf = (s) => (['garage', 'boards', 'controls', 'career'].includes(s) ? s : Object.keys(NEWER).find((k) => (s || '').startsWith(k)) || (/^mtb/.test(s || '') ? 'mtb' : /^snow/.test(s || '') ? 'snow' : /^water/.test(s || '') ? 'water' : 'ride'));
   const logoEl = document.querySelector('.mx-logo b');
   function drawTabs() {
     fill(tabsEl, TABS.map(([k, e, label]) => h('button', { class: 'mx-tab' + (tabOf(screen) === k ? ' on' : ''), type: 'button',
       onclick: () => { Sfx.play('click'); if (k === 'ride') show(inRoom() ? 'room' : 'home'); else show(k); } },
-    h('span', { class: 'ph' }, e), label, k === 'ride' && inRoom() ? h('span', { class: 'new' }, Room.code) : null, k === 'water' ? h('span', { class: 'new' }, 'NEW') : null)));
+    h('span', { class: 'ph' }, e), label, k === 'ride' && inRoom() ? h('span', { class: 'new' }, Room.code) : null, NEWER[k] || k === 'career' ? h('span', { class: 'new' }, 'NEW') : null)));
     // the logo: UNREVVD on Unrevvd's screens, CARVVD on Carvvd's, WAVVD on Wavvd's
     const brand = tabOf(screen) === 'mtb' ? 'un' : tabOf(screen) === 'snow' ? 'carv' : tabOf(screen) === 'water' ? 'wav' : 're';
-    if (logoEl && logoEl.dataset.brand !== brand) { fill(logoEl, { un: 'UNRE', carv: 'CAR', wav: 'WA', re: 'RE' }[brand], h('i', {}, 'VV'), 'D'); logoEl.classList.toggle('un', brand === 'un'); logoEl.classList.toggle('carv', brand === 'carv'); logoEl.classList.toggle('wav', brand === 'wav'); logoEl.dataset.brand = brand; }
+    const nw = NEWER[tabOf(screen)]; const b2 = nw ? nw.cls : brand;
+    if (logoEl && logoEl.dataset.brand !== b2) { fill(logoEl, nw ? nw.logo[0] : { un: 'UNRE', carv: 'CAR', wav: 'WA', re: 'RE' }[brand], h('i', {}, 'VV'), nw ? nw.logo[2] : 'D'); for (const k of ['un', 'carv', 'wav', ...Object.values(NEWER).map((m) => m.cls)]) logoEl.classList.toggle(k, b2 === k); logoEl.dataset.brand = b2; }
   }
 
   function show(name) {

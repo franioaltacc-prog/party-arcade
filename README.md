@@ -404,7 +404,16 @@ with an import map), everything else is drawn and synthesised in code (no model,
   `open-world/ocean.mjs` draws the same waves on the graphics card (see-through by depth from a seabed picture, sky
   reflection, foam, wakes from `wake()`), buoys, piers and the lighthouse; seabed caustics and sand in `materials.mjs`.
   The jet ski is `jetskify` in `bike.js` (the dirt bike's physics with the `JETSKI` engine in `game.js`). Wavvd's
-  challenges have `"water": true` (kept out of the Weekly Challenge's pick, client and server).
+  challenges have `"water": true` (kept out of the Weekly Challenge's pick, client and server). Wakeboarding:
+  `tow.js` (a boat on a loop pulls you on a rope; its wake ridges go into `rideAt` through `terrain.setSeaExtra`).
+  The newer modes (`R.veh`, a challenge's `"vehicle"`; menus: `NEWER` and `newerHub` in `menus.js`): Sledvvd
+  (`sled`: `sledify`, the dirt bike's physics with `SLED`), Drivvd (`buggy`: `car.js` `setSpec('buggy')`, the
+  buggy built in `car-model.js`), Skyvvd (`wing`: `wing.js`, its own flight physics, drawn and followed like a car;
+  the flyer and parachute in `car-model.js`) and Grindvvd (`skate`: `skateify`, the mountain bike's physics with
+  `SKATE`, on Concrete Coast, `skateplaza`, a `"paved"` world). Challenges newer than the Weekly pool carry `"since"`
+  (kept out of it). Gate courses: a challenge's `"gates"` ([x, z, radius, height?], `gateStep`). The sky for free
+  ride: `SKIES` / `applySky` in `game.js`. Career: `career.js` (worked out from medals and bests). Today's challenge:
+  `todaysChallenge` in `chutes.js`. Friends' ghosts: `ghost:friends` and the `my_ghosts` table in `accounts.py`.
   Challenges: `park` (start at a park; laps: `lapStep`), `avalanche` (`avalanche.js`, `avalancheStep`), `judges`, and
   the room-only Lantern Relay (`kind: relay`: teams, `g:pass`, the team finishes together; `games/moto/game.py`).
   The Weekly Challenge: `weeklyChallenge` in `chutes.js` and `weekly_challenge` in `accounts.py` (the same pick).

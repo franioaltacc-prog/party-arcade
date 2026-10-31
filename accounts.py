@@ -143,6 +143,12 @@ try:
     MOTO_CHALLENGES = [c for c in json.loads(CHALLENGES_FILE.read_text(encoding="utf-8"))["challenges"] if c.get("kind") == "race"]
 except (OSError, ValueError, KeyError):
     MOTO_CHALLENGES = []
+def mode_name(c):
+    """Which vv mode a challenge belongs to (for its board's title)."""
+    newer = {"sled": "Sledvvd", "buggy": "Drivvd", "skate": "Grindvvd", "wing": "Skyvvd"}.get(c.get("vehicle"))
+    return newer or ("Wavvd" if c.get("water") else "Carvvd" if c.get("board") else "Unrevvd" if c.get("vehicle") == "mtb" else "Revvd")
+
+
 chute_key = lambda cid: "mch" + re.sub(r"[^a-z0-9]", "", str(cid).lower())
 
 
@@ -150,14 +156,14 @@ def _fastest_ms(c):
     """The quickest anyone could ride a race challenge: its start to finish distance at 105 m/s (like a room race)."""
     try:
         pads = {p["id"]: p["position"] for p in json.loads((CHALLENGES_FILE.parent / (c["world"] + ".json")).read_text(encoding="utf-8"))["safePads"]}
-        (ax, az), (bx, bz) = pads[c["from"]], pads[c["to"]]
-        return max(3000, int(math.hypot(ax - bx, az - bz) / 105 * 1000))
+        path = [pads[c["from"]]] + [g[:2] for g in c.get("gates", [])] + ([pads[c["to"]]] if c.get("to") else [])   # (a gate course: through every gate)
+        return max(3000, int(sum(math.hypot(a[0] - b[0], a[1] - b[1]) for a, b in zip(path, path[1:])) / 105 * 1000))
     except (OSError, ValueError, KeyError):
         return 15000
 
 
 for _c in MOTO_CHALLENGES:
-    BOARDS[f"mch_{_c['id']}"] = (f"{_c.get('emoji', '🚵')} {'Carvvd' if _c.get('board') else 'Unrevvd' if _c.get('vehicle') == 'mtb' else 'Revvd'}: {_c['name']}", f"{chute_key(_c['id'])}.best", "asc", "time")
+    BOARDS[f"mch_{_c['id']}"] = (f"{_c.get('emoji', '🚵')} {mode_name(_c)}: {_c['name']}", f"{chute_key(_c['id'])}.best", "asc", "time")
     SOLO[f"mch-{_c['id']}"] = (chute_key(_c["id"]), _fastest_ms(_c), int(_c.get("limit", 600)) * 1000 + 5000)
     FASTEST.add(f"mch-{_c['id']}")
 BOARDS["mch_daily"] = ("📅 Unrevvd: today's Daily Chute", None, "asc", "time")   # (the stat changes every day: see daily_key)
@@ -170,7 +176,7 @@ daily_key = lambda: "mchdaily" + datetime.datetime.now(datetime.timezone.utc).st
 # board of its own for the week ("mch-weekly"; the stat is mchweekly<week>).
 week_number = lambda: int(time.time() // 86400 // 7)
 weekly_key = lambda: f"mchweekly{week_number()}"
-WEEKLY_POOL = [c for c in MOTO_CHALLENGES if not c.get("water")]   # (Wavvd's races came later: kept out, so the weekly pick didn't change)
+WEEKLY_POOL = [c for c in MOTO_CHALLENGES if not c.get("water") and not c.get("since")]   # (Wavvd's races and newer ones ("since") came later: kept out, so the weekly pick didn't change)
 weekly_challenge = lambda: WEEKLY_POOL[week_number() % len(WEEKLY_POOL)] if WEEKLY_POOL else None
 SOLO["mch-weekly"] = ("mchweekly", 3000, 1_200_000)   # (the real limits are this week's challenge's: see solo)
 FASTEST.add("mch-weekly")
@@ -279,6 +285,14 @@ SCHEMA = [
         ms INTEGER NOT NULL,
         data TEXT NOT NULL,
         ts INTEGER NOT NULL)""",
+    # each rider's own best run on each board (so friends can race each other's ghosts)
+    """CREATE TABLE IF NOT EXISTS my_ghosts (
+        key TEXT NOT NULL,
+        user_id INTEGER NOT NULL,
+        ms INTEGER NOT NULL,
+        data TEXT NOT NULL,
+        ts INTEGER NOT NULL,
+        PRIMARY KEY (key, user_id))""",
     """CREATE TABLE IF NOT EXISTS team_chat (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
@@ -1006,6 +1020,21 @@ class Accounts:
             return None
         return {"ms": r["ms"], "name": r["name"], "color": r["color"], "data": data}
 
+    async def friend_ghosts(self, user_id, game, n=3):
+        """Your friends' best runs on a board (the fastest few), to race against."""
+        key = self.ghost_key(game)
+        if not key:
+            raise AuthError("Unknown leaderboard.")
+        rows = (await self.q("SELECT g.ms, g.data, u.name, u.color FROM my_ghosts g JOIN friends f ON f.friend_id = g.user_id AND f.user_id = ? AND f.state = 'ok' "
+                             "JOIN users u ON u.id = g.user_id WHERE g.key = ? AND u.banned = 0 ORDER BY g.ms LIMIT ?", user_id, key, n))["rows"]
+        out = []
+        for r in rows:
+            try:
+                out.append({"ms": r["ms"], "name": r["name"], "color": r["color"], "data": json.loads(r["data"])})
+            except ValueError:
+                pass
+        return out
+
     async def ghost_put(self, user_id, game, ms, data):
         """Keep a run as the board's ghost if it's the fastest one yet and it's the time the rider saved (their best)."""
         key = self.ghost_key(game)
@@ -1018,6 +1047,9 @@ class Accounts:
         best = (await self.q("SELECT value FROM stats WHERE user_id = ? AND key = ?", user_id, f"{prefix}.best"))["rows"]
         if not best or int(best[0]["value"]) != ms:
             return {"kept": False}
+        await self.q("INSERT INTO my_ghosts (key, user_id, ms, data, ts) VALUES (?, ?, ?, ?, ?) "   # (your best: for your friends to race)
+                     "ON CONFLICT (key, user_id) DO UPDATE SET ms = excluded.ms, data = excluded.data, ts = excluded.ts WHERE excluded.ms < my_ghosts.ms",
+                     key, user_id, ms, text, now())
         old = (await self.q("SELECT ms FROM ghosts WHERE key = ?", key))["rows"]
         if old and old[0]["ms"] <= ms:
             return {"kept": False}

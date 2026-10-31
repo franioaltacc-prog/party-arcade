@@ -5,7 +5,7 @@ import {gauntletScenery,forestScenery} from './nature.mjs';
 import {slopeScenery} from './slope.mjs';
 import {createOcean} from './ocean.mjs';
 import {parkScenery} from './parks.mjs';
-import {terrainMaterial} from './materials.mjs';
+import {terrainMaterial,seaLight} from './materials.mjs';
 import {renderPolicy} from './render-policy.mjs';
 import {gridHeight} from './grounding.mjs';
 import {routeLength,routePoint} from './terrain.mjs';
@@ -26,8 +26,9 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false,nature=
  // The race tracks' skies, tuned for big daytime views: higher sun, clearer air, thinner haze.
  const OPEN={desert:{exposure:1.12,fog:.42},alpine:{sun:[38,205],turbidity:4,rayleigh:1.5,mie:.006,exposure:1.5,fog:.24,fogColor:'#b9c8cf'},snow:{sun:[24,232],turbidity:3,rayleigh:1.3,mie:.005,exposure:1.25,fog:.3,fogColor:'#c9d3e6'}};
  const base=THEMES[map.theme==='alpine'?'forest':map.theme]||THEMES.desert,o={...(OPEN[map.theme]||OPEN.desert),...(map.look?.sky||{})};   // (a world can set its own sun and haze)
- const theme={...base,...o,exposure:base.exposure*o.exposure,fog:o.fogColor||base.fog,fogD:base.fogD*o.fog};
+ const theme={...base,...o,exposure:base.exposure*o.exposure,fog:o.fogColor||base.fog,fogD:base.fogD*o.fog*(o.fogK||1)};   // (fogK: thicker or thinner than the world's own haze)
  const night=!!map.look?.night,dusk=!!map.look?.dusk;   // (dusk: the sun's down, the sky's deep blue, the lights are on)
+ seaLight.value=night?.05:dusk?.4:map.look?.storm?.35:1;
 
  // ---------------------------------------------------------------- sky, sun, haze
  const sky=new Sky();sky.scale.setScalar(20000);const su=sky.material.uniforms;
@@ -67,6 +68,12 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false,nature=
   for(let i=0;i<n;i++){const a=r()*Math.PI*2,y=.08+r()*.92,c=Math.sqrt(1-y*y);p.set([Math.cos(a)*c*4000,y*4000,Math.sin(a)*c*4000],i*3);}
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(p,3));
   stars=new THREE.Points(g,new THREE.PointsMaterial({color:'#dfe8ff',size:1.6,sizeAttenuation:false,fog:false,transparent:true,opacity:.85,depthWrite:false}));stars.frustumCulled=false;scene.add(stars);
+  // and the moon, where the (moon)light comes from
+  const mc=document.createElement('canvas');mc.width=mc.height=128;const mg=mc.getContext('2d'),grd=mg.createRadialGradient(64,64,0,64,64,64);
+  grd.addColorStop(0,'rgba(246,248,255,1)');grd.addColorStop(.36,'rgba(232,238,255,1)');grd.addColorStop(.42,'rgba(190,205,255,.35)');grd.addColorStop(1,'rgba(150,170,255,0)');mg.fillStyle=grd;mg.fillRect(0,0,128,128);
+  mg.fillStyle='rgba(170,180,205,.35)';for(const [x,y,r] of [[52,54,7],[72,70,5],[60,78,4],[76,50,3]]){mg.beginPath();mg.arc(x,y,r,0,6.283);mg.fill();}
+  const moonTex=new THREE.CanvasTexture(mc);moonTex.colorSpace=THREE.SRGBColorSpace;
+  const moon=new THREE.Sprite(new THREE.SpriteMaterial({map:moonTex,fog:false,depthWrite:false,transparent:true}));moon.position.copy(sunDir).multiplyScalar(3800);moon.scale.setScalar(420);moon.frustumCulled=false;stars.add(moon);
  }
  // the lamp on the bike, and a little light round the rider so you can see your hands and the bars
  let lamp=null;
@@ -80,7 +87,7 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false,nature=
  const forest=nature&&built.terrain.gauntlets.length?gauntletScenery(built.terrain,nature,scene,{shadows,snow:map.theme==='snow',night,autumn:!!map.look?.autumn,quality}):
   nature&&built.terrain.forestTrees.length?forestScenery(built.terrain,nature,scene,{shadows:shadows&&!dusk,snow:map.theme==='snow',near:24+16*quality,mid:70+40*quality,far:3000}):null;   // (a ski run's forest)
  const slope=map.look?.floodlights||map.features?.lodge?slopeScenery(built.terrain,scene,map):null;   // (floodlights down the run, the lodge)
- const ocean=map.sea?createOcean(built.terrain,scene,map,{quality}):null;   // (a sea world: the water, its buoys and piers)
+ const ocean=map.sea?createOcean(built.terrain,scene,map,{quality,dark:night||dusk||!!map.look?.storm}):null;   // (a sea world: the water, its buoys and piers)
  // ---------------------------------------------------------------- weather round the camera: rain or falling leaves
  const storm=!!map.look?.storm,leafFall=!!map.look?.autumn&&!!forest,hemi=scene.children.find(o=>o.isHemisphereLight);
  let drops=null;
@@ -183,6 +190,7 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
    const x=gx*stepM+(cHash(gx,gz,7)-.5)*1.8,z=gz*stepM+(cHash(gx,gz,13)-.5)*1.8;
    const sample=samples.get(Math.round(x/policy.patchStep)*policy.patchStep+','+Math.round(z/policy.patchStep)*policy.patchStep);
    if(!sample||sample.trail>.12)continue;
+   if(map.look?.paved&&built.terrain.surfaceAt(x,z).kind==='trail')continue;   // (a paved world: nothing growing on the concrete)
    if(built.terrain.sea&&sample.y<built.terrain.sea.level+.4)continue;   // (nothing growing under the sea)
    if(lake&&Math.hypot((x-lake.position[0])/lake.radius[0],(z-lake.position[1])/lake.radius[1])<1.08)continue;
    if(river&&Math.abs(x-river.x-Math.sin(z/river.wavelength)*river.amplitude)<river.width*.62)continue;

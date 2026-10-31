@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildWorld } from './world.js';
-import { makeBike, boardify, jetskify, poseBike, seatRider, disposeBike, preloadBike, bikesLoaded, LIVERIES, MODELS, MTB_MODELS, MTB_RIDERS, RIDERS, KITS, HELMETS } from './bike.js';
+import { makeBike, boardify, jetskify, sledify, skateify, poseBike, seatRider, disposeBike, preloadBike, bikesLoaded, LIVERIES, MODELS, MTB_MODELS, MTB_RIDERS, RIDERS, KITS, HELMETS } from './bike.js';
 import { createAudio } from './sound.js';
 import { createMenus } from './menus.js';
 import {buildRideWorld} from './open-world/ride-world.mjs';
@@ -16,8 +16,11 @@ import { createTracks } from './tracks.js';
 import { coverModel } from './cover.js';
 import { createStudio, recorder } from './studio.js';
 import { createAvalanche } from './avalanche.js';
+import { createTow } from './tow.js';
+import * as Career from './career.js';
 import { createMap } from './map.js';
 import * as Car from './car.js';
+import * as Wing from './wing.js';
 import { makeCar, poseCar, disposeCar, preloadCar, CAR_PAINTS, CAR_MODELS, paintable } from './car-model.js';
 
 const { $, $$, h, fill, Net, Sfx, UI, store, Account, Unlocks } = PA;
@@ -83,20 +86,51 @@ const BOARD_FREE = { ...BOARD, powder: 0.03 };
 // Wavvd's jet ski: the dirt bike's engine through a jet (gentler power, lower gearing, the water's drag), about
 // 95 km/h flat out and more on turbo
 const JETSKI = { power: 0.62, drag: 5.5, turbo: 1.15, regen: 1.3, gear: 0.82 };
-const SPRAY = new THREE.Color('#eef7fa');
+const SPRAY = new THREE.Color('#eef7fa'); const SPRAY_W = SPRAY;
 const jetColor = () => prefs.jetColor || '#18b6d6';
+/** Sledvvd: a snowmobile (the dirt bike's physics with lots of low-down pull for climbing, and a lower top speed). */
+const SLED = { power: 0.95, drag: 2.6, turbo: 1.1, regen: 1.2, gear: 0.72 };
+const sledColor = () => prefs.sledColor || '#ff5a1f';
+/** Drivvd: the rally buggy's paint (one of the supercar paints). */
+const buggyPaint = () => (CAR_PAINTS[prefs.buggyPaint] ? prefs.buggyPaint : 'giallo');
+/** Skyvvd: the wingsuit's colour. */
+const wingColor = () => prefs.wingColor || '#ff4fa3';
+const SNOW_SPRAY = new THREE.Color('#f4f8ff');
+/** Grindvvd: a skateboard (pushing along like pedalling, a board's spins), and its deck's colour. */
+const SKATE = { power: 0.5, drag: 0.9 };
+const skateColor = () => prefs.skateColor || '#ff4fa3';
 const jetLook = () => ({ ...myLook(), rider: mtbRider() });   // (Wavvd: your Unrevvd rider, no helmet)
 /** Carvvd's weather (free ride on the snow): the sky and how much it snows. */
 const WEATHER = { clear: { name: 'Clear', emoji: '☀️' }, snow: { name: 'Snowing', emoji: '🌨️' }, blizzard: { name: 'Blizzard', emoji: '🌬️' } };
+/** The sky for free ride on any world (prefs.sky): as the world was made, or sunset, night (your lamp on), rolling fog
+    or a storm (rain and lightning; on the snow a blizzard; at sea the waves get much bigger). */
+const SKIES = { day: { name: 'Day', emoji: '☀️' }, sunset: { name: 'Sunset', emoji: '🌅' }, night: { name: 'Night', emoji: '🌙' }, fog: { name: 'Fog', emoji: '🌫️' }, storm: { name: 'Storm', emoji: '⛈️' } };
+const SKY_LOOK = {
+  sunset: { sky: { sun: [5, 250], turbidity: 7, rayleigh: 2.8, mie: 0.014, mieG: 0.9, exposure: 1.05, fogK: 1.25, fogColor: '#b98f86', sunColor: '#ffa860', sunI: 1.6, hemi: ['#ffc59a', '#3d3328', 0.75], envI: 0.5 } },
+  night: { night: true, lamp: 320, sky: { sun: [40, 150], exposure: 2.2, fogK: 6, fogColor: '#05070c', sunColor: '#8ea6e0', sunI: 0.28, hemi: ['#2c3a58', '#0b0d0a', 0.34], envI: 0 } },
+  fog: { fogPulse: [3, 16, 20], sky: { sun: [26, 180], turbidity: 8, rayleigh: 1.2, mie: 0.01, exposure: 1, fogColor: '#c4cacd', sunColor: '#f2f0ea' } },
+  storm: { storm: true, sky: { sun: [34, 200], turbidity: 10, rayleigh: 3, mie: 0.02, exposure: 0.75, fogK: 4, fogColor: '#4d565e', sunColor: '#a7b0bd', sunI: 0.9, hemi: ['#6b7785', '#20251c', 0.55] } },
+};
+/** A world (its JSON, before it's built) under the sky you picked. */
+function applySky(def, k) {
+  const L = SKY_LOOK[k]; if (!L) return;
+  const snow = def.theme === 'snow' && k === 'storm';   // (no rain on the snow: a blizzard)
+  def.look = { ...(def.look || {}), ...L, sky: { ...(def.look?.sky || {}), ...L.sky }, ...(snow ? { storm: false, weather: 'blizzard' } : {}) };
+  if (k !== 'sunset') delete def.look.dusk;
+  if (def.sea && k === 'storm') def.sea = { ...def.sea, steep: Math.min(0.9, def.sea.steep * 1.1), deep: '#0b2a3a', shallow: '#2f8f8a', waves: def.sea.waves.map(([l, a, d]) => [l * 1.25, a * 2, d]) };   // (a rough sea)
+}
 /** Carvvd's boards (only looks). */
 const BOARDS = { ice: { name: 'Ice', emoji: '🧊', color: '#2a7fff' }, lava: { name: 'Lava', emoji: '🌋', color: '#ff4a2a' }, toxic: { name: 'Toxic', emoji: '🧪', color: '#7dff3a' },
   aurora: { name: 'Aurora', emoji: '🌌', color: '#b44dff' }, snow: { name: 'Whiteout', emoji: '🤍', color: '#eef3f8' }, gold: { name: 'Gold', emoji: '🥇', color: '#f2b318' },
-  champ: { name: 'Champion', emoji: '🏆', color: '#00c2a8', lock: () => (Chutes.weeklyGold() ? null : '🔒 Win gold in a Weekly Challenge') } };
+  champ: { name: 'Champion', emoji: '🏆', color: '#00c2a8', lock: () => (Chutes.weeklyGold() ? null : '🔒 Win gold in a Weekly Challenge') },
+  legend: { name: 'Legend', emoji: '🎖️', color: '#e8c25a', lock: () => (Career.cleared('legend') ? null : '🔒 Clear the Legend tier in Career') } };
 /** On a snowboard the air tricks are grabs (the same keys, in MotoCore.TRICKS's order; bike.js's GRABS poses them). */
 const BOARD_TRICKS = ['MUTE GRAB', 'INDY GRAB', 'MELON GRAB', 'NOSE GRAB', 'TAIL GRAB', 'STALEFISH', 'SHIFTY', '360'];
-const trickName = (i) => (R.board ? BOARD_TRICKS[i] : C.TRICKS[i].name);
+/** Grindvvd's: flips and grabs of a skateboard (the same keys). */
+const SKATE_TRICKS = ['KICKFLIP', 'HEELFLIP', 'POP SHUV-IT', 'INDY GRAB', 'MELON GRAB', 'NOSE GRAB', 'SHIFTY', '360'];
+const trickName = (i) => (R.skate ? SKATE_TRICKS[i] : R.board || R.tow ? BOARD_TRICKS[i] : C.TRICKS[i].name);
 const boardColor = () => (BOARDS[prefs.board] && !BOARDS[prefs.board].lock?.() ? BOARDS[prefs.board] : BOARDS.ice).color;
-const netStyle = () => ({ ...prefs.style, car: prefs.carModel, paint: prefs.carPaint, mtb: prefs.mtbModel, mrider: mtbRider(), cgear: gear() });
+const netStyle = () => ({ ...prefs.style, car: prefs.carModel, paint: prefs.carPaint, mtb: prefs.mtbModel, mrider: mtbRider(), cgear: gear(), jet: jetColor(), boardColor: boardColor(), sled: sledColor(), buggy: buggyPaint(), wing: wingColor(), skate: skateColor() });
 /** Carvvd: a snowboard or skis. */
 const gear = () => (prefs.cgear === 'skis' ? 'skis' : 'board');   // (what the room sees: bike, rider, supercar, mountain bike and its rider)
 /** Pick your Unrevvd mountain bike. */
@@ -248,7 +282,7 @@ function begin(def, mode, goAt) {
     R.bike = C.newBike(R.T, R.T.start, R.lane);
     R.prev = R.cur = snap(R.bike);
     if (R.model) disposeModel(R.model);
-    R.V = C; R.car = false; R.mtb = false; R.camMode = prefs.cam;
+    R.V = C; R.car = false; R.mtb = false; R.camMode = prefs.cam; R.veh = null; R.sled = R.buggy = R.wing = R.skate = R.water = R.board = false;   // (a track race: none of the other modes' vehicles)
     R.model = makeBike(myLook());
     R.model.root.visible = !R.spectate;
     world.scene.add(R.model.root);
@@ -271,7 +305,7 @@ function stopRide() {
   if(R.trialMarker){R.trialMarker.removeFromParent();R.trialMarker.geometry.dispose();R.trialMarker.material.dispose();R.trialMarker=null;}
   dropFinishMarker();
   if (R.run) { R.run.save(false); R.run = null; }
-  dropGhosts(); dropTagMarker(); dropRelayLanterns(); dropAvalanche();
+  dropGhosts(); dropTagMarker(); dropRelayLanterns(); dropAvalanche(); R.tow?.dispose(); R.tow = null; R.chain = null;
   studio?.stop(); R.rec.clear(); R.lift = null; R.grind = null; R.pipe = null;
   R.running = false;R.paused=false;
   if (R.audio) { R.audio.stop(); R.audio = null; }
@@ -333,7 +367,8 @@ function physicsStep(now) {
   const inp = R.spectate || R.finished ? { gas: 0, brake: R.finished ? 1 : 0, lean: 0, nitro: false } : R.override ? R.override(R.T, b) : controls();
   if (b.hold > 0) { b.hold -= DT; b.t += DT; }
   const before={x:b.px,y:b.y,z:b.pz}; const xBefore=b.x;
-  const ev = R.V.step(T, b, { ...inp, hold: holding, calm: calm() });
+  const ev = R.V.step(T, b, { ...inp, ...(R.tow ? { gas: 0, brake: 0, nitro: false } : null), hold: holding, calm: calm() });
+  if (R.tow) R.tow.step(b, DT, !holding || b.hold > 0, before);   // (the boat pulls you along the rope)
   if(R.trial && !holding && !b.crashed){
     const event=stepTrial(R.trial,before,{x:b.px,y:b.y,z:b.pz},DT);
     if(event==='finish'){
@@ -347,7 +382,8 @@ function physicsStep(now) {
   for (const [k, d] of ev) onEvent(k, d);
   if (T.terrain && !holding) { parkStep(b, before); if (world.wind) windStep(b, now); }
   if (R.mode === 'free' && !holding) {
-    if (!b.crashed && !R.finished) payCoins(Math.abs(b.x - xBefore) / 250, false);   // (a coin for every 250 m ridden)
+    if (!b.crashed && !R.finished) payCoins(Math.abs(b.x - xBefore) / 250 + (b.near ? b.near * DT * 0.8 : 0), false);   // (a coin for every 250 m ridden, and for flying low)
+    if (b.near > 0.45 && !(R.proxAt > now)) { showMessage('🔥 PROXIMITY', 'cp', 600); R.proxAt = now + 1500; }
     // where to put you back after a crash: somewhere you were riding along on both wheels (not on a jump)
     const g = T.terrain;
     if (!b.crashed && b.wh[0].ct && b.wh[1].ct && b.vx > 3 && now - (R.safeTrail.at(-1)?.t || 0) > 500 && g.inBounds(b.px, b.pz, 60) && !g.hazardAt(b.px, b.pz) && g.rampAt(b.px, b.pz).weight < 0.05 && !g.obstacleAt(b.px, b.pz)) {
@@ -366,9 +402,9 @@ function physicsStep(now) {
     else if (R.mode === 'free') {
       // free ride: another go at the gap you fell into, else where you were riding a few seconds ago (R and the
       // world edge go to a safe pad)
-      const back = R.toPad ? null : R.retry ? { ...R.retry, gap: true } : R.safeTrail.findLast((p) => p.t < now - crashTime() * 1000 - 2500);
+      const back = R.tow ? R.tow.behind() : R.toPad ? null : R.retry ? { ...R.retry, gap: true } : R.safeTrail.findLast((p) => p.t < now - crashTime() * 1000 - 2500);
       R.V.respawn(T, b, 0, back ? { position: back.position || [back.x, back.z], heading: back.heading ?? back.h } : null);
-      where = back ? (back.gap ? 'the run-in: have another go!' : 'where you were riding') : 'a safe riding pad';
+      where = R.wing ? 'the helicopter' : R.tow ? 'the end of the rope' : back ? (back.gap ? 'the run-in: have another go!' : 'where you were riding') : 'a safe riding pad';
       R.retry = null; R.toPad = false; R.safeTrail.length = 0;
     } else { C.respawn(T, b); where = b.cp >= 0 ? `checkpoint ${b.cp + 1}` : 'the start'; }
     R.prev = snap(b); R.cam.init = false;
@@ -432,6 +468,9 @@ function onEvent(k, d) {
     return;
   }
   if (k === 'pad') { showMessage('⚡ BOOST!', 'cp', 700); if (R.audio) R.audio.checkpoint(); return; }
+  if (k === 'chute') { showMessage('🪂 PARACHUTE!', 'cp', 1000); return; }   // (Skyvvd)
+  if (k === 'landed') { showMessage('LANDED! · Space to fly again', 'cp', 2500); if (R.mode === 'free') payCoins(10); R.audio?.checkpoint(); return; }
+  if (k === 'relaunch') { R.V.respawn(R.T, b); R.prev = snap(b); R.cam.init = false; showMessage('Back up in the helicopter', 'small', 1200); return; }
   if (k === 'trick') { trickPop(d); return; }
   if (k === 'bail') { showMessage(`BAILED! ${trickName(d)}`, 'bad', 1400); return; }
   if (k === 'crash') {
@@ -439,7 +478,7 @@ function onEvent(k, d) {
     R.run?.crash();
     if (!online() && !R.override) R.slow = 0.9;
     R.cam.shake = C.P.CAM_CRASH_SHAKE;
-    showMessage('CRASHED!', 'bad', 1300);
+    showMessage(R.chain?.n > 1 && b.t < R.chain.until ? `CRASHED! · COMBO ×${Math.min(5, R.chain.n)} LOST` : 'CRASHED!', 'bad', 1300); R.chain = null;
     burst(b.x, b.y, 26, 'puff', 1.4);
     if (online()) sendPos(true);
   } else if (k === 'land') {
@@ -447,15 +486,20 @@ function onEvent(k, d) {
     if (R.audio) R.audio.land(strength);
     R.cam.shake = Math.max(R.cam.shake, Math.min(C.P.CAM_SHAKE_MAX, d.air * C.P.CAM_LAND_SHAKE));
     burst(b.x, b.y - 0.4, Math.round(4 + d.air * 10), 'puff', 0.8 + d.air * 0.3);
+    if (d.clean && d.score > 0) {
+      // a combo: land trick after trick, each within 5 s of the last, and the points multiply (up to ×5)
+      const K = R.chain && b.t < R.chain.until ? R.chain : (R.chain = { n: 0 });   // (riding time: a pause doesn't break it)
+      K.n++; K.until = b.t + 5; d.mult = Math.min(5, K.n); d.bonus = d.score * (d.mult - 1);
+    }
     if (d.clean && (d.turns || d.spin || d.perfect || d.air > 0.9 || (d.tricks && d.tricks.length))) trick(d);
     if (R.mode === 'free' && d.clean) {
-      const pay = (d.turns || 0) * 5 + (d.score || 0) + (d.air > 2 ? 3 : 0);   // coins for flips, tricks and big air
+      const pay = (d.turns || 0) * 5 + (d.score || 0) + Math.round((d.bonus || 0) / 2) + (d.air > 2 ? 3 : 0);   // coins for flips, tricks (and combos) and big air
       if (pay) payCoins(pay);
       const ch = R.challenge;
       if (ch && !ch.done && performance.now() > R.goAt) {
         if (ch.def.kind === 'air') ch.score = Math.max(ch.score, d.air);
         if (ch.def.kind === 'flips' && d.turns) ch.score += d.turns;
-        if (ch.def.kind === 'tricks' && d.score) ch.score += ch.def.judges ? judge(d) : d.score;
+        if (ch.def.kind === 'tricks' && d.score) ch.score += ch.def.judges ? judge(d) : d.score + (d.bonus || 0);
         if (ch.def.kind === 'tricks' && R.pipeAt && performance.now() - R.pipeAt < 4000) { const p = Math.round(d.air * 25); ch.score += p; R.pipeAt = 0; showMessage(`🛹 PIPE AIR ${d.air.toFixed(1)} S · +${p}`, 'cp', 1200); }   // (air out of the halfpipe scores on its own)
       }
     }
@@ -489,7 +533,7 @@ function trick(d) {
   const moves = (d.tricks || []).map(trickName);
   const all = [d.spin ? String(d.spin * 180) : '', ...moves, flip].filter(Boolean);
   const title = all.length ? all.join(' + ') : d.perfect ? 'PERFECT LANDING' : 'CLEAN LANDING';
-  const sub = (d.score ? `${d.score} PTS · ` : '') + `+${Math.round(d.gain * 100)}% NITRO` + (all.length && d.perfect ? ' · PERFECT' : '');
+  const sub = (d.score ? `${d.score} PTS` : '') + (d.mult > 1 ? ` · COMBO ×${d.mult} +${d.bonus}` : '') + (R.mtb || R.tow ? '' : `${d.score ? ' · ' : ''}+${Math.round(d.gain * 100)}% NITRO`) + (all.length && d.perfect ? ' · PERFECT' : '');   // (no nitro on a bicycle or a wakeboard)
   const el = $('#hud-trick');
   fill(el, h('b', {}, title), h('small', {}, sub));
   el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
@@ -576,6 +620,7 @@ function render(now, dt, alpha) {
       L.glow.position.set(p.x - Math.cos(s.h) * 0.2, p.y + 2.1, p.z - Math.sin(s.h) * 0.2);
     }
   } else w.update(R.model.root.position, dt, camera);
+  R.tow?.update(R.model, performance.now());
   if (R.audio) {
     R.audio.update(b, dt, { scrub: b.scrub, surface: b.G ? C.surfaceAt(b.G, b.x) : 0 });
     if (online()) R.audio.others(otherSounds(b));
@@ -638,7 +683,7 @@ function windStep(b, now) {
 function finishGrind(fell) {
   const G = R.grind; R.grind = null;
   if (!G || fell || G.m < 1.5) return;
-  const name = G.item.rail ? (R.board ? 'BOARDSLIDE' : 'RAIL RIDE') : (R.board ? '50-50' : 'BOX RIDE');
+  const name = R.skate ? (G.item.rail ? '50-50 GRIND' : 'BOARDSLIDE') : G.item.rail ? (R.board ? 'BOARDSLIDE' : 'RAIL RIDE') : (R.board ? '50-50' : 'BOX RIDE');
   const pts = Math.round(15 + G.m * 5);
   const el = $('#hud-trick'); fill(el, h('b', {}, name), h('small', {}, `${pts} PTS · ${G.m.toFixed(1)} M`));
   el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
@@ -724,7 +769,7 @@ function updateCamera(s, dt, speed, place, model = R.model) {
   const Rt = tmpV2.set(-Math.sin(heading), 0, Math.cos(heading));
   const rag = s.crashed && s.ragdoll;
   const P = place(rag ? s.ragdoll.hip.x : s.x, rag ? s.ragdoll.hip.y : s.y, tmpV3);
-  const air = Math.max(0, P.y - groundUnder(P.x, P.z, s.s) - 0.7);
+  const air = R.wing ? 0 : Math.max(0, P.y - groundUnder(P.x, P.z, s.s) - 0.7);   // (a wingsuit is always high up: the camera stays close behind it)
   let want; let look; let fov = C.P.CAM_FOV + Math.min(C.P.CAM_FOV_RANGE, speed * C.P.CAM_SPEED_FOV) + (camera.aspect < 1 ? 18 : 0);   // (a tall phone screen needs a wider view)
   const first = R.camMode === 'first' && !R.car && !s.crashed && (!R.spectate || (model && model !== R.model));   // (watching someone: from their eyes)
   // (the head stays hidden while a crash's camera flies out of it, or you'd see the inside of the helmet)
@@ -806,9 +851,9 @@ function updateCamera(s, dt, speed, place, model = R.model) {
     dirt, grass and snow. In a room each rider's grooves are tinted their colour. */
 const trackP = new THREE.Vector3(); const trackAx = new THREE.Vector3();
 function leaveTracks(id, model, crashed, color = online() && id === 'me' ? playerOf(Net.id).color : null) {
-  if (model.jetski) {   // (a jet ski leaves a wake of foam on the water instead)
+  if (model.jetski || model.wakes) {   // (a jet ski or a wakeboard leaves a wake of foam on the water instead)
     const o = world.ocean; if (!o) return;
-    const p = model.root.localToWorld(trackP.set(-1.3, 0, 0)); trackAx.setFromMatrixColumn(model.root.matrixWorld, 0);
+    const p = model.root.localToWorld(trackP.set(model.jetski ? -1.3 : -0.6, 0, 0)); trackAx.setFromMatrixColumn(model.root.matrixWorld, 0);
     const last = model.wakeAt; const now = performance.now(); const v = last ? Math.hypot(p.x - last.x, p.z - last.z) / Math.max(0.001, (now - last.t) / 1000) : 0;
     model.wakeAt = { x: p.x, z: p.z, t: now };
     if (!crashed && p.y - world.ground.waveAt(p.x, p.z) < 0.7 && v > 1.5) o.wake(id, p.x, p.z, Math.atan2(trackAx.z, trackAx.x), Math.min(40, v));
@@ -865,8 +910,9 @@ function effects(s, dt, place) {
   };
   // a jet ski: a rooster tail of spray from the jet, more with the throttle and speed, and a sheet of it thrown out from
   // the hull in a hard turn (to the outside)
-  if (R.water && !b.crashed && rear.ct) {
-    const jet = R.model.root.localToWorld(tmpV3.set(-1.55, -0.3, 0));
+  if ((R.water || R.sled) && !b.crashed && rear.ct) {
+    const SPRAY = R.sled ? SNOW_SPRAY : SPRAY_W;
+    const jet = R.model.root.localToWorld(R.sled ? tmpV3.set(-1.2, -0.5, 0) : tmpV3.set(-1.55, -0.3, 0));
     const tail = Math.min(1.4, b.thr * (0.35 + speed * 0.035)); const n = Math.floor(tail * 5 * step * 60 + Math.random());
     for (let i = 0; i < n; i++) {
       const back = -(3 + Math.random() * 4) * (0.5 + tail * 0.5); const up = 2.5 + Math.random() * 3.5 * tail; const side = (Math.random() - 0.5) * 1.6;
@@ -880,7 +926,7 @@ function effects(s, dt, place) {
         fx.chunk(bow.x, bow.y, bow.z, D[0] * -1 - D[1] * sd, up, D[1] * -1 + D[0] * sd, { life: 0.5 + Math.random() * 0.4, size: 0.05 + Math.random() * 0.06, grow: 0.1, alpha: 0.85, grav: 9.8, drag: 0.6, color: SPRAY }); }
     }
   }
-  if (!b.crashed && rear.ct && !R.board && !R.water) {   // (a board has no back wheel to spin; a jet ski's spray is above)
+  if (!b.crashed && rear.ct && !R.board && !R.water && !R.sled && !R.skate) {   // (a board has no back wheel to spin; a jet ski's spray is above)
     const slip = Math.max(0, rear.slip - 0.4);
     const roost = Math.min(1.6, slip * 0.25 + b.thr * speed * 0.012);
     const n = Math.floor(roost * 6 * step * 60 / 3 + Math.random());
@@ -906,7 +952,7 @@ function effects(s, dt, place) {
   if (!b.crashed && b.wh[0].ct && b.brk > 0.5 && speed > 4) emitAt(b.wh[0].x, b.wh[0].y - 0.33, 1, 'puff', 0.5);
   if (b.crashed && speed > 2 && Math.random() < 0.5) emitAt(b.x, b.y - 0.3, 2, 'puff', 0.8);
   // exhaust (not on a bicycle)
-  if (!R.mtb && Math.random() < 0.18 + b.thr * 0.3) {
+  if (!R.mtb && !R.wing && !R.skate && Math.random() < 0.18 + b.thr * 0.3) {
     const ex = R.model.root.localToWorld(R.car ? tmpV.set(-2.36, -0.32, Math.random() < 0.5 ? -0.24 : 0.24) : tmpV.set(-0.82, 0.4, 0.17));
     fx.puff(ex.x, ex.y, ex.z, -D[0] * 0.6, 0.25, -D[1] * 0.6, { life: 0.8, size: 0.12, grow: 0.7, alpha: b.boost ? 0 : 0.12, drag: 1, color: fx.colors.smoke });
   }
@@ -938,7 +984,7 @@ function hud(now) {
   $('#hud-nitro').parentNode.classList.toggle('on', b.boost);
   $('#hud-nitro').parentNode.classList.toggle('full', b.nitro >= 0.999);
   $('#hud-sub').textContent = R.spectate ? watchLine() : R.mode === 'online' && state.race ? `P${myPlace()} / ${Object.keys(state.race.runners).length}  ·  CP ${b.cp + 1}/${T.cps.length}` : `CHECKPOINT ${b.cp + 1} / ${T.cps.length}`;
-  $('#hud-left').textContent = R.mode==='free' ? R.trial ? `${R.trial.race.name} · LAP ${R.trial.lap}/${R.trial.race.laps}` : R.water ? 'WAVVD · SPACE TURBO · R SAFE PAD' : R.board ? 'CARVVD · A / D CARVE · R SAFE PAD' : R.mtb ? 'UNREVVD · Q WHEELIE · R SAFE PAD' : 'FREE RIDE · SPACE TURBO · R SAFE PAD' : `${Math.max(0, Math.round(T.finish - b.s))} M LEFT`;
+  $('#hud-left').textContent = R.mode==='free' ? R.trial ? `${R.trial.race.name} · LAP ${R.trial.lap}/${R.trial.race.laps}` : R.tow ? 'WAKEBOARD · CUT ACROSS THE WAKE · R BACK TO THE ROPE' : R.skate ? 'GRINDVVD · PUSH W · GRIND THE RAILS · R SAFE PAD' : R.wing ? `SKYVVD · PROXIMITY ${Math.round(b.prox || 0)} · SPACE PARACHUTE · R HELICOPTER` : R.sled ? 'SLEDVVD · SPACE TURBO · R SAFE PAD' : R.buggy ? 'DRIVVD · SPACE TURBO · R SAFE PAD' : R.water ? 'WAVVD · SPACE TURBO · R SAFE PAD' : R.board ? 'CARVVD · A / D CARVE · R SAFE PAD' : R.mtb ? 'UNREVVD · Q WHEELIE · R SAFE PAD' : 'FREE RIDE · SPACE TURBO · R SAFE PAD' : `${Math.max(0, Math.round(T.finish - b.s))} M LEFT`;
   if(R.mode==='free')$('#hud-sub').textContent=R.trial?`GATE ${Math.min(R.trial.next+1,R.trial.gates.length)} / ${R.trial.gates.length}`:'EXPLORE AT YOUR OWN PACE';
   const ch = R.challenge;
   if (ch) {
@@ -946,7 +992,7 @@ function hud(now) {
     $('#hud-time').closest('.mx-tr').hidden = false;
     $('#hud-time').textContent = fmt(k === 'race' ? el : Math.max(0, ch.def.limit - el));   // (races count up, the rest count down)
     const togo = ch.finish ? Math.hypot(b.px - ch.finish[0], b.pz - ch.finish[1]) : 0;
-    $('#hud-sub').textContent = R.spectate ? watchLine() : ch.done ? (ch.buried ? 'BURIED!' : k === 'race' && ch.elapsed < ch.def.limit ? 'FINISHED!' : 'TIME’S UP') : ch.def.laps ? `LAP ${Math.min(ch.def.laps, (ch.lap || 0) + 1)} / ${ch.def.laps}` : k === 'race' ? (togo > 950 ? `${(togo / 1000).toFixed(1)} KM TO THE FINISH` : `${Math.round(togo)} M TO THE FINISH`)
+    $('#hud-sub').textContent = R.spectate ? watchLine() : ch.done ? (ch.buried ? 'BURIED!' : k === 'race' && ch.elapsed < ch.def.limit ? 'FINISHED!' : 'TIME’S UP') : ch.def.laps ? `LAP ${Math.min(ch.def.laps, (ch.lap || 0) + 1)} / ${ch.def.laps}` : ch.def.gates && (ch.gate || 0) < ch.def.gates.length ? `GATE ${(ch.gate || 0) + 1} / ${ch.def.gates.length} · ${Math.round(Math.hypot(b.px - ch.def.gates[ch.gate || 0][0], b.pz - ch.def.gates[ch.gate || 0][1]))} M` : k === 'surf' ? `${Math.round(ch.score)} SURF POINTS` : k === 'race' ? (togo > 950 ? `${(togo / 1000).toFixed(1)} KM TO THE FINISH` : `${Math.round(togo)} M TO THE FINISH`)
       : k === 'lanterns' ? `🏮 ${ch.score} / ${world.forest?.lanterns.length || 0} · ${Math.round(togo)} M TO THE BOTTOM`
       : k === 'tag' ? tagLine() : k === 'relay' ? relayLine()
       : k === 'air' ? `BEST AIR ${ch.score.toFixed(2)} S` : k === 'flips' ? `${ch.score} FLIP${ch.score === 1 ? '' : 'S'}` : k === 'tricks' ? `${ch.score} TRICK POINTS` : `TOP ${Math.round(ch.score)} KM/H`;
@@ -1008,18 +1054,21 @@ async function startFree(entry, opts = {}){
   try{
     const response=await fetch('/js/games/moto/open-world/'+entry.file);if(!response.ok)throw new Error('World unavailable');
     // on a mountain bike: an Unrevvd challenge, Unrevvd's free ride (opts.mtb), or a room's free ride with it picked
-    const mtb=ch?ch.vehicle==='mtb':opts.online?prefs.vehicle==='mtb':!!(opts.mtb||opts.board);const water=!!(ch?ch.water:opts.water);   // (Wavvd: a jet ski)
-    const def=await response.json();await preloadBike(mtb?prefs.mtbModel:myLook().model,(ch?ch.board:opts.board)?'snow':mtb||water?mtbRider():myLook().rider);
+    const ov=opts.online&&!ch?prefs.vehicle:null;if(ov==='board')opts={...opts,board:true};if(ov==='jet')opts={...opts,water:true};   // (a room's free ride: the snowboard or jet ski you picked there)
+    const mtb=ch?ch.vehicle==='mtb':opts.online&&!opts.board?prefs.vehicle==='mtb':!!(opts.mtb||opts.board);const tow=!ch&&!!opts.tow;const veh=ch?(['sled','buggy','skate','wing'].includes(ch.vehicle)?ch.vehicle:null):opts.veh||null;const sled=veh==='sled';let water=!!(ch?ch.water:opts.water||tow);   // (wakeboarding: on the water too, behind a boat)   // (Wavvd: a jet ski)
+    const def=await response.json();if(ov==='jet'&&!def.sea)water=false;   // (no sea in this world: your dirt bike)
+    await preloadBike(mtb?prefs.mtbModel:myLook().model,(ch?ch.board:opts.board)?'snow':mtb||water||veh==='skate'?mtbRider():myLook().rider);
     if(opts.daily)Object.assign(def,{id:'daily',name:'Daily Chute',seed:opts.daily.seed});
-    if(!ch&&opts.board&&def.theme==='snow')def.look={...(def.look||{}),weather:WEATHER[prefs.weather]?prefs.weather:'snow'};   // (Carvvd's free ride: your weather)   // (today's gully: a chute's look, its own trees)
+    if(!ch)applySky(def,SKIES[prefs.sky]?prefs.sky:'day');
+    if(!ch&&opts.board&&def.theme==='snow'&&!(prefs.sky==='storm'))def.look={...(def.look||{}),weather:WEATHER[prefs.weather]?prefs.weather:'snow'};   // (Carvvd's free ride: your weather)   // (today's gully: a chute's look, its own trees)
     let nature=def.gauntlets?.length||def.features?.forest?await loadNature().catch((e)=>{console.warn('nature models',e);return null;}):null;   // (real trees and rocks for a gauntlet or a ski run's forest)
     if(nature&&def.gauntlets?.some(g=>g.aspens))nature={...nature,aspens:await loadAspens().catch(()=>null)};   // (the Autumn Chute's aspens)
     if(nature&&def.features?.forest)nature={...nature,spruces:await loadSpruces().catch(()=>null)};   // (a ski run's spruces)
-    if(!ch&&!mtb&&!water&&prefs.vehicle==='car')await preloadCar(prefs.carModel);if(!riding||R.ride!==ride)return;
+    if(!ch&&!mtb&&!water&&!veh&&prefs.vehicle==='car')await preloadCar(prefs.carModel);if(!riding||R.ride!==ride)return;
     for(const o of R.others.values())dropOther(o);R.others.clear();
     if(R.model){disposeModel(R.model);R.model=null;}
     for(const sb of stage.bikes.values()){sb.model.root.removeFromParent();sb.tag?.removeFromParent();}
-    dropTrails();dropAvalanche();if(world)world.dispose();world=null;worldKey=null;
+    dropTrails();dropAvalanche();R.tow?.dispose();R.tow=null;if(world)world.dispose();world=null;worldKey=null;
     const q=QUALITY[qualityLevel()];world=buildRideWorld(def,q.scenery,renderer,q.shadows,nature);worldKey='free:'+def.id;
     renderer.shadowMap.enabled=q.shadows;renderer.toneMappingExposure=world.theme.exposure;
     R.def=def;
@@ -1032,30 +1081,41 @@ async function startFree(entry, opts = {}){
       spawn={...pad,heading:park?park.heading:Math.atan2(-pad.position[0],-pad.position[1])};
       if(R.freeOnline){const side=laneFor(Net.id)*3;spawn.position=[pad.position[0]+Math.cos(spawn.heading)*side,pad.position[1]-Math.sin(spawn.heading)*side];}   // (riding together: side by side)
       engine=Coins.engineOf().stats;   // (bought engine upgrades only work in free ride)
+      if(veh==='wing'){const hp=[...def.safePads].sort((p,q)=>world.ground.heightAt(...q.position)-world.ground.heightAt(...p.position))[0];spawn={position:hp.riderPosition||hp.position,heading:0};}   // (Skyvvd: the helicopter drops you over the highest point)
     }
+    if(tow){R.tow=createTow(world.scene,world.ground,world.ocean);spawn=R.tow.behind();engine={power:0,drag:1,turbo:0,regen:0,gear:1};}   // (no engine: the boat pulls you)
     // the dirt bike, the mountain bike (its upgrades only in free ride too) or the supercar
-    R.mtb=mtb;R.water=water;R.car=!ch&&!mtb&&!water&&prefs.vehicle==='car';R.V=R.car?Car:C;
+    R.mtb=mtb;R.water=water;R.veh=veh;R.sled=sled;R.buggy=veh==='buggy';R.wing=veh==='wing';R.skate=veh==='skate';R.car=R.buggy||R.wing||!ch&&!mtb&&!water&&!veh&&prefs.vehicle==='car';R.V=R.wing?Wing:R.car?Car:C;if(R.car&&!R.wing)Car.setSpec(R.buggy?'buggy':'super');   // (Skyvvd's wingsuit is drawn and followed like a car)   // (Drivvd's buggy: the car on long springs)
     R.board=!!(ch?ch.board:opts.board);   // (Carvvd: a board instead of a bike, no pedalling: it's all gravity)
-    R.T=C.groundTrack(world.ground,spawn,water?JETSKI:engine,mtb?(R.board?(ch?BOARD:BOARD_FREE):ch?{}:Coins.MTB.current().stats):null);R.bike=R.V.newBike(R.T);R.bike.board=R.board;   // (a board spins 180s, 540s…)
-    R.model=R.car?makeCar(prefs.carModel,prefs.carPaint):makeBike(R.board?boardLook():mtb?mtbLook():water?jetLook():myLook());if(R.board)boardify(R.model,boardColor(),gear());if(water)jetskify(R.model,jetColor());world.scene.add(R.model.root);coverOn(R.model);
+    R.T=C.groundTrack(world.ground,spawn,water&&!tow?JETSKI:sled?SLED:engine,veh==='skate'?SKATE:mtb?(R.board?(ch?BOARD:BOARD_FREE):ch?{}:Coins.MTB.current().stats):null);R.bike=R.V.newBike(R.T);R.bike.board=R.board||tow||veh==='skate';   // (a board spins 180s, 540s…)
+    if(R.wing){R.T.launch=spawn;if(!ch){const g=world.ground,[x0,z0]=spawn.position;let best=null;for(let a=0;a<6.28;a+=0.2){const d=[0,1,2,3].reduce((m,k)=>m+g.heightAt(x0+Math.sin(a)*(300+k*300),z0+Math.cos(a)*(300+k*300)),0);if(!best||d<best.d)best={d,a};}spawn.heading=best.a;R.T.launch=spawn;R.V.place(R.T,R.bike,spawn);}}   // (free flight: out of the helicopter facing the way the mountain falls away)
+    R.model=R.wing?makeCar('wing',wingColor()):R.buggy?makeCar('buggy',buggyPaint()):R.car?makeCar(prefs.carModel,prefs.carPaint):makeBike(R.board?boardLook():mtb||veh==='skate'?mtbLook():water?jetLook():myLook());if(R.board)boardify(R.model,boardColor(),gear());if(tow){boardify(R.model,jetColor(),'board');R.model.wakes=true;}else if(water)jetskify(R.model,jetColor());else if(sled)sledify(R.model,sledColor());else if(R.skate)skateify(R.model,skateColor());world.scene.add(R.model.root);coverOn(R.model);
     R.tracks=createTracks(world.scene,(x,z)=>world.ground.heightAt(x,z),(x,z)=>world.ground.surfaceAt(x,z),{snowing:world.snowing});   // (grooves and tyre tracks)
     if(opts.online&&state.race){fillOthers(state.race);if(ch)for(const o of R.others.values())addOtherModel(o);}   // (free ride: each rider's bike or car appears with their first message)
     R.prev=R.cur=snap(R.bike);R.acc=0;R.last=performance.now();R.finished=false;R.cam.init=false;R.stuck=0;R.emitAcc=0;R.roll=0;R.best=null;R.beeped=0;R.safeTrail=[];R.retry=null;R.toPad=false;
     R.goAt=ch?Math.max(opts.goAt||0,performance.now()+(opts.online?600:3200)):0;R.gateDown=!ch;
     R.camMode=ch?.cam||prefs.cam;   // (a challenge can be ridden in first person)
-    R.trialMarker=null;R.finishMarker=finish?finishBeacon(finish):null;R.audio=createAudio({pedal:mtb});chuteExtras(ch);R.helmet=Coins.CAM.current();
+    R.trialMarker=null;R.finishMarker=finish?finishBeacon(finish):null;R.audio=createAudio({pedal:mtb||R.wing||R.skate});chuteExtras(ch);R.helmet=Coins.CAM.current();
     if(world.lamp&&mtb){const L=Coins.LAMP.current().lamp;Object.assign(world.lamp.spot,{intensity:L.i,angle:L.angle,distance:L.dist});}   // (your bike lamp, from the shop)
-    if(world.storm){R.audio?.rain(1);world.onLightning=(far)=>{pulse($('#fx-flash'));R.audio?.thunder(far);};}$('.mx-nlab').textContent='TURBO · SPACE / SHIFT';for(const el of $$('.mx-nitro, .mx-nlab'))el.style.display=mtb?'none':'';$('#mx-trials').hidden=!!ch;   // (a bicycle has no nitro)
+    if(world.storm){R.audio?.rain(1);world.onLightning=(far)=>{pulse($('#fx-flash'));R.audio?.thunder(far);};}$('.mx-nlab').textContent='TURBO · SPACE / SHIFT';for(const el of $$('.mx-nitro, .mx-nlab'))el.style.display=mtb||tow||R.wing||R.skate?'none':'';$('#mx-trials').hidden=!!ch;   // (a bicycle has no nitro)
     $('#hud-track').textContent=ch?`${ch.emoji} ${ch.name}${R.cup?` · World Cup ${R.cup.i+1}/${Chutes.CUP.length}`:''}`:def.name;
     fill($('#hud-center'));resize();drawMapBase();coinHud(purse().wallet().coins,0);R.running=true;requestAnimationFrame(frame);
     const url=new URL(location.href);url.searchParams.delete('solo');url.searchParams.delete('track');
     if(ch){url.searchParams.delete('free');url.searchParams.delete('world');history.replaceState(null,'',url);showMessage(ch.about,'small',5000);}
-    else{if(!R.board&&!water){if(mtb)prefs.mtbWorld=def.id;else prefs.world=def.id;savePrefs();}if(water)url.searchParams.set('water','1');else url.searchParams.delete('water');url.searchParams.set('free','1');url.searchParams.set('world',def.id);if(mtb&&!R.freeOnline)url.searchParams.set('mtb','1');else url.searchParams.delete('mtb');if(R.board)url.searchParams.set('board','1');else url.searchParams.delete('board');history.replaceState(null,'',url);
-      showMessage(R.freeOnline?'FREE RIDE TOGETHER · Esc goes back to the room':water?'WAVVD · W throttle · A / D steer · jump the waves · Q / E flip · Space turbo':R.board?'CARVVD · Point it downhill · A / D carve · Q / E flip · R resets':mtb?'UNREVVD · W pedals · Q pops a wheelie · R resets':'FREE RIDE · Collect the gold coins · Space / Shift turbo · R resets','small',4500);}
+    else{if(!R.board&&!water){if(mtb)prefs.mtbWorld=def.id;else prefs.world=def.id;savePrefs();}if(water)url.searchParams.set('water','1');else url.searchParams.delete('water');if(tow)url.searchParams.set('tow','1');else url.searchParams.delete('tow');if(veh)url.searchParams.set('veh',veh);else url.searchParams.delete('veh');url.searchParams.set('free','1');url.searchParams.set('world',def.id);if(mtb&&!R.freeOnline)url.searchParams.set('mtb','1');else url.searchParams.delete('mtb');if(R.board)url.searchParams.set('board','1');else url.searchParams.delete('board');history.replaceState(null,'',url);
+      showMessage(R.freeOnline?'FREE RIDE TOGETHER · Esc goes back to the room':R.skate?'GRINDVVD · W push · A / D carve · ride onto a rail to grind · Q / E flip · 1–6 tricks · X spin':R.wing?'SKYVVD · W dive · S flare · A / D turn · fly low for proximity points · Space: parachute':R.buggy?'DRIVVD · W/S drive · A/D steer · Q handbrake · Space turbo · Q/E tip the nose in the air':sled?'SLEDVVD · W throttle · climb anything · Q / E flip · Space turbo · R resets':tow?'WAKEBOARD · A / D carve out wide, then cut back hard across the wake to fly · Q / E flip · X spin · 1–6 grab':water?'WAVVD · W throttle · A / D steer · jump the waves · Q / E flip · Space turbo':R.board?'CARVVD · Point it downhill · A / D carve · Q / E flip · R resets':mtb?'UNREVVD · W pedals · Q pops a wheelie · R resets':'FREE RIDE · Collect the gold coins · Space / Shift turbo · R resets','small',4500);}
   }catch(error){console.error(error);UI.toast('Could not load that world','bad');quit();}
 }
 
 // ------------------------------------------------------------------ coins
+/** Career tiers you've just cleared: their coins (in both purses) and a cheer. */
+function careerReward(rows) {
+  for (const r of rows) {
+    Coins.earn(r.coins); Coins.MTB.earn(r.coins);
+    UI.toast(`${r.emoji} Career: ${r.name} cleared! +${r.coins} coins in Revvd and Unrevvd${r.unlock ? ` · unlocked ${r.unlock}` : ''}`, 'good', 5000);
+  }
+  UI.confetti(200); menus.refresh();
+}
 /** The coins you're earning: Revvd's, or Unrevvd's on a mountain bike. */
 const purse = (mtb = R.mtb) => (mtb ? Coins.MTB : Coins);
 /** Earn coins (fractions add up); pop shows "+n" by the counter. */
@@ -1076,7 +1136,7 @@ function coinHud(total, gained) {
 
 // ------------------------------------------------------------------ challenges
 const fmtScore = (kind, v) => (kind === 'race' ? fmt(v) : kind === 'air' ? `${v.toFixed(2)} s` : kind === 'flips' ? `${v} flip${v === 1 ? '' : 's'}` : kind === 'tricks' ? `${v} pts`
-  : kind === 'lanterns' ? `${v} lantern${v === 1 ? '' : 's'}` : kind === 'tag' ? `${(+v).toFixed(1)} s it` : `${Math.round(v)} km/h`);
+  : kind === 'surf' ? `${Math.round(v)} pts` : kind === 'lanterns' ? `${v} lantern${v === 1 ? '' : 's'}` : kind === 'tag' ? `${(+v).toFixed(1)} s it` : `${Math.round(v)} km/h`);
 const challengeBest = (id) => store.get('moto_ch_best_' + id, null);
 /** Where a challenge starts (lane: a few metres to the side, so a room doesn't stack up) and where it finishes. */
 function challengeStart(ch, ground, def, lane) {   // (lane may change for a relay)
@@ -1086,8 +1146,8 @@ function challengeStart(ch, ground, def, lane) {   // (lane may change for a rel
   if (park) {   // (a park: its start; a hill climb finishes at the top)
     pos = park.start.position; head = park.start.heading; if (park.park === 'climb') finish = park.top;
   } else if (ch.kind === 'race' || ch.kind === 'relay' || ch.from) {   // (a race, or the Lantern Hunt: top to bottom too)
-    const a = pads[ch.from]; finish = pads[ch.to].position; pos = a.riderPosition || a.position;
-    head = Math.atan2(finish[0] - pos[0], finish[1] - pos[1]);
+    const a = pads[ch.from]; finish = ch.to ? pads[ch.to].position : ch.gates.at(-1).slice(0, 2); pos = a.riderPosition || a.position;   // (a gate course without a finish pad ends at its last gate)
+    const aim = ch.gates ? ch.gates[0] : finish; head = Math.atan2(aim[0] - pos[0], aim[1] - pos[1]);
   } else if (ch.at === 'park' && ground.parks[0]) {
     const p = ground.parks[0]; pos = [p.start[0] - Math.sin(p.heading) * 40, p.start[1] - Math.cos(p.heading) * 40]; head = p.heading;
   } else {
@@ -1114,6 +1174,8 @@ function finishBeacon([x, z], color = '#7dffb5') {
   return g;
 }
 function dropFinishMarker() {
+  for (const g of R.gateMarks || []) { g.traverse((o) => { o.geometry?.dispose(); o.material?.dispose(); }); g.removeFromParent(); }
+  R.gateMarks = [];
   if (!R.finishMarker) return;
   R.finishMarker.traverse((o) => { o.geometry?.dispose(); o.material?.dispose(); });
   R.finishMarker.removeFromParent(); R.finishMarker = null;
@@ -1128,7 +1190,9 @@ function challengeStep(b, now) {
   const kind = ch.def.kind;
   R.ghostRec?.add(el, posMsg(b));
   if (kind === 'speed' && !b.crashed && onWheels) ch.score = Math.max(ch.score, Math.hypot(b.vx, b.vy) * 3.6);
-  if (kind === 'race' && ch.finish && Math.hypot(b.px - ch.finish[0], b.pz - ch.finish[1]) < (ch.def.finishR || 40)) { challengeDone(el); return; }
+  if (ch.def.gates && !gateStep(ch, b)) { challengeDone(el); return; }
+  if (kind === 'race' && ch.finish && !(ch.def.gates && ch.gate < ch.def.gates.length) && Math.hypot(b.px - ch.finish[0], b.pz - ch.finish[1]) < (ch.def.finishR || 40)) { challengeDone(el); return; }
+  if (kind === 'surf') surfStep(ch, b);
   if (ch.def.laps && !lapStep(ch, b)) { challengeDone(el); return; }
   if (ch.def.avalanche && avalancheStep(ch, b, el)) return;
   if (kind === 'lanterns') {
@@ -1175,6 +1239,41 @@ function avalancheStep(ch, b, el) {
 }
 function dropAvalanche() { if (R.challenge?.aval) { R.challenge.aval.vis.dispose(); R.challenge.aval = null; } }
 /** Laps of a park's loop (the pump track): only riding round it on the track counts. Returns false once they're done. */
+/** A course of gates ("gates": [[x, z, radius?, height?], …]) to go through in order: buoys to round, rings in the
+    sky. The marker shows the next one. Returns false once the last is done (with no "to", that's the finish). */
+function gateStep(ch, b) {
+  const G = ch.def.gates; ch.gate ||= 0;
+  if (!ch.gateMark) ch.gateMark = gateMarker();
+  if (ch.gate >= G.length) { ch.gateMark.visible = false; return true; }   // (all through: now the finish)
+  const [x, z, r = 14, y] = G[ch.gate];
+  if (!b.crashed && Math.hypot(b.px - x, b.pz - z) < r && (y == null || Math.abs((b.wy ?? b.y) - y) < r)) {
+    ch.gate++; R.audio?.chime?.();
+    if (ch.gate >= G.length && !ch.finish) { ch.gateMark.visible = false; return false; }
+    if (ch.gate < G.length) showMessage(`GATE ${ch.gate} / ${G.length}`, 'cp', 900);
+  }
+  const g = G[Math.min(ch.gate, G.length - 1)], m = ch.gateMark;
+  if (ch.gate >= G.length) m.visible = false;
+  else { const gy = g[3] ?? world.ground.heightAt(g[0], g[1]); m.position.set(g[0], gy, g[1]); m.scale.setScalar((g[2] || 14) / 14);
+    const n = G[ch.gate + 1] || [g[0] + (g[0] - b.px), g[1] + (g[1] - b.pz)]; m.rotation.y = Math.atan2(n[0] - g[0], n[1] - g[1]); m.children[0].position.y = g[3] != null ? 0 : 7; }
+  return true;
+}
+/** The next gate: an upright ring (you go through it) and a column of light to find it from far away. */
+function gateMarker() {
+  const g = new THREE.Group(), col = '#ffd23a';
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(10, 0.5, 8, 48), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.85 }));
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, 260, 12, 1, true).translate(0, 130, 0), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+  g.add(ring, beam); world.scene.add(g); R.gateMarks = (R.gateMarks || []).concat(g);
+  return g;
+}
+/** Wavvd's Surf Break: points for every second you ride down the face of a wave at speed (and more the steeper it is). */
+function surfStep(ch, b) {
+  const t = world.ground; if (!t.waveAt || b.crashed || !(b.wh[0].ct || b.wh[1].ct)) { ch.surfing = 0; return; }
+  const c = Math.cos(b.h), sn = Math.sin(b.h), down = (t.waveAt(b.px - c * 2, b.pz - sn * 2) - t.waveAt(b.px + c * 2, b.pz + sn * 2)) / 4;
+  if (down > 0.07 && b.vx > 7) {
+    ch.score += DT * 10 * Math.min(3, down / 0.07) * (1 + Math.min(1, (b.vx - 7) / 15)); ch.surfing = (ch.surfing || 0) + DT;
+    if (ch.surfing > 0.6 && !(ch.surfShown > performance.now())) { showMessage(`🏄 SURFING · ${Math.round(ch.score)}`, 'cp', 700); ch.surfShown = performance.now() + 700; }
+  } else ch.surfing = 0;
+}
 function lapStep(ch, b) {
   const f = world.ground.parkList.find((p) => p.id === ch.def.park); if (!f) return true;
   const L = f.loop(b.px, b.pz);
@@ -1226,7 +1325,9 @@ function challengeDone(time) {
   if (better) store.set('moto_ch_best_' + def.id, score);
   const medal = Chutes.medalOf(def, score); const firstMedal = Chutes.saveMedal(def.id, medal);
   const goldBefore = Chutes.goldAll();
-  const pay = ok ? 40 + (better ? 30 : 0) + (medal >= 0 ? [60, 30, 15][medal] : 0) : 0;
+  const today = ok && def.today ? Chutes.claimToday(def.id) : 0;   // (today's challenge: a bonus, once a day)
+  const pay = ok ? 40 + (better ? 30 : 0) + (medal >= 0 ? [60, 30, 15][medal] : 0) + today : 0;
+  if (today) setTimeout(() => UI.toast(`📅 Today's challenge done: +${today} bonus coins`, 'good', 3500), 600);
   if (pay) payCoins(pay);
   if (medal === 0) UI.confetti(220); else if (better && best != null) UI.confetti(160);
   const close = R.run ? R.run.close : 0;
@@ -1277,16 +1378,21 @@ async function loadGhosts(ch) {
   if (!Account.user && !navigator.onLine) return;
   try {
     const { ghost } = await Net.request('ghost:get', { game: chuteGame(ch) });
-    if (R.ride !== ride || !ghost || (Account.user && ghost.name === Account.user.name && mine)) return;   // (your own record: already there)
-    addGhost(ghost.data, `🏆 ${ghost.name} · ${fmt(ghost.ms / 1000)}`, '#ffd34d');
+    if (R.ride !== ride || !ghost || (Account.user && ghost.name === Account.user.name && mine)) throw 0;   // (your own record: already there)
+    addGhost(ghost.data, `🏆 ${ghost.name} · ${fmt(ghost.ms / 1000)}`, '#ffd34d', ghost.name);
   } catch { /* offline: just your own */ }
+  if (!Account.user) return;
+  try {   // and your friends' best runs (the fastest three)
+    const { ghosts } = await Net.request('ghost:friends', { game: chuteGame(ch) });
+    for (const g of ghosts || []) if (R.ride === ride && R.ghosts.length < 5 && !R.ghosts.some((o) => o.name === g.name)) addGhost(g.data, `👥 ${g.name} · ${fmt(g.ms / 1000)}`, g.color || '#b48cff', g.name);
+  } catch { /* no friends' runs */ }
 }
-function addGhost(data, label, color) {
+function addGhost(data, label, color, name = null) {
   const frames = Chutes.ghostFrames(data);
   if (!frames || !frames.length || !world) return;
-  const model = makeBike({ ...(R.board ? boardLook() : R.water ? jetLook() : mtbLook()), ghost: color }); if (R.board) boardify(model, color, gear()); if (R.water) jetskify(model, color); world.scene.add(model.root);
+  const model = R.car ? makeCar(R.wing ? 'wing' : R.buggy ? 'buggy' : prefs.carModel, null, color) : makeBike({ ...(R.board ? boardLook() : R.water ? jetLook() : mtbLook()), ghost: color }); if (!R.car) { if (R.board) boardify(model, color, gear()); if (R.water) jetskify(model, color); if (R.sled) sledify(model, color); if (R.skate) skateify(model, color); } world.scene.add(model.root);
   const tag = nameTag(label, color); world.scene.add(tag);
-  R.ghosts.push({ frames, model, tag, ang: [0, 0] });
+  R.ghosts.push({ frames, model, tag, ang: [0, 0], name });
 }
 function dropGhosts() { for (const g of R.ghosts || []) dropOther(g); R.ghosts = []; }
 /** The ghosts ride the run as it was recorded, by the challenge's clock. */
@@ -1301,7 +1407,8 @@ function drawGhosts(now, dt) {
     g.model.root.visible = g.tag.visible = show;
     if (!show) continue;
     g.ang[0] += (m.s / 3.6 / 0.35) * dt; g.ang[1] += (m.s / 3.6 / 0.34) * dt;
-    poseBike(g.model, s, placer(s), s.h, now / 1000);
+    if (g.model.car) poseCar(g.model, { px: m.px, pz: m.pz, y: m.y, h: m.h, car: { p: m.a, r: m.ro, st: m.st || 0, w: g.ang, c: [m.c0, m.c1, m.c2 || 0, m.c3 || 0] } });   // (a buggy's ghost)
+    else poseBike(g.model, s, placer(s), s.h, now / 1000);
     g.tag.position.copy(g.model.root.position).add(tmpV.set(0, 2.1, 0));
   }
 }
@@ -1459,7 +1566,9 @@ const map = createMap({
   targets: () => {
     const t = [];
     if (R.trial) { const g = R.trial.gates[R.trial.next]; if (g) t.push({ x: g.x, z: g.z, color: '#5affb6' }); }
-    if (R.challenge?.finish) t.push({ x: R.challenge.finish[0], z: R.challenge.finish[1], color: '#7dffb5' });
+    const G = R.challenge?.def.gates, gi = R.challenge?.gate || 0;
+    if (G && gi < G.length) t.push({ x: G[gi][0], z: G[gi][1], color: '#ffd23a' });
+    else if (R.challenge?.finish) t.push({ x: R.challenge.finish[0], z: R.challenge.finish[1], color: '#7dffb5' });
     return t;
   },
   // fast travel: free ride on your own only (not in a challenge or a mini race, where it'd be a shortcut)
@@ -1632,8 +1741,9 @@ function quit() {
   }
   const wasChallenge = !!R.challenge; R.challenge = null;
   setRiding(false);
-  menus.show(R.water ? (wasChallenge ? 'waterchallenges' : 'water') : (R.mtb ? 'mtb' : '') + (wasChallenge ? 'challenges' : R.mode==='free'?'worlds':'tracks'));
-  const url = new URL(location.href); for (const k of ['free', 'world', 'track', 'mtb', 'water']) url.searchParams.delete(k); history.replaceState(null, '', url);
+  const hub = R.veh || (R.water ? 'water' : R.board ? 'snow' : R.mtb ? 'mtb' : null);   // (back to the menu of the mode you were riding)
+  menus.show(hub ? hub + (wasChallenge ? 'challenges' : hub === 'mtb' && R.mode === 'free' ? 'worlds' : '') : (wasChallenge ? 'challenges' : R.mode==='free'?'worlds':'tracks'));
+  const url = new URL(location.href); for (const k of ['free', 'world', 'track', 'mtb', 'water', 'board', 'tow', 'veh']) url.searchParams.delete(k); history.replaceState(null, '', url);
 }
 $('#mx-quit').addEventListener('click', quit);
 // (the whole page goes full screen, not just the game, so pop-ups like signing in still show)
@@ -1724,8 +1834,10 @@ function addOtherModel(o) {
   dropOther(o);
   o.lane = laneFor(o.id);
   const st = state.styles[o.id] || {};
+  if (R.buggy || R.wing) { o.model = R.wing ? makeCar('wing', st.wing || '#ff4fa3') : makeCar('buggy', st.buggy || 'arancio'); world.scene.add(o.model.root); o.tag = nameTag(o.name, o.color); world.scene.add(o.tag); return; }   // (a Drivvd challenge: everyone's in a buggy)
   o.model = makeBike({ ...st, ...(R.mtb ? { model: MTB_MODELS[st.mtb] ? st.mtb : 'dh', rider: R.board ? 'snow' : mtbRider(st.mrider) } : {}), ghost: o.color });   // (an Unrevvd challenge: everyone's on a mountain bike, as their Unrevvd rider)
   if (R.board) boardify(o.model, o.color, st.cgear === 'skis' ? 'skis' : 'board');   // (everyone in a Carvvd challenge is on a board or skis)
+  if (R.water) jetskify(o.model, o.color); if (R.sled) sledify(o.model, o.color); if (R.skate) skateify(o.model, o.color);
   world.scene.add(o.model.root);
   o.tag = nameTag(o.name, o.color);
   world.scene.add(o.tag);
@@ -1742,14 +1854,24 @@ function ensureOtherModel(o, m) {
   const st = state.styles[o.id] || {};
   const carId = CAR_MODELS[st.car] ? st.car : 'revuelto';
   const mtbId = MTB_MODELS[st.mtb] ? st.mtb : 'dh';
-  const kind = m.v === 1 ? `car:${carId}:${st.paint || ''}` : `${m.v === 2 ? 'mtb:' + mtbId + ':' + mtbRider(st.mrider) : 'bike'}:${bikesLoaded()}`;   // (a bike model file that has just loaded replaces its stand-in)
+  const kind = m.v === 8 ? `wing:${st.wing || ''}` : m.v === 7 ? `buggy:${st.buggy || ''}` : m.v === 1 ? `car:${carId}:${st.paint || ''}` : `${m.v >= 2 && m.v !== 6 ? `v${m.v}:` + mtbId + ':' + mtbRider(st.mrider) : 'bike'}:${bikesLoaded()}`;   // (a bike model file that has just loaded replaces its stand-in)
   if (o.kind === kind && o.model) return;
   dropOther(o); o.kind = kind;
-  if (m.v === 1) {
+  if (m.v === 8) o.model = makeCar('wing', st.wing || '#ff4fa3');   // (Skyvvd)
+  else if (m.v === 7) o.model = makeCar('buggy', st.buggy || 'arancio');   // (Drivvd)
+  else if (m.v === 1) {
     o.model = makeCar(carId, st.paint || 'arancio');
     // (the model file may still be loading: it shows as the wedge until then, and is swapped in once it's here)
     if (CAR_MODELS[carId].file && !o.model.file) preloadCar(carId).then((ok) => { if (ok && o.kind === kind) o.kind = null; });
-  } else { o.model = makeBike({ ...st, ...(m.v === 2 ? { model: mtbId, rider: mtbRider(st.mrider) } : {}), livery: playerOf(o.id).bike }); coverOn(o.model); }
+  } else {
+    o.model = makeBike({ ...st, ...(m.v >= 2 && m.v !== 6 ? { model: mtbId, rider: m.v === 3 ? 'snow' : mtbRider(st.mrider) } : {}), livery: playerOf(o.id).bike });
+    if (m.v === 3) boardify(o.model, st.boardColor || '#2a7fff', st.cgear === 'skis' ? 'skis' : 'board');   // (Carvvd)
+    else if (m.v === 4) jetskify(o.model, st.jet || '#18b6d6');   // (Wavvd)
+    else if (m.v === 5) boardify(o.model, st.jet || '#18b6d6', 'board');   // (wakeboarding)
+    else if (m.v === 6) sledify(o.model, st.sled || '#ff5a1f');   // (Sledvvd)
+    else if (m.v === 9) skateify(o.model, st.skate || '#ff4fa3');   // (Grindvvd)
+    coverOn(o.model);
+  }
   world.scene.add(o.model.root);
   o.tag = nameTag(o.name, o.color); world.scene.add(o.tag);
 }
@@ -1855,7 +1977,12 @@ function posMsg(b) {
   const msg = { x: r2(b.s), px: r2(b.px), pz: r2(b.pz), h: r2(b.h), ro: r2(R.roll), y: r2(b.y), a: r2(b.a), rx: r2(b.rx - b.x), ry: r2(b.ry - b.y),
     c0: r2(b.wh[0].c), c1: r2(b.wh[1].c), l: r2(b.lean), tk: b.tk, tp: r2(b.pose), wh: r2(b.whip), sp: r2(b.spin),
     s: Math.round(Math.hypot(b.vx, b.vy) * 36) / 10, r: Math.round(b.rpm), th: r2(b.thr), k: b.crashed ? 1 : 0, b: b.boost ? 1 : 0, cp: b.cp };
-  if (R.car) Object.assign(msg, { v: 1, ro: r2(b.roll), st: r2(b.steer), c0: r2(b.comp[0]), c1: r2(b.comp[1]), c2: r2(b.comp[2]), c3: r2(b.comp[3]) });   // (the supercar)
+  if (R.car) Object.assign(msg, { v: R.wing ? 8 : R.buggy ? 7 : 1, ro: r2(b.roll), st: r2(b.steer), c0: r2(b.comp[0]), c1: r2(b.comp[1]), c2: r2(b.comp[2]), c3: r2(b.comp[3]) });   // (the supercar)
+  else if (R.sled) msg.v = 6;   // (a snowmobile)
+  else if (R.skate) msg.v = 9;   // (a skateboard)
+  else if (R.tow) msg.v = 5;   // (a wakeboard)
+  else if (R.water) msg.v = 4;   // (a jet ski)
+  else if (R.board) msg.v = 3;   // (a snowboard or skis)
   else if (R.mtb) msg.v = 2;   // (a mountain bike)
   if (b.crashed && b.rider) msg.rg = [r2(b.rider.hip.x - b.x), r2(b.rider.hip.y), r2(b.rider.head.x - b.x), r2(b.rider.head.y)];
   return msg;
@@ -2036,7 +2163,7 @@ async function init() {
     setCarModel: (k) => { prefs.carModel = k; savePrefs(); Sfx.play('click'); preloadCar(k); if (inRoom()) Net.send('g:style', { style: netStyle() }); },
     setCarPaint: (k) => { prefs.carPaint = k; savePrefs(); Sfx.play('click'); if (inRoom()) Net.send('g:style', { style: netStyle() }); },
     rideWithFriends: (w, vehicle) => { pendingFree = w.id; if (vehicle) { prefs.vehicle = vehicle; savePrefs(); } },
-    MTB_MODELS, MTB_RIDERS, setMtbModel, setMtbRider, startMtbFree: (w) => startFree(w, { mtb: true }), BOARDS, WEATHER, gear, startBoardFree: (w) => startFree(w, { board: true }), startWaterFree: (w) => startFree(w, { water: true }), jetColor,
+    MTB_MODELS, MTB_RIDERS, setMtbModel, setMtbRider, startMtbFree: (w) => startFree(w, { mtb: true }), BOARDS, WEATHER, SKIES, gear, startBoardFree: (w) => startFree(w, { board: true }), startWaterFree: (w) => startFree(w, { water: true }), startTowFree: (w) => startFree(w, { tow: true }), startVehFree: (w, veh) => startFree(w, { veh }), sledColor, buggyPaint, wingColor, skateColor, Career, careerReward, jetColor,
     setQuality: (k) => { prefs.quality = k; savePrefs(); worldKey = null; resize(); if (stage.trackId) stageTrack(stage.trackId); },
     stage: { solo: stageSolo, room: stageRoom },
   });
@@ -2050,7 +2177,7 @@ async function init() {
   Lobby.ChatBox(chatEl, { title: '' });
   chatEl.prepend(h('div', { class: 'mx-h' }, 'Chat'));
   if (qs.get('room')) menus.show('joining');   // (the lobby is joining it)
-  else if(qs.get('free')){const mtb=qs.get('mtb')==='1',board=qs.get('board')==='1',water=qs.get('water')==='1';menus.show(water?'water':board?'snow':mtb?'mtbworlds':'worlds');const w=WORLDS.find(w=>w.id===qs.get("world")&&(water||!w.hidden));if(w){await loadUnlocks();startFree(w,{mtb,board,water});}}
+  else if(qs.get('free')){const mtb=qs.get('mtb')==='1',board=qs.get('board')==='1',water=qs.get('water')==='1',tow=qs.get('tow')==='1',veh=['sled','buggy','skate','wing'].includes(qs.get('veh'))?qs.get('veh'):null;menus.show(veh||(water?'water':board?'snow':mtb?'mtbworlds':'worlds'));const w=WORLDS.find(w=>w.id===qs.get("world")&&(water||veh||w.roomFree||!w.hidden));if(w){await loadUnlocks();startFree(w,{mtb,board,water,tow,veh});}}
   else if (qs.get('solo')) {
     const t = qs.get('track') && DATA.tracks.find((x) => x.id === qs.get('track'));
     menus.show('tracks');

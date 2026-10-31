@@ -1002,6 +1002,75 @@ export function jetskify(m, color = '#18b6d6') {
   m.grips = new THREE.Vector3(0.34, 0.47, 0); m.pegs = new THREE.Vector3(-0.3, -0.04, 0);
   return m;
 }
+/** A skateboard instead of a bike (Grindvvd): a maple deck with kicked-up nose and tail, black grip tape, two trucks
+    and four wheels; the rider stands across it like a snowboarder. m.board is the deck (posed like a board). */
+export function skateify(m, color = '#ff4fa3') {
+  for (const c of m.root.children) if (c !== m.rider) c.visible = false;
+  const ghost = m.ghost;
+  const wood = ghost ? m.materials.plastic : new THREE.MeshStandardMaterial({ color, roughness: 0.5 });
+  const grip = ghost ? wood : new THREE.MeshStandardMaterial({ color: '#1b1d21', roughness: 0.95 });
+  const metal = ghost ? wood : new THREE.MeshStandardMaterial({ color: '#c3c9d1', roughness: 0.3, metalness: 0.9 });
+  const urethane = ghost ? wood : new THREE.MeshStandardMaterial({ color: '#f4efe2', roughness: 0.55 });
+  const deck = new THREE.Group();
+  const kick = (geo, lift) => { const pos = geo.attributes.position; for (let i = 0; i < pos.count; i++) { const x = pos.getX(i); const e = Math.max(0, Math.abs(x) - 0.3); pos.setY(i, pos.getY(i) + e * e * lift); } geo.computeVertexNormals(); return geo; };
+  const ply = new THREE.Mesh(kick(new RoundedBoxGeometry(0.82, 0.018, 0.21, 3, 0.008), 1.6), wood); ply.castShadow = !ghost; deck.add(ply);
+  const tape = new THREE.Mesh(kick(new RoundedBoxGeometry(0.8, 0.004, 0.2, 2, 0.002), 1.6), grip); tape.position.y = 0.011; deck.add(tape);
+  for (const x of [-0.24, 0.24]) {
+    const truck = new THREE.Mesh(new RoundedBoxGeometry(0.05, 0.035, 0.16, 2, 0.01), metal); truck.position.set(x, -0.03, 0); deck.add(truck);
+    const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.2, 6).rotateX(Math.PI / 2), metal); axle.position.set(x, -0.05, 0); deck.add(axle);
+    for (const z of [-0.09, 0.09]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.03, 14).rotateX(Math.PI / 2), urethane); w.position.set(x, -0.05, z); w.castShadow = !ghost; deck.add(w); }
+  }
+  deck.scale.setScalar(1.25);   // (a touch bigger than life, so it reads from the chase camera)
+  m.root.add(deck);
+  m.board = deck; m.skate = true; m.pedal = null; m.stance = 0.2; m.steers = false;
+  m.rider.rotation.y = -Math.PI / 2; m.rider.position.y = -0.3;
+  if (m.fig) for (const [b, q] of m.fig.open) b.quaternion.copy(q);   // (nothing to hold: hands open)
+  m.pegs = new THREE.Vector3(0, 0, 0); m.grips = new THREE.Vector3(0.18, 0.45, 0);
+  return m;
+}
+/** A snowmobile instead of a bike (Sledvvd): a sculpted cowl over the engine with a windscreen and headlight, a long
+    seat, running boards, two steering skis out front and the rubber track (with its bogie wheels) underneath. The
+    rider sits up on it, feet on the boards, like the jet ski. Built along the bike's frame (x forward, y up). */
+export function sledify(m, color = '#ff5a1f') {
+  for (const c of m.root.children) if (c !== m.rider) c.visible = false;
+  const ghost = m.ghost;
+  const paint = ghost ? m.materials.plastic : new THREE.MeshPhysicalMaterial({ color, roughness: 0.3, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.1 });
+  const black = ghost ? paint : new THREE.MeshStandardMaterial({ color: '#16181c', roughness: 0.6 });
+  const grey = ghost ? paint : new THREE.MeshStandardMaterial({ color: '#41464f', roughness: 0.75, metalness: 0.2 });
+  const chrome = ghost ? paint : new THREE.MeshStandardMaterial({ color: '#c9ced6', roughness: 0.25, metalness: 0.9 });
+  const sled = new THREE.Group(); sled.name = 'sled';
+  const add = (geo, mat, x, y, z, rz = 0) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); o.rotation.z = rz; o.castShadow = !ghost; sled.add(o); return o; };
+  // the cowl: a side profile (nose low at the front, up to the windscreen), extruded across and rounded off
+  const prof = new THREE.Shape(); prof.moveTo(1.28, -0.22); prof.bezierCurveTo(1.25, 0.02, 0.9, 0.2, 0.42, 0.3); prof.lineTo(0.12, 0.26); prof.lineTo(0.05, -0.05); prof.lineTo(1.0, -0.3); prof.closePath();
+  const cowl = new THREE.ExtrudeGeometry(prof, { depth: 0.66, bevelEnabled: true, bevelSize: 0.08, bevelThickness: 0.08, bevelSegments: 4, curveSegments: 16 }).translate(0, 0, -0.33);
+  add(cowl, paint, 0, 0, 0);
+  add(new RoundedBoxGeometry(1.25, 0.16, 0.86, 3, 0.05), paint, -0.42, -0.2, 0);                                // the tunnel over the track
+  add(new RoundedBoxGeometry(1.15, 0.17, 0.4, 3, 0.07), black, -0.5, -0.03, 0);                                 // the seat
+  for (const k of [-1, 1]) add(new RoundedBoxGeometry(1.0, 0.03, 0.2, 2, 0.01), grey, -0.35, -0.27, k * 0.5);   // running boards
+  const glass = ghost ? paint : new THREE.MeshPhysicalMaterial({ color: '#2a3542', roughness: 0.05, transparent: true, opacity: 0.55 });
+  add(new RoundedBoxGeometry(0.04, 0.3, 0.62, 2, 0.015), glass, 0.36, 0.42, 0, -0.5);                           // windscreen
+  add(new THREE.CircleGeometry(0.09, 16).rotateY(Math.PI / 2), ghost ? paint : new THREE.MeshStandardMaterial({ color: '#fffbe8', emissive: '#fff2c0', emissiveIntensity: 1.6 }), 1.22, -0.02, 0, -0.35);   // headlight
+  const bar = add(new THREE.CylinderGeometry(0.022, 0.022, 0.78, 10), chrome, 0.22, 0.42, 0); bar.rotation.x = Math.PI / 2;
+  for (const k of [-1, 1]) { const g = add(new THREE.CylinderGeometry(0.034, 0.034, 0.13, 12), black, 0.22, 0.42, k * 0.34); g.rotation.x = Math.PI / 2; }
+  // the track: a belt with lugs, and the bogie wheels inside it
+  add(new RoundedBoxGeometry(1.45, 0.24, 0.46, 3, 0.1), black, -0.45, -0.42, 0);
+  for (let x = -1.1; x <= 0.2; x += 0.13) add(new THREE.BoxGeometry(0.04, 0.03, 0.46), grey, x, -0.555, 0);
+  for (const x of [-1.05, -0.6, -0.15]) for (const k of [-1, 1]) { const w = add(new THREE.CylinderGeometry(0.09, 0.09, 0.05, 14), grey, x, -0.42, k * 0.25); w.rotation.x = Math.PI / 2; }
+  // the skis on their legs (the front of the sled rides on them)
+  for (const k of [-1, 1]) {
+    const geo = new RoundedBoxGeometry(1.0, 0.03, 0.12, 2, 0.01); const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) { const x = pos.getX(i); const e = Math.max(0, x - 0.3); pos.setY(i, pos.getY(i) + e * e * 0.9); }
+    geo.computeVertexNormals();
+    add(geo, black, 0.85, -0.54, k * 0.5);
+    add(new THREE.CylinderGeometry(0.03, 0.03, 0.34, 8), grey, 0.82, -0.38, k * 0.47);
+    add(new RoundedBoxGeometry(0.4, 0.04, 0.05, 2, 0.01), grey, 0.65, -0.3, k * 0.3, 0.1);
+  }
+  add(new RoundedBoxGeometry(0.05, 0.22, 0.5, 2, 0.02), black, -1.2, -0.42, 0);                                // the snow flap
+  m.root.add(sled);
+  m.sled = sled; m.pedal = null; m.steers = false; m.stance = 0.3;
+  m.grips = new THREE.Vector3(0.22, 0.42, 0); m.pegs = new THREE.Vector3(-0.32, -0.25, 0);
+  return m;
+}
 /** Skis instead of a board (Carvvd's other choice): two skis under the feet, the rider facing down them, a pole in each
     hand. m.board is the pair (so it's treated like a board), m.skis says which. */
 function skify(m, color) {
@@ -1031,7 +1100,7 @@ function skify(m, color) {
 export function poseBoard(m) {
   if (!m.board) return;
   const f = m.frontWheel.position; const r = m.rearWheel.position;
-  m.board.position.set((f.x + r.x) / 2, (f.y + r.y) / 2 - 0.32 - (m.sink || 0), 0);   // (sink: down in deep powder)
+  m.board.position.set((f.x + r.x) / 2, (f.y + r.y) / 2 - 0.32 - (m.sink || 0) + (m.skate ? 0.1 : 0), 0);   // (sink: down in deep powder; a skateboard stands on its wheels)
   m.board.rotation.z = Math.atan2(f.y - r.y, f.x - r.x);
   // (the feet in the rider's own frame: the rider group is lowered 0.3 and scaled by k, and turned so its sideways is
   // along the board; poseBike divides the grips by k itself)

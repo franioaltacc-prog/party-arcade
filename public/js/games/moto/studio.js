@@ -31,6 +31,11 @@ export function createStudio({ app, camera, renderer, ground, onExit }) {
   const btn = (label, title, onClick) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.title = title; b.addEventListener('click', (e) => { e.stopPropagation(); onClick(); }); return b; };
 
   // ---------------------------------------------------------------- photo mode
+  /** Photo filters (the 🎨 button or F): a CSS filter on the picture, and the same on the saved PNG. */
+  const FILTERS = [['Natural', ''], ['Warm', 'sepia(.22) saturate(1.35) hue-rotate(-8deg) brightness(1.04)'], ['Cool', 'saturate(1.1) hue-rotate(12deg) brightness(1.02) contrast(1.05)'],
+    ['B&W', 'grayscale(1) contrast(1.2)'], ['Vintage', 'sepia(.55) contrast(.9) brightness(1.08) saturate(.8)'], ['Punchy', 'saturate(1.6) contrast(1.18)']];
+  let filter = 0;
+  const setFilter = (i) => { filter = (i + FILTERS.length) % FILTERS.length; renderer.domElement.style.filter = photo ? FILTERS[filter][1] : ''; const b = bar.querySelector('.filt'); if (b) b.textContent = '🎨 ' + FILTERS[filter][0]; };
   let photo = null;   // { target, yaw, pitch, dist, fov, hide, scene, model, keys }
   function startPhoto(scene, model, at) {
     if (photo) return;
@@ -39,19 +44,20 @@ export function createStudio({ app, camera, renderer, ground, onExit }) {
     photo = { scene, model, target: p, yaw: Math.atan2(d.x, d.z), pitch: Math.asin(Math.max(-0.95, Math.min(0.95, d.y / (d.length() || 1)))), dist: Math.max(2, Math.min(12, d.length())), fov: camera.fov, hide: false, keys: {}, from: at };
     app.classList.add('photo');
     bar.replaceChildren();
-    const tip = document.createElement('span'); tip.className = 'tip'; tip.textContent = '📷 Drag to look · scroll to zoom · W A S D to move · Q E down / up';
+    const tip = document.createElement('span'); tip.className = 'tip'; tip.textContent = '📷 Drag to look · scroll to zoom · W A S D to move · Q E down / up · F filter';
     const lens = document.createElement('input'); lens.type = 'range'; lens.min = '18'; lens.max = '95'; lens.value = String(Math.round(photo.fov)); lens.title = 'Lens (wide ↔ zoomed)'; lens.setAttribute('aria-label', 'Lens');
     lens.addEventListener('input', () => { photo.fov = 113 - +lens.value; });
     photo.fov = 113 - +lens.value;
     const hide = btn('🙈 Rider', 'Hide or show your rider', () => { photo.hide = !photo.hide; hide.classList.toggle('on', photo.hide); });
-    bar.append(tip, Object.assign(document.createElement('label'), { className: 'lens', textContent: '🔭' }), lens, hide,
+    const filt = btn('🎨 ' + FILTERS[filter][0], 'Change the filter (F)', () => setFilter(filter + 1)); filt.classList.add('filt');
+    bar.append(tip, Object.assign(document.createElement('label'), { className: 'lens', textContent: '🔭' }), lens, hide, filt,
       btn('💾 Save picture', 'Save the picture (a PNG)', savePhoto), btn('✕ Done', 'Back to riding (P or Esc)', stopPhoto));
-    bar.hidden = false;
+    bar.hidden = false; setFilter(filter);
   }
   function stopPhoto() {
     if (!photo) return;
     photo.model.root.visible = true;
-    const back = photo.from; photo = null; app.classList.remove('photo');
+    const back = photo.from; photo = null; app.classList.remove('photo'); renderer.domElement.style.filter = '';
     camera.fov = back ? back.fov : camera.fov; camera.updateProjectionMatrix();
     if (replay) drawReplayBar(); else { bar.hidden = true; onExit?.(); }
   }
@@ -75,7 +81,12 @@ export function createStudio({ app, camera, renderer, ground, onExit }) {
     if (!photo) return;
     photoCamera(0); renderer.render(photo.scene, camera);
     const a = document.createElement('a');
-    a.href = renderer.domElement.toDataURL('image/png');
+    let pic = renderer.domElement;
+    if (FILTERS[filter][1]) {   // (the filter baked into the picture; where a browser can't, it saves without)
+      const c = document.createElement('canvas'); c.width = pic.width; c.height = pic.height; const g = c.getContext('2d');
+      if ('filter' in g) { g.filter = FILTERS[filter][1]; g.drawImage(pic, 0, 0); pic = c; }
+    }
+    a.href = pic.toDataURL('image/png');
     a.download = `revvd-photo-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.png`;
     document.body.appendChild(a); a.click(); a.remove();
     bar.querySelector('.tip').textContent = '✅ Saved to your downloads';
@@ -183,6 +194,7 @@ export function createStudio({ app, camera, renderer, ground, onExit }) {
     if (photo) {
       photo.keys[e.code] = down;
       if (down && (e.code === 'Escape' || e.code === 'KeyP') && !e.repeat) stopPhoto();
+      else if (down && e.code === 'KeyF' && !e.repeat) setFilter(filter + 1);
       return true;
     }
     if (replay) {

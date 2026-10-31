@@ -4,18 +4,32 @@
    It looks after the same fields as MotoCore's bike (px, pz, y, h, vx, wh, crashed…), so game.js can drive it with
    the same camera, map, coins, gap jumps and respawns. Headings are MotoCore's: forward is (cos h, sin h) in x, z. */
 const DT = 1 / 120;
-const WB = [1.32, -1.28];              // front and rear axle, metres ahead of the middle
-const TRACK = 0.84;                    // each wheel's distance out from the middle
-const R = 0.34;                        // wheel radius
-const REST = 0.34;                     // spring length with nothing on it
-const K = 21.9;                        // spring stiffness per wheel (per kg of car): it sits 0.12 m down
-const C = 2.9;                         // spring damping
-const MOUNT = -0.2;                    // where the springs are fixed, below the middle of the car
+let WB = [1.32, -1.28];                // front and rear axle, metres ahead of the middle
+let TRACK = 0.84;                      // each wheel's distance out from the middle
+let R = 0.34;                          // wheel radius
+let REST = 0.34;                       // spring length with nothing on it
+let K = 21.9;                          // spring stiffness per wheel (per kg of car): it sits 0.12 m down
+let C = 2.9;                           // spring damping
+let MOUNT = -0.2;                      // where the springs are fixed, below the middle of the car
+let TRAVEL = 0.32;                     // how far the springs can squash
 const IP = 1.15; const IR = 0.55;      // how hard it is to pitch and to roll (per kg)
-const WHEELS = [[WB[0], -TRACK], [WB[0], TRACK], [WB[1], -TRACK], [WB[1], TRACK]];   // front left, front right, rear left, rear right
+let WHEELS = [[WB[0], -TRACK], [WB[0], TRACK], [WB[1], -TRACK], [WB[1], TRACK]];   // front left, front right, rear left, rear right
 const G = 10.5;
-const VMAX = 92;                       // top speed (m/s; with turbo a little more)
-const GEARS = [0, 14, 24, 35, 47, 60, 75, 999];   // speeds (m/s) each gear runs up to
+let VMAX = 92;                         // top speed (m/s; with turbo a little more)
+let GEARS = [0, 14, 24, 35, 47, 60, 75, 999];   // speeds (m/s) each gear runs up to
+let OFFROAD = 1;                       // grip on anything but a trail, times this
+let SAG = 0.12;                        // how far down the springs sit, standing still
+/** The supercar (Revvd's free ride), or Drivvd's rally buggy: big soft wheels with long springs that soak up jumps,
+    more grip off the trails, and a lower top speed. One car is driven at a time, so this sets the whole module. */
+const SPECS = {
+  super: { WB: [1.32, -1.28], TRACK: 0.84, R: 0.34, REST: 0.34, K: 21.9, C: 2.9, MOUNT: -0.2, TRAVEL: 0.32, VMAX: 92, GEARS: [0, 14, 24, 35, 47, 60, 75, 999], OFFROAD: 1, SAG: 0.12 },
+  buggy: { WB: [1.3, -1.25], TRACK: 0.92, R: 0.42, REST: 0.52, K: 13.5, C: 2.2, MOUNT: -0.12, TRAVEL: 0.5, VMAX: 48, GEARS: [0, 9, 16, 23, 31, 39, 999, 999], OFFROAD: 1.22, SAG: 0.19 },
+};
+export function setSpec(kind = 'super') {
+  const S = SPECS[kind] || SPECS.super;
+  ({ WB, TRACK, R, REST, K, C, MOUNT, TRAVEL, VMAX, GEARS, OFFROAD, SAG } = S);
+  WHEELS = [[WB[0], -TRACK], [WB[0], TRACK], [WB[1], -TRACK], [WB[1], TRACK]];
+}
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const P = () => globalThis.MotoCore.P;
@@ -41,9 +55,9 @@ export function place(T, b, spot) {
   const front = g.heightAt(b.px + c * 1.3, b.pz + s * 1.3); const back = g.heightAt(b.px - c * 1.3, b.pz - s * 1.3);
   const left = g.heightAt(b.px + s * TRACK, b.pz - c * TRACK); const right = g.heightAt(b.px - s * TRACK, b.pz + c * TRACK);
   b.pitch = Math.atan2(front - back, 2.6); b.roll = Math.atan2(right - left, 2 * TRACK); b.pr = b.rr = 0;   // (sitting level with the ground, a side slope too)
-  b.y = (front + back) / 2 + (R + REST - 0.12 - MOUNT) / Math.max(0.3, Math.cos(b.pitch) * Math.cos(b.roll));   // (the springs stand square to a tilted ground)
+  b.y = (front + back) / 2 + (R + REST - SAG - MOUNT) / Math.max(0.3, Math.cos(b.pitch) * Math.cos(b.roll));   // (the springs stand square to a tilted ground)
   b.vel = [0, 0, 0]; b.yaw = 0; b.vx = b.vy = 0; b.steer = 0;
-  b.crashed = 0; b.air = 0; b.upside = 0; b.boost = false; b.comp = [0.12, 0.12, 0.12, 0.12];
+  b.crashed = 0; b.air = 0; b.upside = 0; b.boost = false; b.comp = [SAG, SAG, SAG, SAG];
   sync(b);
 }
 
@@ -95,13 +109,13 @@ export function step(T, b, inp) {
     const comp = REST - ((ay - gy) * nm.y - R) / un;
     if (comp <= 0) { b.comp[i] = Math.max(0, b.comp[i] - DT * 2); continue; }
     n++; nx += nm.x; ny += nm.y; nz += nm.z;
-    b.comp[i] = Math.min(comp, 0.32);
+    b.comp[i] = Math.min(comp, TRAVEL);
     const vAttach = b.vel[0] * nm.x + b.vel[1] * nm.y + b.vel[2] * nm.z + (b.pr * fo + b.rr * lo) * nm.y;   // (roll: + lifts the right side)
     let force = Math.max(0, K * comp - C * vAttach);
-    if (comp > 0.3) force += (comp - 0.3) * 400 + Math.max(0, -vAttach) * 8;   // (bottoming out)
+    if (comp > TRAVEL - 0.02) force += (comp - TRAVEL + 0.02) * 400 + Math.max(0, -vAttach) * 8;   // (bottoming out)
     acc[0] += nm.x * force; acc[1] += nm.y * force; acc[2] += nm.z * force;
     tp += force * fo; tr += force * lo;
-    grip += g.surfaceAt(ax, az).grip;
+    { const sf = g.surfaceAt(ax, az); grip += sf.grip * (sf.kind === 'trail' ? 1 : OFFROAD); }
   }
   const ground = n > 0;
   // ---- driving: along the ground under the car

@@ -167,6 +167,17 @@
       "file": "azurebay.json",
       "areaKm2": 16.0,
       "hidden": true,
+      "roomFree": true,
+      "gaps": 0,
+      "pools": 0
+    },
+    {
+      "id": "skateplaza",
+      "name": "Concrete Coast",
+      "file": "skateplaza.json",
+      "areaKm2": 2.56,
+      "hidden": true,
+      "roomFree": true,
       "gaps": 0,
       "pools": 0
     }

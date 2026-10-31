@@ -426,7 +426,7 @@ WORLDS = [
         # start), a lighthouse island, buoy courses, and the swell building out towards the open sea in the south.
         # "sea": the water level and its Gerstner waves ([wavelength m, height m, direction °]), swell: [z from, z to,
         # times] (bigger waves out to sea); the ground under it is the seabed (terrain.mjs, ocean.mjs)
-        "id": "azurebay", "name": "Azure Bay", "tagline": "Turquoise water, pine islands, waves to jump.", "theme": "alpine", "seed": 9917, "hidden": True,
+        "id": "azurebay", "name": "Azure Bay", "tagline": "Turquoise water, pine islands, waves to jump.", "theme": "alpine", "seed": 9917, "hidden": True, "roomFree": True,
         "size": 4000, "baseHeight": -16, "cliff": [260, 300], "rise": 0.55, "buildings": False,
         "palette": {"sky": "#8fc3ea", "low": "#5d8a4a", "high": "#9aa38a", "trail": "#c9b48a", "water": "#2aa7b8", "accent": "#18b6d6"},
         "look": {"sky": {"sun": [38, 150], "turbidity": 2.2, "rayleigh": 1.1, "mie": 0.004, "exposure": 1.35, "fog": 0.2, "fogColor": "#bcd6ea"}, "forest": 1.4},
@@ -448,6 +448,27 @@ WORLDS = [
                      "buoys": [[x, z, c] for x, z, c in
                                [(-60, -1300, "#ff6a10"), (60, -1180, "#ffd23a"), (-60, -1060, "#ff6a10"), (60, -940, "#ffd23a"), (-60, -820, "#ff6a10"), (60, -700, "#ffd23a"),
                                 (500, -380, "#ff3b3b"), (980, -380, "#ff3b3b"), (1180, 240, "#ff3b3b"), (980, 760, "#ff3b3b"), (520, 760, "#ff3b3b"), (340, 260, "#ff3b3b")]]},
+    },
+    {
+        # Grindvvd's skatepark: a concrete plaza by the sea (the whole middle is smooth and fast), a halfpipe, a rail
+        # garden, dirt jumps, a pump track, the freestyle arena with its judges, and a gentle hill to bomb down
+        "id": "skateplaza", "name": "Concrete Coast", "tagline": "A skate city: halfpipe, rails, ramps and a hill to bomb.", "theme": "alpine", "seed": 5151, "hidden": True, "roomFree": True,
+        "size": 1600, "baseHeight": 10, "cliff": [120, 200], "rise": 0.5,
+        "palette": {"sky": "#b9d3e6", "low": "#8c8f94", "high": "#b4b6b9", "trail": "#a8a49c", "water": "#3f8f95", "accent": "#ff4fa3"},
+        "look": {"flora": [], "paved": True, "sky": {"sun": [42, 140], "turbidity": 3, "rayleigh": 1.3, "mie": 0.005, "exposure": 1.3, "fog": 0.3, "fogColor": "#c8d6e0", "sunColor": "#fff3dc"},
+                 "grass": [[132, 133, 130], [170, 170, 166]], "dirt": [[118, 116, 112], [156, 153, 147]]},
+        "terrain": {"noise": 1.2, "scale": 220, "crags": False, "hills": [[0, -560, 55, 420, 260]]},
+        "spots": [("plaza", "The Plaza", 0, 260, "camp", "The middle of the park: everything's a push away."),
+                  ("hilltop", "Bomb Hill", 0, -560, "lookout", "The top of the hill: a long smooth road down to the plaza."),
+                  ("pipe", "Halfpipe", -280, 20, "checkpoint", "The big halfpipe."),
+                  ("rails", "Rail Garden", 280, 20, "checkpoint", "Rails and boxes to grind.")],
+        "routes": [("bomb-hill", "Bomb Hill", [[0, -560], [60, -400], [-40, -220], [30, -40], [0, 160], [0, 260]], False),
+                   ("plaza-loop", "Plaza Loop", [[0, 260], [260, 300], [380, 120], [260, -100], [0, -60], [-260, -100], [-380, 120], [-260, 300], [0, 260]], True)],
+        "races": [("plaza-laps", "Plaza Laps", "plaza-loop", "circuit", "easy", 2), ("bomb", "Bomb Hill", "bomb-hill", "downhill", "easy", 1)],
+        "ramps": [],
+        "zones": [("plaza-concrete", 0, 60, 560, "trail", 0.95, 0.012), ("hill-road", 0, -360, 260, "trail", 0.95, 0.012)],
+        "features": {"parks": [park("sk-pipe", "halfpipe", "Halfpipe", -280, -40), park("sk-rails", "rails", "Rail Garden", 280, -40),
+                               park("sk-jumps", "jumps", "Jump Line", -300, 420), park("sk-pump", "pump", "Pump Track", 300, 430), park("sk-arena", "arena", "Skate Arena", 0, 560)]},
     },
 ]
 
@@ -529,7 +550,7 @@ if __name__ == "__main__":
         (OUT / f"{w['id']}.json").write_text(json.dumps(build(w), indent=2) + "\n")
         size = w["size"] if isinstance(w["size"], list) else [w["size"], w["size"]]
         entry = {"id": w["id"], "name": w["name"], "file": f"{w['id']}.json", "areaKm2": round(size[0] * size[1] / 1e6, 2), **({"bike": True} if w.get("bike") else {}),
-                 **({"hidden": True} if w.get("hidden") else {})}   # (hidden: only a challenge rides it, never free ride)
+                 **({"hidden": True} if w.get("hidden") else {}), **({"roomFree": True} if w.get("roomFree") else {})}   # (hidden: only a challenge rides it, never free ride; roomFree: but rooms can ride it free)
         manifest["worlds"] = [x for x in manifest["worlds"] if x["id"] != w["id"]] + [entry]
         print("wrote", w["id"])
     for wid, feats in EXTRAS.items():

@@ -109,7 +109,7 @@ export const weekNumber = (date = new Date()) => Math.floor(date.getTime() / 864
 /** This week's challenge: one of the race challenges in turn (Revvd's, Unrevvd's and Carvvd's), the same for everybody,
     with its own leaderboard for the week. all: every challenge (challenges.json's order, like the server's). */
 export function weeklyChallenge(all, date = new Date()) {
-  const races = all.filter((c) => c.kind === 'race' && !c.daily && !c.weekly && !c.water);   // (Wavvd's races came later: kept out, so the weekly pick didn't change)
+  const races = all.filter((c) => c.kind === 'race' && !c.daily && !c.weekly && !c.water && !c.since);   // (Wavvd's races and anything newer ("since") came later: kept out, so the weekly pick didn't change)
   if (!races.length) return null;
   const n = weekNumber(date); const base = races[n % races.length];
   return { ...base, id: 'weekly-' + n, base: base.id, weekly: { n }, name: 'Weekly: ' + base.name, emoji: '🗓️',
@@ -117,6 +117,24 @@ export function weeklyChallenge(all, date = new Date()) {
 }
 /** Whether you've won gold in a Weekly Challenge (it unlocks the Champion board and visor). */
 export const weeklyGold = () => store.get('moto_weekly_gold', null) != null;
+
+// ------------------------------------------------------------------ today's challenge
+/** The day number (UTC days since 1970). */
+export const dayNumber = (date = new Date()) => Math.floor(date.getTime() / 86400000);
+/** Today's challenge in one mode's list (each mode its own, a different one every day, the same for everybody): finish it
+    for a bonus, once a day. */
+export function todaysChallenge(list, date = new Date()) {
+  const can = list.filter((c) => !c.room && !c.daily && !c.weekly && c.kind !== 'tag' && c.kind !== 'relay');
+  if (!can.length) return null;
+  const n = dayNumber(date); return can[(n * 7 + can.length * 3) % can.length];
+}
+/** The bonus for finishing today's challenge (0 if you've had it today already). Claims it. */
+export function claimToday(id, date = new Date()) {
+  const key = 'moto_today_' + id; const n = dayNumber(date);
+  if (store.get(key, -1) === n) return 0;
+  store.set(key, n); return 150;
+}
+export const todayDone = (id, date = new Date()) => store.get('moto_today_' + id, -1) === dayNumber(date);
 
 // ------------------------------------------------------------------ the Downhill World Cup
 /** Five chutes back to back: the times add up. */

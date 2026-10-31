@@ -7,7 +7,7 @@
  * each frame from where the jet skis have been). Also the buoys, piers and the lighthouse ("features": { buoys,
  * piers, lighthouse }), bobbing on the same waves. */
 import * as THREE from 'three';
-import {seaClock} from './materials.mjs';
+import {seaClock, seaLight} from './materials.mjs';
 
 const MAXW = 8;
 
@@ -34,7 +34,7 @@ function foamTexture() {
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.NoColorSpace; return t;
 }
 
-export function createOcean(terrain, scene, map, { quality = 1 } = {}) {
+export function createOcean(terrain, scene, map, { quality = 1, dark = false } = {}) {
   const sea = terrain.sea, W = map.size[0], D = map.size[1], disposables = [], group = new THREE.Group(); scene.add(group);
   // ---------------------------------------------------------------- how deep it is: a picture of the seabed
   const BN = 512, bed = new Float32Array(BN * BN), half = new Uint16Array(BN * BN);
@@ -64,7 +64,7 @@ export function createOcean(terrain, scene, map, { quality = 1 } = {}) {
     uBed: { value: bedTex }, uBox: { value: new THREE.Vector4(-W / 2, -D / 2, W, D) },
     uSwell: { value: new THREE.Vector3(...(sea.swell || [0, 1, 1])) },
     uRipple: { value: ripple }, uFoam: { value: foam }, uWake: { value: wakeTex }, uWakeBox: { value: new THREE.Vector3(0, 0, WS) },
-    uShallow: { value: new THREE.Color(sea.shallow || '#35c2b8') }, uDeep: { value: new THREE.Color(sea.deep || '#0a3550') }, uClear: { value: sea.clear ?? .28 },
+    uLight: seaLight, uShallow: { value: new THREE.Color(sea.shallow || '#35c2b8') }, uDeep: { value: new THREE.Color(sea.deep || '#0a3550') }, uClear: { value: sea.clear ?? .28 },
   };
   const mat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: .06, metalness: 0, transparent: true, envMapIntensity: .95 });
   disposables.push(mat);
@@ -98,7 +98,7 @@ vec3 transformed = vec3(seaP.x + seaD.x, uLevel + seaD.y, seaP.y + seaD.z);
 vSeaPos = transformed; vSeaGrid = seaP; vSeaH = seaD.y;`);
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>' + common + `
 uniform sampler2D uRipple; uniform sampler2D uFoam; uniform sampler2D uWake; uniform vec3 uWakeBox;
-uniform vec3 uShallow; uniform vec3 uDeep; uniform float uClear;
+uniform vec3 uShallow; uniform vec3 uDeep; uniform float uClear, uLight;
 float seaFoam = 0.0; float seaJ = 1.0; float seaHt = 0.0; float seaFp = 1.0;
 const vec4 SEA_DETAIL[10] = vec4[10](vec4(-0.447, 0.894, 1.963, 4.389), vec4(0.583, 0.812, 2.442, 4.894), vec4(-0.583, -0.812, 3.036, 5.458), vec4(0.898, 0.440, 3.776, 6.086), vec4(-0.975, -0.224, 4.695, 6.787), vec4(-0.665, 0.747, 5.839, 7.568), vec4(0.934, 0.356, 7.261, 8.440), vec4(-0.999, -0.047, 9.029, 9.411), vec4(0.972, 0.233, 11.228, 10.495), vec4(-0.914, 0.405, 13.963, 11.704)); vec3 seaNW = vec3(0.0, 1.0, 0.0);
 // the waves' slope and how folded they are (seaJ: under ~.3 a crest is breaking), worked out for every pixel from the
@@ -155,7 +155,7 @@ diffuseColor.a = max(diffuseColor.a, seaFoam * .95);`)
 roughnessFactor = mix(roughnessFactor, .75, seaFoam);`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
 // light through the tops of the waves (green-blue), strongest looking towards the light
-totalEmissiveRadiance += uShallow * .22 * smoothstep(-.2, 1.2, seaHt) * (1.0 - seaFoam);`)
+totalEmissiveRadiance += uShallow * .22 * uLight * smoothstep(-.2, 1.2, seaHt) * (1.0 - seaFoam);`)
       .replace('#include <opaque_fragment>', `#include <opaque_fragment>
 { // a real water surface mirrors more the flatter you look across it, see-through or not
   vec3 nW = inverseTransformDirection(normal, viewMatrix);
@@ -188,6 +188,16 @@ totalEmissiveRadiance += uShallow * .22 * smoothstep(-.2, 1.2, seaHt) * (1.0 - s
     lh.add(new THREE.Mesh(top, glass), new THREE.Mesh(roof, red));
     terrain.addSolids([{ x, z, r: 3.6, tall: 26 }]);
     beam = lh;
+    if (dark) {   // (after dark: two beams sweeping round over the sea)
+      const bgeo = new THREE.ConeGeometry(26, 900, 24, 12, true).translate(0, -450, 0).rotateZ(Math.PI / 2 - .03), bp = bgeo.attributes.position, bcol = new Float32Array(bp.count * 3);
+      for (let i = 0; i < bp.count; i++) { const k = Math.pow(Math.max(0, 1 - Math.hypot(bp.getX(i), bp.getY(i)) / 900), 3) * .07; bcol.set([k, k * .95, k * .8], i * 3); }   // (bright at the lamp, fading out to sea)
+      bgeo.setAttribute('color', new THREE.BufferAttribute(bcol, 3));
+      const bm = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false }); disposables.push(bm, bgeo);
+      const spin = new THREE.Group(); spin.position.y = 22.3; lh.add(spin);
+      for (const k of [0, Math.PI]) { const m = new THREE.Mesh(bgeo, bm); m.rotation.y = k; m.renderOrder = 3; m.frustumCulled = false; spin.add(m); }
+      const lamp = new THREE.PointLight('#ffe9b8', 140, 90, 1.6); lamp.position.y = 23; lh.add(lamp);
+      beam.spin = spin;
+    }
   }
   // ---------------------------------------------------------------- each frame
   const v2 = new THREE.Vector2();
@@ -223,7 +233,7 @@ totalEmissiveRadiance += uShallow * .22 * smoothstep(-.2, 1.2, seaHt) * (1.0 - s
       u.uCenter.value.set(Math.round(eye.x / 2) * 2, Math.round(eye.z / 2) * 2);
       const now = seaClock.value; if (now - lastWake > 1 / 30 || now < lastWake) { lastWake = now; wakes(eye, now); }
       for (const b of buoys) { const y = terrain.waveAt(b.x, b.z, now); b.g.position.set(b.x, y - .35, b.z); b.g.rotation.set(Math.sin(now * 1.3 + b.ph) * .12, 0, Math.cos(now * 1.1 + b.ph) * .12); }
-      if (beam) beam.children.at(-2).material.emissiveIntensity = 1.8 + .6 * Math.sin(now * 2.5);
+      if (beam) { beam.children[5].material.emissiveIntensity = 1.8 + .6 * Math.sin(now * 2.5); if (beam.spin) beam.spin.rotation.y = performance.now() / 1000 * .9; }
     },
     buoys,
     dispose() { group.removeFromParent(); for (const d of disposables) d.dispose(); },
