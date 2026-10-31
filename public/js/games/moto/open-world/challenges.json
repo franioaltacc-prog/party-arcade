@@ -89,6 +89,16 @@
      "about": "Powder Peak Resort from the summit to the village, any run you like (the black one's the quickest). Stay out of the trees: they're solid."},
     {"id": "twilight-run", "world": "twilight", "kind": "race", "name": "Under the Lights", "emoji": "🌆", "from": "top", "to": "base", "limit": 300, "vehicle": "mtb", "board": true, "medals": [160, 175, 200],
      "about": "Twilight Slope from the top to the lodge, straight down the floodlit run. Cut through the trees if you dare, but not too far."},
+    {"id": "lighthouse-run", "world": "azurebay", "kind": "race", "name": "Lighthouse Run", "emoji": "🌊", "from": "harbour", "to": "lighthouse", "limit": 240, "water": true, "medals": [55, 64, 80],
+     "about": "From the harbour beach across the bay to the lighthouse island. Take the waves at speed and you fly."},
+    {"id": "island-hop", "world": "azurebay", "kind": "race", "name": "Island Hop", "emoji": "🏝️", "from": "lagoon", "to": "open-sea", "limit": 300, "water": true, "medals": [70, 80, 100],
+     "about": "From Pine Lagoon out past the islands to the open sea. Any way you like, but don't run aground."},
+    {"id": "wave-air", "world": "azurebay", "kind": "air", "name": "Wave Launch", "emoji": "🚀", "at": "open-sea", "limit": 90, "water": true,
+     "about": "90 seconds out in the big swell. Hit a wave face flat out and take off: your single longest jump counts (land it!)."},
+    {"id": "wave-tricks", "world": "azurebay", "kind": "tricks", "name": "Wave Tricks", "emoji": "🌟", "at": "open-sea", "limit": 120, "water": true,
+     "about": "Two minutes in the big swell: launch off the waves and flip it (Q / E), then land it level."},
+    {"id": "bay-speed", "world": "azurebay", "kind": "speed", "name": "Flat Out", "emoji": "⚡", "at": "sandbar", "limit": 60, "water": true,
+     "about": "One minute to hit your top speed on the water. Find a long clear run and hold the turbo."},
     {"id": "avalanche-escape", "world": "frostpeak", "kind": "race", "name": "Avalanche!", "emoji": "🌊", "from": "frost-falls", "to": "frost-lake", "limit": 300, "vehicle": "mtb", "board": true, "avalanche": true, "medals": [120, 138, 150],
      "about": "An avalanche breaks right behind you at the Frozen Falls, and it gets faster. Race it all the way down to the lake. If it catches you, you're buried."}
   ]

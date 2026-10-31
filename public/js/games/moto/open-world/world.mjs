@@ -72,14 +72,15 @@ function padTexture(){
 /** solidProps: draw a gauntlet's solid trees and rocks with the scenery models (when the real ones, nature.mjs, aren't drawn). */
 export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,detailed=true,solidProps=true}={}) {
  const terrain=buildTerrain(map), group=new THREE.Group(), disposables=[], theme=map.theme, W=map.size[0], D=map.size[1];
+ const groundAt=terrain.bedAt, sea=terrain.sea, wet=(x,z)=>sea&&groundAt(x,z)<sea.level+.8;   // (the ground drawn is the seabed under a sea)
  const mats={}; const mat=(id,make)=>mats[id]||(mats[id]=make());
  // ---------------------------------------------------------------- the ground
  const groundGeo=new THREE.PlaneGeometry(W,D,resolution,resolution); groundGeo.rotateX(-Math.PI/2);
  const pos=groundGeo.attributes.position, colors=new Float32Array(pos.count*3),trailWeights=new Float32Array(pos.count);
  let minHeight=Infinity,maxHeight=-Infinity;
  for(let i=0;i<pos.count;i++) {
-  const x=pos.getX(i),z=pos.getZ(i),h=terrain.heightAt(x,z); pos.setY(i,h); minHeight=Math.min(minHeight,h);maxHeight=Math.max(maxHeight,h);
-  trailWeights[i]=Math.max(terrain.roadAt(x,z)?.weight||0,terrain.rampAt(x,z).weight);
+  const x=pos.getX(i),z=pos.getZ(i),h=groundAt(x,z); pos.setY(i,h); minHeight=Math.min(minHeight,h);maxHeight=Math.max(maxHeight,h);
+  trailWeights[i]=sea&&h<sea.level?0:Math.max(terrain.roadAt(x,z)?.weight||0,terrain.rampAt(x,z).weight);
   const k=.91+Math.sin(x*.037+z*.013)*.035+Math.cos(z*.025)*.025, t=terrain.tintAt(x,z,h)||[1,1,1]; colors[i*3]=k*t[0];colors[i*3+1]=k*t[1];colors[i*3+2]=k*t[2];
  }
  // Jumps are far smaller than the coarse ground's cells, so each one (tabletops, gap jumps, pools) gets its own
@@ -169,7 +170,7 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
    if(terrain.rampAt(x,z).weight>0||terrain.featureAt(x,z).flat>.02)continue;
    if(keepOut.some(([p,r])=>Math.hypot(x-p[0],z-p[1])<r))continue;
    if(terrain.gauntletIn(x,z,40))continue;   // (a gauntlet has its own trees and rocks, below: the solid ones; none just round it either)
-   if(lakeDist(x,z)<1.1||riverDist(x,z)<(river?river.width*.62:0))continue;
+   if(lakeDist(x,z)<1.1||riverDist(x,z)<(river?river.width*.62:0)||wet(x,z))continue;
    const y=renderHeightAt(x,z),line=spec.treeLine&&(map.look?.treeLine??spec.treeLine);if(line&&y>map.baseHeight+line+r2*80)continue;   // (look.treeLine: a world's own tree line)
    if(coarseUp(x,z)<spec.slope)continue;
    const s=spec.size[0]+(spec.size[1]-spec.size[0])*Math.pow(r2,1.6);
@@ -274,7 +275,7 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
 
  // ---------------------------------------------------------------- trail stakes, jump parks
  const stakes=[],hay=[],flags=[];
- for(const r of map.routes){const len=routeLength(r);for(let d=20,i=0;d<len;d+=42,i++){const p=routePoint(r,d),side=i%2?1:-1,o=r.width/2+2.6;const x=p.x+Math.cos(p.heading)*o*side,z=p.z-Math.sin(p.heading)*o*side;if(terrain.rampAt(x,z).weight<.05&&lakeDist(x,z)>1.05&&riverDist(x,z)>(river?river.width*.5:0))stakes.push([x,z,0]);}}
+ for(const r of map.routes){const len=routeLength(r);for(let d=20,i=0;d<len;d+=42,i++){const p=routePoint(r,d),side=i%2?1:-1,o=r.width/2+2.6;const x=p.x+Math.cos(p.heading)*o*side,z=p.z-Math.sin(p.heading)*o*side;if(terrain.rampAt(x,z).weight<.05&&lakeDist(x,z)>1.05&&riverDist(x,z)>(river?river.width*.5:0)&&!wet(x,z))stakes.push([x,z,0]);}}
  for(const ramp of terrain.ramps){
   const s=Math.sin(ramp.heading),c=Math.cos(ramp.heading),side=(along,across)=>[ramp.position[0]+s*along+c*across,ramp.position[1]+c*along-s*across];
   for(const k of [-1,1]){hay.push([...side(-ramp.length/2-3,k*(ramp.width*.5+1.5)),ramp.heading+Math.PI/2]);hay.push([...side(-ramp.length/2-3,k*(ramp.width*.5+3)),ramp.heading+Math.PI/2]);}
@@ -330,7 +331,7 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
   const side=Math.floor(i/perSide),t=(i%perSide)/perSide,a=W/2+rings[ring],b=D/2+rings[ring];
   const x=side===0?-a+2*a*t:side===1?a:side===2?a-2*a*t:-a;
   const z=side===0?-b:side===1?-b+2*b*t:side===2?b:b-2*b*t;
-  ringPositions.push(x,ring?terrain.heightAt(x,z):renderHeightAt(x,z),z);ringColors.push(1,1,1);ringTrails.push(0);
+  ringPositions.push(x,ring?groundAt(x,z):renderHeightAt(x,z),z);ringColors.push(1,1,1);ringTrails.push(0);
   if(ring<rings.length-1){const j=ring*perimeter+i,k=ring*perimeter+(i+1)%perimeter;ringIndices.push(j,k,j+perimeter,k,k+perimeter,j+perimeter);}
  }
  const apron=new THREE.BufferGeometry();apron.setAttribute('position',new THREE.Float32BufferAttribute(ringPositions,3));apron.setAttribute('color',new THREE.Float32BufferAttribute(ringColors,3));apron.setAttribute('trailWeight',new THREE.Float32BufferAttribute(ringTrails,1));apron.setIndex(ringIndices);apron.computeVertexNormals();const mountainRim=new THREE.Mesh(apron,groundMat);mountainRim.receiveShadow=true;group.add(mountainRim);disposables.push(apron);

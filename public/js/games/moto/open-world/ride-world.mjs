@@ -3,6 +3,7 @@ import {Sky} from 'three/addons/objects/Sky.js';
 import {buildOpenWorld,autumnize} from './world.mjs';
 import {gauntletScenery,forestScenery} from './nature.mjs';
 import {slopeScenery} from './slope.mjs';
+import {createOcean} from './ocean.mjs';
 import {parkScenery} from './parks.mjs';
 import {terrainMaterial} from './materials.mjs';
 import {renderPolicy} from './render-policy.mjs';
@@ -79,6 +80,7 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false,nature=
  const forest=nature&&built.terrain.gauntlets.length?gauntletScenery(built.terrain,nature,scene,{shadows,snow:map.theme==='snow',night,autumn:!!map.look?.autumn,quality}):
   nature&&built.terrain.forestTrees.length?forestScenery(built.terrain,nature,scene,{shadows:shadows&&!dusk,snow:map.theme==='snow',near:24+16*quality,mid:70+40*quality,far:3000}):null;   // (a ski run's forest)
  const slope=map.look?.floodlights||map.features?.lodge?slopeScenery(built.terrain,scene,map):null;   // (floodlights down the run, the lodge)
+ const ocean=map.sea?createOcean(built.terrain,scene,map,{quality}):null;   // (a sea world: the water, its buoys and piers)
  // ---------------------------------------------------------------- weather round the camera: rain or falling leaves
  const storm=!!map.look?.storm,leafFall=!!map.look?.autumn&&!!forest,hemi=scene.children.find(o=>o.isHemisphereLight);
  let drops=null;
@@ -181,6 +183,7 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
    const x=gx*stepM+(cHash(gx,gz,7)-.5)*1.8,z=gz*stepM+(cHash(gx,gz,13)-.5)*1.8;
    const sample=samples.get(Math.round(x/policy.patchStep)*policy.patchStep+','+Math.round(z/policy.patchStep)*policy.patchStep);
    if(!sample||sample.trail>.12)continue;
+   if(built.terrain.sea&&sample.y<built.terrain.sea.level+.4)continue;   // (nothing growing under the sea)
    if(lake&&Math.hypot((x-lake.position[0])/lake.radius[0],(z-lake.position[1])/lake.radius[1])<1.08)continue;
    if(river&&Math.abs(x-river.x-Math.sin(z/river.wavelength)*river.amplitude)<river.width*.62)continue;
    if(built.terrain.featureAt(x,z).flat>.02)continue;
@@ -202,7 +205,7 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
    if(!teleport&&job.i%64===0&&performance.now()>deadline)break;
    const i=job.i,lx=local[i*3],lz=local[i*3+2],wx=job.x+lx,wz=job.z+lz,blend=Math.max(0,Math.min(1,(Math.max(Math.abs(lx),Math.abs(lz))-inner)/(half-inner)));
    const key=wx+','+wz;let sample=samples.get(key);
-   if(!sample){sample={x:wx,z:wz,y:built.terrain.heightAt(wx,wz),trail:Math.max(built.terrain.roadAt(wx,wz)?.weight||0,built.terrain.rampAt(wx,wz).weight),shade:.91+Math.sin(wx*.037+wz*.013)*.035+Math.cos(wz*.025)*.025};sample.tint=built.terrain.tintAt(wx,wz,sample.y);samples.set(key,sample);}
+   if(!sample){const gy=built.terrain.bedAt(wx,wz);sample={x:wx,z:wz,y:gy,trail:built.terrain.sea&&gy<built.terrain.sea.level?0:Math.max(built.terrain.roadAt(wx,wz)?.weight||0,built.terrain.rampAt(wx,wz).weight),shade:.91+Math.sin(wx*.037+wz*.013)*.035+Math.cos(wz*.025)*.025};sample.tint=built.terrain.tintAt(wx,wz,sample.y);samples.set(key,sample);}
    const y=sample.y+(coarse(wx,wz)-sample.y)*blend;backPos[i*3]=wx;backPos[i*3+1]=y;backPos[i*3+2]=wz;backTrail[i]=sample.trail;
    const tn=sample.tint;backColor[i*3]=sample.shade*(tn?tn[0]:1);backColor[i*3+1]=sample.shade*(tn?tn[1]:1);backColor[i*3+2]=sample.shade*(tn?tn[2]:1);job.min=Math.min(job.min,y);job.max=Math.max(job.max,y);
   }
@@ -261,12 +264,12 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
  const shadowMat=new THREE.MeshBasicMaterial({map:shadowTex,transparent:true,depthWrite:false,opacity:.3,polygonOffset:true,polygonOffsetFactor:-2});
  const contact=new THREE.Mesh(shadowGeo,shadowMat);contact.visible=!shadows;scene.add(contact);const up=new THREE.Vector3(0,1,0),normal=new THREE.Vector3();
  return {
-  free:true,snowing:!!flakes,wind,parks,scene,theme,fx,gates:[],ground:built.terrain,definition:map,policy,sun,coins,collect,lamp,night,forest,storm,
+  free:true,snowing:!!flakes,wind,parks,scene,theme,fx,gates:[],ground:built.terrain,definition:map,policy,sun,coins,collect,lamp,night,forest,storm,ocean,
   /** Called with each lightning flash in a storm (far: 0 close .. 1 far, for the thunder). */
   set onLightning(f){world.onLightning=f;},
   /** ahead: where to centre the detailed ground (a little ahead of a fast bike, so the ground it's riding into is ready). */
   update(point,dt,camera,ahead=point){
-   updatePatch(ahead);fx.update(dt,camera);parks.update(dt);built.update(camera.position);forest?.update(camera.position);slope?.update(camera.position);weather(camera.position,dt);drawCoins(performance.now());drawHoops(performance.now());
+   updatePatch(ahead);fx.update(dt,camera);parks.update(dt);built.update(camera.position);forest?.update(camera.position);slope?.update(camera.position);ocean?.update(camera.position,dt);weather(camera.position,dt);drawCoins(performance.now());drawHoops(performance.now());
    sun.position.copy(point).addScaledVector(sunDir,220);sun.target.position.copy(point);
    if(!shadows){
     const y=built.terrain.heightAt(point.x,point.z),nn=built.terrain.normalAt(point.x,point.z);
@@ -274,7 +277,7 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
    }
   },
   dispose(){
-   samples.clear();built.dispose();parks.dispose();forest?.dispose();slope?.dispose();geo.dispose();detail.dispose();shadowGeo.dispose();shadowMat.dispose();shadowTex.dispose();
+   samples.clear();built.dispose();parks.dispose();forest?.dispose();slope?.dispose();ocean?.dispose();geo.dispose();detail.dispose();shadowGeo.dispose();shadowMat.dispose();shadowTex.dispose();
    for(const k of coverKinds){k.im.dispose();k.geo.dispose();}for(const m of [props.propMat,props.leafMat,props.cactusMat,pebbleProps.propMat,pebbleProps.leafMat,pebbleProps.cactusMat])m.dispose();
    cloudTex.dispose();cloudMat.dispose();if(drops){drops.mesh.geometry.dispose();drops.mesh.material.dispose();}if(flakes){for(const f of flakes){f.mesh.geometry.dispose();f.mesh.material.dispose();}flakeTex.dispose();}if(stars){stars.geometry.dispose();stars.material.dispose();}if(lamp){lamp.spot.dispose();lamp.glow.dispose();}coinMesh.dispose();coinGeo.dispose();coinMat.dispose();hoopMesh.dispose();hoopGeo.dispose();hoopMat.dispose();sky.geometry.dispose();sky.material.dispose();env?.dispose();
    const textures=new Set();fxRoot.traverse(o=>{o.geometry?.dispose();if(o.material){for(const u of Object.values(o.material.uniforms||{}))if(u.value?.isTexture)textures.add(u.value);if(o.material.map)textures.add(o.material.map);o.material.dispose();}});textures.forEach(t=>t.dispose());

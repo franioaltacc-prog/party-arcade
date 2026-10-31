@@ -1,0 +1,556 @@
+{
+  "schemaVersion": 1,
+  "id": "azurebay",
+  "name": "Azure Bay",
+  "tagline": "Turquoise water, pine islands, waves to jump.",
+  "theme": "alpine",
+  "seed": 9917,
+  "size": [
+    4000,
+    4000
+  ],
+  "baseHeight": -16,
+  "spawn": [
+    60,
+    -1560
+  ],
+  "spawnHeading": -0.038443,
+  "palette": {
+    "sky": "#8fc3ea",
+    "low": "#5d8a4a",
+    "high": "#9aa38a",
+    "trail": "#c9b48a",
+    "water": "#2aa7b8",
+    "accent": "#18b6d6"
+  },
+  "look": {
+    "sky": {
+      "sun": [
+        38,
+        150
+      ],
+      "turbidity": 2.2,
+      "rayleigh": 1.1,
+      "mie": 0.004,
+      "exposure": 1.35,
+      "fog": 0.2,
+      "fogColor": "#bcd6ea"
+    },
+    "forest": 1.4
+  },
+  "terrain": {
+    "noise": 7,
+    "scale": 260,
+    "crags": false,
+    "hills": [
+      [
+        0,
+        -2350,
+        62,
+        3400,
+        760
+      ],
+      [
+        -1050,
+        -250,
+        30,
+        300,
+        240
+      ],
+      [
+        760,
+        320,
+        42,
+        330,
+        270
+      ],
+      [
+        -420,
+        980,
+        24,
+        190,
+        170
+      ],
+      [
+        1250,
+        -620,
+        30,
+        230,
+        220
+      ],
+      [
+        150,
+        560,
+        17.2,
+        300,
+        70
+      ],
+      [
+        -1500,
+        700,
+        36,
+        260,
+        300
+      ],
+      [
+        1500,
+        1300,
+        26,
+        210,
+        180
+      ]
+    ]
+  },
+  "regions": [
+    {
+      "name": "Harbour Beach",
+      "position": [
+        60,
+        -1560
+      ]
+    },
+    {
+      "name": "Lighthouse Island",
+      "position": [
+        750,
+        40
+      ]
+    },
+    {
+      "name": "The Sandbar",
+      "position": [
+        150,
+        470
+      ]
+    },
+    {
+      "name": "Pine Lagoon",
+      "position": [
+        -1050,
+        70
+      ]
+    },
+    {
+      "name": "Open Sea",
+      "position": [
+        300,
+        1650
+      ]
+    }
+  ],
+  "routes": [],
+  "spots": [
+    {
+      "id": "harbour",
+      "name": "Harbour Beach",
+      "position": [
+        60,
+        -1560
+      ],
+      "kind": "dock",
+      "radius": 24,
+      "about": "The mainland's beach and its pier: where you start."
+    },
+    {
+      "id": "lighthouse",
+      "name": "Lighthouse Island",
+      "position": [
+        750,
+        40
+      ],
+      "kind": "tower",
+      "radius": 24,
+      "about": "Off the big island, under the lighthouse on its northern tip."
+    },
+    {
+      "id": "sandbar",
+      "name": "The Sandbar",
+      "position": [
+        150,
+        470
+      ],
+      "kind": "checkpoint",
+      "radius": 24,
+      "about": "A strip of sand just above the waves."
+    },
+    {
+      "id": "lagoon",
+      "name": "Pine Lagoon",
+      "position": [
+        -1050,
+        70
+      ],
+      "kind": "cabin",
+      "radius": 24,
+      "about": "Calm water behind the west island."
+    },
+    {
+      "id": "open-sea",
+      "name": "Open Sea",
+      "position": [
+        300,
+        1650
+      ],
+      "kind": "lookout",
+      "radius": 24,
+      "about": "Out past the islands, where the big swell rolls in."
+    }
+  ],
+  "races": [],
+  "interactions": [
+    {
+      "id": "board",
+      "name": "Harbour Beach race board",
+      "position": [
+        100,
+        -1560
+      ],
+      "kind": "race-board",
+      "radius": 18,
+      "event": "race.offer",
+      "about": "Choose a mini race and invite nearby friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "jam",
+      "name": "Open Sea trick jam",
+      "position": [
+        250,
+        1630
+      ],
+      "kind": "trick-zone",
+      "radius": 18,
+      "event": "trick.land",
+      "about": "Share a two-minute trick score with friends.",
+      "cooldownSeconds": 10
+    },
+    {
+      "id": "camera",
+      "name": "Lighthouse Island photo perch",
+      "position": [
+        750,
+        40
+      ],
+      "kind": "photo",
+      "radius": 18,
+      "event": "photo.capture",
+      "about": "Get the whole group into a summit picture.",
+      "cooldownSeconds": 10
+    }
+  ],
+  "ramps": [],
+  "surfaceZones": [],
+  "quests": [
+    {
+      "id": "azurebay-welcome",
+      "name": "Welcome to Azure Bay",
+      "start": "harbour",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "sandbar",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "open-sea",
+          "count": 1
+        },
+        {
+          "event": "zone.enter",
+          "target": "harbour",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    },
+    {
+      "id": "azurebay-summit",
+      "name": "Top of the World",
+      "start": "harbour",
+      "players": [
+        1,
+        6
+      ],
+      "steps": [
+        {
+          "event": "zone.enter",
+          "target": "lighthouse",
+          "count": 1
+        },
+        {
+          "event": "photo.capture",
+          "target": "camera",
+          "count": 1
+        }
+      ],
+      "reward": {
+        "type": "cosmetic-token",
+        "amount": 1
+      },
+      "repeatable": true
+    }
+  ],
+  "coordinateSystem": {
+    "units": "metres",
+    "horizontal": [
+      "x",
+      "z"
+    ],
+    "up": "y",
+    "heading": "radians: 0 points +z; positive rotates towards +x"
+  },
+  "status": "Made by tools/make_worlds.py.",
+  "boundary": {
+    "softMargin": 100,
+    "policy": "warn-and-respawn",
+    "respawn": "last-safe-pad",
+    "cliffWidth": 260,
+    "cliffHeight": 300,
+    "sceneryApron": 1600,
+    "rise": 0.55
+  },
+  "spawnPads": [
+    {
+      "id": "spawn-1",
+      "position": [
+        36,
+        -1578
+      ],
+      "heading": -0.038443
+    },
+    {
+      "id": "spawn-2",
+      "position": [
+        41,
+        -1578
+      ],
+      "heading": -0.038443
+    },
+    {
+      "id": "spawn-3",
+      "position": [
+        46,
+        -1578
+      ],
+      "heading": -0.038443
+    },
+    {
+      "id": "spawn-4",
+      "position": [
+        36,
+        -1584
+      ],
+      "heading": -0.038443
+    },
+    {
+      "id": "spawn-5",
+      "position": [
+        41,
+        -1584
+      ],
+      "heading": -0.038443
+    },
+    {
+      "id": "spawn-6",
+      "position": [
+        46,
+        -1584
+      ],
+      "heading": -0.038443
+    }
+  ],
+  "safePads": [
+    {
+      "id": "harbour",
+      "position": [
+        60,
+        -1560
+      ],
+      "radius": 32,
+      "riderPosition": [
+        36,
+        -1578
+      ]
+    },
+    {
+      "id": "lighthouse",
+      "position": [
+        750,
+        40
+      ],
+      "radius": 32,
+      "riderPosition": [
+        726,
+        22
+      ]
+    },
+    {
+      "id": "sandbar",
+      "position": [
+        150,
+        470
+      ],
+      "radius": 32,
+      "riderPosition": [
+        126,
+        452
+      ]
+    },
+    {
+      "id": "lagoon",
+      "position": [
+        -1050,
+        70
+      ],
+      "radius": 32,
+      "riderPosition": [
+        -1074,
+        52
+      ]
+    },
+    {
+      "id": "open-sea",
+      "position": [
+        300,
+        1650
+      ],
+      "radius": 32,
+      "riderPosition": [
+        276,
+        1632
+      ]
+    }
+  ],
+  "features": {
+    "piers": [
+      [
+        60,
+        -1678,
+        0,
+        100,
+        4
+      ]
+    ],
+    "lighthouse": [
+      750,
+      130
+    ],
+    "buoys": [
+      [
+        -60,
+        -1300,
+        "#ff6a10"
+      ],
+      [
+        60,
+        -1180,
+        "#ffd23a"
+      ],
+      [
+        -60,
+        -1060,
+        "#ff6a10"
+      ],
+      [
+        60,
+        -940,
+        "#ffd23a"
+      ],
+      [
+        -60,
+        -820,
+        "#ff6a10"
+      ],
+      [
+        60,
+        -700,
+        "#ffd23a"
+      ],
+      [
+        500,
+        -380,
+        "#ff3b3b"
+      ],
+      [
+        980,
+        -380,
+        "#ff3b3b"
+      ],
+      [
+        1180,
+        240,
+        "#ff3b3b"
+      ],
+      [
+        980,
+        760,
+        "#ff3b3b"
+      ],
+      [
+        520,
+        760,
+        "#ff3b3b"
+      ],
+      [
+        340,
+        260,
+        "#ff3b3b"
+      ]
+    ]
+  },
+  "hidden": true,
+  "buildings": false,
+  "sea": {
+    "level": 0,
+    "steep": 0.78,
+    "swell": [
+      -600,
+      1500,
+      1.9
+    ],
+    "shallow": "#3fd6c6",
+    "deep": "#073a5c",
+    "clear": 0.12,
+    "waves": [
+      [
+        64,
+        0.5,
+        18
+      ],
+      [
+        38,
+        0.32,
+        -14
+      ],
+      [
+        23,
+        0.22,
+        52
+      ],
+      [
+        14,
+        0.12,
+        -38
+      ],
+      [
+        8.5,
+        0.06,
+        104
+      ],
+      [
+        5.2,
+        0.03,
+        12
+      ]
+    ]
+  }
+}

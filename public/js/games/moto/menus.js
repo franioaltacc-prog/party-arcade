@@ -138,13 +138,13 @@ export function createMenus(ctx) {
 
   /** The challenges of a mode: 'bike' (Revvd's), 'mtb' (Unrevvd's, on mountain bikes) or 'snow' (Carvvd's, on snowboards). */
   function challengesScreen(mode) {
-    const mtb = mode !== 'bike'; const snow = mode === 'snow'; const un = mode === 'mtb';
-    back = () => show(mtb ? mode : 'home');
-    const list = ctx.challenges.filter((c) => (c.vehicle === 'mtb') === mtb && !!c.board === snow && !c.room);
+    const water = mode === 'water'; const mtb = mode !== 'bike' && !water; const snow = mode === 'snow'; const un = mode === 'mtb';
+    back = () => show(mode === 'bike' ? 'home' : mode);
+    const list = ctx.challenges.filter((c) => (c.vehicle === 'mtb') === mtb && !!c.board === snow && !!c.water === water && !c.room);
     if (un) list.unshift(ctx.Chutes.dailyChallenge());   // (today's Daily Chute first)
-    const weekly = ctx.Chutes.weeklyChallenge(ctx.challenges); if (weekly) list.unshift(weekly);   // (and this week's challenge before that, in every mode)
+    const weekly = water ? null : ctx.Chutes.weeklyChallenge(ctx.challenges); if (weekly) list.unshift(weekly);   // (and this week's challenge before that, in every mode but Wavvd's)
     if (!list.length) return h('div', { class: 'mx-col' }, backBtn('Challenges'), note('The challenges couldn’t load. Try again in a moment.'));
-    const key = snow ? 'snowChallenge' : mtb ? 'mtbChallenge' : 'challenge';
+    const key = water ? 'waterChallenge' : snow ? 'snowChallenge' : mtb ? 'mtbChallenge' : 'challenge';
     const sel = list.find((c) => c.id === ctx.prefs[key]) || list[0];
     const pick = (c) => { if (c === sel) { ctx.startChallengeSolo(c); return; } ctx.prefs[key] = c.id; ctx.savePrefs(); Sfx.play('click'); show(screen); };
     primary = () => ctx.startChallengeSolo(sel);
@@ -157,7 +157,7 @@ export function createMenus(ctx) {
     const trail = ctx.Chutes.trailStats(); const cupBest = PA.store.get('moto_cup_best', null);
     const tag = ctx.challenges.find((c) => c.kind === 'tag'); const relay = ctx.challenges.find((c) => c.kind === 'relay');
     return h('div', { class: 'mx-col wide' },
-      backBtn(snow ? 'Carvvd challenges' : mtb ? 'Unrevvd challenges' : 'Challenges'),
+      backBtn(water ? 'Wavvd challenges' : snow ? 'Carvvd challenges' : mtb ? 'Unrevvd challenges' : 'Challenges'),
       h('div', { class: 'mx-chsplit' },
         h('div', { class: 'mx-chpick' },
           h('div', { class: 'mx-glass mx-chdetail' },
@@ -179,7 +179,8 @@ export function createMenus(ctx) {
             h('span', {}, `${(trail.m / 1000).toFixed(1)} km ridden`), h('span', {}, `${trail.dodged} trees dodged`), h('span', {}, `${trail.close} close calls`),
             h('span', {}, `${Math.round(trail.clean)} m longest clean run`), h('span', {}, `${trail.runs} chutes finished`)) : null),
         h('div', { class: 'mx-chlist grid' }, list.map((c) => challengeChip(c, c === sel, () => pick(c), false)))),
-      note(snow ? 'Everyone rides the same board in Carvvd challenges: no pedals, it’s all gravity. Crash and you go back to where you last were on your feet.'
+      note(water ? 'Everyone rides the same jet ski in Wavvd challenges. Crash and you go back to where you last were on the water.'
+        : snow ? 'Everyone rides the same board in Carvvd challenges: no pedals, it’s all gravity. Crash and you go back to where you last were on your feet.'
         : mtb ? 'Everyone rides with stock legs in Unrevvd challenges, so it’s fair. Crash and you go back to where you last were on your wheels.'
         : 'Everyone rides the stock engine in challenges, so it’s fair. Crash and you go back to where you last were on your wheels.'));
   }
@@ -224,6 +225,26 @@ export function createMenus(ctx) {
     challenges() { return challengesScreen('bike'); },
     mtbchallenges() { return challengesScreen('mtb'); },
     snowchallenges() { return challengesScreen('snow'); },
+    waterchallenges() { return challengesScreen('water'); },
+
+    /** Wavvd: jet skis on the sea. Free ride round Azure Bay, challenges, and your jet ski's colour. */
+    water() {
+      back = () => show('home');
+      const bay = ctx.allWorlds.find((w) => w.id === 'azurebay');
+      const chs = ctx.challenges.filter((c) => c.water);
+      const COLOURS = [['#18b6d6', 'Lagoon'], ['#ff5a36', 'Coral'], ['#ffd23a', 'Sun'], ['#7c4dff', 'Ultra'], ['#16181c', 'Stealth'], ['#2ecc71', 'Reef']];
+      primary = () => bay && ctx.startWaterFree(bay);
+      return h('div', { class: 'mx-col' },
+        h('div', { class: 'mx-unrevvd wav' }, h('b', {}, 'WA', h('i', {}, 'VV'), 'D'), h('small', {}, 'Jet skis · waves · open water')),
+        h('div', { class: 'mx-two' },
+          card2('blue', '🌊', 'Free ride', `${bay ? bay.name : 'Azure Bay'}: islands, beaches and waves to jump`, () => bay && ctx.startWaterFree(bay), { sticker: 'NEW' }),
+          card2('orange', '🎯', 'Challenges', `${chs.length} on the water: races round the buoys, big air off the waves`, () => show('waterchallenges'), { sticker: 'NEW' })),
+        go('Ride Azure Bay', 'Jet ski', () => bay && ctx.startWaterFree(bay)),
+        glass('Your jet ski', 'only looks: they all ride the same', h('div', { class: 'mx-liveries' }, COLOURS.map(([c, n]) => h('button', {
+          class: 'mx-livery' + (ctx.jetColor() === c ? ' on' : ''), type: 'button', style: { '--c1': c, '--c2': c }, title: n,
+          onclick: () => { ctx.prefs.jetColor = c; ctx.savePrefs(); Sfx.play('click'); show('water'); } }, ctx.jetColor() === c ? h('span', { class: 'eq' }, 'ON') : null, h('b', { class: 'emo', style: { color: c } }, '●'), h('span', {}, n))))),
+        note('W is the throttle, A / D steer, S slows you down. Ride up the face of a wave and you take off: Q / E lean and flip, and land it level. Space / Shift turbo. Run aground and you grind to a stop. Wavvd shares Revvd’s coins.'));
+    },
 
     /** Carvvd: snowboards. No pedals and no engine: gravity. Free ride on Frostpeak, challenges, and your board. */
     snow() {
@@ -587,16 +608,16 @@ export function createMenus(ctx) {
   }
 
   // ---------------------------------------------------------------- tabs and switching screens
-  const TABS = [['ride', '🏁', 'Ride'], ['mtb', '🚵', 'Unrevvd'], ['snow', '🏂', 'Carvvd'], ['garage', '🏍️', 'Garage'], ['boards', '🏆', 'Leaderboards'], ['controls', '🎮', 'Controls']];
-  const tabOf = (s) => (['garage', 'boards', 'controls'].includes(s) ? s : /^mtb/.test(s || '') ? 'mtb' : /^snow/.test(s || '') ? 'snow' : 'ride');
+  const TABS = [['ride', '🏁', 'Ride'], ['mtb', '🚵', 'Unrevvd'], ['snow', '🏂', 'Carvvd'], ['water', '🌊', 'Wavvd'], ['garage', '🏍️', 'Garage'], ['boards', '🏆', 'Leaderboards'], ['controls', '🎮', 'Controls']];
+  const tabOf = (s) => (['garage', 'boards', 'controls'].includes(s) ? s : /^mtb/.test(s || '') ? 'mtb' : /^snow/.test(s || '') ? 'snow' : /^water/.test(s || '') ? 'water' : 'ride');
   const logoEl = document.querySelector('.mx-logo b');
   function drawTabs() {
     fill(tabsEl, TABS.map(([k, e, label]) => h('button', { class: 'mx-tab' + (tabOf(screen) === k ? ' on' : ''), type: 'button',
       onclick: () => { Sfx.play('click'); if (k === 'ride') show(inRoom() ? 'room' : 'home'); else show(k); } },
-    h('span', { class: 'ph' }, e), label, k === 'ride' && inRoom() ? h('span', { class: 'new' }, Room.code) : null, k === 'snow' ? h('span', { class: 'new' }, 'NEW') : null)));
-    // the logo: UNREVVD on Unrevvd's screens, CARVVD on Carvvd's
-    const brand = tabOf(screen) === 'mtb' ? 'un' : tabOf(screen) === 'snow' ? 'carv' : 're';
-    if (logoEl && logoEl.dataset.brand !== brand) { fill(logoEl, { un: 'UNRE', carv: 'CAR', re: 'RE' }[brand], h('i', {}, 'VV'), 'D'); logoEl.classList.toggle('un', brand === 'un'); logoEl.classList.toggle('carv', brand === 'carv'); logoEl.dataset.brand = brand; }
+    h('span', { class: 'ph' }, e), label, k === 'ride' && inRoom() ? h('span', { class: 'new' }, Room.code) : null, k === 'water' ? h('span', { class: 'new' }, 'NEW') : null)));
+    // the logo: UNREVVD on Unrevvd's screens, CARVVD on Carvvd's, WAVVD on Wavvd's
+    const brand = tabOf(screen) === 'mtb' ? 'un' : tabOf(screen) === 'snow' ? 'carv' : tabOf(screen) === 'water' ? 'wav' : 're';
+    if (logoEl && logoEl.dataset.brand !== brand) { fill(logoEl, { un: 'UNRE', carv: 'CAR', wav: 'WA', re: 'RE' }[brand], h('i', {}, 'VV'), 'D'); logoEl.classList.toggle('un', brand === 'un'); logoEl.classList.toggle('carv', brand === 'carv'); logoEl.classList.toggle('wav', brand === 'wav'); logoEl.dataset.brand = brand; }
   }
 
   function show(name) {

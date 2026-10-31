@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildWorld } from './world.js';
-import { makeBike, boardify, poseBike, seatRider, disposeBike, preloadBike, bikesLoaded, LIVERIES, MODELS, MTB_MODELS, MTB_RIDERS, RIDERS, KITS, HELMETS } from './bike.js';
+import { makeBike, boardify, jetskify, poseBike, seatRider, disposeBike, preloadBike, bikesLoaded, LIVERIES, MODELS, MTB_MODELS, MTB_RIDERS, RIDERS, KITS, HELMETS } from './bike.js';
 import { createAudio } from './sound.js';
 import { createMenus } from './menus.js';
 import {buildRideWorld} from './open-world/ride-world.mjs';
@@ -80,6 +80,12 @@ const boardLook = () => ({ ...mtbLook(), rider: 'snow' });   // (Carvvd: the sno
 const BOARD = { power: 0.3, drag: 0.85 };
 /** Carvvd's free ride: deep powder off the pistes slows you down, the groomed pistes are quicker. */
 const BOARD_FREE = { ...BOARD, powder: 0.03 };
+// Wavvd's jet ski: the dirt bike's engine through a jet (gentler power, lower gearing, the water's drag), about
+// 95 km/h flat out and more on turbo
+const JETSKI = { power: 0.62, drag: 5.5, turbo: 1.15, regen: 1.3, gear: 0.82 };
+const SPRAY = new THREE.Color('#eef7fa');
+const jetColor = () => prefs.jetColor || '#18b6d6';
+const jetLook = () => ({ ...myLook(), rider: mtbRider() });   // (Wavvd: your Unrevvd rider, no helmet)
 /** Carvvd's weather (free ride on the snow): the sky and how much it snows. */
 const WEATHER = { clear: { name: 'Clear', emoji: '☀️' }, snow: { name: 'Snowing', emoji: '🌨️' }, blizzard: { name: 'Blizzard', emoji: '🌬️' } };
 /** Carvvd's boards (only looks). */
@@ -800,6 +806,14 @@ function updateCamera(s, dt, speed, place, model = R.model) {
     dirt, grass and snow. In a room each rider's grooves are tinted their colour. */
 const trackP = new THREE.Vector3(); const trackAx = new THREE.Vector3();
 function leaveTracks(id, model, crashed, color = online() && id === 'me' ? playerOf(Net.id).color : null) {
+  if (model.jetski) {   // (a jet ski leaves a wake of foam on the water instead)
+    const o = world.ocean; if (!o) return;
+    const p = model.root.localToWorld(trackP.set(-1.3, 0, 0)); trackAx.setFromMatrixColumn(model.root.matrixWorld, 0);
+    const last = model.wakeAt; const now = performance.now(); const v = last ? Math.hypot(p.x - last.x, p.z - last.z) / Math.max(0.001, (now - last.t) / 1000) : 0;
+    model.wakeAt = { x: p.x, z: p.z, t: now };
+    if (!crashed && p.y - world.ground.waveAt(p.x, p.z) < 0.7 && v > 1.5) o.wake(id, p.x, p.z, Math.atan2(trackAx.z, trackAx.x), Math.min(40, v));
+    return;
+  }
   const T = R.tracks; if (!T || !model.root.visible) return;
   const g = world.ground;
   trackAx.setFromMatrixColumn(model.root.matrixWorld, 0); const l = Math.hypot(trackAx.x, trackAx.z) || 1; const ax = trackAx.x / l; const az = trackAx.z / l;
@@ -837,8 +851,8 @@ function effects(s, dt, place) {
   const D = [Math.cos(s.h), Math.sin(s.h)];
   const speed = Math.hypot(b.vx, b.vy);
   const surface = b.G ? C.surfaceAt(b.G, b.x) : 0;
-  const colPuff = surface === 1 ? fx.colors.mud : fx.colors.puff;
-  const colChunk = surface === 1 ? fx.colors.mud : fx.colors.chunk;
+  const colPuff = R.water ? SPRAY : surface === 1 ? fx.colors.mud : fx.colors.puff;
+  const colChunk = R.water ? SPRAY : surface === 1 ? fx.colors.mud : fx.colors.chunk;
   const rear = b.wh[1];
   const emitAt = (x, y, n, kind, power, side0 = 0) => {
     const p = place(x, y, tmpV3);
@@ -849,7 +863,24 @@ function effects(s, dt, place) {
       else fx.puff(p.x, p.y + 0.1, p.z, vx * 0.35, up * 0.3, vz * 0.35, { life: 1 + Math.random() * 0.8, size: 0.6 + Math.random() * 0.5, grow: 2.6 + Math.random() * 2 + (th.snowing ? 1 : 0), alpha: th.snowing ? 0.5 : 0.32, drag: 1.3, color: colPuff });
     }
   };
-  if (!b.crashed && rear.ct && !R.board) {   // (a board has no back wheel to spin)
+  // a jet ski: a rooster tail of spray from the jet, more with the throttle and speed, and a sheet of it thrown out from
+  // the hull in a hard turn (to the outside)
+  if (R.water && !b.crashed && rear.ct) {
+    const jet = R.model.root.localToWorld(tmpV3.set(-1.55, -0.3, 0));
+    const tail = Math.min(1.4, b.thr * (0.35 + speed * 0.035)); const n = Math.floor(tail * 5 * step * 60 + Math.random());
+    for (let i = 0; i < n; i++) {
+      const back = -(3 + Math.random() * 4) * (0.5 + tail * 0.5); const up = 2.5 + Math.random() * 3.5 * tail; const side = (Math.random() - 0.5) * 1.6;
+      fx.chunk(jet.x, jet.y, jet.z, D[0] * back - D[1] * side, up, D[1] * back + D[0] * side, { life: 0.7 + Math.random() * 0.5, size: 0.06 + Math.random() * 0.07, grow: 0.12, alpha: 0.85, grav: 9.8, drag: 0.5, color: SPRAY });
+    }
+    if (tail > 0.25 && Math.random() < tail * 0.5) fx.puff(jet.x, jet.y + 0.2, jet.z, -D[0] * 2, 1.2, -D[1] * 2, { life: 1.1, size: 0.5, grow: 2.2, alpha: 0.28, drag: 1.4, color: SPRAY });   // (mist)
+    const carve = Math.min(1.5, Math.abs(b.yaw || 0) * speed * 0.07); const out = -Math.sign(b.yaw || 0);
+    if (carve > 0.2) {
+      const bow = R.model.root.localToWorld(tmpV.set(0.2, -0.4, 0)); const m2 = Math.floor(carve * 5 * step * 60 + Math.random());
+      for (let i = 0; i < m2; i++) { const sd = (2 + Math.random() * 3) * out * carve; const up = 1.5 + Math.random() * 2.5 * carve;
+        fx.chunk(bow.x, bow.y, bow.z, D[0] * -1 - D[1] * sd, up, D[1] * -1 + D[0] * sd, { life: 0.5 + Math.random() * 0.4, size: 0.05 + Math.random() * 0.06, grow: 0.1, alpha: 0.85, grav: 9.8, drag: 0.6, color: SPRAY }); }
+    }
+  }
+  if (!b.crashed && rear.ct && !R.board && !R.water) {   // (a board has no back wheel to spin; a jet ski's spray is above)
     const slip = Math.max(0, rear.slip - 0.4);
     const roost = Math.min(1.6, slip * 0.25 + b.thr * speed * 0.012);
     const n = Math.floor(roost * 6 * step * 60 / 3 + Math.random());
@@ -907,7 +938,7 @@ function hud(now) {
   $('#hud-nitro').parentNode.classList.toggle('on', b.boost);
   $('#hud-nitro').parentNode.classList.toggle('full', b.nitro >= 0.999);
   $('#hud-sub').textContent = R.spectate ? watchLine() : R.mode === 'online' && state.race ? `P${myPlace()} / ${Object.keys(state.race.runners).length}  ·  CP ${b.cp + 1}/${T.cps.length}` : `CHECKPOINT ${b.cp + 1} / ${T.cps.length}`;
-  $('#hud-left').textContent = R.mode==='free' ? R.trial ? `${R.trial.race.name} · LAP ${R.trial.lap}/${R.trial.race.laps}` : R.board ? 'CARVVD · A / D CARVE · R SAFE PAD' : R.mtb ? 'UNREVVD · Q WHEELIE · R SAFE PAD' : 'FREE RIDE · SPACE TURBO · R SAFE PAD' : `${Math.max(0, Math.round(T.finish - b.s))} M LEFT`;
+  $('#hud-left').textContent = R.mode==='free' ? R.trial ? `${R.trial.race.name} · LAP ${R.trial.lap}/${R.trial.race.laps}` : R.water ? 'WAVVD · SPACE TURBO · R SAFE PAD' : R.board ? 'CARVVD · A / D CARVE · R SAFE PAD' : R.mtb ? 'UNREVVD · Q WHEELIE · R SAFE PAD' : 'FREE RIDE · SPACE TURBO · R SAFE PAD' : `${Math.max(0, Math.round(T.finish - b.s))} M LEFT`;
   if(R.mode==='free')$('#hud-sub').textContent=R.trial?`GATE ${Math.min(R.trial.next+1,R.trial.gates.length)} / ${R.trial.gates.length}`:'EXPLORE AT YOUR OWN PACE';
   const ch = R.challenge;
   if (ch) {
@@ -977,14 +1008,14 @@ async function startFree(entry, opts = {}){
   try{
     const response=await fetch('/js/games/moto/open-world/'+entry.file);if(!response.ok)throw new Error('World unavailable');
     // on a mountain bike: an Unrevvd challenge, Unrevvd's free ride (opts.mtb), or a room's free ride with it picked
-    const mtb=ch?ch.vehicle==='mtb':opts.online?prefs.vehicle==='mtb':!!(opts.mtb||opts.board);
-    const def=await response.json();await preloadBike(mtb?prefs.mtbModel:myLook().model,(ch?ch.board:opts.board)?'snow':mtb?mtbRider():myLook().rider);
+    const mtb=ch?ch.vehicle==='mtb':opts.online?prefs.vehicle==='mtb':!!(opts.mtb||opts.board);const water=!!(ch?ch.water:opts.water);   // (Wavvd: a jet ski)
+    const def=await response.json();await preloadBike(mtb?prefs.mtbModel:myLook().model,(ch?ch.board:opts.board)?'snow':mtb||water?mtbRider():myLook().rider);
     if(opts.daily)Object.assign(def,{id:'daily',name:'Daily Chute',seed:opts.daily.seed});
     if(!ch&&opts.board&&def.theme==='snow')def.look={...(def.look||{}),weather:WEATHER[prefs.weather]?prefs.weather:'snow'};   // (Carvvd's free ride: your weather)   // (today's gully: a chute's look, its own trees)
     let nature=def.gauntlets?.length||def.features?.forest?await loadNature().catch((e)=>{console.warn('nature models',e);return null;}):null;   // (real trees and rocks for a gauntlet or a ski run's forest)
     if(nature&&def.gauntlets?.some(g=>g.aspens))nature={...nature,aspens:await loadAspens().catch(()=>null)};   // (the Autumn Chute's aspens)
     if(nature&&def.features?.forest)nature={...nature,spruces:await loadSpruces().catch(()=>null)};   // (a ski run's spruces)
-    if(!ch&&!mtb&&prefs.vehicle==='car')await preloadCar(prefs.carModel);if(!riding||R.ride!==ride)return;
+    if(!ch&&!mtb&&!water&&prefs.vehicle==='car')await preloadCar(prefs.carModel);if(!riding||R.ride!==ride)return;
     for(const o of R.others.values())dropOther(o);R.others.clear();
     if(R.model){disposeModel(R.model);R.model=null;}
     for(const sb of stage.bikes.values()){sb.model.root.removeFromParent();sb.tag?.removeFromParent();}
@@ -1003,10 +1034,10 @@ async function startFree(entry, opts = {}){
       engine=Coins.engineOf().stats;   // (bought engine upgrades only work in free ride)
     }
     // the dirt bike, the mountain bike (its upgrades only in free ride too) or the supercar
-    R.mtb=mtb;R.car=!ch&&!mtb&&prefs.vehicle==='car';R.V=R.car?Car:C;
+    R.mtb=mtb;R.water=water;R.car=!ch&&!mtb&&!water&&prefs.vehicle==='car';R.V=R.car?Car:C;
     R.board=!!(ch?ch.board:opts.board);   // (Carvvd: a board instead of a bike, no pedalling: it's all gravity)
-    R.T=C.groundTrack(world.ground,spawn,engine,mtb?(R.board?(ch?BOARD:BOARD_FREE):ch?{}:Coins.MTB.current().stats):null);R.bike=R.V.newBike(R.T);R.bike.board=R.board;   // (a board spins 180s, 540s…)
-    R.model=R.car?makeCar(prefs.carModel,prefs.carPaint):makeBike(R.board?boardLook():mtb?mtbLook():myLook());if(R.board)boardify(R.model,boardColor(),gear());world.scene.add(R.model.root);coverOn(R.model);
+    R.T=C.groundTrack(world.ground,spawn,water?JETSKI:engine,mtb?(R.board?(ch?BOARD:BOARD_FREE):ch?{}:Coins.MTB.current().stats):null);R.bike=R.V.newBike(R.T);R.bike.board=R.board;   // (a board spins 180s, 540s…)
+    R.model=R.car?makeCar(prefs.carModel,prefs.carPaint):makeBike(R.board?boardLook():mtb?mtbLook():water?jetLook():myLook());if(R.board)boardify(R.model,boardColor(),gear());if(water)jetskify(R.model,jetColor());world.scene.add(R.model.root);coverOn(R.model);
     R.tracks=createTracks(world.scene,(x,z)=>world.ground.heightAt(x,z),(x,z)=>world.ground.surfaceAt(x,z),{snowing:world.snowing});   // (grooves and tyre tracks)
     if(opts.online&&state.race){fillOthers(state.race);if(ch)for(const o of R.others.values())addOtherModel(o);}   // (free ride: each rider's bike or car appears with their first message)
     R.prev=R.cur=snap(R.bike);R.acc=0;R.last=performance.now();R.finished=false;R.cam.init=false;R.stuck=0;R.emitAcc=0;R.roll=0;R.best=null;R.beeped=0;R.safeTrail=[];R.retry=null;R.toPad=false;
@@ -1019,8 +1050,8 @@ async function startFree(entry, opts = {}){
     fill($('#hud-center'));resize();drawMapBase();coinHud(purse().wallet().coins,0);R.running=true;requestAnimationFrame(frame);
     const url=new URL(location.href);url.searchParams.delete('solo');url.searchParams.delete('track');
     if(ch){url.searchParams.delete('free');url.searchParams.delete('world');history.replaceState(null,'',url);showMessage(ch.about,'small',5000);}
-    else{if(!R.board){if(mtb)prefs.mtbWorld=def.id;else prefs.world=def.id;savePrefs();}url.searchParams.set('free','1');url.searchParams.set('world',def.id);if(mtb&&!R.freeOnline)url.searchParams.set('mtb','1');else url.searchParams.delete('mtb');if(R.board)url.searchParams.set('board','1');else url.searchParams.delete('board');history.replaceState(null,'',url);
-      showMessage(R.freeOnline?'FREE RIDE TOGETHER · Esc goes back to the room':R.board?'CARVVD · Point it downhill · A / D carve · Q / E flip · R resets':mtb?'UNREVVD · W pedals · Q pops a wheelie · R resets':'FREE RIDE · Collect the gold coins · Space / Shift turbo · R resets','small',4500);}
+    else{if(!R.board&&!water){if(mtb)prefs.mtbWorld=def.id;else prefs.world=def.id;savePrefs();}if(water)url.searchParams.set('water','1');else url.searchParams.delete('water');url.searchParams.set('free','1');url.searchParams.set('world',def.id);if(mtb&&!R.freeOnline)url.searchParams.set('mtb','1');else url.searchParams.delete('mtb');if(R.board)url.searchParams.set('board','1');else url.searchParams.delete('board');history.replaceState(null,'',url);
+      showMessage(R.freeOnline?'FREE RIDE TOGETHER · Esc goes back to the room':water?'WAVVD · W throttle · A / D steer · jump the waves · Q / E flip · Space turbo':R.board?'CARVVD · Point it downhill · A / D carve · Q / E flip · R resets':mtb?'UNREVVD · W pedals · Q pops a wheelie · R resets':'FREE RIDE · Collect the gold coins · Space / Shift turbo · R resets','small',4500);}
   }catch(error){console.error(error);UI.toast('Could not load that world','bad');quit();}
 }
 
@@ -1253,7 +1284,7 @@ async function loadGhosts(ch) {
 function addGhost(data, label, color) {
   const frames = Chutes.ghostFrames(data);
   if (!frames || !frames.length || !world) return;
-  const model = makeBike({ ...(R.board ? boardLook() : mtbLook()), ghost: color }); if (R.board) boardify(model, color, gear()); world.scene.add(model.root);
+  const model = makeBike({ ...(R.board ? boardLook() : R.water ? jetLook() : mtbLook()), ghost: color }); if (R.board) boardify(model, color, gear()); if (R.water) jetskify(model, color); world.scene.add(model.root);
   const tag = nameTag(label, color); world.scene.add(tag);
   R.ghosts.push({ frames, model, tag, ang: [0, 0] });
 }
@@ -1601,8 +1632,8 @@ function quit() {
   }
   const wasChallenge = !!R.challenge; R.challenge = null;
   setRiding(false);
-  menus.show((R.mtb ? 'mtb' : '') + (wasChallenge ? 'challenges' : R.mode==='free'?'worlds':'tracks'));
-  const url = new URL(location.href); for (const k of ['free', 'world', 'track', 'mtb']) url.searchParams.delete(k); history.replaceState(null, '', url);
+  menus.show(R.water ? (wasChallenge ? 'waterchallenges' : 'water') : (R.mtb ? 'mtb' : '') + (wasChallenge ? 'challenges' : R.mode==='free'?'worlds':'tracks'));
+  const url = new URL(location.href); for (const k of ['free', 'world', 'track', 'mtb', 'water']) url.searchParams.delete(k); history.replaceState(null, '', url);
 }
 $('#mx-quit').addEventListener('click', quit);
 // (the whole page goes full screen, not just the game, so pop-ups like signing in still show)
@@ -2005,7 +2036,7 @@ async function init() {
     setCarModel: (k) => { prefs.carModel = k; savePrefs(); Sfx.play('click'); preloadCar(k); if (inRoom()) Net.send('g:style', { style: netStyle() }); },
     setCarPaint: (k) => { prefs.carPaint = k; savePrefs(); Sfx.play('click'); if (inRoom()) Net.send('g:style', { style: netStyle() }); },
     rideWithFriends: (w, vehicle) => { pendingFree = w.id; if (vehicle) { prefs.vehicle = vehicle; savePrefs(); } },
-    MTB_MODELS, MTB_RIDERS, setMtbModel, setMtbRider, startMtbFree: (w) => startFree(w, { mtb: true }), BOARDS, WEATHER, gear, startBoardFree: (w) => startFree(w, { board: true }),
+    MTB_MODELS, MTB_RIDERS, setMtbModel, setMtbRider, startMtbFree: (w) => startFree(w, { mtb: true }), BOARDS, WEATHER, gear, startBoardFree: (w) => startFree(w, { board: true }), startWaterFree: (w) => startFree(w, { water: true }), jetColor,
     setQuality: (k) => { prefs.quality = k; savePrefs(); worldKey = null; resize(); if (stage.trackId) stageTrack(stage.trackId); },
     stage: { solo: stageSolo, room: stageRoom },
   });
@@ -2019,7 +2050,7 @@ async function init() {
   Lobby.ChatBox(chatEl, { title: '' });
   chatEl.prepend(h('div', { class: 'mx-h' }, 'Chat'));
   if (qs.get('room')) menus.show('joining');   // (the lobby is joining it)
-  else if(qs.get('free')){const mtb=qs.get('mtb')==='1',board=qs.get('board')==='1';menus.show(board?'snow':mtb?'mtbworlds':'worlds');const w=WORLDS.find(w=>w.id===qs.get('world')&&!w.hidden);if(w){await loadUnlocks();startFree(w,{mtb,board});}}
+  else if(qs.get('free')){const mtb=qs.get('mtb')==='1',board=qs.get('board')==='1',water=qs.get('water')==='1';menus.show(water?'water':board?'snow':mtb?'mtbworlds':'worlds');const w=WORLDS.find(w=>w.id===qs.get("world")&&(water||!w.hidden));if(w){await loadUnlocks();startFree(w,{mtb,board,water});}}
   else if (qs.get('solo')) {
     const t = qs.get('track') && DATA.tracks.find((x) => x.id === qs.get('track'));
     menus.show('tracks');

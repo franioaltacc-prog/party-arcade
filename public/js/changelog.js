@@ -6,6 +6,18 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.21.0', date: '2026-10-31', emoji: '🌊', title: 'Wavvd: jet skis on the open water', items: [
+      'New mode: 🌊 Wavvd. Ride a jet ski round Azure Bay: pine-covered islands, sandy beaches, a pier, a lighthouse, sea stacks and buoys',
+      'Real waves you ride on: the swell rolls in, sharp crests and wide troughs, bigger out towards the open sea and calm in the shallows. Hit a wave face flat out and you fly (Q / E to flip)',
+      'See-through water: clear and turquoise over the sand in the shallows (with sunlight rippling on the seabed), deep blue further out, the sky mirrored in it, the sun glinting off it and foam on breaking crests and along the beaches',
+      'Spray from the jet, a sheet of it in hard turns, and a foamy wake that spreads out behind you',
+      'Five Wavvd challenges: Lighthouse Run, Island Hop, Wave Launch, Wave Tricks and Flat Out. Pick your jet ski’s colour on the Wavvd page',
+    ] },
+    { v: '3.20.1', date: '2026-10-31', emoji: '✊', title: 'Hands on the bars, feet on the pedals', items: [
+      'Riders hold the handlebars properly now: hands wrapped round the grips instead of hanging below them with the fingers splayed',
+      'Mountain bikers’ feet sit flat on the pedals, both pointing forward (one used to float above its pedal and the other was twisted out)',
+      'Fixed: the replay bar could stay on screen after a replay, even on the menus',
+    ] },
     { v: '3.20.0', date: '2026-10-30', emoji: '🌆', title: 'Twilight Slope', items: [
       'New Carvvd map: 🌆 Twilight Slope. One long, wide run straight down a forested hill at dusk, with floodlights all the way down, a chairlift beside it, a beginners’ chair at the bottom and a hotel with its windows lit',
       'Proper snowy spruces, branches all the way to the ground, covering the whole hill. Head into the trees a little way if you like, but go too far and you’re put back on the run',

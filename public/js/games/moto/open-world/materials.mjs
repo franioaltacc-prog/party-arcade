@@ -41,15 +41,18 @@ function texture(kind,theme,size=1024,look=null){
  }).catch(e=>console.warn('ground photo',photo,e));
  return tex;
 }
+/** The sea's clock (seconds, shared by every sea material: the waves, the light rippling on the seabed). */
+export const seaClock={value:0};
 export function terrainMaterial(map,sharedTextures=null,detailed=true){
  const textures=sharedTextures || Object.fromEntries(Object.keys(palettes).map(k=>[k,texture(k,map.theme,1024,map.look)]));
  const hole=new THREE.Vector4();
  const material=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.91,metalness:0});
- material.customProgramCacheKey=()=> 'ow-terrain-lod-v9-'+map.theme+'-'+detailed;
+ material.customProgramCacheKey=()=> 'ow-terrain-lod-v9-'+map.theme+'-'+detailed+(map.sea?'-sea'+map.sea.level:'');
  material.onBeforeCompile=shader=>{
   for(const [key,value]of Object.entries(textures))shader.uniforms['ow'+key]={value};
   shader.uniforms.owHole={value:hole};
   shader.uniforms.owBiome={value:map.theme==='desert'?0:map.theme==='snow'?2:1};
+  shader.uniforms.owTime=seaClock;
   shader.vertexShader=shader.vertexShader.replace('#include <common>',`#include <common>
 attribute float trailWeight;
 varying vec3 owPosition;
@@ -66,7 +69,22 @@ uniform sampler2D owgrass;
 uniform sampler2D owrock;
 uniform sampler2D owsnow;
 uniform float owBiome;
+uniform float owTime;
 uniform vec4 owHole;
+// light rippling on the seabed (caustics): the bright edges between moving cells
+float owCaustic(vec2 p,float t){
+ float c=0.0;
+ for(int o=0;o<2;o++){
+  vec2 q=p*(o==0?1.0:1.9)+vec2(o==0?0.0:3.7,o==0?0.0:1.3),ip=floor(q),fp=fract(q);float d1=8.0,d2=8.0;
+  for(int j=-1;j<=1;j++)for(int i=-1;i<=1;i++){
+   vec2 g=vec2(float(i),float(j)),h=fract(sin(vec2(dot(ip+g,vec2(127.1,311.7)),dot(ip+g,vec2(269.5,183.3))))*43758.5453);
+   vec2 r=g+.5+.42*sin(t*(.6+.3*float(o))+6.2832*h)-fp;float d=dot(r,r);
+   if(d<d1){d2=d1;d1=d;}else if(d<d2)d2=d;
+  }
+  c+=pow(1.0-smoothstep(0.0,.32,sqrt(d2)-sqrt(d1)),3.0)*(o==0?.7:.45);
+ }
+ return c;
+}
 varying vec3 owPosition;
 varying vec3 owSurfaceNormal;
 varying float owTrail;
@@ -106,6 +124,9 @@ ${map.theme==='snow'&&detailed?`
   if(owTrail>.2&&owSl>.07){ vec2 owAc=vec2(-owFall.y,owFall.x)/owSl; float owCord=sin(dot(owPosition.xz,owAc)*14.0);
    float owK=smoothstep(.2,.8,owTrail)*smoothstep(.07,.16,owSl)*smoothstep(16.0,5.0,length(cameraPosition-owPosition));
    owGround.rgb*=1.0-.07*owK*(.5+.5*owCord); owGround.a=mix(owGround.a,.45+.3*owCord,.6*owK); } }`:''}
+${map.sea?`{ // a sea world: sand along the beaches and under the water
+ float owSand=1.0-smoothstep(${(map.sea.level+.8).toFixed(2)},${(map.sea.level+2.8).toFixed(2)},owPosition.y);
+ owGround=mix(owGround,vec4(owSample(owdirt,owP.xz*1.6).rgb*vec3(1.55,1.42,1.12),owGround.a*.7),owSand*(1.0-owCliff*.7)); }`:''}
 float owMacro=texture2D(owrock,owPosition.xz*.008).a;
 vec3 owAlbedo=pow(owGround.rgb,vec3(2.2));
 diffuseColor.rgb*=owAlbedo*(.86+owMacro*.34);
@@ -121,6 +142,10 @@ if(owSnow>.5&&owCliff<.5){
  vec3 owGrain=floor(owPosition*30.0)+floor(owEye/owDist*7.0)*17.0;
  float owGlint=step(.996,fract(sin(dot(owGrain,vec3(12.9898,78.233,37.719)))*43758.5453));
  totalEmissiveRadiance+=vec3(.9,.95,1.0)*owGlint*smoothstep(20.0,4.0,owDist)*(1.0-owTrail)*1.3;
+}`:''}
+${map.sea?`{ // sunlight focused by the waves, dancing on the seabed (fading with depth)
+ float owD=${map.sea.level.toFixed(2)}-owPosition.y;
+ if(owD>-.05)totalEmissiveRadiance+=vec3(.75,.95,1.0)*owCaustic(owPosition.xz*.32,owTime*1.4)*smoothstep(-.05,.35,owD)*exp(-owD*.11)*${detailed?'.55':'.35'};
 }`:''}
 `).replace('#include <roughnessmap_fragment>',`#include <roughnessmap_fragment>
 roughnessFactor=clamp(.78+owGround.a*.22-.09*owSnow,.65,1.0);

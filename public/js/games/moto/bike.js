@@ -527,6 +527,7 @@ for (const S of ['L', 'R']) {
     [`CC_Base_${S}_Upperarm`]: [`CC_Base_${S}_Forearm`, 'fwd'], [`CC_Base_${S}_Forearm`]: [`CC_Base_${S}_Hand`, 'fwd'],
     [`CC_Base_${S}_Thigh`]: [`CC_Base_${S}_Calf`, 'back'], [`CC_Base_${S}_Calf`]: [`CC_Base_${S}_Foot`, 'back'],
     [`CC_Base_${S}_Foot`]: [`CC_Base_${S}_ToeBase`, 'z'],
+    [`CC_Base_${S}_Hand`]: [`CC_Base_${S}_Mid1`, 'palm'],   // (its side: the palm, the way the fingers curl; down in the T-pose)
   });
 }
 const AX = V(1, 0, 0); const AZ = V(0, 0, 1);
@@ -558,6 +559,8 @@ export function preloadRider(id = 'biker') {
 /** Measure the T-pose: the size that gives the drawn rider's leg length, how each aimed bone sits against its
     own aim, the arm and leg lengths, and how to curl the fingers round the grips. */
 function prepRider(scene, spec = {}) {
+  // (an animation rig's file stands in a frame of its idle, lopsided: measure it in its own neat T-pose instead)
+  if (spec.q) { scene.updateMatrixWorld(true); scene.traverse((o) => { if (o.isSkinnedMesh) o.skeleton.pose(); }); }
   const top = new THREE.Group(); const root = new THREE.Group(); root.rotation.y = Math.PI / 2; top.add(root); root.add(scene);
   if (spec.q) scene.traverse((o) => { if (o.isBone && Q_NAMES[o.name]) o.name = 'CC_Base_' + Q_NAMES[o.name]; });
   if (spec.recolor) scene.traverse((o) => { if (o.isMesh) for (const m of [].concat(o.material)) if (spec.recolor[m.name]) m.color.set(spec.recolor[m.name]); });
@@ -574,39 +577,53 @@ function prepRider(scene, spec = {}) {
   const at = (n) => { chain(bones[n], top, cP, cQ); return cP.clone(); };
   const legOf = () => at('CC_Base_L_Thigh').distanceTo(at('CC_Base_L_Calf')) + at('CC_Base_L_Calf').distanceTo(at('CC_Base_L_Foot'));
   const k = 0.88 / legOf(); root.scale.setScalar(k);
-  if (!bones.CC_Base_L_ToeBase) {
-    // (no toes: one a foot's length ahead of each ankle, down by the sole, so the feet know which way they point)
+  const madeToes = !bones.CC_Base_L_ToeBase;
+  if (madeToes) {
+    // (no toes: one a foot's length ahead of each ankle, down on the sole, so the feet know which way they point and
+    // stand on the pedals and pegs rather than above them)
     top.updateMatrixWorld(true);
+    const sole = new THREE.Box3().setFromObject(top).min.y;
     for (const S of ['L', 'R']) {
-      const foot = bones[`CC_Base_${S}_Foot`]; const toe = new THREE.Bone(); toe.name = `CC_Base_${S}_ToeBase`;
-      foot.add(toe); toe.position.copy(foot.worldToLocal(at(`CC_Base_${S}_Foot`).add(V(0.13, -0.06, 0)))); bones[toe.name] = toe;
+      const foot = bones[`CC_Base_${S}_Foot`]; const toe = new THREE.Bone(); toe.name = `CC_Base_${S}_ToeBase`; const ankle = at(`CC_Base_${S}_Foot`);
+      foot.add(toe); toe.position.copy(foot.worldToLocal(ankle.add(V(0.13, Math.min(-0.01, sole - ankle.y), 0)))); bones[toe.name] = toe;
     }
+  }
+  // which way each palm faces, from its fingers (models come in different poses: arms out with the palms down, or
+  // hanging with the palms in): a left hand's palm is the fingers' direction crossed with pinky-to-index, a right's the
+  // other way (and every model's finger bones are named for the side they're on)
+  const palms = {};
+  for (const S of ['L', 'R']) {
+    const fingers = at(`CC_Base_${S}_Mid2`).sub(at(`CC_Base_${S}_Mid1`)).normalize(); const across = at(`CC_Base_${S}_Index2`).sub(at(`CC_Base_${S}_Pinky2`)).normalize();
+    palms[S] = new THREE.Vector3().crossVectors(fingers, across).normalize().multiplyScalar(S === 'L' ? 1 : -1);
   }
   const rest = {};
   for (const [n, [to, side]] of Object.entries(AIMS)) {
     const p = at(n); chain(bones[n], top, cP, cQ); const q = cQ.clone();
     const dir = to === 'up' ? UP.clone() : at(to).sub(p).normalize();
-    const sd = side === 'z' ? AZ.clone() : new THREE.Vector3().crossVectors(dir, side === 'fwd' ? AX : V(-1, 0, 0)).normalize();
+    const sd = side === 'z' ? AZ.clone() : side === 'palm' ? palms[n.includes('_L_') ? 'L' : 'R'].clone() : new THREE.Vector3().crossVectors(dir, side === 'fwd' ? AX : V(-1, 0, 0)).normalize();
     rest[n] = { q, off: basisQ(dir, sd, new THREE.Quaternion()).invert().multiply(q) };
   }
   const len = (a, b) => at(a).distanceTo(at(b));
   const limbs = {};
   for (const [S, i] of [['L', 0], ['R', 1]]) {
-    limbs[`arm${i}`] = { a: `CC_Base_${S}_Upperarm`, b: `CC_Base_${S}_Forearm`, l1: len(`CC_Base_${S}_Upperarm`, `CC_Base_${S}_Forearm`), l2: len(`CC_Base_${S}_Forearm`, `CC_Base_${S}_Hand`) + 0.5 * len(`CC_Base_${S}_Hand`, `CC_Base_${S}_Mid1`) };
+    limbs[`arm${i}`] = { a: `CC_Base_${S}_Upperarm`, b: `CC_Base_${S}_Forearm`, l1: len(`CC_Base_${S}_Upperarm`, `CC_Base_${S}_Forearm`), l2: len(`CC_Base_${S}_Forearm`, `CC_Base_${S}_Hand`) + 0.5 * len(`CC_Base_${S}_Hand`, `CC_Base_${S}_Mid1`),
+      wrist: len(`CC_Base_${S}_Forearm`, `CC_Base_${S}_Hand`), palm: Math.max(len(`CC_Base_${S}_Hand`, `CC_Base_${S}_Mid1`), 0.6 * len(`CC_Base_${S}_Hand`, `CC_Base_${S}_Mid2`)) };   // (palm: wrist to knuckles)
     limbs[`leg${i}`] = { a: `CC_Base_${S}_Thigh`, b: `CC_Base_${S}_Calf`, l1: len(`CC_Base_${S}_Thigh`, `CC_Base_${S}_Calf`), l2: len(`CC_Base_${S}_Calf`, `CC_Base_${S}_Foot`) };
   }
-  // fingers curl towards the palm (palms face down in the T-pose)
+  // fingers curl towards the palm. (Where a model's first finger bones start at the wrist, they're the bones of the
+  // hand itself: those hardly bend, the next two do)
   const curls = [];
+  const meta = len('CC_Base_L_Hand', 'CC_Base_L_Mid1') < 0.5 * len('CC_Base_L_Mid1', 'CC_Base_L_Mid2');
   for (const [n, b] of Object.entries(bones)) {
-    const f = /^CC_Base_[LR]_(Index|Mid|Ring|Pinky)([123])$/.exec(n); const kid = b.children.find((c) => c.isBone);
+    const f = /^CC_Base_([LR])_(Index|Mid|Ring|Pinky)([123])$/.exec(n); const kid = b.children.find((c) => c.isBone);
     if (!f || !kid) continue;
     const p = at(n); chain(b, top, cP, cQ); const q = cQ.clone();
     const dir = at(boneName(kid)).sub(p).normalize();
-    const axis = new THREE.Vector3().crossVectors(dir, V(0, -1, 0)).normalize().applyQuaternion(q.invert());
-    curls.push({ n, axis, ang: [0.85, 1.0, 0.6][f[2] - 1] });
+    const axis = new THREE.Vector3().crossVectors(dir, palms[f[1]]).normalize().applyQuaternion(q.invert());
+    curls.push({ n, axis, ang: (meta ? [0.08, 1.15, 1.0] : [0.85, 1.0, 0.6])[f[3] - 1] });
   }
   const ankle = at('CC_Base_L_Foot'); const ball = at('CC_Base_L_ToeBase');
-  const dims = { torso: at('CC_Base_L_Upperarm').y - at('CC_Base_Hip').y, arm: limbs.arm0.l1 + limbs.arm0.l2, foot: [ankle.x - ball.x, ankle.y - ball.y + 0.03] };
+  const dims = { torso: at('CC_Base_L_Upperarm').y - at('CC_Base_Hip').y, arm: limbs.arm0.l1 + limbs.arm0.l2, foot: [ankle.x - ball.x, ankle.y - ball.y + (madeToes ? 0.012 : 0.03)] };   // (+ half the pedal or peg: the sole sits on top)
   // a Revvd team patch on the jacket's back: placed on it here in the T-pose, then carried by the upper spine
   top.updateMatrixWorld(true);
   const skins = []; scene.traverse((o) => { if (o.isSkinnedMesh) skins.push(o); });
@@ -693,15 +710,25 @@ function figTorso(F, hip, sho, head, follow, twist = 0) {
 }
 /** An arm or leg of the rider model: from its real shoulder / hip joint through mid (the elbow / knee) to end. With a
     pole, mid is worked out here (the joint bends towards the pole) from the model's own bone lengths. */
-function figLimb(F, key, mid, end, pole) {
+function figLimb(F, key, mid, end, pole, wrist = false) {
   const L = F.limbs[key];
   chain(F.bones[L.a], F.top, fA, cQ);
-  if (pole) ik(fA, end, L.l1, L.l2, pole, mid);
+  if (pole) ik(fA, end, L.l1, wrist ? L.wrist : L.l2, pole, mid);
   fB.subVectors(mid, fA); fC.subVectors(end, mid);
   const n = F.hinge[key] || (F.hinge[key] = new THREE.Vector3(0, 0, 1));
   fD.crossVectors(fB, fC);
   if (fD.lengthSq() > 1e-8) n.copy(fD.normalize());
   aimBone(F, L.a, fB, n); aimBone(F, L.b, fC, n);
+}
+/** Hand i (0 left, 1 right; z: -1 / 1) holding the grip at grip: the wrist just behind and above it, the hand reaching
+    forward over the top with the back of the hand up and a little out, so the curled fingers wrap round under it. */
+const gDir = new THREE.Vector3(); const gBack = new THREE.Vector3(); const gWrist = new THREE.Vector3(); const gMid = new THREE.Vector3();
+function figGrip(F, i, z, grip, pole) {
+  const L = F.limbs[`arm${i}`];
+  gDir.set(0.85, -0.3, z * 0.22).normalize(); gBack.set(0.3, 1, z * 0.3).normalize();
+  gWrist.copy(grip).addScaledVector(gDir, -L.palm * 0.9).addScaledVector(gBack, 0.03);
+  figLimb(F, `arm${i}`, gMid, gWrist, pole, true);
+  aimBone(F, i ? 'CC_Base_R_Hand' : 'CC_Base_L_Hand', gDir, gBack.negate());   // (the palm faces down onto the grip)
 }
 /** Stand a foot flat on its peg (as in the T-pose, in the bike's own frame). */
 function figFootFlat(F, i) {
@@ -928,6 +955,53 @@ export function boardify(m, color = '#2a7fff', gear = 'board') {
   m.pegs = new THREE.Vector3(0, 0, 0); m.grips = new THREE.Vector3(0.18, 0.45, 0);
   return m;
 }
+/** A jet ski instead of a bike (Wavvd): a deep-V hull (white below, glossy paint on top, a rubber rail round the
+    edge), the seat, the hood and handlebars, footwells, a swim platform and the jet nozzle at the back. The rider
+    stands up on it, knees bent, as you do over waves. Built along the bike's own frame (x forward, y up), its hull
+    sitting in the water where the wheels would touch the ground. */
+export function jetskify(m, color = '#18b6d6') {
+  for (const c of m.root.children) if (c !== m.rider) c.visible = false;
+  const ghost = m.ghost;
+  const paint = ghost ? m.materials.plastic : new THREE.MeshPhysicalMaterial({ color, roughness: 0.28, metalness: 0.15, clearcoat: 1, clearcoatRoughness: 0.08, side: THREE.DoubleSide });
+  const white = ghost ? paint : new THREE.MeshPhysicalMaterial({ color: '#f3f5f7', roughness: 0.35, clearcoat: 0.6, clearcoatRoughness: 0.15, side: THREE.DoubleSide });
+  const black = ghost ? paint : new THREE.MeshStandardMaterial({ color: '#16181c', roughness: 0.55, side: THREE.DoubleSide });
+  const grey = ghost ? paint : new THREE.MeshStandardMaterial({ color: '#3a3f47', roughness: 0.8 });
+  const chrome = ghost ? paint : new THREE.MeshStandardMaterial({ color: '#c9ced6', roughness: 0.2, metalness: 0.9 });
+  const ski = new THREE.Group(); ski.name = 'jetski';
+  // the hull: cross-sections from the stern (-1.45) to the bow (1.62): [x, half-width, keel y, chine y, rail y, deck y]
+  const ST = [[-1.45, 0.52, -0.5, -0.47, -0.2, -0.12], [-1.1, 0.56, -0.56, -0.48, -0.18, -0.08], [-0.4, 0.58, -0.62, -0.5, -0.16, -0.05], [0.3, 0.56, -0.62, -0.49, -0.14, 0.02],
+    [0.9, 0.46, -0.57, -0.44, -0.1, 0.1], [1.3, 0.32, -0.46, -0.36, -0.05, 0.06], [1.55, 0.14, -0.3, -0.24, 0.0, 0.03], [1.64, 0.02, -0.12, -0.1, 0.01, 0.02]];
+  const loft = (prof, mat) => {
+    const pos = [], idx = [];
+    for (const st of ST) for (const [px, py] of prof(st)) pos.push(st[0], py, px);
+    const n = prof(ST[0]).length;
+    for (let i = 0; i < ST.length - 1; i++) for (let j = 0; j < n - 1; j++) { const a = i * n + j, b = a + n; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+    const o = new THREE.Mesh(g, mat); o.castShadow = !ghost; o.receiveShadow = true; ski.add(o); return o;
+  };
+  const side = (k) => ([x, w, keel, chine, rail]) => [[0, keel], [w * 0.55 * k, chine - 0.02], [w * 0.92 * k, chine + 0.05], [w * k, (chine + rail) / 2], [w * k, rail]];
+  loft(side(1), white); loft((st) => side(-1)(st).reverse(), white);   // (the hull, both sides of the keel)
+  loft(([x, w, , , rail, deck]) => [[-w, rail], [-w * 0.93, rail + 0.06], [-w * 0.6, deck - 0.01], [0, deck + 0.02], [w * 0.6, deck - 0.01], [w * 0.93, rail + 0.06], [w, rail]], paint);   // (the deck)
+  loft(([x, w, , , rail]) => [[-w - 0.03, rail - 0.03], [-w - 0.03, rail + 0.04], [-w + 0.01, rail + 0.05]], black);   // (the rubber rail)
+  loft(([x, w, , , rail]) => [[w - 0.01, rail + 0.05], [w + 0.03, rail + 0.04], [w + 0.03, rail - 0.03]], black);
+  const add = (geo, mat, x, y, z, rz = 0) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); o.rotation.z = rz; o.castShadow = !ghost; ski.add(o); return o; };
+  add(new RoundedBoxGeometry(1.0, 0.16, 0.44, 3, 0.07), black, -0.62, 0.06, 0);                                   // the seat
+  add(new RoundedBoxGeometry(0.86, 0.3, 0.78, 3, 0.12), paint, 0.62, 0.14, 0, -0.18);                            // the hood
+  add(new RoundedBoxGeometry(0.3, 0.32, 0.36, 2, 0.08), paint, 0.3, 0.3, 0, 0.35);                               // the steering column
+  for (const k of [-1, 1]) add(new RoundedBoxGeometry(0.95, 0.04, 0.2, 2, 0.015), grey, -0.25, -0.07, k * 0.33);   // footwells
+  add(new RoundedBoxGeometry(0.34, 0.06, 0.86, 2, 0.02), grey, -1.5, -0.2, 0);                                    // the swim platform
+  const nozzle = add(new THREE.CylinderGeometry(0.1, 0.12, 0.2, 14), black, -1.5, -0.38, 0, Math.PI / 2);
+  const bar = add(new THREE.CylinderGeometry(0.025, 0.025, 0.74, 10), chrome, 0.34, 0.47, 0); bar.rotation.x = Math.PI / 2;   // the handlebar
+  for (const k of [-1, 1]) {
+    const grip = add(new THREE.CylinderGeometry(0.036, 0.036, 0.13, 12), black, 0.34, 0.47, k * 0.33); grip.rotation.x = Math.PI / 2;
+    add(new RoundedBoxGeometry(0.03, 0.08, 0.13, 2, 0.01), chrome, 0.7, 0.34, k * 0.36);                          // mirrors
+  }
+  for (const k of [-1, 1]) add(new THREE.BoxGeometry(0.5, 0.012, 0.05), white, 0.62, 0.27, k * 0.22, -0.18);       // a white stripe on the hood
+  m.root.add(ski);
+  m.jetski = ski; m.nozzle = nozzle; m.pedal = null; m.steers = false; m.stance = 0.33;
+  m.grips = new THREE.Vector3(0.34, 0.47, 0); m.pegs = new THREE.Vector3(-0.3, -0.04, 0);
+  return m;
+}
 /** Skis instead of a board (Carvvd's other choice): two skis under the feet, the rider facing down them, a pole in each
     hand. m.board is the pair (so it's treated like a board), m.skis says which. */
 function skify(m, color) {
@@ -1070,7 +1144,7 @@ export function poseBike(m, s, place, heading, t) {
     tD.set(grips.x, grips.y, z * 0.36);
     if (m.steers) tD.sub(FORK_0).applyQuaternion(qSteer).add(FORK_0);   // (the grips turn with the bars)
     if (tk && tk.hand) tD.lerp(tA.set(sho.x + tk.hand[0], sho.y + tk.hand[1], z * tk.hand[2]), tp);
-    if (fig) figLimb(fig, `arm${i}`, tC, tD, poleArm[i]);
+    if (fig) { if (tk && tk.hand && tp > 0.3) figLimb(fig, `arm${i}`, tC, tD, poleArm[i]); else figGrip(fig, i, z, tD, poleArm[i]); }   // (off the bars in a no-hander)
     else {
       ik(tB, tD, 0.3, 0.3, poleArm[i], tC);
       placeLimb(P.upperArm[i], tB, tC); placeLimb(P.foreArm[i], tC, tD);

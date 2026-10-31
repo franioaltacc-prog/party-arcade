@@ -160,6 +160,15 @@
       "areaKm2": 5.1,
       "gaps": 0,
       "pools": 0
+    },
+    {
+      "id": "azurebay",
+      "name": "Azure Bay",
+      "file": "azurebay.json",
+      "areaKm2": 16.0,
+      "hidden": true,
+      "gaps": 0,
+      "pools": 0
     }
   ]
 }

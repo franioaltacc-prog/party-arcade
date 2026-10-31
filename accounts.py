@@ -170,7 +170,8 @@ daily_key = lambda: "mchdaily" + datetime.datetime.now(datetime.timezone.utc).st
 # board of its own for the week ("mch-weekly"; the stat is mchweekly<week>).
 week_number = lambda: int(time.time() // 86400 // 7)
 weekly_key = lambda: f"mchweekly{week_number()}"
-weekly_challenge = lambda: MOTO_CHALLENGES[week_number() % len(MOTO_CHALLENGES)] if MOTO_CHALLENGES else None
+WEEKLY_POOL = [c for c in MOTO_CHALLENGES if not c.get("water")]   # (Wavvd's races came later: kept out, so the weekly pick didn't change)
+weekly_challenge = lambda: WEEKLY_POOL[week_number() % len(WEEKLY_POOL)] if WEEKLY_POOL else None
 SOLO["mch-weekly"] = ("mchweekly", 3000, 1_200_000)   # (the real limits are this week's challenge's: see solo)
 FASTEST.add("mch-weekly")
 BOARDS["mch_weekly"] = ("🗓️ This week's Weekly Challenge", None, "asc", "time")

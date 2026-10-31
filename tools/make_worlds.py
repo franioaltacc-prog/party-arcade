@@ -421,6 +421,34 @@ WORLDS = [
                      "forest": {"clear": 3, "loose": [32, 9], "dense": [75, 4.8], "outer": 6.5, "cuts": [[-5, -1100, 45], [0, 1130, 130], [150, 1060, 70]]},
                      "lodge": {"position": [150, 1075], "heading": -1.57, "floors": 6}},
     },
+    {
+        # Wavvd's bay: open water with pine-covered islands and sandy beaches, a pier off the mainland's beach (where you
+        # start), a lighthouse island, buoy courses, and the swell building out towards the open sea in the south.
+        # "sea": the water level and its Gerstner waves ([wavelength m, height m, direction °]), swell: [z from, z to,
+        # times] (bigger waves out to sea); the ground under it is the seabed (terrain.mjs, ocean.mjs)
+        "id": "azurebay", "name": "Azure Bay", "tagline": "Turquoise water, pine islands, waves to jump.", "theme": "alpine", "seed": 9917, "hidden": True,
+        "size": 4000, "baseHeight": -16, "cliff": [260, 300], "rise": 0.55, "buildings": False,
+        "palette": {"sky": "#8fc3ea", "low": "#5d8a4a", "high": "#9aa38a", "trail": "#c9b48a", "water": "#2aa7b8", "accent": "#18b6d6"},
+        "look": {"sky": {"sun": [38, 150], "turbidity": 2.2, "rayleigh": 1.1, "mie": 0.004, "exposure": 1.35, "fog": 0.2, "fogColor": "#bcd6ea"}, "forest": 1.4},
+        "sea": {"level": 0, "steep": 0.78, "swell": [-600, 1500, 1.9], "shallow": "#3fd6c6", "deep": "#073a5c", "clear": 0.12,
+                "waves": [[64, 0.5, 18], [38, 0.32, -14], [23, 0.22, 52], [14, 0.12, -38], [8.5, 0.06, 104], [5.2, 0.03, 12]]},
+        "terrain": {"noise": 7, "scale": 260, "crags": False,
+                    "hills": [[0, -2350, 62, 3400, 760], [-1050, -250, 30, 300, 240], [760, 320, 42, 330, 270], [-420, 980, 24, 190, 170],
+                              [1250, -620, 30, 230, 220], [150, 560, 17.2, 300, 70], [-1500, 700, 36, 260, 300], [1500, 1300, 26, 210, 180]]},
+        "spots": [("harbour", "Harbour Beach", 60, -1560, "dock", "The mainland's beach and its pier: where you start."),
+                  ("lighthouse", "Lighthouse Island", 750, 40, "tower", "Off the big island, under the lighthouse on its northern tip."),
+                  ("sandbar", "The Sandbar", 150, 470, "checkpoint", "A strip of sand just above the waves."),
+                  ("lagoon", "Pine Lagoon", -1050, 70, "cabin", "Calm water behind the west island."),
+                  ("open-sea", "Open Sea", 300, 1650, "lookout", "Out past the islands, where the big swell rolls in.")],
+        "routes": [],
+        "races": [],
+        "ramps": [],
+        "zones": [],
+        "features": {"piers": [[60, -1678, 0, 100, 4]], "lighthouse": [750, 130],
+                     "buoys": [[x, z, c] for x, z, c in
+                               [(-60, -1300, "#ff6a10"), (60, -1180, "#ffd23a"), (-60, -1060, "#ff6a10"), (60, -940, "#ffd23a"), (-60, -820, "#ff6a10"), (60, -700, "#ffd23a"),
+                                (500, -380, "#ff3b3b"), (980, -380, "#ff3b3b"), (1180, 240, "#ff3b3b"), (980, 760, "#ff3b3b"), (520, 760, "#ff3b3b"), (340, 260, "#ff3b3b")]]},
+    },
 ]
 
 
@@ -475,6 +503,7 @@ def build(w):
         **({"hidden": True} if w.get("hidden") else {}),
         **({"buildings": False} if w.get("buildings") is False else {}),
         **({"resort": True} if w.get("resort") else {}),
+        **({"sea": w["sea"]} if w.get("sea") else {}),
     }
 
 

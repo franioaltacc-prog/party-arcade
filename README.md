@@ -399,6 +399,12 @@ with an import map), everything else is drawn and synthesised in code (no model,
   by `forestScenery` in `nature.mjs` (full trees close by, simpler ones further, painted cards far off);
   `look.floodlights` and `features.lodge` in `open-world/slope.mjs`; `look.dusk`; `look.corridor` (how far off the
   run you may go: `offSlope` in `game.js`, `terrain.trailNearest`); `terrain.crags: false` and `boundary.rise`.
+  Wavvd (jet skis, `R.water`): a world with `"sea"` (Azure Bay, `azurebay`): `terrain.mjs` keeps the seabed as
+  `bedAt`, `heightAt` is the calm surface and `rideAt` the Gerstner waves (`waveAt`, the wall clock `waveTime`);
+  `open-world/ocean.mjs` draws the same waves on the graphics card (see-through by depth from a seabed picture, sky
+  reflection, foam, wakes from `wake()`), buoys, piers and the lighthouse; seabed caustics and sand in `materials.mjs`.
+  The jet ski is `jetskify` in `bike.js` (the dirt bike's physics with the `JETSKI` engine in `game.js`). Wavvd's
+  challenges have `"water": true` (kept out of the Weekly Challenge's pick, client and server).
   Challenges: `park` (start at a park; laps: `lapStep`), `avalanche` (`avalanche.js`, `avalancheStep`), `judges`, and
   the room-only Lantern Relay (`kind: relay`: teams, `g:pass`, the team finishes together; `games/moto/game.py`).
   The Weekly Challenge: `weeklyChallenge` in `chutes.js` and `weekly_challenge` in `accounts.py` (the same pick).

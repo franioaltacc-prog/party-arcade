@@ -108,7 +108,7 @@ export function buildTerrain(world) {
   }
  }
  const parks=[];
- for(const pad of [pads[0],pads[Math.min(pads.length-1,2)]]) {
+ for(const pad of world.sea?[]:[pads[0],pads[Math.min(pads.length-1,2)]]) {   // (none on a sea: they'd be under the water)
   const [px,pz]=pad.position,toward=Math.atan2(-px,-pz);
   for(const k of [0,1,-1,2,-2,3,-3,4,-4,5,-5,6,-6]) {
    const h=toward+k*.32,sx=Math.sin(h),sz=Math.cos(h),line=[];
@@ -514,7 +514,8 @@ export function buildTerrain(world) {
   if(river){ const d=riverDist(x,z),w=river.width; if(d>w*.42&&d<w*1.6) y=Math.max(y,river.level-.5+2.1*smooth((d-w*.42)/(w*.12))-60*smooth((d-w*1.3)/(w*.3))); }
   return y;
  }
- function heightAt(x,z) {
+ /** The ground itself (under the sea, the seabed). */
+ function landAt(x,z) {
   let y=rawHeight(x,z); const road=roadAt(x,z); if(road) y+=(road.height-y)*road.weight;
   for(const p of pads) { const d=Math.hypot(x-p.position[0],z-p.position[1]), weight=1-smooth((d-p.radius)/(p.radius*3)); if(weight>0)y+=(p.height-y)*weight; }
   y+=rampAt(x,z).y;
@@ -522,6 +523,33 @@ export function buildTerrain(world) {
   const w=wild(x,z); if(w>0) y+=landform(x,z)*w;
   return shore(x,z,y+cliffRise(x,z));
  }
+ // ---------------------------------------------------------------- the sea ("sea": { level, waves, swell })
+ // A sea world is water up to level: the ground under it is the seabed (bedAt), heightAt is the calm surface (where
+ // things float and riders are put back), and rideAt follows the waves. The waves are Gerstner waves (water moving in
+ // little circles, so the crests are sharp and the troughs wide), each [wavelength m, height m, direction °]; they die
+ // down over the last few metres to a beach, and swell: [z from, z to, times] makes them bigger out to sea. The same
+ // sums are worked out on the graphics card for the water you see (ocean.mjs), from the same clock (waveTime: the
+ // wall clock, so everyone's waves match).
+ const sea=world.sea||null;
+ const WAVES=(sea?.waves||[]).map(([L,A,deg])=>{const k=2*Math.PI/L,a=deg*Math.PI/180;return {k,A,dx:Math.cos(a),dz:Math.sin(a),w:Math.sqrt(9.81*k)};});
+ const steep=sea?.steep??.75;for(const w of WAVES)w.Q=steep/(w.k*w.A*Math.max(1,WAVES.length));
+ const waveTime=()=>(Date.now()%1e7)/1000;
+ /** How big the waves are at (x, z) (0..swell): calm in the shallows, bigger out to sea. */
+ function waveScale(x,z,bed=landAt(x,z)){
+  const depth=sea.level-bed,sw=sea.swell;
+  return smooth((depth-.3)/3.2)*(sw?1+(sw[2]-1)*smooth((z-sw[0])/(sw[1]-sw[0])):1);
+ }
+ /** The sea's surface height at (x, z) at time t (the point of the moving water that's over (x, z) now). */
+ function waveAt(x,z,t=waveTime()){
+  if(!WAVES.length) return sea.level;
+  const bed=landAt(x,z),f=waveScale(x,z,bed);if(f<=0) return sea.level;
+  let qx=x,qz=z;
+  for(let it=0;it<3;it++){let ox=0,oz=0;for(const w of WAVES){const c=Math.cos(w.k*(w.dx*qx+w.dz*qz)-w.w*t)*w.Q*w.A*f;ox+=w.dx*c;oz+=w.dz*c;}qx=x-ox;qz=z-oz;}
+  let y=0;for(const w of WAVES)y+=w.A*Math.sin(w.k*(w.dx*qx+w.dz*qz)-w.w*t);
+  return sea.level+y*f;
+ }
+ /** heightAt: the ground, or the calm sea over it. */
+ function heightAt(x,z){ const y=landAt(x,z); return sea&&y<sea.level?sea.level:y; }
  /** A rail or box under (x, z) to ride on: { y: its top, item, park } or null. */
  const railParks=parks2.filter(f=>f.park==='rails');
  function railAt(x,z){
@@ -533,8 +561,12 @@ export function buildTerrain(world) {
   return null;
  }
  /** The height you ride on: the ground, or the top of a rail or box. */
- function rideAt(x,z){ const y=heightAt(x,z); if(!railParks.length) return y; const r=railAt(x,z); return r&&r.y>y?r.y:y; }
+ function rideAt(x,z){
+  if(sea){ const y=landAt(x,z); return y<sea.level+2?Math.max(y,waveAt(x,z)):y; }   // (on the sea: the waves)
+  const y=heightAt(x,z); if(!railParks.length) return y; const r=railAt(x,z); return r&&r.y>y?r.y:y;
+ }
  function surfaceAt(x,z) {
+  if(sea) return landAt(x,z)<sea.level-.12?{kind:'water',grip:.62,roll:.004}:{kind:'sand',grip:.55,roll:.24};   // (run aground and you grind to a stop)
   if(features.length&&featureAt(x,z).weight>.5) return {kind:'trail',grip:.96,roll:.01};   // (gap jumps are packed dirt, whatever's round them)
   for(const s of world.surfaceZones) if(Math.hypot(x-s.position[0],z-s.position[1])<s.radius) return {kind:s.surface,grip:s.grip,roll:s.roll};
   const road=roadAt(x,z), jump=road?.trail?0:rampAt(x,z).weight;
@@ -552,6 +584,8 @@ export function buildTerrain(world) {
  }
  /** How the ground looks under water at (x, z) and height y: colour multipliers [r, g, b] (deeper is bluer), or null. */
  function tintAt(x,z,y) {
+  if(sea){ const d=sea.level-y; if(d<-2.2) return null; if(d<0){ const k=1-(-d)/2.2; return [1+.12*k,1+.04*k,1-.18*k]; }   // (a sandy beach just above the water)
+   const k=Math.min(1,d/9); return [1.08-.5*k,1.02-.22*k,.86-.02*k]; }   // (pale sand in the shallows, darker deeper down)
   let depth=0;
   if(lake&&!lake.frozen&&!lake.lava&&lakeDist(x,z)<1.05) depth=lake.level-y;
   if(river&&!river.lava&&riverDist(x,z)<river.width*.6) depth=Math.max(depth,river.level-y);
@@ -567,6 +601,6 @@ export function buildTerrain(world) {
   for(let i=0;i<=count;i++) { const p=routePoint(route,len*i/count); gates.push({...p,y:heightAt(p.x,p.z),radius:race.gateRadius,index:i}); }
   return gates;
  }
- return {world,rawHeight,cliffRise,heightAt,roadAt,rampAt,surfaceAt,normalAt,inBounds,nearestSafePad,gatesFor,wild,ramps,parks,mesas,routeDist,buildings,arches,obstacles,obstacleAt,obstaclesNear,
+ return {world,rawHeight,cliffRise,heightAt,bedAt:landAt,sea,waves:WAVES,waveAt,waveScale,waveTime,roadAt,rampAt,surfaceAt,normalAt,inBounds,nearestSafePad,gatesFor,wild,ramps,parks,mesas,routeDist,buildings,arches,obstacles,obstacleAt,obstaclesNear,
   featureAt,hazardAt,boostAt,tintAt,gaps,pools,boosts,gauntlets,gauntletIn,parkList:parks2,railAt,rideAt,addSolids,forestTrees,forestReach,trailNearest};
 }

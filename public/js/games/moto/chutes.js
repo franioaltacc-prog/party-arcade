@@ -109,7 +109,7 @@ export const weekNumber = (date = new Date()) => Math.floor(date.getTime() / 864
 /** This week's challenge: one of the race challenges in turn (Revvd's, Unrevvd's and Carvvd's), the same for everybody,
     with its own leaderboard for the week. all: every challenge (challenges.json's order, like the server's). */
 export function weeklyChallenge(all, date = new Date()) {
-  const races = all.filter((c) => c.kind === 'race' && !c.daily && !c.weekly);
+  const races = all.filter((c) => c.kind === 'race' && !c.daily && !c.weekly && !c.water);   // (Wavvd's races came later: kept out, so the weekly pick didn't change)
   if (!races.length) return null;
   const n = weekNumber(date); const base = races[n % races.length];
   return { ...base, id: 'weekly-' + n, base: base.id, weekly: { n }, name: 'Weekly: ' + base.name, emoji: '🗓️',
