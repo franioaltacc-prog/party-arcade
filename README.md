@@ -410,7 +410,7 @@ with an import map), everything else is drawn and synthesised in code (no model,
   (`sled`: `sledify`, the dirt bike's physics with `SLED`), Drivvd (`buggy`: `car.js` `setSpec('buggy')`, the
   buggy built in `car-model.js`), Skyvvd (`wing`: `wing.js`, its own flight physics, drawn and followed like a car;
   the flyer and parachute in `car-model.js`) and Grindvvd (`skate`: `skateify`, the mountain bike's physics with
-  `SKATE`, on Concrete Coast, `skateplaza`, a `"paved"` world). Challenges newer than the Weekly pool carry `"since"`
+  `SKATE`, on Concrete Coast, `skateplaza`, a `"paved"` world). Their model files: `public/models/moto/buggy.glb`, `parachute.glb` (`preloadExtra` in `car-model.js`; the buggy's wheels are found by position and put on springs in `fitBuggy`) and `skateboard.glb` (`preloadSkateboard` in `bike.js`); the wingsuit's flyer is your rider in its T-pose (`makeWingsuit` in `game.js`). The menus: one Modes tab (`MODES`, `modeKey` in `menus.js`). Challenges newer than the Weekly pool carry `"since"`
   (kept out of it). Gate courses: a challenge's `"gates"` ([x, z, radius, height?], `gateStep`). The sky for free
   ride: `SKIES` / `applySky` in `game.js`. Career: `career.js` (worked out from medals and bests). Today's challenge:
   `todaysChallenge` in `chutes.js`. Friends' ghosts: `ghost:friends` and the `my_ghosts` table in `accounts.py`.

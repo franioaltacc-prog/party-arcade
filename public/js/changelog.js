@@ -6,6 +6,13 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.22.1', date: '2026-10-31', emoji: '🧭', title: 'Tidier menus and real models for the new modes', items: [
+      'The tabs fit on one line again: every mode is in the new 🧭 Modes tab (it shows the mode you’re in), with all seven in one grid. The home screen has a More modes card too',
+      'Mode pages are shorter: the sky and snowfall pickers are one row each, and your vehicle’s colours are in the Garage (one tap from each mode). The Garage now has every vehicle, the snowmobile, buggy, wingsuit and skateboard included',
+      'Skyvvd: your rider is in the wingsuit now, face down with arms and legs spread between the wings, and the parachute is a proper ram-air canopy on its lines',
+      'Drivvd: a real dune buggy model (tube frame, engine and exhaust out back, a driver in the seat), its frame in your paint, the wheels still bouncing on their springs',
+      'Grindvvd: a real skateboard model under your feet, tinted your colour',
+    ] },
     { v: '3.22.0', date: '2026-10-31', emoji: '🎖️', title: 'Four new modes, Career, and lots more for every mode', items: [
       'New mode: 🛷 Sledvvd. Snowmobiles on Frostpeak, Powder Peak and Twilight Slope. Lots of pull from low down, so it climbs where a bike can’t. Four challenges, including the Summit Climb all the way up Powder Peak',
       'New mode: 🚙 Drivvd. A rally buggy with big knobbly tyres and long soft springs that soak up the jumps, on the desert worlds. Three challenges, including a Desert Rally stage with checkpoints',

@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildWorld } from './world.js';
-import { makeBike, boardify, jetskify, sledify, skateify, poseBike, seatRider, disposeBike, preloadBike, bikesLoaded, LIVERIES, MODELS, MTB_MODELS, MTB_RIDERS, RIDERS, KITS, HELMETS } from './bike.js';
+import { makeBike, boardify, jetskify, sledify, skateify, preloadSkateboard, poseBike, seatRider, disposeBike, preloadBike, bikesLoaded, LIVERIES, MODELS, MTB_MODELS, MTB_RIDERS, RIDERS, KITS, HELMETS } from './bike.js';
 import { createAudio } from './sound.js';
 import { createMenus } from './menus.js';
 import {buildRideWorld} from './open-world/ride-world.mjs';
@@ -21,7 +21,7 @@ import * as Career from './career.js';
 import { createMap } from './map.js';
 import * as Car from './car.js';
 import * as Wing from './wing.js';
-import { makeCar, poseCar, disposeCar, preloadCar, CAR_PAINTS, CAR_MODELS, paintable } from './car-model.js';
+import { makeCar, poseCar, disposeCar, preloadCar, preloadExtra, CAR_PAINTS, CAR_MODELS, paintable } from './car-model.js';
 
 const { $, $$, h, fill, Net, Sfx, UI, store, Account, Unlocks } = PA;
 const FX = PA.FX || {};
@@ -569,7 +569,19 @@ function placer(sn) {
   return (x, y, out) => out.set(sn.px + c * (x - sn.x), y, sn.pz + n * (x - sn.x));
 }
 const clampN = (v, a, b) => (v < a ? a : v > b ? b : v);
-const disposeModel = (m) => (m.car ? disposeCar(m) : disposeBike(m));
+const disposeModel = (m) => { if (m.flyer) disposeBike(m.flyer); return m.car ? disposeCar(m) : disposeBike(m); };
+/** Skyvvd's wingsuit with a real rider in it: your Unrevvd rider in the model's T-pose (arms out, legs straight), lying
+    face down between the wings (the code-built flyer's body hidden). color: the suit; ghost: a see-through ghost's. */
+function makeWingsuit(color, ghost = null) {
+  const m = makeCar('wing', color || '#ff4fa3', ghost);
+  const r = makeBike({ ...mtbLook(), ...(ghost ? { ghost } : {}) }); const fig = r.rider; if (!fig) return m;
+  fig.removeFromParent(); fig.position.set(0, 0, 0); fig.rotation.set(0, 0, 0); fig.scale.setScalar(fig.scale.x);
+  fig.traverse((o) => { if (o.isSkinnedMesh) { o.skeleton.pose(); o.frustumCulled = false; } });
+  const holder = new THREE.Group(); holder.add(fig); holder.rotation.z = -Math.PI / 2; holder.position.set(WING_FIT.x, WING_FIT.y, 0); holder.rotation.y = WING_FIT.turn;   // (head forward, face down)
+  m.body.add(holder); for (const p of m.man || []) p.visible = false;
+  m.flyer = r; return m;
+}
+const WING_FIT = { x: -1.0, y: 0.12, turn: 0 };
 function render(now, dt, alpha) {
   const w = world; const b = R.bike;
   const s = mix(R.prev, R.cur, alpha);
@@ -1057,13 +1069,14 @@ async function startFree(entry, opts = {}){
     const ov=opts.online&&!ch?prefs.vehicle:null;if(ov==='board')opts={...opts,board:true};if(ov==='jet')opts={...opts,water:true};   // (a room's free ride: the snowboard or jet ski you picked there)
     const mtb=ch?ch.vehicle==='mtb':opts.online&&!opts.board?prefs.vehicle==='mtb':!!(opts.mtb||opts.board);const tow=!ch&&!!opts.tow;const veh=ch?(['sled','buggy','skate','wing'].includes(ch.vehicle)?ch.vehicle:null):opts.veh||null;const sled=veh==='sled';let water=!!(ch?ch.water:opts.water||tow);   // (wakeboarding: on the water too, behind a boat)   // (Wavvd: a jet ski)
     const def=await response.json();if(ov==='jet'&&!def.sea)water=false;   // (no sea in this world: your dirt bike)
-    await preloadBike(mtb?prefs.mtbModel:myLook().model,(ch?ch.board:opts.board)?'snow':mtb||water||veh==='skate'?mtbRider():myLook().rider);
+    await preloadBike(mtb?prefs.mtbModel:myLook().model,(ch?ch.board:opts.board)?'snow':mtb||water||veh==='skate'||veh==='wing'?mtbRider():myLook().rider);
     if(opts.daily)Object.assign(def,{id:'daily',name:'Daily Chute',seed:opts.daily.seed});
     if(!ch)applySky(def,SKIES[prefs.sky]?prefs.sky:'day');
     if(!ch&&opts.board&&def.theme==='snow'&&!(prefs.sky==='storm'))def.look={...(def.look||{}),weather:WEATHER[prefs.weather]?prefs.weather:'snow'};   // (Carvvd's free ride: your weather)   // (today's gully: a chute's look, its own trees)
     let nature=def.gauntlets?.length||def.features?.forest?await loadNature().catch((e)=>{console.warn('nature models',e);return null;}):null;   // (real trees and rocks for a gauntlet or a ski run's forest)
     if(nature&&def.gauntlets?.some(g=>g.aspens))nature={...nature,aspens:await loadAspens().catch(()=>null)};   // (the Autumn Chute's aspens)
     if(nature&&def.features?.forest)nature={...nature,spruces:await loadSpruces().catch(()=>null)};   // (a ski run's spruces)
+    if(veh==='buggy'||veh==='wing'||veh==='skate')await (veh==='buggy'?preloadExtra('buggy'):veh==='wing'?preloadExtra('parachute'):preloadSkateboard());   // (the newer modes' model files)
     if(!ch&&!mtb&&!water&&!veh&&prefs.vehicle==='car')await preloadCar(prefs.carModel);if(!riding||R.ride!==ride)return;
     for(const o of R.others.values())dropOther(o);R.others.clear();
     if(R.model){disposeModel(R.model);R.model=null;}
@@ -1089,7 +1102,7 @@ async function startFree(entry, opts = {}){
     R.board=!!(ch?ch.board:opts.board);   // (Carvvd: a board instead of a bike, no pedalling: it's all gravity)
     R.T=C.groundTrack(world.ground,spawn,water&&!tow?JETSKI:sled?SLED:engine,veh==='skate'?SKATE:mtb?(R.board?(ch?BOARD:BOARD_FREE):ch?{}:Coins.MTB.current().stats):null);R.bike=R.V.newBike(R.T);R.bike.board=R.board||tow||veh==='skate';   // (a board spins 180s, 540s…)
     if(R.wing){R.T.launch=spawn;if(!ch){const g=world.ground,[x0,z0]=spawn.position;let best=null;for(let a=0;a<6.28;a+=0.2){const d=[0,1,2,3].reduce((m,k)=>m+g.heightAt(x0+Math.sin(a)*(300+k*300),z0+Math.cos(a)*(300+k*300)),0);if(!best||d<best.d)best={d,a};}spawn.heading=best.a;R.T.launch=spawn;R.V.place(R.T,R.bike,spawn);}}   // (free flight: out of the helicopter facing the way the mountain falls away)
-    R.model=R.wing?makeCar('wing',wingColor()):R.buggy?makeCar('buggy',buggyPaint()):R.car?makeCar(prefs.carModel,prefs.carPaint):makeBike(R.board?boardLook():mtb||veh==='skate'?mtbLook():water?jetLook():myLook());if(R.board)boardify(R.model,boardColor(),gear());if(tow){boardify(R.model,jetColor(),'board');R.model.wakes=true;}else if(water)jetskify(R.model,jetColor());else if(sled)sledify(R.model,sledColor());else if(R.skate)skateify(R.model,skateColor());world.scene.add(R.model.root);coverOn(R.model);
+    R.model=R.wing?makeWingsuit(wingColor()):R.buggy?makeCar('buggy',buggyPaint()):R.car?makeCar(prefs.carModel,prefs.carPaint):makeBike(R.board?boardLook():mtb||veh==='skate'?mtbLook():water?jetLook():myLook());if(R.board)boardify(R.model,boardColor(),gear());if(tow){boardify(R.model,jetColor(),'board');R.model.wakes=true;}else if(water)jetskify(R.model,jetColor());else if(sled)sledify(R.model,sledColor());else if(R.skate)skateify(R.model,skateColor());world.scene.add(R.model.root);coverOn(R.model);
     R.tracks=createTracks(world.scene,(x,z)=>world.ground.heightAt(x,z),(x,z)=>world.ground.surfaceAt(x,z),{snowing:world.snowing});   // (grooves and tyre tracks)
     if(opts.online&&state.race){fillOthers(state.race);if(ch)for(const o of R.others.values())addOtherModel(o);}   // (free ride: each rider's bike or car appears with their first message)
     R.prev=R.cur=snap(R.bike);R.acc=0;R.last=performance.now();R.finished=false;R.cam.init=false;R.stuck=0;R.emitAcc=0;R.roll=0;R.best=null;R.beeped=0;R.safeTrail=[];R.retry=null;R.toPad=false;
@@ -1390,7 +1403,7 @@ async function loadGhosts(ch) {
 function addGhost(data, label, color, name = null) {
   const frames = Chutes.ghostFrames(data);
   if (!frames || !frames.length || !world) return;
-  const model = R.car ? makeCar(R.wing ? 'wing' : R.buggy ? 'buggy' : prefs.carModel, null, color) : makeBike({ ...(R.board ? boardLook() : R.water ? jetLook() : mtbLook()), ghost: color }); if (!R.car) { if (R.board) boardify(model, color, gear()); if (R.water) jetskify(model, color); if (R.sled) sledify(model, color); if (R.skate) skateify(model, color); } world.scene.add(model.root);
+  const model = R.wing ? makeWingsuit(null, color) : R.car ? makeCar(R.buggy ? 'buggy' : prefs.carModel, null, color) : makeBike({ ...(R.board ? boardLook() : R.water ? jetLook() : mtbLook()), ghost: color }); if (!R.car) { if (R.board) boardify(model, color, gear()); if (R.water) jetskify(model, color); if (R.sled) sledify(model, color); if (R.skate) skateify(model, color); } world.scene.add(model.root);
   const tag = nameTag(label, color); world.scene.add(tag);
   R.ghosts.push({ frames, model, tag, ang: [0, 0], name });
 }
@@ -1834,7 +1847,7 @@ function addOtherModel(o) {
   dropOther(o);
   o.lane = laneFor(o.id);
   const st = state.styles[o.id] || {};
-  if (R.buggy || R.wing) { o.model = R.wing ? makeCar('wing', st.wing || '#ff4fa3') : makeCar('buggy', st.buggy || 'arancio'); world.scene.add(o.model.root); o.tag = nameTag(o.name, o.color); world.scene.add(o.tag); return; }   // (a Drivvd challenge: everyone's in a buggy)
+  if (R.buggy || R.wing) { o.model = R.wing ? makeWingsuit(st.wing || '#ff4fa3') : makeCar('buggy', st.buggy || 'arancio'); world.scene.add(o.model.root); o.tag = nameTag(o.name, o.color); world.scene.add(o.tag); return; }   // (a Drivvd challenge: everyone's in a buggy)
   o.model = makeBike({ ...st, ...(R.mtb ? { model: MTB_MODELS[st.mtb] ? st.mtb : 'dh', rider: R.board ? 'snow' : mtbRider(st.mrider) } : {}), ghost: o.color });   // (an Unrevvd challenge: everyone's on a mountain bike, as their Unrevvd rider)
   if (R.board) boardify(o.model, o.color, st.cgear === 'skis' ? 'skis' : 'board');   // (everyone in a Carvvd challenge is on a board or skis)
   if (R.water) jetskify(o.model, o.color); if (R.sled) sledify(o.model, o.color); if (R.skate) skateify(o.model, o.color);
@@ -1857,8 +1870,8 @@ function ensureOtherModel(o, m) {
   const kind = m.v === 8 ? `wing:${st.wing || ''}` : m.v === 7 ? `buggy:${st.buggy || ''}` : m.v === 1 ? `car:${carId}:${st.paint || ''}` : `${m.v >= 2 && m.v !== 6 ? `v${m.v}:` + mtbId + ':' + mtbRider(st.mrider) : 'bike'}:${bikesLoaded()}`;   // (a bike model file that has just loaded replaces its stand-in)
   if (o.kind === kind && o.model) return;
   dropOther(o); o.kind = kind;
-  if (m.v === 8) o.model = makeCar('wing', st.wing || '#ff4fa3');   // (Skyvvd)
-  else if (m.v === 7) o.model = makeCar('buggy', st.buggy || 'arancio');   // (Drivvd)
+  if (m.v === 8) { o.model = makeWingsuit(st.wing || '#ff4fa3'); preloadExtra('parachute'); }   // (Skyvvd)
+  else if (m.v === 7) { o.model = makeCar('buggy', st.buggy || 'arancio'); preloadExtra('buggy').then((ok) => { if (ok && o.kind === kind) o.kind = null; }); }   // (Drivvd: the model swaps in once it's loaded)
   else if (m.v === 1) {
     o.model = makeCar(carId, st.paint || 'arancio');
     // (the model file may still be loading: it shows as the wedge until then, and is swapped in once it's here)

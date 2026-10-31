@@ -5,6 +5,7 @@
    the ground 0.74 m below it. */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 export const CAR_MODELS = {
   revuelto: { name: 'Revuelto', emoji: '🧡', about: 'Lamborghini Revuelto (model by ALIEEEN, CC BY)', file: '/models/moto/revuelto.glb', paint: 'Body' },
@@ -176,11 +177,46 @@ function makeWedge(paintId = 'arancio', ghost = null) {
   return { root, body, wheels, car: true, ghost: !!ghost, materials: Object.values(M).filter((m, i, a) => a.indexOf(m) === i) };
 }
 
+// ------------------------------------------------------------------ the newer modes' model files
+/* Drivvd's buggy ("Buggy" by Nick Slough) and Skyvvd's parachute ("Parachute" by Poly by Google), both CC BY 3.0 via
+   Poly Pizza. Until they've loaded (or if they can't), the code-built ones stand in. */
+const extras = {}; const extraLoading = {};
+export function preloadExtra(name) {
+  if (extras[name]) return Promise.resolve(true);
+  return extraLoading[name] ||= new Promise((resolve) => new GLTFLoader().load(`/models/moto/${name}.glb`, (g) => { extras[name] = g.scene; resolve(true); }, undefined, (e) => { console.warn(name, e); resolve(false); }));
+}
+/** The buggy model fitted to car.js's buggy (made once, then shared): its body merged into one mesh per material, in car
+    coordinates, and each wheel's parts centred on its hub, scaled to the physics' wheel size. The model points along
+    -x, its small wheels at the front: turned round, scaled to the physics' wheelbase and moved onto its axles. */
+let buggyFit = null;
+function fitBuggy() {
+  if (buggyFit || !extras.buggy) return buggyFit;
+  const src = extras.buggy; src.updateMatrixWorld(true);
+  const s = 2.55 / 2.06; const hubs = [[-1.27, -0.29, -0.585], [-1.27, -0.29, 0.585], [0.785, -0.175, -0.765], [0.785, -0.175, 0.765]];   // (front left, front right, rear left, rear right, in the model)
+  const F = new THREE.Matrix4().makeTranslation(-0.27, -0.16, 0).multiply(new THREE.Matrix4().makeScale(s, s, s)).multiply(new THREE.Matrix4().makeRotationY(Math.PI));
+  const toCar = (x, y, z) => new THREE.Vector3(x, y, z).applyMatrix4(F);
+  const hubsCar = hubs.map((h) => toCar(...h)); const radii = [0.255, 0.255, 0.31, 0.31].map((r) => r * s);
+  const body = new Map(); const wheels = [[], [], [], []]; const box = new THREE.Box3(); const c = new THREE.Vector3();
+  src.traverse((o) => {
+    if (!o.isMesh) return;
+    const g = o.geometry.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(F, o.matrixWorld)); g.computeBoundingBox(); g.boundingBox.getCenter(c);
+    const sz = g.boundingBox.getSize(new THREE.Vector3());
+    const w = hubsCar.findIndex((hc) => Math.hypot(hc.x - c.x, hc.y - c.y) < 0.12 && Math.abs(hc.z - c.z) < 0.25 && Math.max(sz.x, sz.y) < 0.9);
+    for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
+    if (!g.attributes.normal) g.computeVertexNormals();
+    if (w >= 0) { const k = 0.42 / radii[w]; g.translate(-hubsCar[w].x, -hubsCar[w].y, -hubsCar[w].z).scale(k, k, 1); wheels[w].push([g, o.material]); return; }
+    const key = o.material.uuid + (g.attributes.uv ? 'u' : ''); if (!body.has(key)) body.set(key, [o.material, []]); body.get(key)[1].push(g);
+  });
+  buggyFit = { body: [...body.values()].map(([m, gs]) => [mergeGeometries(gs.map((g) => (g.index ? g.toNonIndexed() : g))), m]), wheels };
+  return buggyFit;
+}
+
 /** Drivvd's rally buggy, built from code: a tube-frame cage over a floor pan, a short nose, the engine out back with
     its exhaust and a spare wheel, a light bar on the roof, a helmeted driver, and four big knobbly tyres on long
     springs (car.js's buggy spec: the ground is 0.87 m below the middle). */
 function makeBuggy(paintId = 'arancio', ghost = null) {
   const GR = -0.87; const paintCol = (CAR_PAINTS[paintId] || CAR_PAINTS.arancio).color;
+  const fit = fitBuggy(); if (fit) return modelBuggy(fit, paintCol, ghost);
   const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.15, ...o });
   const M = ghost
     ? (() => { const m = new THREE.MeshStandardMaterial({ color: ghost, transparent: true, opacity: 0.4, depthWrite: false }); return new Proxy({}, { get: () => m }); })()
@@ -246,21 +282,31 @@ function makeWing(color = '#ff4fa3', ghost = null) {
   const root = new THREE.Group(); root.rotation.order = 'YZX';
   const body = new THREE.Group(); root.add(body);
   const add = (g, m, x = 0, y = 0, z = 0, parent = body) => { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); o.castShadow = !ghost; parent.add(o); return o; };
+  const man = [];   // (the code-built flyer: game.js puts a real rider in its place)
   // the wing: its outline seen from above (x forward, the shape's y across), both halves
   const half = [[0.42, 0], [0.32, 0.18], [0.16, 0.86], [0.02, 0.9], [-0.42, 0.42], [-0.62, 0.32], [-1.02, 0.2], [-1.08, 0]];
   const shape = new THREE.Shape(); [...half, ...half.slice(1, -1).reverse().map(([x, z]) => [x, -z])].forEach(([x, z], i) => (i ? shape.lineTo(x, z) : shape.moveTo(x, z)));
-  add(new THREE.ExtrudeGeometry(shape, { depth: 0.03, bevelEnabled: false }).rotateX(Math.PI / 2), M.suit, 0, 0.02, 0);
-  for (const k of [-1, 1]) add(new THREE.BoxGeometry(0.06, 0.035, 0.7), M.white, 0.22, 0.03, k * 0.5).rotation.y = k * 0.1;   // (a stripe on each arm wing)
-  add(new THREE.CapsuleGeometry(0.16, 0.5, 4, 10).rotateZ(Math.PI / 2), M.dark, -0.05, 0.05, 0);   // the body
+  add(new THREE.ExtrudeGeometry(shape, { depth: 0.03, bevelEnabled: false }).rotateX(Math.PI / 2), M.suit, 0.1, 0.02, 0);
+  for (const k of [-1, 1]) { man.push(add(new THREE.BoxGeometry(0.06, 0.035, 0.7), M.white, 0.22, 0.03, k * 0.5)); man.at(-1).rotation.y = k * 0.1; }   // (a stripe on each arm wing)
+
+  man.push(add(new THREE.CapsuleGeometry(0.16, 0.5, 4, 10).rotateZ(Math.PI / 2), M.dark, -0.05, 0.05, 0));   // the body
   for (const k of [-1, 1]) {
-    add(new THREE.CapsuleGeometry(0.05, 0.75, 4, 8).rotateX(Math.PI / 2), M.suit, 0.2, 0.05, k * 0.48).rotation.y = k * 0.18;   // arms along the leading edge
-    add(new THREE.CapsuleGeometry(0.07, 0.6, 4, 8).rotateZ(Math.PI / 2), M.dark, -0.72, 0.04, k * 0.13).rotation.y = -k * 0.12;   // legs
-    add(new THREE.BoxGeometry(0.22, 0.09, 0.1), M.dark, -1.1, 0.05, k * 0.17);   // shoes
+    man.push(add(new THREE.CapsuleGeometry(0.05, 0.75, 4, 8).rotateX(Math.PI / 2), M.suit, 0.2, 0.05, k * 0.48)); man.at(-1).rotation.y = k * 0.18;   // arms along the leading edge
+    man.push(add(new THREE.CapsuleGeometry(0.07, 0.6, 4, 8).rotateZ(Math.PI / 2), M.dark, -0.72, 0.04, k * 0.13)); man.at(-1).rotation.y = -k * 0.12;   // legs
+    man.push(add(new THREE.BoxGeometry(0.22, 0.09, 0.1), M.dark, -1.1, 0.05, k * 0.17));   // shoes
   }
-  add(new THREE.SphereGeometry(0.14, 16, 12), M.helmet, 0.48, 0.07, 0);
-  add(new THREE.BoxGeometry(0.06, 0.07, 0.17), M.visor, 0.6, 0.06, 0);
+  man.push(add(new THREE.SphereGeometry(0.14, 16, 12), M.helmet, 0.48, 0.07, 0));
+  man.push(add(new THREE.BoxGeometry(0.06, 0.07, 0.17), M.visor, 0.6, 0.06, 0));
   // the parachute: a ram-air canopy (bent across), its lines to the shoulders
   const chute = new THREE.Group(); chute.visible = false; root.add(chute);
+  if (extras.parachute) {   // (the model: a ram-air canopy on its lines, the harness at its bottom on your shoulders)
+    const p = extras.parachute.clone(true); p.scale.setScalar(0.72); p.rotation.y = Math.PI / 2; p.position.y = 1.15;
+    if (ghost) p.traverse((o) => { if (o.isMesh) o.material = M.suit; });
+    chute.add(p);
+    if (ghost) root.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.renderOrder = 2; } });
+    return { root, body, wheels: [], car: true, wing: true, chute, man, file: true, ghost: !!ghost, materials: Object.values(M).filter((m, i, a) => a.indexOf(m) === i),
+      dispose: () => body.traverse((o) => o.geometry?.dispose()) };
+  }
   const cg = new THREE.BoxGeometry(1.2, 0.22, 3.2, 6, 1, 16); const cp = cg.attributes.position;
   for (let i = 0; i < cp.count; i++) { const z = cp.getZ(i); const x = cp.getX(i); cp.setY(i, cp.getY(i) - z * z * 0.1 + (x > 0 ? 0.06 : 0)); }
   cg.computeVertexNormals();
@@ -271,7 +317,37 @@ function makeWing(color = '#ff4fa3', ghost = null) {
   const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(lines, 3));
   chute.add(new THREE.LineSegments(lg, M.line));
   if (ghost) root.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.renderOrder = 2; } });
-  return { root, body, wheels: [], car: true, wing: true, chute, ghost: !!ghost, materials: Object.values(M).filter((m, i, a) => a.indexOf(m) === i) };
+  return { root, body, wheels: [], car: true, wing: true, chute, man, ghost: !!ghost, materials: Object.values(M).filter((m, i, a) => a.indexOf(m) === i) };
+}
+
+/** The buggy from its model file: the shared body (the orange of its frame in your paint), the wheels on their springs,
+    and the code-built driver in the seat. */
+function modelBuggy(fit, paintCol, ghost) {
+  const ghostMat = ghost ? new THREE.MeshStandardMaterial({ color: ghost, transparent: true, opacity: 0.4, depthWrite: false }) : null;
+  const mats = new Map(); const own = [];
+  const matFor = (m) => {
+    if (ghostMat) return ghostMat;
+    if (!mats.has(m)) { const hsl = {}; m.color?.getHSL(hsl); const orange = hsl.s > 0.5 && (hsl.h < 0.11 || hsl.h > 0.96) && hsl.l > 0.2;   // (its red-orange frame and panels)
+      const mm = orange ? m.clone() : m; if (orange) { mm.color.set(paintCol); own.push(mm); } mats.set(m, mm); }
+    return mats.get(m);
+  };
+  const root = new THREE.Group(); root.rotation.order = 'YZX';
+  const body = new THREE.Group(); root.add(body);
+  for (const [g, m] of fit.body) { const o = new THREE.Mesh(g, matFor(m)); o.castShadow = !ghost; o.receiveShadow = !ghost; if (ghost) o.renderOrder = 2; body.add(o); }
+  const WH = [[1.3, -0.92], [1.3, 0.92], [-1.25, -0.92], [-1.25, 0.92]];
+  const wheels = WH.map(([x, z], i) => {
+    const g = new THREE.Group(); g.position.set(x, -0.45, z); root.add(g);
+    const spinG = new THREE.Group(); g.add(spinG);
+    for (const [geo, m] of fit.wheels[i]) { const o = new THREE.Mesh(geo, matFor(m)); o.castShadow = !ghost; spinG.add(o); }
+    return { g, spinG, x, z };
+  });
+  // the driver: suit and helmet (the paint), sat in the seat
+  const suit = ghostMat || new THREE.MeshStandardMaterial({ color: '#e8452f', roughness: 0.8 }); const helmet = ghostMat || new THREE.MeshPhysicalMaterial({ color: paintCol, roughness: 0.3, clearcoat: 1 });
+  const visor = ghostMat || new THREE.MeshStandardMaterial({ color: '#0d1117', roughness: 0.1, metalness: 0.6 }); if (!ghost) own.push(suit, helmet, visor);
+  const add = (geo, m, x, y, z) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = !ghost; body.add(o); own.push(geo); return o; };
+  add(new THREE.CapsuleGeometry(0.19, 0.32, 4, 10), suit, -0.3, 0.12, 0); add(new THREE.SphereGeometry(0.16, 16, 12), helmet, -0.26, 0.5, 0); add(new THREE.BoxGeometry(0.06, 0.08, 0.2), visor, -0.12, 0.5, 0);
+  return { root, body, wheels, car: true, buggy: true, file: true, susp: { mount: -0.12, rest: 0.52, travel: 0.5 }, ghost: !!ghost,
+    materials: ghostMat ? [ghostMat] : own.filter((m) => m.isMaterial), dispose: () => own.forEach((x) => !x.isMaterial && x.dispose()) };
 }
 
 /** Move the car to a snapshot: s.px, s.pz, s.y, s.h (MotoCore heading), s.car = { p: pitch, r: roll, st: steer, w: [front spin, rear spin], c: [4 spring compressions] }. */
@@ -290,6 +366,7 @@ export function poseCar(m, s) {
 }
 
 export function disposeCar(m) {
+  m.dispose?.();   // (its own parts: a model file's shared geometry stays)
   if (!m.file) m.root.traverse((o) => { if (o.isMesh) o.geometry.dispose(); });   // (a model file's geometry is shared by every car made from it)
   for (const mat of m.materials) mat.dispose();
   if (m.root.parent) m.root.parent.remove(m.root);

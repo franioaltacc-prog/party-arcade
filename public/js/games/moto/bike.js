@@ -1002,6 +1002,13 @@ export function jetskify(m, color = '#18b6d6') {
   m.grips = new THREE.Vector3(0.34, 0.47, 0); m.pegs = new THREE.Vector3(-0.3, -0.04, 0);
   return m;
 }
+/** Grindvvd's skateboard model ("Skateboard" by Poly by Google, CC BY 3.0, via Poly Pizza; smaller texture). Until
+    it's loaded (or if it can't be), skateify builds one from code. */
+let skateSrc = null; let skateLoading = null;
+export function preloadSkateboard() {
+  if (skateSrc) return Promise.resolve(true);
+  return skateLoading ||= new Promise((resolve) => new GLTFLoader().load('/models/moto/skateboard.glb', (g) => { skateSrc = g.scene; resolve(true); }, undefined, (e) => { console.warn('skateboard', e); resolve(false); }));
+}
 /** A skateboard instead of a bike (Grindvvd): a maple deck with kicked-up nose and tail, black grip tape, two trucks
     and four wheels; the rider stands across it like a snowboarder. m.board is the deck (posed like a board). */
 export function skateify(m, color = '#ff4fa3') {
@@ -1012,6 +1019,16 @@ export function skateify(m, color = '#ff4fa3') {
   const metal = ghost ? wood : new THREE.MeshStandardMaterial({ color: '#c3c9d1', roughness: 0.3, metalness: 0.9 });
   const urethane = ghost ? wood : new THREE.MeshStandardMaterial({ color: '#f4efe2', roughness: 0.55 });
   const deck = new THREE.Group();
+  if (skateSrc) {   // (the model: 5.96 long along x, its wheels on y = 0; scaled to a real 0.82 m deck, wheels where the code-built ones go)
+    const k = 0.82 / 5.96; const b = skateSrc.clone(true); b.scale.setScalar(k); b.position.y = -0.078;
+    b.traverse((o) => { if (o.isMesh) { o.castShadow = !ghost; o.material = ghost ? wood : o.material.clone(); if (!ghost) o.material.color.set('#ffffff').lerp(new THREE.Color(color), 0.55); } });   // (tinted your colour)
+    deck.add(b); deck.scale.setScalar(1.25); m.root.add(deck);
+    m.board = deck; m.skate = true; m.pedal = null; m.stance = 0.2; m.steers = false;
+    m.rider.rotation.y = -Math.PI / 2; m.rider.position.y = -0.3;
+    if (m.fig) for (const [bn, q] of m.fig.open) bn.quaternion.copy(q);
+    m.pegs = new THREE.Vector3(0, 0, 0); m.grips = new THREE.Vector3(0.18, 0.45, 0);
+    return m;
+  }
   const kick = (geo, lift) => { const pos = geo.attributes.position; for (let i = 0; i < pos.count; i++) { const x = pos.getX(i); const e = Math.max(0, Math.abs(x) - 0.3); pos.setY(i, pos.getY(i) + e * e * lift); } geo.computeVertexNormals(); return geo; };
   const ply = new THREE.Mesh(kick(new RoundedBoxGeometry(0.82, 0.018, 0.21, 3, 0.008), 1.6), wood); ply.castShadow = !ghost; deck.add(ply);
   const tape = new THREE.Mesh(kick(new RoundedBoxGeometry(0.8, 0.004, 0.2, 2, 0.002), 1.6), grip); tape.position.y = 0.011; deck.add(tape);
