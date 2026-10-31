@@ -6,6 +6,15 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.23.1', date: '2026-11-01', emoji: '🌲', title: 'Fuller worlds: real woods, far tree lines, much more on the ground', items: [
+      'The trees grow in woods now, not one here and one there: thick forests with edges that thin out into meadows, leafy woods and pine woods in their own parts of the map, and the odd lone tree out in the open. Five to eight times as many trees on the green and snowy worlds',
+      'Snowy worlds: dense dark-green spruce forests with snow on them, the same colour up close and far off',
+      'Deserts: groves of quiver trees (now their real pale bark, not dark sticks) and outcrops of boulders',
+      'The hills beyond where you can ride have their own tree lines, so the horizon isn’t bare',
+      'Much more on the ground round you: bushes and ferns under the trees, young trees at the woods’ edges, shrubs, weeds and dandelions in the meadows, stones, fallen logs, and in the desert lots more dry rooibos bushes and stones. The chutes get the ground plants and far tree lines too',
+      'Trees and boulders are still the only solid things (bushes, saplings, stones and logs you ride through). The trails, jumps, challenge courses and a wide clearing round every start and safe pad stay clear',
+      'It stays smooth: far-off trees are pictures drawn all in one go, only the trees near you are sorted as you move, and the ground plants grow in a few squares at a time. Lower graphics quality grows fewer of everything',
+    ] },
     { v: '3.23.0', date: '2026-10-31', emoji: '💨', title: 'Faster-feeling rides, real trees and clouds', items: [
       'Speed you can feel: at speed the edges of the screen smear gently, faint streaks of wind rush past you in the air, and the corners darken a touch. Turbo widens the view. It all grows with how fast you are for what you ride, so a skateboard flat out feels as quick as a supercar',
       'Landings have weight: the camera dips and springs back when you come down from a jump (more from a big one, and a crash), and it trembles a little at full speed on the ground',
