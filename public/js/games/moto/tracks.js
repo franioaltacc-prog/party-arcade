@@ -130,7 +130,8 @@ const tint = (hex) => { const c = new THREE.Color(hex); return [0.55 + c.r * 0.4
 
 /** The tracks for a world: heightAt(x, z) is the ground's height, surfaceAt(x, z).kind what it's made of; snowing: the
     grooves fill in. Call groove / skis / tyres for each rider every frame. */
-export function createTracks(scene, heightAt, surfaceAt, { snowing = false } = {}) {
+export function createTracks(scene, heightAt, surfaceAt, { snowing = false, trail = null } = {}) {
+  const print = trail ? { ...PRINT, trail } : PRINT;   // (a world's own dirt: red soil's prints are a darker red)
   const grooves = strip(scene, heightAt, { max: 2400, tex: grooveTextures(), life: snowing ? FILL : FADE });
   const prints = strip(scene, heightAt, { max: 3000, tex: tyreTextures(), life: snowing ? FILL : FADE, normalScale: 0.8, repeat: 0.5 });
   const colorOf = (hex) => (hex ? tint(hex) : WHITE);
@@ -144,7 +145,7 @@ export function createTracks(scene, heightAt, surfaceAt, { snowing = false } = {
     /** A tyre touching the ground at (x, z): width wide. */
     tyre(id, x, z, ax, az, on, width = 0.18) {
       const kind = on ? surfaceAt(x, z).kind : null;
-      prints.mark(id, x, z, ax, az, on && !!PRINT[kind], kind === 'mud' ? width * 1.25 : width, PRINT[kind] || WHITE, 0);
+      prints.mark(id, x, z, ax, az, on && !!print[kind], kind === 'mud' ? width * 1.25 : width, print[kind] || WHITE, 0);
     },
     get count() { return grooves.count + prints.count; },
     clear() { grooves.clear(); prints.clear(); },

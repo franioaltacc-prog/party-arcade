@@ -3,6 +3,7 @@
  * detail mix with slope/altitude snow coverage; derivative bump feeds StandardMaterial lighting.
  */
 import * as THREE from 'three';
+import {soilTextures,SOIL_GLSL,LOOK} from '../look.js';
 const palettes={
  dirt:[[116,88,59],[182,145,102]], grass:[[53,73,39],[111,121,64]],
  rock:[[74,80,84],[161,156,143]], snow:[[190,206,222],[249,251,253]]
@@ -49,8 +50,15 @@ export function terrainMaterial(map,sharedTextures=null,detailed=true){
  const textures=sharedTextures || Object.fromEntries(Object.keys(palettes).map(k=>[k,texture(k,map.theme,1024,map.look)]));
  const hole=new THREE.Vector4();
  const material=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.91,metalness:0});
- material.customProgramCacheKey=()=> 'ow-terrain-lod-v10-'+map.theme+'-'+detailed+(map.look?.paved?'-paved':'')+(map.sea?'-sea'+map.sea.level:'');
+ // a world with "look": {"soil": {...}}: its tracks (and the steep cut banks inside "area" [x, z, radius]) are scanned
+ // soil (look.js), swapped in once its pictures have loaded; "tint": its colour multiplied (r, g, b)
+ const soilSpec=map.look?.soil,soil=soilSpec?soilTextures(null,{hi:LOOK.hi}):null,pom=detailed&&LOOK.pom;
+ if(soil&&!soil.loaded)soil.ready.then(()=>{material.needsUpdate=true;}).catch(e=>console.warn('soil',e));
+ const soilOn=()=>!!soil?.loaded;
+ material.customProgramCacheKey=()=> 'ow-terrain-lod-v11-'+map.theme+'-'+detailed+(map.look?.paved?'-paved':'')+(map.sea?'-sea'+map.sea.level:'')+(soilOn()?'-soil'+(pom?'p':''):'');
  material.onBeforeCompile=shader=>{
+  const S=soilOn();
+  if(S){const a=soilSpec.area||[0,0,0];Object.assign(shader.uniforms,{soilC:{value:soil.color},soilN:{value:soil.normal},soilO:{value:soil.orh},soilPOM:{value:pom?1:0},soilTint:{value:new THREE.Vector3(...(soilSpec.tint||[1,1,1]))},owSoilArea:{value:new THREE.Vector3(a[0],a[1],a[2])}});}
   for(const [key,value]of Object.entries(textures))shader.uniforms['ow'+key]={value};
   shader.uniforms.owHole={value:hole};
   shader.uniforms.owBiome={value:map.theme==='desert'?0:map.theme==='snow'?2:1};
@@ -90,6 +98,7 @@ float owCaustic(vec2 p,float t){
 varying vec3 owPosition;
 varying vec3 owSurfaceNormal;
 varying float owTrail;
+${S?SOIL_GLSL+'\nuniform vec3 owSoilArea;\n':''}
 // smooth noise for the big patches of colour across the land (so a hillside isn't one flat colour)
 float owH(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 float owN(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(owH(i),owH(i+vec2(1.0,0.0)),f.x),mix(owH(i+vec2(0.0,1.0)),owH(i+vec2(1.0,1.0)),f.x),f.y);}
@@ -135,7 +144,18 @@ ${map.look?.paved?`if(owCliff<.5){ // concrete: slabs 4 m square, each a touch l
  vec3 owTint=${map.theme==='desert'?'mix(vec3(.88,.84,.84),vec3(1.1,1.05,.95),owM1)':map.theme==='snow'?'mix(vec3(.95,.97,1.03),vec3(1.03,1.02,1.0),owM1)':'mix(mix(vec3(.66,.8,.7),vec3(.86,.96,.8),smoothstep(.15,.45,owM2)),vec3(1.18,1.08,.74),smoothstep(.35,.7,owM1))'};
  ${map.theme==='alpine'?'owGround.rgb=mix(vec3(dot(owGround.rgb,vec3(.3,.59,.11))),owGround.rgb,.82);':''}
  owGround.rgb*=mix(vec3(1.0),owTint*(${map.theme==='snow'?'.96+.08':'.88+.24'}*owM2),(1.0-owCliff)*(1.0-owSnow*${map.theme==='snow'?'0.0':'1.0'})); }`}
-if(owTrail>.01){
+${S?`float owSoilK=0.0;Soil owS;float owSoilAO=1.0;
+{ float owDist=length(cameraPosition-owPosition);vec3 owNW=normalize(owSurfaceNormal);
+  owS=soilAt(owPosition,owNW,cameraPosition,owDist);
+  // the track: soil, its edge broken up by the soil's own lumps (grass wins on the low bits)
+  owSoilK=smoothstep(.2,.7,owTrail+(owS.h-.4)*.45*smoothstep(0.0,.35,owTrail))*(1.0-owCliff*.25);
+  // the cut banks round the track: steep earth, soil from all sides
+  float owIn=1.0-smoothstep(owSoilArea.z*.8,owSoilArea.z,length(owPosition.xz-owSoilArea.xy));
+  if(owIn>0.0&&owCliff>.02){float a;vec4 owT=soilTri(owPosition,owWeights,a);float k=smoothstep(.05,.5,owCliff)*owIn;
+   owGround=mix(owGround,vec4(owT.rgb,owT.a),k);owSoilAO=mix(1.0,a,k);}
+  if(owSoilK>0.0){owGround=mix(owGround,vec4(owS.albedo,owS.h),owSoilK);owSoilAO=mix(owSoilAO,owS.ao,owSoilK);}
+}`:''}
+if(${S?'false&&':''}owTrail>.01){
  // packed dirt (darker than the open ground round it)
  vec4 owRoad=${map.theme==='snow'?'vec4(owGround.rgb*vec3(.8,.84,.9),owGround.a)':map.theme==='desert'?'vec4(owSample(owdirt,owP.xz*1.7).rgb*vec3(.86,.8,.74),owGround.a*.6)':'owSample(owdirt,owP.xz)'};
  owGround=mix(owGround,owRoad,smoothstep(.15,.85,owTrail)*.9*(1.0-owCliff));
@@ -153,8 +173,10 @@ float owMacro=texture2D(owrock,owPosition.xz*.008).a;
 vec3 owAlbedo=pow(owGround.rgb,vec3(2.2));
 diffuseColor.rgb*=owAlbedo*(.86+owMacro*.34);
 float owRelief=owGround.a*(owBiome>1.5?.09:.16);
+${S?'diffuseColor.rgb*=mix(1.0,owSoilAO,.55);owRelief*=1.0-owSoilK;':''}
 `).replace('#include <normal_fragment_maps>',`#include <normal_fragment_maps>
 ${detailed?'normal=owBump(-vViewPosition,normal,vec2(dFdx(owRelief),dFdy(owRelief)));':''}
+${S?'if(owSoilK>0.0)normal=normalize(mix(normal,normalize((viewMatrix*vec4(owS.n,0.0)).xyz),owSoilK*'+(detailed?'1.0':'.7')+'));':''}
 `).replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
 ${detailed&&map.theme!=='desert'?`
 // snow glitters: the odd grain catches the sun, and which ones do changes as you move (only close by, where a grain is
@@ -171,6 +193,7 @@ ${map.sea?`{ // sunlight focused by the waves, dancing on the seabed (fading wit
 }`:''}
 `).replace('#include <roughnessmap_fragment>',`#include <roughnessmap_fragment>
 roughnessFactor=clamp(.78+owGround.a*.22-.09*owSnow,.65,1.0);
+${S?'roughnessFactor=mix(roughnessFactor,clamp(owS.rough*1.05,.55,1.0),owSoilK);':''}
 `);
  };
  return {material,textures,hole,dispose(){material.dispose();if(!sharedTextures)Object.values(textures).forEach(t=>t.dispose());}};
