@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { Sky } from 'three/addons/objects/Sky.js';
 import { raceDaylight, applyRaceSoil, addRaceClouds, upgradeRacePines } from './race-realism.js';
+import { useSkyEnv } from './look.js';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const C = window.MotoCore;
@@ -325,10 +326,14 @@ export function buildWorld(renderer, T, opts = {}) {
   scene.environment = env; scene.environmentIntensity = th.envI;
   pm.dispose();
   scene.fog = new THREE.FogExp2(th.fog, th.fogD);
+  // the real-camera look (look.js, post.js): a clear day lit by a photographed sky; the air's haze the sky's own colour
+  scene.userData.sky = sky; scene.userData.look = { hazeBase: 0, hazeH: 420, hazeD: th.fogD * 0.55, hazeK: 0.62, fogKeep: 0.35 };
+  const stopSkyEnv = T.theme !== 'snow' ? useSkyEnv(scene, renderer, sunDir, th.envI * 2.6) : () => {};
   const sun = new THREE.DirectionalLight(th.sunColor, th.sunI);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(quality > 0.6 ? 2048 : 1024, quality > 0.6 ? 2048 : 1024);
-  const sc = sun.shadow.camera; sc.left = -26; sc.right = 26; sc.top = 26; sc.bottom = -26; sc.near = 1; sc.far = 260;
+  const hiShadow = quality > 0.9, SR = hiShadow ? 40 : 26;   // (high quality: a sharper shadow map reaching further)
+  sun.shadow.mapSize.set(hiShadow ? 4096 : quality > 0.6 ? 2048 : 1024, hiShadow ? 4096 : quality > 0.6 ? 2048 : 1024);
+  const sc = sun.shadow.camera; sc.left = -SR; sc.right = SR; sc.top = SR; sc.bottom = -SR; sc.near = 1; sc.far = 260;
   sun.shadow.bias = -0.00015; sun.shadow.normalBias = 0.025;
   scene.add(sun, sun.target);
   const hemi = new THREE.HemisphereLight(th.hemi[0], th.hemi[1], th.hemi[2]); scene.add(hemi);
@@ -711,6 +716,7 @@ export function buildWorld(renderer, T, opts = {}) {
       fx.update(dt, camera);
     },
     dispose() {
+      stopSkyEnv();
       stopTreeUpgrade();
       scene.traverse((o) => { if (o.isInstancedMesh) o.dispose(); if (o.geometry) o.geometry.dispose(); if (o.material) { const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach((m) => { for (const k of ['map', 'normalMap', 'roughnessMap', 'aoMap', 'alphaMap']) if (m[k]) m[k].dispose(); m.dispose(); }); } });
       env.dispose();

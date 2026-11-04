@@ -6,6 +6,17 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.24.4', date: '2026-11-04', emoji: '📸', title: 'Revvd looks like a real camera: Jungle Ridge MX gets a pro-track makeover', items: [
+      'Jungle Ridge MX now looks like a real motocross track on TV: rich red scanned dirt with crumbs, stones and clods that stand up from the ground, long sponsor banner fences on yellow stakes along the track, thick yellow-green grass swaying on the banks, and lone wide trees up on the ridges',
+      'A strong, clear sun with crisp shadows that reach much further: banks, berms, trees and the bike all cast them',
+      'Lit by a real sky: everything gets the soft blue light of a photographed sky on clear days, on every world and race track',
+      'Hazy distance: far hills fade into the sky’s own colour, like real air, warmer in the desert and greener in the forest',
+      'Soft shadows in every nook (under the bike, where grass meets dirt, in the ruts) on High graphics',
+      'Camera blur: in photo mode, replays and the menus, what’s far from the rider goes soft like a real lens (and just a touch while riding on High)',
+      'Your tyre tracks on red dirt are now a darker red, not grey',
+      'High graphics gets all of it; Medium keeps the haze, the sharp dirt and the photo blur; Low stays as fast as before',
+      'The sponsors on the banners are made up (Revvd, Party Arcade and invented brands). The dirt and sky are from Poly Haven (free, CC0): see Credits',
+    ] },
     { v: '3.24.3', date: '2026-11-04', emoji: '🪨', title: 'Slatefall Line: a big-mountain downhill race for Unrevvd', items: [
       'A new Unrevvd challenge: 🪨 Slatefall Line. One run from the top of a steep, wet slate valley to the bottom, about 2.3 km long and 550 m down, in light rain through the pines',
       'Big jumps all the way down: two road gaps over the quarry road, a deep slate canyon to jump, two step-downs over pits, three wooden drops, wooden kickers, tabletops, whoops and bumpy slate rock gardens, then a steep, fast finish chute',

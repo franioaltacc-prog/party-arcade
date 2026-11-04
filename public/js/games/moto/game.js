@@ -20,6 +20,7 @@ import { createTow } from './tow.js';
 import * as Career from './career.js';
 import { createMap } from './map.js';
 import { createPost } from './post.js';
+import { LOOK } from './look.js';
 import { makeStreaks } from './streaks.js';
 import * as Car from './car.js';
 import * as Wing from './wing.js';
@@ -56,7 +57,7 @@ const fmt = (s) => {
 };
 const touchDevice = matchMedia('(pointer: coarse)').matches;
 const qualityLevel = () => (prefs.quality === 'auto' ? (touchDevice ? 'medium' : 'high') : prefs.quality);
-const QUALITY = { high: { pr: 2, scenery: 1, shadows: true, post: true, bloom: true }, medium: { pr: 1.4, scenery: 0.65, shadows: true, post: true, bloom: true }, low: { pr: 1, scenery: 0.4, shadows: false } };   // (post: the glow, colour and speed effects, post.js)
+const QUALITY = { high: { pr: 2, scenery: 1, shadows: true, post: true, bloom: true, ao: true, haze: true, dof: true, dofPlay: true, soilHi: true }, medium: { pr: 1.4, scenery: 0.65, shadows: true, post: true, bloom: true, haze: true, dof: true }, low: { pr: 1, scenery: 0.4, shadows: false } };   // (post: the glow, colour and speed effects, post.js; ao: contact shadows; haze: the air's colour; dof: the lens blur (dofPlay: while riding too, else only photo mode, replays and menus); soilHi: the sharpest soil, with relief)
 
 // what the player has unlocked (bike paint jobs)
 let unlocked = new Set(['factory']);
@@ -181,7 +182,7 @@ function setupRenderer() {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   camera = new THREE.PerspectiveCamera(60, 16 / 9, 0.25, 9000);
-  post = createPost(renderer); post.set(QUALITY[qualityLevel()]);
+  post = createPost(renderer); post.set(QUALITY[qualityLevel()]); LOOK.renderer = renderer;
   studio = createStudio({ app: $('#mx'), camera, renderer, draw: (scene) => post.draw(scene, camera), ground: (x, z) => (R.T ? groundUnder(x, z, R.bike ? R.bike.s : 0) : 0), onExit: () => { R.cam.init = false; R.last = performance.now(); } });
   return true;
 }
@@ -211,7 +212,7 @@ function loadWorld(def) {
     dropTrails(); world.dispose(); world = null;
   }
   const q = QUALITY[qualityLevel()];
-  world = buildWorld(renderer, physicsTrack(def), { quality: q.scenery });
+  LOOK.hi = LOOK.pom = !!q.soilHi; world = buildWorld(renderer, physicsTrack(def), { quality: q.scenery });
   renderer.shadowMap.enabled = q.shadows;
   renderer.toneMappingExposure = world.theme.exposure;
   worldKey = key; worldFx(def);
@@ -708,7 +709,7 @@ function render(now, dt, alpha) {
   }
   // gold coins (free ride and challenges)
   if (w.collect && !R.spectate && !b.crashed && !R.jump) { const got = w.collect(b.px, b.y, b.pz, performance.now(), () => showMessage('⭕ THROUGH THE HOOP! +15', 'cp', 1200)); if (got) { payCoins(got); Sfx.play('coin'); } }
-  post.draw(w.scene, camera, R.fxK || 0);
+  post.focus('play', camera.position.distanceTo(R.model.root.position)); post.draw(w.scene, camera, R.fxK || 0);
   if (now - R.hudAt > 60) { R.hudAt = now; hud(now); }
   if (online() && now - R.sentAt > 80) sendPos(false);
 }
@@ -790,7 +791,7 @@ function liftFrame(now, dt) {
   camera.lookAt(seat.x, seat.y + 0.5, seat.z);
   L.mine = true; L.chairs[0].position.copy(L.line(R.lift.d, 1)); L.chairs[0].rotation.y = L.heading;   // (one of the chairs is yours)
   world.update(m.root.position, dt, camera);
-  post.draw(world.scene, camera);
+  post.focus('play', camera.position.distanceTo(m.root.position)); post.draw(world.scene, camera);
   if (now - R.hudAt > 200) { R.hudAt = now; hud(now); }
 }
 function endLift() {
@@ -811,7 +812,7 @@ function studioFrame(now, dt) {
     studio.replayCamera(p, s.h, s.v || 0, dt);
     world.update(p, dt, camera);
   } else studio.photoCamera(dt);
-  post.draw(world.scene, camera);
+  post.focus('photo', camera.position.distanceTo(R.model.root.position)); post.draw(world.scene, camera);
 }
 const studioOk = () => R.running && world && R.model && !online() && performance.now() > R.goAt && !map.isOpen;
 function startPhoto() {
@@ -1193,7 +1194,7 @@ async function startFree(entry, opts = {}){
     if(R.model){disposeModel(R.model);R.model=null;}
     for(const sb of stage.bikes.values()){sb.model.root.removeFromParent();sb.tag?.removeFromParent();}
     dropTrails();dropAvalanche();R.tow?.dispose();R.tow=null;R.plane?.dispose();R.plane=null;R.jump=null;if(world)world.dispose();world=null;worldKey=null;
-    const q=QUALITY[qualityLevel()];world=buildRideWorld(def,q.scenery,renderer,q.shadows,nature);worldKey='free:'+def.id;worldFx(def);
+    const q=QUALITY[qualityLevel()];LOOK.hi=LOOK.pom=!!q.soilHi;world=buildRideWorld(def,q.scenery,renderer,q.shadows,nature);worldKey='free:'+def.id;worldFx(def);
     renderer.shadowMap.enabled=q.shadows;renderer.toneMappingExposure=world.theme.exposure;
     R.def=def;
     let spawn,engine=null,finish=null;
@@ -1214,7 +1215,7 @@ async function startFree(entry, opts = {}){
     R.T=C.groundTrack(world.ground,spawn,water&&!tow?JETSKI:sled?SLED:engine,veh==='skate'?SKATE:mtb?(R.board?(ch?BOARD:BOARD_FREE):ch?{}:Coins.MTB.current().stats):null);R.bike=R.V.newBike(R.T);R.bike.board=R.board||tow||veh==='skate';   // (a board spins 180s, 540s…)
     if(R.wing){R.T.launch=spawn;if(!ch){const g=world.ground,[x0,z0]=spawn.position;let best=null;for(let a=0;a<6.28;a+=0.2){const d=[0,1,2,3].reduce((m,k)=>m+g.heightAt(x0+Math.sin(a)*(300+k*300),z0+Math.cos(a)*(300+k*300)),0);if(!best||d<best.d)best={d,a};}spawn.heading=best.a;R.T.launch=spawn;R.V.place(R.T,R.bike,spawn);}}   // (free flight: out of the plane facing the way the mountain falls away)
     R.model=R.wing?makeWingsuit(wingColor()):R.buggy?makeCar('buggy',buggyPaint()):R.drift?makeCar(prefs.carModel||'revuelto',driftPaint()):R.car?makeCar(prefs.carModel,prefs.carPaint):makeBike(R.board?boardLook():mtb||veh==='skate'?mtbLook():water?jetLook():myLook());if(R.board)boardify(R.model,boardColor(),gear());if(tow){boardify(R.model,jetColor(),'board');R.model.wakes=true;}else if(water)jetskify(R.model,jetColor());else if(sled)sledify(R.model,sledColor());else if(R.skate)skateify(R.model,skateColor());world.scene.add(R.model.root);coverOn(R.model);
-    R.tracks=createTracks(world.scene,(x,z)=>world.ground.heightAt(x,z),(x,z)=>world.ground.surfaceAt(x,z),{snowing:world.snowing});   // (grooves and tyre tracks)
+    R.tracks=createTracks(world.scene,(x,z)=>world.ground.heightAt(x,z),(x,z)=>world.ground.surfaceAt(x,z),{snowing:world.snowing,trail:def.look?.soil?[0.3,0.13,0.08]:null});   // (grooves and tyre tracks)
     if(opts.online&&state.race){fillOthers(state.race);if(ch)for(const o of R.others.values())addOtherModel(o);}   // (free ride: each rider's bike or car appears with their first message)
     R.prev=R.cur=snap(R.bike);R.acc=0;R.last=performance.now();R.finished=false;R.cam.init=false;R.stuck=0;R.emitAcc=0;R.roll=0;R.best=null;R.beeped=0;R.safeTrail=[];R.retry=null;R.toPad=false;
     R.goAt=ch?Math.max(opts.goAt||0,performance.now()+(opts.online?600:3200)):0;R.gateDown=!ch;R.noChute=false;R.tumble=0;
@@ -1913,7 +1914,7 @@ function stageFrame(now, dt) {
   stage.off += (want - stage.off) * (1 - Math.exp(-dt * 3));
   if (Math.abs(stage.off) > 0.5) camera.setViewOffset(W, H, -stage.off, 0, W, H); else { camera.clearViewOffset(); camera.updateProjectionMatrix(); }
   world.update(focusV, dt, camera);
-  post.draw(world.scene, camera);
+  post.focus('menu', camera.position.distanceTo(focusV)); post.draw(world.scene, camera);
 }
 
 // ------------------------------------------------------------------ buttons and keys

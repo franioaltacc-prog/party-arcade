@@ -172,16 +172,16 @@ async function jungle(map,terrain){
  const [nature,oaks,sa,sb,nt]=await Promise.all([loadNature(),loadOaks(),scanned('shrub-a.glb',true),scanned('shrub-b.glb',true),scanned('nettle.glb',true)]);
  const J=jungleModels(),M=nature.mats,mx=terrain.mx,T=map.mx?.terraces||[];
  const box=mx?(()=>{let a=Infinity,b=-Infinity,c=Infinity,d=-Infinity;for(const p of mx.line){a=Math.min(a,p.x);b=Math.max(b,p.x);c=Math.min(c,p.z);d=Math.max(d,p.z);}return [a-14,b+14,c-14,d+14];})():null;
- const inTrack=(x,z)=>box&&x>box[0]&&x<box[1]&&z>box[2]&&z<box[3];
+ const inTrack=(x,z,m=0)=>box&&x>box[0]-m&&x<box[1]+m&&z>box[2]-m&&z<box[3]+m;
  const terrace=(x,z,f=1)=>T.some(t=>Math.hypot(x-t.center[0],z-t.center[1])<t.radius*f);
  const nearTrail=(x,z,d)=>terrain.roadAt(x,z)?.distance<d;
  const oakv=oaks.trees.map(t=>({near:[[{geo:t.bark},0],[{geo:t.leaves},1]],far:[[{geo:t.far.bark},0],[{geo:t.far.leaves},1]]}));
  const rocks=nature.rocks.map((g,i)=>({near:[[{geo:g,mat:nature.rockMat[i]},0]]}));
  return [
   {id:'palm',like:'palm',tree:true,per:150,dense:2600,size:[.85,1.2],slope:.7,clear:3.5,solid:{r:.3,tall:9},card:true,variants:J.palms,winds:[{bend:.0005},{bend:.0007,flutter:.03,glow:.4}],
-   fill:(x,z)=>terrace(x,z,.8)?0:inTrack(x,z)?.9:terrace(x,z,1.25)||nearTrail(x,z,30)?.45:.06},
+   fill:(x,z)=>terrace(x,z,.8)?0:inTrack(x,z)?(map.look?.dress?.3:.9):terrace(x,z,1.25)||nearTrail(x,z,30)?.45:.06},
   {id:'canopy',like:'broadleaf',tree:true,per:150,dense:9500,size:[1.05,1.7],slope:.7,clear:7,line:900,solid:{r:.5,tall:9},card:true,tint:[.72,1.08,.62],mats:[oaks.mats.bark,oaks.mats.leaves],variants:oakv,winds:[{bend:.0009},{bend:.0009,flutter:.03,glow:.35}],
-   fill:(x,z)=>inTrack(x,z)||terrace(x,z,1.05)?0:.9},
+   fill:(x,z)=>inTrack(x,z,map.look?.dress?45:0)||terrace(x,z,1.05)?0:.9},   // (a dressed pro track: open grassy hills round it, its own lone trees on the ridges)
   {id:'boulder',like:'rock',per:20,dense:300,woods:'rocks',size:[.7,1.8],slope:.55,clear:7,solid:{r:.9,tall:1.4,byBox:true},rock:true,tint:[1.05,.86,.72],variants:rocks,winds:[{bend:0}],
    fill:(x,z)=>inTrack(x,z)||terrace(x,z)?0:.4},
   {id:'banana',like:'shrub',cover:true,per:9000,where:'woods',size:[.8,1.3],slope:.7,near:85,variants:J.bananas,winds:[{bend:.05,flutter:.02,glow:.35}]},
