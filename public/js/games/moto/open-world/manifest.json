@@ -75,6 +75,15 @@
       "pools": 1
     },
     {
+      "id": "junglemx",
+      "name": "Jungle Ridge MX",
+      "file": "junglemx.json",
+      "areaKm2": 10.24,
+      "mx": true,
+      "gaps": 0,
+      "pools": 0
+    },
+    {
       "id": "timberchute",
       "name": "Timber Chute",
       "file": "timberchute.json",

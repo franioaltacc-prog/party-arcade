@@ -18,6 +18,7 @@ import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {loadNature,loadSpruces,snowy,autumnal,AUTUMN} from './nature.mjs';
+import {jungleModels} from './palms.mjs';
 
 const files=new Map();
 /** A model file's meshes by name (a promise, shared). */
@@ -118,8 +119,9 @@ function cards(p){
     pine woods), size, slope (the ground's up, 0..1, at least), clear (metres off the trails), line (its tree line),
     solid. A small plant (cover): per (to a km², all over), where ('woods' more under the trees, 'open' more out in the
     meadows), near (metres from you it's drawn). Then its models and how it sways. */
-async function catalogue(map){
+async function catalogue(map,terrain){
  const theme=map.theme,autumn=!!map.look?.autumn,snow=theme==='snow';
+ if(map.look?.jungle)return jungle(map,terrain);
  if(theme==='desert'){
   const [q1t,q1l,q2,dq,ba,bb,bc,roo]=await Promise.all([scanned('quiver1-trunk.glb'),scanned('quiver1-leaf.glb'),scanned('quiver2.glb'),scanned('deadquiver.glb'),scanned('boulder-a.glb'),scanned('boulder-b.glb'),scanned('boulder-c.glb'),scanned('rooibos.glb',true)]);
   const red=[1.25,.86,.68],rocks=[ba,bb,bc].map(r=>({near:[[r[0],0]]}));
@@ -162,6 +164,35 @@ async function catalogue(map){
   {id:'logs',like:'log',cover:true,per:500,where:'woods',size:[.8,1.2],slope:.85,near:90,mats:[M.log],variants:[{near:[[{geo:nature.log},0]]}],winds:[{bend:0}]},
  ].map(k=>resolve(k));
 }
+/** The jungle (a world's "look": {"jungle": true}): coconut palms and banana plants (palms.mjs), the oaks as a deep
+    green canopy, ferns, bushes and weeds thick on the ground. fill(x, z): how likely a tree is to grow there (in place
+    of the woods pattern). Round a motocross track the palms stand in the grass between its lanes and the jungle waits
+    beyond them; nothing big grows on the rice terraces. */
+async function jungle(map,terrain){
+ const [nature,oaks,sa,sb,nt]=await Promise.all([loadNature(),loadOaks(),scanned('shrub-a.glb',true),scanned('shrub-b.glb',true),scanned('nettle.glb',true)]);
+ const J=jungleModels(),M=nature.mats,mx=terrain.mx,T=map.mx?.terraces||[];
+ const box=mx?(()=>{let a=Infinity,b=-Infinity,c=Infinity,d=-Infinity;for(const p of mx.line){a=Math.min(a,p.x);b=Math.max(b,p.x);c=Math.min(c,p.z);d=Math.max(d,p.z);}return [a-14,b+14,c-14,d+14];})():null;
+ const inTrack=(x,z)=>box&&x>box[0]&&x<box[1]&&z>box[2]&&z<box[3];
+ const terrace=(x,z,f=1)=>T.some(t=>Math.hypot(x-t.center[0],z-t.center[1])<t.radius*f);
+ const nearTrail=(x,z,d)=>terrain.roadAt(x,z)?.distance<d;
+ const oakv=oaks.trees.map(t=>({near:[[{geo:t.bark},0],[{geo:t.leaves},1]],far:[[{geo:t.far.bark},0],[{geo:t.far.leaves},1]]}));
+ const rocks=nature.rocks.map((g,i)=>({near:[[{geo:g,mat:nature.rockMat[i]},0]]}));
+ return [
+  {id:'palm',like:'palm',tree:true,per:150,dense:2600,size:[.85,1.2],slope:.7,clear:3.5,solid:{r:.3,tall:9},card:true,variants:J.palms,winds:[{bend:.0005},{bend:.0007,flutter:.03,glow:.4}],
+   fill:(x,z)=>terrace(x,z,.8)?0:inTrack(x,z)?.9:terrace(x,z,1.25)||nearTrail(x,z,30)?.45:.06},
+  {id:'canopy',like:'broadleaf',tree:true,per:150,dense:9500,size:[1.05,1.7],slope:.7,clear:7,line:900,solid:{r:.5,tall:9},card:true,tint:[.72,1.08,.62],mats:[oaks.mats.bark,oaks.mats.leaves],variants:oakv,winds:[{bend:.0009},{bend:.0009,flutter:.03,glow:.35}],
+   fill:(x,z)=>inTrack(x,z)||terrace(x,z,1.05)?0:.9},
+  {id:'boulder',like:'rock',per:20,dense:300,woods:'rocks',size:[.7,1.8],slope:.55,clear:7,solid:{r:.9,tall:1.4,byBox:true},rock:true,tint:[1.05,.86,.72],variants:rocks,winds:[{bend:0}],
+   fill:(x,z)=>inTrack(x,z)||terrace(x,z)?0:.4},
+  {id:'banana',like:'shrub',cover:true,per:9000,where:'woods',size:[.8,1.3],slope:.7,near:85,variants:J.bananas,winds:[{bend:.05,flutter:.02,glow:.35}]},
+  {id:'young',like:'palm',cover:true,per:900,size:[.22,.35],slope:.75,near:110,variants:J.palms.map(v=>({near:v.far})),winds:[{bend:.004},{bend:.004,flutter:.03,glow:.4}]},
+  {id:'bush',like:'shrub',cover:true,per:9000,where:'woods',size:[.9,1.6],slope:.7,near:90,mats:[M.twigs,M.leaves],variants:nature.bushes.map(b=>({near:[[{geo:b.bark},0],[{geo:b.leaves},1]]})),winds:[{bend:.035},{bend:.035,flutter:.03,glow:.3}]},
+  {id:'shrub',like:'shrub',cover:true,per:6000,size:[.8,1.4],slope:.7,near:80,variants:sa.map(r=>({near:[[r,0]]})),winds:[{bend:.04,flutter:.02,glow:.3}]},
+  {id:'fern',like:'shrub',cover:true,per:42000,where:'woods',size:[1,1.8],slope:.65,near:60,mats:[M.fern],variants:nature.ferns.map(g=>({near:[[{geo:g},0]]})),winds:[{bend:.08,flutter:.02,glow:.3}]},
+  {id:'weeds',like:'shrub',cover:true,per:60000,size:[.9,1.5],slope:.65,near:45,variants:[...sb,...nt].map(r=>({near:[[r,0]]})),winds:[{bend:.2,flutter:.02,glow:.3}]},
+  {id:'stones',like:'rock',cover:true,per:1500,size:[.25,.6],slope:.6,near:60,rock:true,tint:[1.05,.86,.72],variants:rocks,winds:[{bend:0}]},
+ ].map(k=>resolve(k));
+}
 /** Fill in a kind's materials: each part [model ({geo, mat} or {geo} with the kind's mats[k]), k] becomes [geo, its
     material made to sway (winds[k], or the last of them)]. */
 function resolve(k){
@@ -180,7 +211,7 @@ function resolve(k){
     still grow: a chute's own forest is left to it); a paved world grows nothing. */
 export async function growWilds(built,map,scene,{quality=1,renderer=null,shadows=false,sunDir=null,sunColor=null,night=false}={}){
  if(map.look?.paved)return null;   // (a skate plaza: concrete)
- const all=await catalogue(map),flora=map.look?.flora;
+ const all=await catalogue(map,built.terrain),flora=map.look?.flora;
  const kinds=all.filter(k=>k.cover||!flora||flora.includes(k.like));   // (where you ride: the kinds the world allows)
  const terrain=built.terrain,[W,D]=map.size,seed0=map.seed>>>0;
  if(sunDir)WIND.uSunD.value.copy(sunDir).normalize();
@@ -197,7 +228,7 @@ export async function growWilds(built,map,scene,{quality=1,renderer=null,shadows
  const woods=(x,z)=>ss(.5,.66,noise(x,z,1.3+sd));
  const rocky=(x,z)=>ss(.56,.72,noise(x,z,7.9+sd));
  const leafy=(x,z)=>ss(.4,.6,noise(x*.7,z*.7,4.2+sd));
- const share=(k,x,z)=>{const f=k.woods==='rocks'?rocky(x,z):woods(x,z);const m=k.mix>0?leafy(x,z):k.mix<0?1-leafy(x,z):1;return k.per/k.dense+(1-k.per/k.dense)*f*m;};
+ const share=(k,x,z)=>{if(k.fill)return k.fill(x,z);const f=k.woods==='rocks'?rocky(x,z):woods(x,z);const m=k.mix>0?leafy(x,z):k.mix<0?1-leafy(x,z):1;return k.per/k.dense+(1-k.per/k.dense)*f*m;};
  const dummy=new THREE.Object3D(),own=[],made=[];
  // a tree's or rock's place: { x, z, y, m (its matrix), v (which variant), shade, leaf (its leaves' colour in autumn, or the kind's tint) }
  const place=(k,x,z,y0,s,rot,v,r)=>{
@@ -316,7 +347,7 @@ export async function growWilds(built,map,scene,{quality=1,renderer=null,shadows
  }
  // the drawn kinds these stand in for stop drawing (rocks stay: the real boulders are as well as them)
  const shown=new Set(big.map(k=>k.like));
- built.hideKinds((map.theme==='desert'?['shrub','deadtree']:map.theme==='snow'?['snowpine']:['pine','broadleaf','shrub']).filter(l=>l==='shrub'||shown.has(l)));
+ built.hideKinds((map.theme==='desert'?['shrub','deadtree']:map.theme==='snow'?['snowpine']:['pine','broadleaf','shrub']).filter(l=>l==='shrub'||shown.has(l)||map.look?.jungle));   // (the jungle has no pines)
  return {
   count:big.reduce((n,k)=>n+k.items.length,0),solids:solids.length,far:backdrop.length,ms:Math.round(performance.now()-t0),   // (how long planting them all took)
  kinds:Object.fromEntries(big.map(k=>[k.id,k.items.length])),items:id=>big.find(k=>k.id===id)?.items,

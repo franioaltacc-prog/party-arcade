@@ -9,6 +9,7 @@
  *     trails, pads, buildings, jumps and water (the "wild" mask)
  *  4. mountain ranges rise around the edge of the world
  */
+import {mxLine,mxRoutePoints,mxGround} from './mx.mjs';
 export const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
 const smooth = t => { t=clamp(t,0,1); return t*t*(3-2*t); };
 function hash(x,z,seed) { let n=Math.imul(x,374761393)^Math.imul(z,668265263)^seed; n=Math.imul(n^(n>>>13),1274126177); return ((n^(n>>>16))>>>0)/4294967295; }
@@ -34,6 +35,9 @@ export function routePoint(route,distance) {
 export function buildTerrain(world) {
  const spec=world.terrain, cell=160, grid=new Map(), W=world.size[0], D=world.size[1], seed=world.seed, theme=world.theme;
  const lake=spec.lake, river=spec.river;
+ // a motocross track (mx.mjs): its route's points come from its corners
+ if(world.mx){ const r=world.routes.find(r=>r.id===world.mx.route); if(r&&!r.points?.length) r.points=mxRoutePoints(mxLine(world.mx)); }
+ let mx=null;   // (its ground shaper, once the ground without it can be measured: see the end)
  const riverDist=(x,z)=>river?Math.abs(x-river.x-Math.sin(z/river.wavelength)*river.amplitude):Infinity;
  const lakeDist=(x,z)=>lake?Math.hypot((x-lake.position[0])/lake.radius[0],(z-lake.position[1])/lake.radius[1]):Infinity;
  // a scarp: a wall of cliff running east to west along z = scarp.z (waving by amplitude over wavelength), the high
@@ -99,7 +103,7 @@ export function buildTerrain(world) {
  const wet=(x,z,margin=0)=>lakeDist(x,z)<1.35+margin/200||riverDist(x,z)<(river?river.width*1.6+margin:0);
  for(const route of world.routes) {
   const len=routeLength(route);
-  for(let d=150;d<len-150;d+=320) {
+  for(let d=150;d<len-150&&route.extras!==false;d+=320) {   // (extras: false, as on a motocross track: none)
    const p=routePoint(route,d),q=routePoint(route,d+40),o=routePoint(route,d-40);
    if(Math.abs(Math.atan2(Math.sin(q.heading-o.heading),Math.cos(q.heading-o.heading)))>.25)continue;   // (only on straights)
    if(nearThings(p.x,p.z,110)||wet(p.x,p.z,40)||!inBounds(p.x,p.z,rimWidth*.7))continue;
@@ -342,7 +346,7 @@ export function buildTerrain(world) {
  // Boost pads: glowing strips on the straights of the trails that kick you forward.
  for(const route of world.routes) {
   const len=routeLength(route);
-  for(let d=420;d<len-200;d+=720) {
+  for(let d=420;d<len-200&&route.extras!==false;d+=720) {
    const p=routePoint(route,d),q=routePoint(route,d+30),o=routePoint(route,d-30);
    if(Math.abs(Math.atan2(Math.sin(q.heading-o.heading),Math.cos(q.heading-o.heading)))>.2||wet(p.x,p.z,30)||!inBounds(p.x,p.z,rimWidth*.7))continue;
    if(ramps.some(r=>Math.hypot(p.x-r.position[0],p.z-r.position[1])<r.length/2+40))continue;
@@ -521,6 +525,7 @@ export function buildTerrain(world) {
   y+=rampAt(x,z).y;
   if(features.length){ const f=featureAt(x,z); if(f.flat>0) y+=(f.base-y)*f.flat+f.dy; }
   const w=wild(x,z); if(w>0) y+=landform(x,z)*w;
+  if(mx) y=mx.shape(x,z,y);
   return shore(x,z,y+cliffRise(x,z));
  }
  // ---------------------------------------------------------------- the sea ("sea": { level, waves, swell })
@@ -569,6 +574,7 @@ export function buildTerrain(world) {
  function surfaceAt(x,z) {
   if(sea) return landAt(x,z)<sea.level-.12?{kind:'water',grip:.62,roll:.004}:{kind:'sand',grip:.55,roll:.24};   // (run aground and you grind to a stop)
   if(features.length&&featureAt(x,z).weight>.5) return {kind:'trail',grip:.96,roll:.01};   // (gap jumps are packed dirt, whatever's round them)
+  if(mx){ const m=mx.surface(x,z); if(m) return m; }   // (rice paddies: mud)
   for(const s of world.surfaceZones) if(Math.hypot(x-s.position[0],z-s.position[1])<s.radius) return {kind:s.surface,grip:s.grip,roll:s.roll};
   const road=roadAt(x,z), jump=road?.trail?0:rampAt(x,z).weight;
   if(jump>.5) return {kind:'trail',grip:.96,roll:.01};
@@ -585,6 +591,7 @@ export function buildTerrain(world) {
  }
  /** How the ground looks under water at (x, z) and height y: colour multipliers [r, g, b] (deeper is bluer), or null. */
  function tintAt(x,z,y) {
+  if(mx){ const k=mx.tint(x,z,y,heightAt); if(k) return k; }   // (rice terraces)
   if(sea){ const d=sea.level-y; if(d<-2.2) return null; if(d<0){ const k=1-(-d)/2.2; return [1+.12*k,1+.04*k,1-.18*k]; }   // (a sandy beach just above the water)
    const k=Math.min(1,d/9); return [1.08-.5*k,1.02-.22*k,.86-.02*k]; }   // (pale sand in the shallows, darker deeper down)
   let depth=0;
@@ -602,7 +609,8 @@ export function buildTerrain(world) {
   for(let i=0;i<=count;i++) { const p=routePoint(route,len*i/count); gates.push({...p,y:heightAt(p.x,p.z),radius:race.gateRadius,index:i}); }
   return gates;
  }
- return {world,rawHeight,cliffRise,heightAt,bedAt:landAt,sea,waves:WAVES,waveAt,waveScale,waveTime,roadAt,rampAt,surfaceAt,normalAt,inBounds,nearestSafePad,gatesFor,wild,ramps,parks,mesas,routeDist,buildings,arches,obstacles,obstacleAt,obstaclesNear,
+ if(world.mx) mx=mxGround(world,landAt);
+ return {world,mx,detail:mx?.areas||[],rawHeight,cliffRise,heightAt,bedAt:landAt,sea,waves:WAVES,waveAt,waveScale,waveTime,roadAt,rampAt,surfaceAt,normalAt,inBounds,nearestSafePad,gatesFor,wild,ramps,parks,mesas,routeDist,buildings,arches,obstacles,obstacleAt,obstaclesNear,
   featureAt,hazardAt,boostAt,tintAt,gaps,pools,boosts,gauntlets,gauntletIn,parkList:parks2,railAt,rideAt,addSolids,forestTrees,forestReach,trailNearest,
   /** f(x, z): metres more water on top of the waves (null: none). */ setSeaExtra:f=>{seaExtra=f;}};
 }

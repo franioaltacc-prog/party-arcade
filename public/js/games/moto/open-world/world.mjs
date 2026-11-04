@@ -91,6 +91,7 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
  for(const r of terrain.ramps)jumpAreas.push({x:r.position[0],z:r.position[1],s:r.s??Math.sin(r.heading),c:r.c??Math.cos(r.heading),a0:-r.length/2-4,a1:r.length/2+4,w:r.width+4});
  for(const g of terrain.gaps)jumpAreas.push({pit:true,x:g.x,z:g.z,s:g.s,c:g.c,a0:-g.K-6,a1:g.gap+g.deck+24,w:g.width/2+8});   // (the long gentle landing slope is fine in the coarse ground)
  for(const p of terrain.pools){const r=Math.max(p.rx,p.rz)*1.25;jumpAreas.push({pit:true,pool:true,x:p.x,z:p.z,s:0,c:1,a0:-r,a1:r,w:r});}
+ for(const a of terrain.detail||[])jumpAreas.push({...a,pit:true,area:true});   // (a motocross track's hillside, rice terraces, a paved road: mx.mjs)
  const inArea=(f,x,z,m=0)=>{const dx=x-f.x,dz=z-f.z,al=dx*f.s+dz*f.c,ac=Math.abs(dx*f.c-dz*f.s);return al>f.a0-m&&al<f.a1+m&&ac<f.w+m;};
  for(let i=0;i<pos.count;i++){
   const x=pos.getX(i),z=pos.getZ(i);if(!jumpAreas.some(f=>f.pit&&inArea(f,x,z)))continue;
@@ -102,7 +103,7 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
  const ground=new THREE.Mesh(groundGeo,groundMat);ground.receiveShadow=true;
  const jumpStep=resolution>=160?3:resolution>=128?4:5;   // (only seen from 50 m away or more: the detailed patch draws them close up)
  for(const f of jumpAreas){
-  const m=f.pit?Math.min(cellW,24)+2:2,a0=f.a0-m,a1=f.a1+m,w=f.w+m,step=f.pool?jumpStep*1.6:jumpStep,nu=Math.ceil((a1-a0)/step),nv=Math.ceil(2*w/step),p=[],col=[],tw=[],idx=[];
+  const m=f.pit?Math.min(cellW,24)+2:2,a0=f.a0-m,a1=f.a1+m,w=f.w+m,step=f.area?f.step*jumpStep/3:f.pool?jumpStep*1.6:jumpStep,nu=Math.ceil((a1-a0)/step),nv=Math.ceil(2*w/step),p=[],col=[],tw=[],idx=[];
   for(let j=0;j<=nv;j++)for(let i=0;i<=nu;i++){
    const al=a0+(a1-a0)*i/nu,ac=-w+2*w*j/nv,x=f.x+al*f.s+ac*f.c,z=f.z+al*f.c-ac*f.s;
    p.push(x,terrain.heightAt(x,z)+.12,z);tw.push(Math.max(terrain.roadAt(x,z)?.weight||0,terrain.rampAt(x,z).weight));
@@ -126,7 +127,8 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
   }
  }
  disposables.push(groundGeo,layered);
- const renderHeightAt=(x,z)=>gridHeight(pos.array,W,D,resolution,x,z);
+ const exact=jumpAreas.filter(f=>f.area);   // (in a detailed area the coarse ground is sunk out of sight: things stand on the real ground)
+ const renderHeightAt=(x,z)=>exact.length&&exact.some(f=>inArea(f,x,z,-2))?terrain.heightAt(x,z)+.12:gridHeight(pos.array,W,D,resolution,x,z);
  const coarseUp=(x,z)=>{const e=6,hx=renderHeightAt(x+e,z)-renderHeightAt(x-e,z),hz=renderHeightAt(x,z+e)-renderHeightAt(x,z-e);return 2*e/Math.hypot(hx,2*e,hz);};
  const trueUp=(x,z)=>terrain.normalAt(x,z,1.5).y;
 
