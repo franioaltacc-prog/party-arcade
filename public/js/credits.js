@@ -59,6 +59,7 @@
     ['🏮', '“Wooden Lantern 01” by James Ray Cock (CC0, Poly Haven)', 'the lanterns in the Midnight Chute'],
     ['❄️', '“Snow 02” by Rob Tuytel (CC0, Poly Haven)', 'the snowy ground in the Frost Chute'],
     ['🟥', '“Red Laterite Soil Stones” by Amal Kumar (CC0, Poly Haven)', 'the red dirt of Jungle Ridge MX: its colour, relief, stones and clods (made smaller for the web)'],
+    ['🌾', '“Sparse Grass” by Amal Kumar (CC0, Poly Haven)', 'the grassy ground round Jungle Ridge MX (recoloured a little and made smaller for the web)'],
     ['🟫', '“Brown Mud 02” by Rob Tuytel (CC0, Poly Haven)', 'the dirt on the Desert Dunes and Forest Mud race tracks'],
     ['☀️', '“Kloofendal 43d Clear Pure Sky” by Greg Zaal (CC0, Poly Haven)', 'the sky light on clear days in Revvd: the soft light from a real blue sky on everything (its sun left out)'],
     ['🟢', 'GSAP by GreenSock', 'animations'],

@@ -38,19 +38,6 @@ function bannerTexture([bg,fg,accent],seed){
  }
  const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;tex.wrapS=THREE.RepeatWrapping;tex.anisotropy=8;return tex;
 }
-/** Grass blades on a see-through card: straw at the tips, greener at the base. */
-function grassTexture(){
- const W=256,H=256,c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d');
- let s=7;const r=()=>{s=(Math.imul(s,1664525)+1013904223)>>>0;return s/4294967296;};
- for(let i=0;i<90;i++){
-  const x=12+r()*(W-24),h=H*(.35+r()*.65),lean=(r()-.5)*80,w=1.5+r()*3.5;
-  const grd=g.createLinearGradient(0,H,0,H-h),k=r();
-  grd.addColorStop(0,`rgb(${110+k*30},${128+k*25},${52+k*10})`);grd.addColorStop(.5,`rgb(${140+k*50},${160+k*30},${62+k*15})`);grd.addColorStop(1,`rgb(${205+k*35},${192+k*30},${110+k*30})`);
-  g.fillStyle=grd;g.beginPath();g.moveTo(x-w,H);g.quadraticCurveTo(x+lean*.3,H-h*.55,x+lean,H-h);g.quadraticCurveTo(x+lean*.3+w*.3,H-h*.5,x+w,H);g.closePath();g.fill();
- }
- const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=4;return tex;
-}
-
 export function mxDress(terrain,scene,map,{quality=1,shadows=false}={}){
  const mx=terrain.mx;if(!mx)return null;
  const group=new THREE.Group();scene.add(group);const keep=[];const k=o=>{keep.push(o);return o;};
@@ -81,38 +68,75 @@ export function mxDress(terrain,scene,map,{quality=1,shadows=false}={}){
  }
  runs.forEach((list,i)=>list.forEach(g=>{const m=new THREE.Mesh(g,banMats[i]);m.castShadow=shadows;m.receiveShadow=true;g.computeBoundingSphere();group.add(m);}));
  if(stakes.length){const im=k(new THREE.InstancedMesh(stakeGeo,stakeMat,stakes.length)),m4=new THREE.Matrix4();stakes.forEach(([x,y,z],i)=>im.setMatrixAt(i,m4.makeTranslation(x,y-.08,z)));im.castShadow=shadows;im.computeBoundingSphere();group.add(im);}
- // ------------------------------------------------------------- grass on the banks
- const gTex=k(grassTexture());
- const blade=new THREE.PlaneGeometry(1.3,.9,1,3).translate(0,.45,0),parts=[];
- for(let i=0;i<3;i++)parts.push(blade.clone().rotateY(i*Math.PI/3));
- const clump=k(mergeAll(parts));blade.dispose();parts.forEach(p=>p.dispose());
- // (the cards' normals point up-ish: grass is lit like the field it stands in, not like flat boards)
- {const n=clump.attributes.normal;for(let i=0;i<n.count;i++)n.setXYZ(i,n.getX(i)*.35,1,n.getZ(i)*.35);clump.normalizeNormals?.();}
- const gMat=k(new THREE.MeshStandardMaterial({map:gTex,alphaTest:.42,alphaToCoverage:true,side:THREE.DoubleSide,roughness:.92,color:map.look?.dressGrass||'#f2f0c4'}));
+ // ------------------------------------------------------------- grass round the track
+ // real tufts of grass, not pictures of it: each a dozen thin blades, curved and tapering, dark at the root and straw
+ // or olive at the tip, sprung from one spot and leaning out. They grow in patches (taller dry grass in some, short
+ // turf in others, bare earth showing between), all over the grassy ground near the track, and are only drawn within
+ // reach of the camera (further off the ground's own scanned grass carries it). Lit like the field they stand in.
+ const tuftGeo=(blades,seedT)=>{
+  let ts=seedT;const r=()=>{ts=(Math.imul(ts,1664525)+1013904223)>>>0;return ts/4294967296;};
+  const P=[],C=[],Nn=[],I=[];
+  for(let b=0;b<blades;b++){
+   const a=r()*6.283,lean=.04+r()*.22,h=.45+r()*.55,w=.012+r()*.012,dry=r(),bend=.08+r()*.3;
+   const dx=Math.cos(a),dz=Math.sin(a),pa=a+(r()-.5)*1.2,px=-Math.sin(pa),pz=Math.cos(pa),ox=(r()-.5)*.16,oz=(r()-.5)*.16;
+   // (a tip colour: most blades straw-yellow, some olive green, a few pale and dead)
+   const tip=dry<.55?[.86,.76,.42]:dry<.85?[.56,.6,.26]:[.9,.86,.66],root=[.3,.3,.14];
+   const base=P.length/3;
+   for(let k2=0;k2<3;k2++){   // (three rows up the blade: root, middle, tip)
+    const t=k2/2,y=h*t*(1-.25*bend*t*t),out=(lean*t+bend*t*t)*h*.55,half=w*(1-t*.82)*(k2===2?0:1);
+    const cx=ox+dx*out,cz=oz+dz*out,c=[0,1,2].map(q=>root[q]+(tip[q]-root[q])*Math.pow(t,.8));
+    for(const sgn of k2===2?[0]:[-1,1]){P.push(cx+px*half*sgn,y,cz+pz*half*sgn);C.push(...c);Nn.push(dx*.35,1,dz*.35);}
+   }
+   I.push(base,base+1,base+2, base+1,base+3,base+2, base+2,base+3,base+4);
+  }
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('color',new THREE.Float32BufferAttribute(C,3));
+  g.setAttribute('normal',new THREE.Float32BufferAttribute(Nn,3));g.setIndex(I);g.normalizeNormals();return g;
+ };
+ const bladesPer=quality>.8?12:7;
+ const tufts=[0,1,2].map(i=>k(tuftGeo(bladesPer,(map.seed||1)*31+i*977)));
+ const gMat=k(new THREE.MeshStandardMaterial({vertexColors:true,side:THREE.DoubleSide,roughness:.9,color:map.look?.dressGrass||'#ffffff'}));
  gMat.onBeforeCompile=sh=>{sh.uniforms.uT=wind.uT;
   sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform float uT;').replace('#include <begin_vertex>',`#include <begin_vertex>
 #ifdef USE_INSTANCING
 { vec3 r=instanceMatrix[3].xyz;float gust=.55+.45*sin(uT*.8-r.x*.05-r.z*.035);
   float sw=(sin(uT*2.1+r.x*.4+r.z*.31)+.4*sin(uT*3.7+r.x*.9-r.z*.5))*gust;
-  float h=max(0.0,transformed.y);transformed.xz+=vec2(.8,.5)*(sw*.13+gust*.1)*h*h; }
-#endif`);};
- gMat.customProgramCacheKey=()=>'mx-grass-wind';
- const per=Math.round(5*quality+1);   // (clumps per metre of track, both banks together)
- const batch=60,m4=new THREE.Matrix4(),q=new THREE.Quaternion(),v=new THREE.Vector3(),sc=new THREE.Vector3(),up=new THREE.Vector3(0,1,0),col=new THREE.Color();
- for(let s0=0;s0<N;s0+=batch){
-  const list=[];
-  for(let s=s0;s<Math.min(N,s0+batch);s+=1)for(let j=0;j<per;j++){
+  float h=max(0.0,transformed.y);transformed.xz+=vec2(.8,.5)*(sw*.35+gust*.25)*h*h; }
+#endif`)
+   // (the sun through a blade seen against it: a little warm light from behind)
+   .replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\ntotalEmissiveRadiance+=diffuseColor.rgb*vec3(.10,.09,.03)*smoothstep(.0,.6,vColor.r);');};
+ gMat.customProgramCacheKey=()=>'mx-tuft-wind';
+ // patches: smooth noise (two scales) for how thick and how tall the grass grows
+ const pn=(x,z)=>{const f=(a,b)=>Math.sin(a*1.7+Math.sin(b*1.3))*Math.cos(b*1.9-Math.sin(a*.7));return .5+.3*f(x*.045,z*.045)+.2*f(x*.17+3,z*.17-1);};
+ const per=Math.round(quality>.8?125:40*quality);   // (tufts tried per metre of track)
+ const m4=new THREE.Matrix4(),q=new THREE.Quaternion(),v=new THREE.Vector3(),sc=new THREE.Vector3(),up=new THREE.Vector3(0,1,0),col=new THREE.Color();
+ const grassBatches=[];
+ for(let s0=0;s0<N;s0+=20){
+  const lists=[[],[],[]];
+  for(let s=s0;s<Math.min(N,s0+20);s+=1)for(let j=0;j<per;j++){
    const side=rnd()<.5?-1:1,si=s%N,outside=mx.outside(si)===side,b=mx.bank[si];
-   const u=side*(mx.hw+1.4+(outside?3.6*b:0)+Math.pow(rnd(),1.6)*10),p=mx.point(si,u),x=p.x+(rnd()-.5)*1.2,z=p.z+(rnd()-.5)*1.2;
-   const at=mx.near(x,z);if(at&&Math.abs(at.u)<mx.hw+.9)continue;   // (not on the track)
-   const nn=terrain.normalAt(x,z);if(nn.y<.72)continue;   // (not on the steep cut banks: bare earth there)
-   list.push([x,H(x,z),z]);
+   const u=side*(mx.hw+1.1+(outside?3.6*b:0)+Math.pow(rnd(),1.9)*24),p=mx.point(si,u),x=p.x+(rnd()-.5)*1.4,z=p.z+(rnd()-.5)*1.4;
+   const at=mx.near(x,z);if(at&&Math.abs(at.u)<mx.hw+.7)continue;   // (not on the track)
+   const nn=terrain.normalAt(x,z);if(nn.y<.74)continue;   // (not on the steep cut banks: bare earth there)
+   const d=pn(x,z);if(rnd()>d*1.35-.15)continue;   // (thin and bare where the patch is low)
+   lists[Math.floor(rnd()*3)].push([x,H(x,z),z,d]);
+   if(d>.55&&rnd()<.6){const x2=x+(rnd()-.5)*.7,z2=z+(rnd()-.5)*.7;lists[Math.floor(rnd()*3)].push([x2,H(x2,z2),z2,d]);}   // (grass grows in clumps)
   }
-  if(!list.length)continue;
-  const im=k(new THREE.InstancedMesh(clump,gMat,list.length));
-  list.forEach(([x,y,z],i)=>{const s=.55+rnd()*.85;q.setFromAxisAngle(up,rnd()*6.283);im.setMatrixAt(i,m4.compose(v.set(x,y-.05,z),q,sc.set(s,s*(.7+rnd()*.7),s)));const t=.82+rnd()*.36;im.setColorAt(i,col.setRGB(t*(.95+rnd()*.15),t,t*.9));});
-  im.receiveShadow=true;im.computeBoundingSphere();group.add(im);
+  let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;const ims=[];
+  lists.forEach((list,vi)=>{
+   if(!list.length)return;
+   for(let i=list.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[list[i],list[j]]=[list[j],list[i]];}   // (mixed up: drawing only the first part of the list thins the patch evenly)
+   const im=k(new THREE.InstancedMesh(tufts[vi],gMat,list.length));im.userData.all=list.length;
+   list.forEach(([x,y,z,d],i)=>{
+    x0=Math.min(x0,x);x1=Math.max(x1,x);z0=Math.min(z0,z);z1=Math.max(z1,z);
+    const tall=.2+.5*Math.pow(d,1.4)*(.6+rnd()*.8),wide=.8+rnd()*.6;   // (taller, thicker grass where the patch is lush)
+    q.setFromAxisAngle(up,rnd()*6.283);im.setMatrixAt(i,m4.compose(v.set(x,y-.03,z),q,sc.set(wide*(.7+tall),tall,wide*(.7+tall))));
+    const t=.8+rnd()*.32,g=.92+rnd()*.16;im.setColorAt(i,col.setRGB(t,t*g,t*(.85+rnd()*.15)));
+   });
+   im.receiveShadow=true;im.computeBoundingSphere();group.add(im);ims.push(im);
+  });
+  if(ims.length)grassBatches.push({ims,x0,x1,z0,z1});
  }
+ const grassReach=quality>.8?95:50;
  // ------------------------------------------------------------- crumbs of soil on the track
  // thousands of little crumbs and pebbles thrown up by the wheels, half sunk in the dirt: made of the very same scanned
  // soil as the ground under them (its colour picked from where each one lies), so they read as the ground's own
@@ -204,16 +228,10 @@ export function mxDress(terrain,scene,map,{quality=1,shadows=false}={}){
   group,
   /** px,pz: the centre of the detailed ground, reach: how far it's exact from there, hAt: the height of the ground as
       drawn (the crumbs sit on that, not on the true height a little above the drawn one on a crest). */
-  update(dt,px,pz,reach=50,hAt=H){wind.uT.value=(wind.uT.value+dt)%600;
+  update(dt,px,pz,reach=50,hAt=H,cam=null){wind.uT.value=(wind.uT.value+dt)%600;
+   if(cam)for(const b of grassBatches){const dx=Math.max(b.x0-cam.x,0,cam.x-b.x1),dz=Math.max(b.z0-cam.z,0,cam.z-b.z1),on=dx*dx+dz*dz<grassReach*grassReach;for(const im of b.ims){im.visible=on;if(on){const d=Math.sqrt(dx*dx+dz*dz);im.count=Math.max(1,Math.round(im.userData.all*Math.min(1,Math.max(.25,1-(d-25)/70))));}}}   // (further off, fewer tufts: each is a few pixels there)
    if(px===undefined||!Number.isFinite(px))return;const stamp=px*7919+pz;
    for(const b of crumbBatches){b.im.visible=b.x0>px-reach&&b.x1<px+reach&&b.z0>pz-reach&&b.z1<pz+reach;if(b.im.visible&&b.stamp!==stamp){b.stamp=stamp;b.seat(hAt);}}},
   dispose(){treesGone=true;group.removeFromParent();for(const o of keep)o.dispose?.();}
  };
-}
-function mergeAll(geos){
- // (a few plain geometries with the same attributes into one)
- const out=new THREE.BufferGeometry(),names=['position','normal','uv'];let total=0;for(const g of geos)total+=g.attributes.position.count;
- for(const n of names){const size=geos[0].attributes[n].itemSize,arr=new Float32Array(total*size);let o=0;for(const g of geos){arr.set(g.attributes[n].array,o);o+=g.attributes[n].array.length;}out.setAttribute(n,new THREE.BufferAttribute(arr,size));}
- const idx=[];let base=0;for(const g of geos){for(const i of g.index.array)idx.push(i+base);base+=g.attributes.position.count;}out.setIndex(idx);
- return out;
 }

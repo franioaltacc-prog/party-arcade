@@ -201,7 +201,7 @@ export function createPost(renderer) {
     const scale = Math.max(1, size.y * renderer.getPixelRatio() / 720);   // (the blur's size in pixels follows the picture's height)
     if (dofMode === 'photo') { d.uNearK.value = 0.1; d.uFarK.value = 0.45; d.uMaxPx.value = 8 * scale; }
     else if (dofMode === 'menu') { d.uNearK.value = 0.8; d.uFarK.value = 0.35; d.uMaxPx.value = 7 * scale; }
-    else { d.uNearK.value = 0.0; d.uFarK.value = 0.12; d.uMaxPx.value = 3 * scale; }   // (riding: only the far distance goes a touch soft)
+    else { d.uNearK.value = 0.0; d.uFarK.value = 0.2; d.uMaxPx.value = 4 * scale; }   // (riding, High: only the far distance goes a little soft, like a real lens)
   }
   const api = {
     /** q: { post, bloom, ao, haze, dof, dofPlay } from the quality setting. */
