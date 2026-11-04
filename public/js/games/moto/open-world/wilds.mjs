@@ -187,13 +187,13 @@ async function jungle(map,terrain){
   // (a dressed pro track: dark leafy bushes dotted over the open grassy slopes round it, thicker in the hollows)
   map.look?.dress&&{id:'scrub',like:'shrub',cover:true,hug:true,per:14000,size:[1.6,3.2],slope:.72,near:160,mats:[M.twigs,M.leaves],variants:nature.bushes.map(b=>({near:[[{geo:b.bark},0],[{geo:b.leaves},1]]})),winds:[{bend:.03},{bend:.03,flutter:.03,glow:.3}],
    fill:(x,z)=>{if(!inTrack(x,z,110))return 0;const at=mx.near(x,z);return at&&Math.abs(at.u)<mx.hw+5?0:.5;}},
-  {id:'banana',like:'shrub',cover:true,per:9000,where:'woods',size:[.8,1.3],slope:.7,near:85,variants:J.bananas,winds:[{bend:.05,flutter:.02,glow:.35}]},
+  {id:'banana',like:'shrub',cover:true,per:9000,where:'woods',size:[.8,1.3],slope:.7,near:85,variants:J.bananas,winds:[{bend:.05,flutter:.02,glow:.15}]},
   {id:'young',like:'palm',cover:true,per:900,size:[.22,.35],slope:.75,near:110,variants:J.palms.map(v=>({near:v.far})),winds:[{bend:.004},{bend:.004,flutter:.03,glow:.4}]},
   {id:'bush',like:'shrub',cover:true,per:9000,where:'woods',size:[.9,1.6],slope:.7,near:90,mats:[M.twigs,M.leaves],variants:nature.bushes.map(b=>({near:[[{geo:b.bark},0],[{geo:b.leaves},1]]})),winds:[{bend:.035},{bend:.035,flutter:.03,glow:.3}]},
   {id:'shrub',like:'shrub',cover:true,per:6000,size:[.8,1.4],slope:.7,near:80,variants:sa.map(r=>({near:[[r,0]]})),winds:[{bend:.04,flutter:.02,glow:.3}]},
   {id:'fern',like:'shrub',cover:true,per:42000,where:'woods',size:[1,1.8],slope:.65,near:60,mats:[M.fern],variants:nature.ferns.map(g=>({near:[[{geo:g},0]]})),winds:[{bend:.08,flutter:.02,glow:.3}]},
   {id:'weeds',like:'shrub',cover:true,per:60000,size:[.9,1.5],slope:.65,near:45,variants:[...sb,...nt].map(r=>({near:[[r,0]]})),winds:[{bend:.2,flutter:.02,glow:.3}]},
-  {id:'stones',like:'rock',cover:true,per:1500,size:[.25,.6],slope:.6,near:60,rock:true,tint:[1.05,.86,.72],variants:rocks,winds:[{bend:0}]},
+  !map.look?.dress&&{id:'stones',like:'rock',cover:true,per:1500,size:[.25,.6],slope:.6,near:60,rock:true,tint:[1.05,.86,.72],variants:rocks,winds:[{bend:0}]},   // (a dressed track's hills: grass, not dark stones)
  ].filter(Boolean).map(k=>resolve(k));
 }
 /** A wet slate valley ("slate" in a world's look): dark pine forest nearly everywhere (the odd oak), slate-grey
@@ -242,9 +242,10 @@ export async function growWilds(built,map,scene,{quality=1,renderer=null,shadows
  const dummy=new THREE.Object3D(),own=[],made=[];
  // a tree's or rock's place: { x, z, y, m (its matrix), v (which variant), shade, leaf (its leaves' colour in autumn, or the kind's tint) }
  const place=(k,x,z,y0,s,rot,v,r)=>{
-  const y=y0-(k.rock?.2*s:.12*s);dummy.position.set(x,y,z);dummy.rotation.set(k.rock?(r-.5)*.3:0,rot,k.rock?(r-.5)*.2:0);
+  const y=y0-(k.rock?(k.cover?.34:.2)*s:.12*s);dummy.position.set(x,y,z);   // (small stones half buried)
+ dummy.rotation.set(k.rock?(r-.5)*.3:0,rot,k.rock?(r-.5)*.2:0);
   dummy.scale.set(s,k.rock?s*(.75+r*.5):s,s);dummy.updateMatrix();
-  return {k,x,z,y,s,m:dummy.matrix.clone(),v,shade:.82+r*.3,leaf:k.autumn?AUTUMN[Math.floor(r*AUTUMN.length*.999)]:k.tint||null};   // (k.tint: the desert's boulders take on its red)
+  return {k,x,z,y,sink:y0-y,s,m:dummy.matrix.clone(),v,shade:.82+r*.3,leaf:k.autumn?AUTUMN[Math.floor(r*AUTUMN.length*.999)]:k.tint||null};   // (k.tint: the desert's boulders take on its red)
  };
  // the challenges' courses stay clear of trees and boulders: a corridor down the straight line from the start, through
  // each gate (a ring in the sky too: the wingsuit has to get down to it) to the finish, as wide as the gates
@@ -299,7 +300,9 @@ export async function growWilds(built,map,scene,{quality=1,renderer=null,shadows
  // near you as you move), and the cards (all of them, made once: those near you fold away in the shader)
  const draws=[],color=new THREE.Color();
  const drawOf=(geo,mat,cap,cast,list=true)=>{const im=new THREE.InstancedMesh(geo,mat,Math.max(1,cap));im.count=0;im.frustumCulled=false;im.castShadow=cast;im.receiveShadow=true;scene.add(im);own.push(im);if(list)draws.push(im);return im;};
- const put=(im,it,leaf)=>{if(im.count>=im.instanceMatrix.count)return;const n=im.count++;im.setMatrixAt(n,it.m);const c=(leaf||!it.k?.autumn)&&it.leaf?it.leaf:null;im.setColorAt(n,c?color.setRGB(c[0]*it.shade,c[1]*it.shade,c[2]*it.shade):color.setRGB(it.shade,it.shade,it.shade*.97));};
+ // (groundAt: the ground as drawn, the fine patch round the rider included: plants sit on that, not floating over a hollow)
+ let groundAt=null;const seated=new THREE.Matrix4();
+ const put=(im,it,leaf)=>{if(im.count>=im.instanceMatrix.count)return;const n=im.count++;if(groundAt&&it.sink!==undefined){seated.copy(it.m);seated.elements[13]=groundAt(it.x,it.z)-it.sink;im.setMatrixAt(n,seated);}else im.setMatrixAt(n,it.m);const c=(leaf||!it.k?.autumn)&&it.leaf?it.leaf:null;im.setColorAt(n,c?color.setRGB(c[0]*it.shade,c[1]*it.shade,c[2]*it.shade):color.setRGB(it.shade,it.shade,it.shade*.97));};
  const ring=(r,d)=>Math.round(Math.PI*r*r*d/1e6*1.4)+24;   // (how many could stand within r metres, at d to a km²)
  for(const k of all.filter(k=>!k.cover)){
   const mine=big.includes(k)?k.items:[],far=backdrop.filter(it=>it.k===k);if(!mine.length&&!far.length)continue;
@@ -362,6 +365,8 @@ export async function growWilds(built,map,scene,{quality=1,renderer=null,shadows
  return {
   count:big.reduce((n,k)=>n+k.items.length,0),solids:solids.length,far:backdrop.length,ms:Math.round(performance.now()-t0),   // (how long planting them all took)
  kinds:Object.fromEntries(big.map(k=>[k.id,k.items.length])),items:id=>big.find(k=>k.id===id)?.items,
+  /** Seat the plants on the ground as drawn (heightAt(x, z)); they're put again next time the list is made. */
+  setGround(heightAt){groundAt=heightAt;dirty=true;},
   update(eye,dt){
    WIND.uWT.value=(WIND.uWT.value+dt)%1000;
    // (grow two of the squares still to come each frame, then put their plants in)

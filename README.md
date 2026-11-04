@@ -442,7 +442,9 @@ with an import map), everything else is drawn and synthesised in code (no model,
   `setRim` / `addRim` give the bike and rider a soft rim of sky light. The banks' grass is real blade tufts (made in
   `mx-dress.mjs`, thinned with distance, only drawn near the camera); cover kinds in `wilds.mjs` can take `fill` and
   `hug` (grow right up to the trails: `plantable`'s `piste`); the soil shader adds lumps (slope from screen
-  derivatives) and dry/damp patches. Assets: `public/assets/moto-realism/SOURCES.md`.
+  derivatives) and dry/damp patches. `tufts.mjs` (`look.tufts`): the shared tuft kit and a field of tufts round the rider
+  (`tuftField`, rebuilt a few thousand a frame when the detailed patch moves); `wilds.setGround(visibleHeight)` seats
+  the wild plants on the drawn ground. Assets: `public/assets/moto-realism/SOURCES.md`.
   Driftvvd (`drift`): `drift.js`, its own top-down car physics (bicycle model, tyre curve, friction circle, handbrake
   on Space/Q, auto counter-steer from the body slip and a drift assist past 45°; `b.drift = {angle, speed}`), drawn
   with `makeCar` (`driftPaint()`), on Downtown (`city`, hidden, written by `tools/make_city.py`). The city is laid out

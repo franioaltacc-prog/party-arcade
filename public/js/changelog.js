@@ -6,6 +6,11 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.24.8', date: '2026-11-04', emoji: '🌿', title: 'Revvd: natural grass and plants all over Jungle Ridge', items: [
+      'Grass now grows everywhere round you at Jungle Ridge, not just along the track: a carpet of short green turf with taller dry grass in patches, swaying in the wind, so trees, bushes and plants come up out of the grass instead of standing on bare ground',
+      'The banana plants look real: clumps of several stems of different heights, darker green leaves (the old ones drooping and yellowing), dead brown leaves hanging down the stems, and no more shiny pale leaves',
+      'Trees, bushes and plants sit properly on the ground near you (they used to float a little over hollows), and the dark stones on the grassy hills are gone',
+    ] },
     { v: '3.24.7', date: '2026-11-04', emoji: '🛬', title: 'Revvd: no more nosedive off the jumps', items: [
       'Your bike no longer tips nose-down the moment it leaves a jump: it leaves at the angle of the ramp and follows its flight, so quick landings on table tops and short hops don’t throw you over the bars any more',
       'When you don’t lean in the air, your rider now turns the bike gently over the whole jump to match the landing, instead of snapping it level right off the lip',

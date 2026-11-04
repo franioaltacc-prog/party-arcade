@@ -10,6 +10,7 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {soilTextures,LOOK} from '../look.js';
+import {tuftKit,tuftPatch} from './tufts.mjs';
 
 const SPONSORS=[
  // [text, small line under it]
@@ -38,7 +39,7 @@ function bannerTexture([bg,fg,accent],seed){
  }
  const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;tex.wrapS=THREE.RepeatWrapping;tex.anisotropy=8;return tex;
 }
-export function mxDress(terrain,scene,map,{quality=1,shadows=false}={}){
+export function mxDress(terrain,scene,map,{quality=1,shadows=false,tufts=null}={}){   // (tufts: a tuftKit to share)
  const mx=terrain.mx;if(!mx)return null;
  const group=new THREE.Group();scene.add(group);const keep=[];const k=o=>{keep.push(o);return o;};
  const H=(x,z)=>terrain.heightAt(x,z),N=mx.length;
@@ -73,40 +74,10 @@ export function mxDress(terrain,scene,map,{quality=1,shadows=false}={}){
  // or olive at the tip, sprung from one spot and leaning out. They grow in patches (taller dry grass in some, short
  // turf in others, bare earth showing between), all over the grassy ground near the track, and are only drawn within
  // reach of the camera (further off the ground's own scanned grass carries it). Lit like the field they stand in.
- const tuftGeo=(blades,seedT)=>{
-  let ts=seedT;const r=()=>{ts=(Math.imul(ts,1664525)+1013904223)>>>0;return ts/4294967296;};
-  const P=[],C=[],Nn=[],I=[];
-  for(let b=0;b<blades;b++){
-   const a=r()*6.283,lean=.04+r()*.22,h=.45+r()*.55,w=.012+r()*.012,dry=r(),bend=.08+r()*.3;
-   const dx=Math.cos(a),dz=Math.sin(a),pa=a+(r()-.5)*1.2,px=-Math.sin(pa),pz=Math.cos(pa),ox=(r()-.5)*.16,oz=(r()-.5)*.16;
-   // (a tip colour: most blades straw-yellow, some olive green, a few pale and dead)
-   const tip=dry<.55?[.86,.76,.42]:dry<.85?[.56,.6,.26]:[.9,.86,.66],root=[.3,.3,.14];
-   const base=P.length/3;
-   for(let k2=0;k2<3;k2++){   // (three rows up the blade: root, middle, tip)
-    const t=k2/2,y=h*t*(1-.25*bend*t*t),out=(lean*t+bend*t*t)*h*.55,half=w*(1-t*.82)*(k2===2?0:1);
-    const cx=ox+dx*out,cz=oz+dz*out,c=[0,1,2].map(q=>root[q]+(tip[q]-root[q])*Math.pow(t,.8));
-    for(const sgn of k2===2?[0]:[-1,1]){P.push(cx+px*half*sgn,y,cz+pz*half*sgn);C.push(...c);Nn.push(dx*.35,1,dz*.35);}
-   }
-   I.push(base,base+1,base+2, base+1,base+3,base+2, base+2,base+3,base+4);
-  }
-  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('color',new THREE.Float32BufferAttribute(C,3));
-  g.setAttribute('normal',new THREE.Float32BufferAttribute(Nn,3));g.setIndex(I);g.normalizeNormals();return g;
- };
- const bladesPer=quality>.8?12:7;
- const tufts=[0,1,2].map(i=>k(tuftGeo(bladesPer,(map.seed||1)*31+i*977)));
- const gMat=k(new THREE.MeshStandardMaterial({vertexColors:true,side:THREE.DoubleSide,roughness:.9,color:map.look?.dressGrass||'#ffffff'}));
- gMat.onBeforeCompile=sh=>{sh.uniforms.uT=wind.uT;
-  sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform float uT;').replace('#include <begin_vertex>',`#include <begin_vertex>
-#ifdef USE_INSTANCING
-{ vec3 r=instanceMatrix[3].xyz;float gust=.55+.45*sin(uT*.8-r.x*.05-r.z*.035);
-  float sw=(sin(uT*2.1+r.x*.4+r.z*.31)+.4*sin(uT*3.7+r.x*.9-r.z*.5))*gust;
-  float h=max(0.0,transformed.y);transformed.xz+=vec2(.8,.5)*(sw*.35+gust*.25)*h*h; }
-#endif`)
-   // (the sun through a blade seen against it: a little warm light from behind)
-   .replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\ntotalEmissiveRadiance+=diffuseColor.rgb*vec3(.10,.09,.03)*smoothstep(.0,.6,vColor.r);');};
- gMat.customProgramCacheKey=()=>'mx-tuft-wind';
+ const bankTint=new THREE.Color(map.look?.dressGrass||'#ffffff');   // (the banks' grass: drier, straw)
+ const kit=tufts||tuftKit({quality,seed:map.seed}),tuftGeos=kit.geos,gMat=kit.mat;if(!tufts)keep.push(kit);
  // patches: smooth noise (two scales) for how thick and how tall the grass grows
- const pn=(x,z)=>{const f=(a,b)=>Math.sin(a*1.7+Math.sin(b*1.3))*Math.cos(b*1.9-Math.sin(a*.7));return .5+.3*f(x*.045,z*.045)+.2*f(x*.17+3,z*.17-1);};
+ const pn=tuftPatch;
  const per=Math.round(quality>.8?125:40*quality);   // (tufts tried per metre of track)
  const m4=new THREE.Matrix4(),q=new THREE.Quaternion(),v=new THREE.Vector3(),sc=new THREE.Vector3(),up=new THREE.Vector3(0,1,0),col=new THREE.Color();
  const grassBatches=[];
@@ -125,12 +96,12 @@ export function mxDress(terrain,scene,map,{quality=1,shadows=false}={}){
   lists.forEach((list,vi)=>{
    if(!list.length)return;
    for(let i=list.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[list[i],list[j]]=[list[j],list[i]];}   // (mixed up: drawing only the first part of the list thins the patch evenly)
-   const im=k(new THREE.InstancedMesh(tufts[vi],gMat,list.length));im.userData.all=list.length;
+   const im=k(new THREE.InstancedMesh(tuftGeos[vi],gMat,list.length));im.userData.all=list.length;
    list.forEach(([x,y,z,d],i)=>{
     x0=Math.min(x0,x);x1=Math.max(x1,x);z0=Math.min(z0,z);z1=Math.max(z1,z);
     const tall=.2+.5*Math.pow(d,1.4)*(.6+rnd()*.8),wide=.8+rnd()*.6;   // (taller, thicker grass where the patch is lush)
     q.setFromAxisAngle(up,rnd()*6.283);im.setMatrixAt(i,m4.compose(v.set(x,y-.03,z),q,sc.set(wide*(.7+tall),tall,wide*(.7+tall))));
-    const t=.8+rnd()*.32,g=.92+rnd()*.16;im.setColorAt(i,col.setRGB(t,t*g,t*(.85+rnd()*.15)));
+    const t=.8+rnd()*.32,g=.92+rnd()*.16;im.setColorAt(i,col.setRGB(t,t*g,t*(.85+rnd()*.15)).multiply(bankTint));
    });
    im.receiveShadow=true;im.computeBoundingSphere();group.add(im);ims.push(im);
   });
@@ -228,7 +199,7 @@ export function mxDress(terrain,scene,map,{quality=1,shadows=false}={}){
   group,
   /** px,pz: the centre of the detailed ground, reach: how far it's exact from there, hAt: the height of the ground as
       drawn (the crumbs sit on that, not on the true height a little above the drawn one on a crest). */
-  update(dt,px,pz,reach=50,hAt=H,cam=null){wind.uT.value=(wind.uT.value+dt)%600;
+  update(dt,px,pz,reach=50,hAt=H,cam=null){wind.uT.value=(wind.uT.value+dt)%600;if(!tufts)kit.time.value=wind.uT.value;
    if(cam)for(const b of grassBatches){const dx=Math.max(b.x0-cam.x,0,cam.x-b.x1),dz=Math.max(b.z0-cam.z,0,cam.z-b.z1),on=dx*dx+dz*dz<grassReach*grassReach;for(const im of b.ims){im.visible=on;if(on){const d=Math.sqrt(dx*dx+dz*dz);im.count=Math.max(1,Math.round(im.userData.all*Math.min(1,Math.max(.25,1-(d-25)/70))));}}}   // (further off, fewer tufts: each is a few pixels there)
    if(px===undefined||!Number.isFinite(px))return;const stamp=px*7919+pz;
    for(const b of crumbBatches){b.im.visible=b.x0>px-reach&&b.x1<px+reach&&b.z0>pz-reach&&b.z1<pz+reach;if(b.im.visible&&b.stamp!==stamp){b.stamp=stamp;b.seat(hAt);}}},
