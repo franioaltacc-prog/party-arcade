@@ -35,6 +35,9 @@ const DT = C.DT;
 
 // ------------------------------------------------------------------ data and preferences
 let DATA = null; let WORLDS = []; let CHALLENGES = [];
+/** Modes taken out of the game for now: their challenges are dropped (so they're gone from the lists, the career and rooms).
+    Keep in step with HIDDEN_MODES in menus.js, which takes them off the Modes tab and the garage. */
+const HIDDEN_MODES = new Set(['sled', 'buggy', 'wing', 'skate', 'drift']);
 const builtTracks = new Map();
 const trackDef = (id) => DATA.tracks.find((t) => t.id === id) || DATA.tracks[0];
 const physicsTrack = (def) => { if (!builtTracks.has(def.id)) builtTracks.set(def.id, C.build(def)); return builtTracks.get(def.id); };
@@ -2334,7 +2337,7 @@ Net.on('g:results', (m) => {
 async function init() {
   try { DATA = await (await fetch('/js/games/moto/tracks.json')).json(); } catch { UI.toast('Couldn’t load the tracks 😵', 'bad'); return; }
   try{WORLDS=(await(await fetch('/js/games/moto/open-world/manifest.json')).json()).worlds;}catch{UI.toast('Free ride worlds could not load','bad');}
-  try { CHALLENGES = (await (await fetch('/js/games/moto/open-world/challenges.json')).json()).challenges; } catch { /* (the challenges menu just stays empty) */ }
+  try { CHALLENGES = (await (await fetch('/js/games/moto/open-world/challenges.json')).json()).challenges.filter((c) => !HIDDEN_MODES.has(c.vehicle)); } catch { /* (the challenges menu just stays empty) */ }
   if (!DATA.tracks.some((t) => t.id === prefs.track)) prefs.track = DATA.tracks[0].id;
   if (setupRenderer()) resize();
   menus = createMenus({

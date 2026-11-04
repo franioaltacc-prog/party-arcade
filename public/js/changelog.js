@@ -6,6 +6,10 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.24.5', date: '2026-11-04', emoji: '🧹', title: 'Fewer modes, more focus', items: [
+      'Sledvvd, Drivvd, Skyvvd, Grindvvd and Driftvvd are out of the game for now: they’re gone from the Modes tab, the garage, the career and the challenge lists',
+      'Revvd, Unrevvd, Carvvd and Wavvd stay, and every career tier can still be cleared',
+    ] },
     { v: '3.24.4', date: '2026-11-04', emoji: '📸', title: 'Revvd looks like a real camera: Jungle Ridge MX gets a pro-track makeover', items: [
       'Jungle Ridge MX now looks like a real motocross track on TV: rich red scanned dirt with little crumbs of the same soil lying on it, long sponsor banner fences on yellow stakes along the track, open grassy hills round the track with big lone trees up on the ridges, and the jungle further back',
       'Natural grass and plants: real tufts of grass (thin blades, straw and olive, swaying) growing in patches on the slopes round the track, the ground under them a photographed grass, red earth showing through in worn patches, and dark leafy bushes dotted over the hills',

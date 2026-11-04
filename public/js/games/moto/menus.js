@@ -117,6 +117,9 @@ export function createMenus(ctx) {
     ctx.paintable(ctx.prefs.carModel || 'revuelto') ? h('div', { class: 'mx-paints' }, Object.entries(ctx.CAR_PAINTS).map(([k, p]) => h('button', { class: 'mx-paint' + (ctx.prefs.carPaint === k ? ' on' : ''), type: 'button', title: p.name, 'aria-label': p.name, style: { '--c': p.color }, onclick: () => { ctx.setCarPaint(k); show(screen); } }))) : null];
   /** Which mode's menu a challenge is in. */
   const modeOf = (c) => (c.water ? 'water' : c.board ? 'snow' : c.vehicle || 'bike');
+  /** Modes taken out of the game for now (their code and worlds stay, nothing in the menus leads to them).
+      Keep in step with HIDDEN_MODES in game.js, which drops their challenges. */
+  const HIDDEN_MODES = new Set(['sled', 'buggy', 'wing', 'skate', 'drift']);
   /** The newer vv modes: their name, logo, colour, the worlds they ride and how to drive. */
   const NEWER = {
     sled: { name: 'Sledvvd', logo: ['SLED', 'VV', 'D'], tag: 'Snowmobiles · deep snow · climb anything', emoji: '🛷', cls: 'sled',
@@ -144,7 +147,8 @@ export function createMenus(ctx) {
   const MODES = [['mtb', '🚵', 'Unrevvd', 'Mountain bikes · downhill chutes · a bike park'], ['snow', '🏂', 'Carvvd', 'Snowboards and skis · resorts · halfpipe'],
     ['water', '🌊', 'Wavvd', 'Jet skis · wakeboarding · surfing'], ['sled', '🛷', 'Sledvvd', 'Snowmobiles · climb anything', true],
     ['buggy', '🚙', 'Drivvd', 'Rally buggies · desert stages', true], ['wing', '🪂', 'Skyvvd', 'Wingsuits · rings in the sky · parachutes', true],
-    ['skate', '🛹', 'Grindvvd', 'Skateboards · rails · halfpipe', true], ['drift', '🏎️', 'Driftvvd', 'Drift cars · a whole city to slide round', true]];
+    ['skate', '🛹', 'Grindvvd', 'Skateboards · rails · halfpipe', true], ['drift', '🏎️', 'Driftvvd', 'Drift cars · a whole city to slide round', true]]
+    .filter(([k]) => !HIDDEN_MODES.has(k));
   /** A newer mode's paint picker (in the garage). */
   const paintGlass = (mode, screen) => { const M = NEWER[mode]; return glass('Your paint', 'only looks', h('div', { class: 'mx-liveries' }, M.colours.map(([c, n, sw = c]) => h('button', {
         class: 'mx-livery' + (M.colour() === c ? ' on' : ''), type: 'button', style: { '--c1': sw, '--c2': sw }, title: n,
@@ -284,7 +288,7 @@ export function createMenus(ctx) {
           card2('orange', '🎯', 'Challenges', 'Downhill, big air, flips · solo or with friends', () => show('challenges'), { sticker: 'NEW' })),
         licence(),
         h('div', { class: 'mx-two' },
-          card2('blue', '🧭', 'More modes', 'Mountain bikes, snowboards, jet skis, snowmobiles, buggies, wingsuits, skateboards', () => show('modes'), { sticker: 'NEW' }),
+          card2('blue', '🧭', 'More modes', 'Mountain bikes, snowboards and skis, jet skis', () => show('modes'), { sticker: 'NEW' }),
           card2('purple', '🎖️', 'Career', 'Rookie to Legend: events in every mode, rewards for each tier', () => show('career'), { sticker: 'NEW' })),
         go(mode === 'solo' ? 'Ride' : 'Race', mode === 'solo' ? 'Pick a track' : 'Make a room or join friends', next),
         card2('green', '🏍️', 'Garage', `${Object.keys(ctx.MODELS).length} bikes · ${Object.keys(ctx.KITS).length - 1} rider kits · ${have} / ${ctx.bikeList.length || 1} paint jobs`, () => show('garage'), { wide: true, sticker: (ctx.MODELS[ctx.style.model] || {}).name || paint(ctx.myLivery()).name, stickerCls: 'dark' }));
@@ -482,7 +486,7 @@ export function createMenus(ctx) {
       const mine = ctx.myLivery(); const lvMine = ctx.LIVERIES[mine] || ctx.LIVERIES.factory; const st = ctx.style;
       if (!preview) preview = mine;
       // every vehicle's looks in one place: the dirt bike's tabs, or the others' pickers
-      const VEH = [['bike', '🏍️ Dirt bike'], ['car', '🏎️ Supercar'], ['mtb', '🚵 Mountain bike'], ['snow', '🏂 Board & skis'], ['jet', '🌊 Jet ski'], ['sled', '🛷 Snowmobile'], ['buggy', '🚙 Buggy'], ['wing', '🪂 Wingsuit'], ['skate', '🛹 Skateboard']];
+      const VEH = [['bike', '🏍️ Dirt bike'], ['car', '🏎️ Supercar'], ['mtb', '🚵 Mountain bike'], ['snow', '🏂 Board & skis'], ['jet', '🌊 Jet ski'], ['sled', '🛷 Snowmobile'], ['buggy', '🚙 Buggy'], ['wing', '🪂 Wingsuit'], ['skate', '🛹 Skateboard']].filter(([k]) => !HIDDEN_MODES.has(k));
       const vehRow = h('div', { class: 'mx-seg mx-veh' }, VEH.map(([k, label]) => h('button', { class: 'mx-sb' + (k === garageVeh ? ' on' : ''), type: 'button',
         onclick: () => { Sfx.play('click'); if (k === 'mtb') { shopTab = 'bike'; show('mtbgarage'); return; } garageVeh = k; show('garage'); } }, label)));
       if (garageVeh !== 'bike') {
