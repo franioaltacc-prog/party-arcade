@@ -96,6 +96,7 @@
    ]
   },
   "dress": true,
+  "tufts": true,
   "photo": {
    "grass": ["/assets/moto-realism/grass-color.webp", "/assets/moto-realism/grass-height.webp"]
   },

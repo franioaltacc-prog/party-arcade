@@ -11,6 +11,7 @@ import {growWilds} from './wilds.mjs';
 import {mxScenery} from './jungle.mjs';
 import {dhScenery} from './downhill.mjs';
 import {mxDress} from './mx-dress.mjs';
+import {tuftKit,tuftField} from './tufts.mjs';
 import {useSkyEnv,setRim,gradeSky} from '../look.js';
 import {renderPolicy} from './render-policy.mjs';
 import {gridHeight} from './grounding.mjs';
@@ -121,7 +122,7 @@ void main(){
  }
  // real trees, bushes and flowers all over (wilds.mjs), once their models have loaded: till then, the drawn ones
  let wilds=null,gone=false;
- growWilds(built,map,scene,{quality,renderer,shadows,sunDir,sunColor:theme.sunColor,night}).then(w=>{if(gone){w?.dispose();return;}wilds=w;if(w)for(const k of coverKinds)if(k.drawn)k.im.visible=false;}).catch(e=>console.warn('wild plants',e));   // (the drawn bushes give way to the real ones)
+ growWilds(built,map,scene,{quality,renderer,shadows,sunDir,sunColor:theme.sunColor,night}).then(w=>{if(gone){w?.dispose();return;}wilds=w;w?.setGround?.(visibleHeight);if(w)for(const k of coverKinds)if(k.drawn)k.im.visible=false;}).catch(e=>console.warn('wild plants',e));   // (the drawn bushes give way to the real ones)
  const fxRoot=new THREE.Group();scene.add(fxRoot);const fx=particles(fxRoot,theme,null,quality);
  const parks=parkScenery(built.terrain,scene,map,{shadows});   // (rails, banners, stands, chairlifts)
  const forest=nature&&built.terrain.gauntlets.length?gauntletScenery(built.terrain,nature,scene,{shadows,snow:map.theme==='snow',night,autumn:!!map.look?.autumn,quality}):
@@ -129,7 +130,9 @@ void main(){
  const slope=map.look?.floodlights||map.features?.lodge?slopeScenery(built.terrain,scene,map):null;   // (floodlights down the run, the lodge)
  const mxs=map.mx?mxScenery(built.terrain,scene,map,{shadows}):null;   // (a motocross track: its start line, banners and flags; the road and village)
  const dhs=built.terrain.mx?.open?dhScenery(built.terrain,scene,map,{shadows}):null;   // (a downhill course: its timber, tape, arches and start hut)
- const dress=map.mx&&map.look?.dress?mxDress(built.terrain,scene,map,{quality,shadows}):null;   // (and a pro track's banner fences, grass on the banks, trees on the ridges)
+ // grass tufts of real blades (look.tufts): along a dressed track's banks and in a field round the rider everywhere
+ const tuftK=map.look?.tufts?tuftKit({quality,seed:map.seed}):null;
+ const dress=map.mx&&map.look?.dress?mxDress(built.terrain,scene,map,{quality,shadows,tufts:tuftK}):null;   // (and a pro track's banner fences, grass on the banks, trees on the ridges)
  const city=map.features?.city?cityScenery(built.terrain,scene,map,{quality,night,dusk,shadows}):null;   // (Driftvvd's city: streets, buildings, lights, parked cars)
  const ocean=map.sea?createOcean(built.terrain,scene,map,{quality,dark:night||dusk||!!map.look?.storm}):null;   // (a sea world: the water, its buoys and piers)
  // ---------------------------------------------------------------- weather round the camera: rain or falling leaves
@@ -258,6 +261,24 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
   for(const k of coverKinds){k.im.instanceMatrix.needsUpdate=true;if(k.im.instanceColor)k.im.instanceColor.needsUpdate=true;}
  }
 
+ // the field of tufts round the rider: not on trails, water, flat pads or steep banks (nor a dressed track's banks:
+ // its own tufts are there), sitting on the ground as drawn
+ const tuftMx=built.terrain.mx;
+ const tuftsRound=tuftK?tuftField(scene,tuftK,{radius:quality>.8?42:28,spacing:quality>.8?.45:.7,tint:[.95,.92,.85],
+  height:(x,z)=>gridHeight(pos.array,half*2,half*2,n,x-cx,z-cz),
+  ok:(x,z)=>{
+   if(Math.abs(x-cx)>inner-1||Math.abs(z-cz)>inner-1)return false;
+   const sample=samples.get(Math.round(x/policy.patchStep)*policy.patchStep+','+Math.round(z/policy.patchStep)*policy.patchStep);
+   if(!sample||sample.trail>.12)return false;
+   if(tuftMx){const at=tuftMx.near(x,z);if(at&&Math.abs(at.u)<tuftMx.hw+(dress?8:.8))return false;}
+   const lake=map.terrain.lake,river=map.terrain.river;
+   if(built.terrain.sea&&sample.y<built.terrain.sea.level+.4)return false;
+   if(lake&&Math.hypot((x-lake.position[0])/lake.radius[0],(z-lake.position[1])/lake.radius[1])<1.08)return false;
+   if(river&&Math.abs(x-river.x-Math.sin(z/river.wavelength)*river.amplitude)<river.width*.62)return false;
+   if(built.terrain.featureAt(x,z).flat>.02)return false;
+   const h=(a,b)=>gridHeight(pos.array,half*2,half*2,n,a-cx,b-cz),sl=Math.hypot(h(x+.6,z)-h(x-.6,z),h(x,z+.6)-h(x,z-.6))/1.2;
+   return sl<.75;   // (bare earth on the steep cut banks)
+  }}):null;
  function updatePatch(point){
   const x=Math.round(point.x/policy.stride)*policy.stride,z=Math.round(point.z/policy.stride)*policy.stride;
   const teleport=!Number.isFinite(cx)||Math.hypot(point.x-cx,point.z-cz)>half*1.5;
@@ -281,7 +302,7 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
   // trees and rocks that were on the old patch go back to the coarse ground; those on the new one sit on it
   if(Number.isFinite(old.x0))built.syncScenery(visibleHeight,old);
   built.syncScenery(visibleHeight,{x0:cx-half-2,x1:cx+half+2,z0:cz-half-2,z1:cz+half+2});
-  scatterCover();
+  scatterCover();tuftsRound?.rebuild(cx,cz);wilds?.setGround?.(visibleHeight);   // (the plants on the new patch sit on it)
   if(samples.size>45000)for(const [key,p]of samples)if(Math.abs(p.x-cx)>half+32||Math.abs(p.z-cz)>half+32)samples.delete(key);
  }
  // ---------------------------------------------------------------- gold coins to collect
@@ -332,7 +353,7 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
   set onLightning(f){world.onLightning=f;},
   /** ahead: where to centre the detailed ground (a little ahead of a fast bike, so the ground it's riding into is ready). */
   update(point,dt,camera,ahead=point){
-   breeze.uWindT.value=(breeze.uWindT.value+dt)%600;
+   breeze.uWindT.value=(breeze.uWindT.value+dt)%600;if(tuftK){tuftK.time.value=breeze.uWindT.value;tuftsRound.step(quality>.8?6000:3500);}
    cloudU.uT.value=(cloudU.uT.value+dt)%2000;cloudLayer.position.x=camera.position.x;cloudLayer.position.z=camera.position.z;
    wilds?.update(camera.position,dt);
    updatePatch(ahead);dress?.update(dt,cx,cz,inner-3,visibleHeight,camera.position);fx.update(dt,camera);parks.update(dt);built.update(camera.position);forest?.update(camera.position);slope?.update(camera.position);city?.update(camera.position);ocean?.update(camera.position,dt);weather(camera.position,dt);drawCoins(performance.now());drawHoops(performance.now());
@@ -345,7 +366,7 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
   /** The real plants (wilds.mjs), once they've grown: { count, solids, update, dispose } or null. */
   get wilds(){return wilds;},
   dispose(){
-   gone=true;stopSkyEnv();dress?.dispose();wilds?.dispose();samples.clear();built.dispose();parks.dispose();forest?.dispose();slope?.dispose();city?.dispose();ocean?.dispose();mxs?.dispose();dhs?.dispose();geo.dispose();detail.dispose();shadowGeo.dispose();shadowMat.dispose();shadowTex.dispose();
+   gone=true;stopSkyEnv();tuftsRound?.dispose();tuftK?.dispose();dress?.dispose();wilds?.dispose();samples.clear();built.dispose();parks.dispose();forest?.dispose();slope?.dispose();city?.dispose();ocean?.dispose();mxs?.dispose();dhs?.dispose();geo.dispose();detail.dispose();shadowGeo.dispose();shadowMat.dispose();shadowTex.dispose();
    for(const k of coverKinds){k.im.dispose();k.geo.dispose();}for(const m of [props.propMat,props.leafMat,props.cactusMat,pebbleProps.propMat,pebbleProps.leafMat,pebbleProps.cactusMat])m.dispose();
    cloudLayer.geometry.dispose();cloudMat.dispose();if(drops){drops.mesh.geometry.dispose();drops.mesh.material.dispose();}if(flakes){for(const f of flakes){f.mesh.geometry.dispose();f.mesh.material.dispose();}flakeTex.dispose();}if(stars){stars.geometry.dispose();stars.material.dispose();}if(lamp){lamp.spot.dispose();lamp.glow.dispose();}coinMesh.dispose();coinGeo.dispose();coinMat.dispose();hoopMesh.dispose();hoopGeo.dispose();hoopMat.dispose();sky.geometry.dispose();sky.material.dispose();env?.dispose();
    const textures=new Set();fxRoot.traverse(o=>{o.geometry?.dispose();if(o.material){for(const u of Object.values(o.material.uniforms||{}))if(u.value?.isTexture)textures.add(u.value);if(o.material.map)textures.add(o.material.map);o.material.dispose();}});textures.forEach(t=>t.dispose());

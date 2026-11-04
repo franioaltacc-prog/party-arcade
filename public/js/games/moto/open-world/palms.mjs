@@ -29,7 +29,7 @@ function frondPicture(){
 function bananaPicture(){
  return canvas(128,512,(g,w,h)=>{
   const r=rng(11);g.clearRect(0,0,w,h);
-  g.fillStyle='#4f9a34';g.beginPath();g.moveTo(w/2,h);
+  g.fillStyle='#3e7428';g.beginPath();g.moveTo(w/2,h);
   for(let y=h;y>=0;y-=8){const t=1-y/h,half=(w/2-4)*Math.pow(Math.sin(Math.PI*Math.min(1,t*1.02+.02)),.4);g.lineTo(w/2+half,y);}
   for(let y=0;y<=h;y+=8){const t=1-y/h,half=(w/2-4)*Math.pow(Math.sin(Math.PI*Math.min(1,t*1.02+.02)),.4);g.lineTo(w/2-half,y);}
   g.fill();
@@ -37,7 +37,7 @@ function bananaPicture(){
   g.strokeStyle='rgba(30,60,20,.35)';g.lineWidth=1;for(let y=h-10;y>10;y-=7){g.beginPath();g.moveTo(w/2,y);g.lineTo(0,y-20);g.moveTo(w/2,y);g.lineTo(w,y-20);g.stroke();}
   g.globalCompositeOperation='destination-out';g.lineWidth=2.5;g.strokeStyle='#000';
   for(let i=0;i<9;i++){const y=60+r()*(h-120),side=r()<.5?-1:1;g.beginPath();g.moveTo(w/2+side*w/2,y);g.lineTo(w/2+side*(6+r()*14),y-14);g.stroke();}
-  g.globalCompositeOperation='source-over';g.strokeStyle='#cfe39a';g.lineWidth=4;g.beginPath();g.moveTo(w/2,h);g.lineTo(w/2,4);g.stroke();
+  g.globalCompositeOperation='source-over';g.strokeStyle='#9fb86a';g.lineWidth=3;g.beginPath();g.moveTo(w/2,h);g.lineTo(w/2,4);g.stroke();
  });
 }
 /** The trunk's bark: grey-brown rings (the scars of old fronds) going round. */
@@ -103,11 +103,26 @@ function palm(seed,detail){
 }
 /** One banana plant: its paddle leaves round a short stem (stem and leaves in one geometry). */
 function banana(seed,detail){
- const r=rng(seed*331+5),stem=new THREE.CylinderGeometry(.09,.14,1.1,detail?7:4).translate(0,.55,0),parts=[];
- const sc=[],su=[];for(let i=0;i<stem.attributes.position.count;i++){sc.push(.5,.62,.28);su.push(.5,.02);}stem.setAttribute('color',new THREE.Float32BufferAttribute(sc,3));stem.setAttribute('uv',new THREE.Float32BufferAttribute(su,2));
- const n=detail?8:5;
- for(let k=0;k<n;k++){const a=k*2.4+r()*.4,e=.9-k/n*.9+(r()-.5)*.2,L=1.7+r()*.9;parts.push(leaf(new THREE.Vector3(0,1+r()*.15,0),a,e,L,.38,detail?7:3,u=>.36*Math.pow(Math.sin(Math.PI*Math.min(1,u*1.02+.02)),.4),.18,[1,1,1]));}
- return mergeGeometries([stem,...parts].map(g=>g.index?g.toNonIndexed():g));
+ // a clump: a few stems of different heights from one root, each with its own crown of paddle leaves (the young ones
+ // upright and fresh, the old ones drooping and yellowing), and dead brown leaves hanging down the stems
+ const r=rng(seed*331+5),parts=[],stems=2+Math.floor(r()*2.99);
+ const colour=(g,c)=>{const cc=[],uu=[];for(let i=0;i<g.attributes.position.count;i++){const y=g.attributes.position.getY(i);const k=Math.min(1,y/1.2);cc.push(c[0]*(.7+.3*k),c[1]*(.7+.3*k),c[2]*(.7+.3*k));uu.push(.5,.02);}
+  g.setAttribute('color',new THREE.Float32BufferAttribute(cc,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uu,2));return g;};
+ for(let s=0;s<stems;s++){
+  const H=s===0?2.1+r()*.5:1.3+r()*.8,ox=s?(r()-.5)*.7:0,oz=s?(r()-.5)*.7:0,lean=(r()-.5)*.12;
+  const stem=new THREE.CylinderGeometry(.05+H*.012,.08+H*.02,H,detail?7:4).translate(0,H/2,0);stem.rotateZ(lean);stem.translate(ox,0,oz);
+  parts.push(colour(stem,[.95,.92,.68]));
+  const top=new THREE.Vector3(ox-Math.sin(lean)*H,H*.97,oz),n=detail?(s===0?7:5):3;
+  for(let k=0;k<n;k++){
+   const age=k/(n-1||1),a=k*2.4+r()*.5+s,e=1.15-age*1.25+(r()-.5)*.2,L=(1.3+r()*.8)*(.75+.25*H/2.4);
+   const tint=age>.7&&r()<.6?[1.05,.92,.55]:[.92+r()*.12,.95+r()*.1,.85];   // (an old leaf low down: yellowing)
+   parts.push(leaf(top.clone().add(new THREE.Vector3(0,-age*.12,0)),a,e,L,.3+age*.3,detail?7:3,u=>.34*Math.pow(Math.sin(Math.PI*Math.min(1,u*1.02+.02)),.4),.18,tint));
+  }
+  if(detail)for(let d=0;d<2;d++){   // (dead leaves hanging down the stem, brown and narrow)
+   const a=r()*6.283;parts.push(leaf(top.clone().add(new THREE.Vector3(0,-.25-d*.35,0)),a,-1.25,.9+r()*.5,.05,4,u=>.16*Math.sin(Math.PI*Math.min(1,u+.05)),.3,[.62,.47,.28]));
+  }
+ }
+ return mergeGeometries(parts.map(g=>g.index?g.toNonIndexed():g));
 }
 /** The palms and banana plants: { palms: [{near: [[geo, mat]...], far}], bananas: [...], mats } (made once). */
 export function jungleModels(){
@@ -115,7 +130,7 @@ export function jungleModels(){
  const bark=barkPicture();bark.wrapS=bark.wrapT=THREE.RepeatWrapping;
  const trunkMat=new THREE.MeshStandardMaterial({map:bark,roughness:.92});
  const frondMat=new THREE.MeshStandardMaterial({map:frondPicture(),vertexColors:true,alphaTest:.45,side:THREE.DoubleSide,roughness:.8});
- const bananaMat=new THREE.MeshStandardMaterial({map:bananaPicture(),vertexColors:true,alphaTest:.45,side:THREE.DoubleSide,roughness:.7});
+ const bananaMat=new THREE.MeshStandardMaterial({map:bananaPicture(),vertexColors:true,alphaTest:.45,side:THREE.DoubleSide,roughness:.86});
  const palms=[0,1,2,3].map(i=>{const near=palm(i,1),far=palm(i,0);return {near:[[{geo:near[0],mat:trunkMat},0],[{geo:near[1],mat:frondMat},1]],far:[[{geo:far[0],mat:trunkMat},0],[{geo:far[1],mat:frondMat},1]]};});
  const bananas=[0,1,2].map(i=>({near:[[{geo:banana(i,1),mat:bananaMat},0]]}));
  return made={palms,bananas,mats:{trunkMat,frondMat,bananaMat}};
