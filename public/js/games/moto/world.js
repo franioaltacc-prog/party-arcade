@@ -4,6 +4,7 @@
    A point on the track is (s = metres along it, y = height, u = metres to the right of its middle). */
 import * as THREE from 'three';
 import { Sky } from 'three/addons/objects/Sky.js';
+import { raceDaylight, applyRaceSoil, addRaceClouds, upgradeRacePines } from './race-realism.js';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const C = window.MotoCore;
@@ -302,7 +303,7 @@ export function makeProps(theme, rand, detail = 2) {
 // ------------------------------------------------------------------ the world
 /** Build everything for a track. Returns { scene, sun, place(), heightAt(), fx, update(), ... }. */
 export function buildWorld(renderer, T, opts = {}) {
-  const th = THEMES[T.theme] || THEMES.desert;
+  const th = raceDaylight(T.theme, THEMES[T.theme] || THEMES.desert);
   const quality = opts.quality || 1;
   const scene = new THREE.Scene();
   const rand = rng(T.n * 7919 + T.id.length);
@@ -314,6 +315,7 @@ export function buildWorld(renderer, T, opts = {}) {
   const sunDir = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - th.sun[0]), THREE.MathUtils.degToRad(th.sun[1]));
   su.sunPosition.value.copy(sunDir);
   scene.add(sky);
+  if (T.theme !== 'snow' && quality > 0.45) addRaceClouds(scene, sunDir);
   // the sky also lights the scene and shows in the paint and chrome
   const pm = new THREE.PMREMGenerator(renderer);
   const skyScene = new THREE.Scene(); const sky2 = new Sky(); sky2.scale.setScalar(1000); sky2.material.uniforms.sunPosition.value.copy(sunDir);
@@ -327,7 +329,7 @@ export function buildWorld(renderer, T, opts = {}) {
   sun.castShadow = true;
   sun.shadow.mapSize.set(quality > 0.6 ? 2048 : 1024, quality > 0.6 ? 2048 : 1024);
   const sc = sun.shadow.camera; sc.left = -26; sc.right = 26; sc.top = 26; sc.bottom = -26; sc.near = 1; sc.far = 260;
-  sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04;
+  sun.shadow.bias = -0.00015; sun.shadow.normalBias = 0.025;
   scene.add(sun, sun.target);
   const hemi = new THREE.HemisphereLight(th.hemi[0], th.hemi[1], th.hemi[2]); scene.add(hemi);
 
@@ -354,6 +356,7 @@ export function buildWorld(renderer, T, opts = {}) {
   const det = detailMaps(T.id === 'snow' ? 11 : T.id === 'forest' ? 5 : 2);
   det.map.repeat.set(1, 1); det.normal.repeat.set(1, 1);
   const groundMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: T.theme === 'snow' ? 0.72 : 0.96, metalness: 0, map: det.map, normalMap: det.normal, normalScale: new THREE.Vector2(0.8, 0.8) });
+  if (T.theme !== 'snow' && quality > 0.45) applyRaceSoil(groundMat, renderer, TW);
   const colorOf = (() => {
     const cols = th.ground.map((c) => new THREE.Color(c)); const side = new THREE.Color(th.side); const far = new THREE.Color(th.far); const trk = new THREE.Color(th.track); const rut = new THREE.Color(th.rut);
     const tmp = new THREE.Color(); const tmp2 = new THREE.Color();
@@ -375,6 +378,7 @@ export function buildWorld(renderer, T, opts = {}) {
   function ribbon(uList, ds, sFrom, sTo, uvScale, under = 0) {
     const rows = Math.ceil((sTo - sFrom) / ds) + 1; const cols = uList.length;
     const pos = new Float32Array(rows * cols * 3); const col = new Float32Array(rows * cols * 3); const uv = new Float32Array(rows * cols * 2);
+    const raceCoord = new Float32Array(rows * cols * 2);
     const p = {}; const c = new THREE.Color();
     for (let r = 0; r < rows; r++) {
       const s = sFrom + r * ds;
@@ -400,6 +404,7 @@ export function buildWorld(renderer, T, opts = {}) {
         colorOf(s, u, onTrack, steep, c);
         col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
         uv[i * 2] = u / uvScale; uv[i * 2 + 1] = s / uvScale;
+        raceCoord[i * 2] = u; raceCoord[i * 2 + 1] = s;
       }
     }
     const idx = [];
@@ -409,6 +414,7 @@ export function buildWorld(renderer, T, opts = {}) {
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    g.setAttribute('raceCoord', new THREE.BufferAttribute(raceCoord, 2));
     g.setIndex(idx); g.computeVertexNormals();
     return g;
   }
@@ -450,6 +456,8 @@ export function buildWorld(renderer, T, opts = {}) {
   });
   rutTex.colorSpace = THREE.SRGBColorSpace; rutTex.wrapS = THREE.ClampToEdgeWrapping;
   const rutMat = new THREE.MeshStandardMaterial({ map: rutTex, transparent: true, roughness: T.theme === 'snow' ? 0.55 : 0.92, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, normalMap: det.normal });
+  // Let the scanned earth show through the older painted tyre overlay.
+  if (T.theme !== 'snow' && quality > 0.45) { rutMat.opacity = 0.22; rutMat.normalScale.set(0.35, 0.35); }
   for (let s = T.x0; s < T.end; s += CH) {
     const g = ribbon([-TW - 0.4, -TW / 2, 0, TW / 2, TW + 0.4], 0.5, s, Math.min(T.end, s + CH), 1, -0.012);
     const uvA = g.attributes.uv;
@@ -514,6 +522,7 @@ export function buildWorld(renderer, T, opts = {}) {
       (instances[kind] ||= []).push(im);
     }
   }
+  const stopTreeUpgrade = T.theme === 'forest' && quality > 0.6 ? upgradeRacePines(scene, instances.pine) : () => {};
   // distant mountains, mesas or hills all around
   const mtnMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, flatShading: false });
   const mid = place((T.start + T.finish) / 2, 0, 0);
@@ -702,7 +711,8 @@ export function buildWorld(renderer, T, opts = {}) {
       fx.update(dt, camera);
     },
     dispose() {
-      scene.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) { const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach((m) => { for (const k of ['map', 'normalMap']) if (m[k]) m[k].dispose(); m.dispose(); }); } });
+      stopTreeUpgrade();
+      scene.traverse((o) => { if (o.isInstancedMesh) o.dispose(); if (o.geometry) o.geometry.dispose(); if (o.material) { const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach((m) => { for (const k of ['map', 'normalMap', 'roughnessMap', 'aoMap', 'alphaMap']) if (m[k]) m[k].dispose(); m.dispose(); }); } });
       env.dispose();
     },
   };
