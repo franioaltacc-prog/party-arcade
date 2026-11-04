@@ -5,7 +5,7 @@
 
   // The site's version. Bump it with every update, together with a new entry at the
   // top of public/js/changelog.js (the /changelog page).
-  const VERSION = '3.24.1';
+  const VERSION = '3.24.2';
 
   // ---------------------------------------------------------------- helpers
   const $ = (s, r = document) => r.querySelector(s);

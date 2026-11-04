@@ -6,6 +6,12 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.24.2', date: '2026-11-04', emoji: '☀️', title: 'More natural motocross tracks', items: [
+      'Desert Dunes and Forest Mud have scanned dirt materials: clods, stones, surface relief and finer tire grooves that follow the track',
+      'Clearer daylight and shadows, a blue sky with broken clouds, and detailed pines on the forest race track at high graphics quality',
+      'More natural colors with softer highlight contrast and less banding in skies and fog',
+      'Medium graphics keeps the detailed dirt and clouds; Low keeps the lightweight procedural surface',
+    ] },
     { v: '3.24.1', date: '2026-11-04', emoji: '🏎️', title: 'Driftvvd: a whole city to drift a car round', items: [
       'A new mode, Driftvvd (on the Modes tab): a drift car in Downtown, a big new city. Streets in blocks, two wide boulevards, two roundabouts, a huge car park with cones, tall buildings, pavements, zebra crossings, traffic lights and parked cars',
       'The car slides: pull the handbrake (Space, or the ✋ button on a phone) or floor it in a corner and the back steps out. Steer into the slide to hold it; let go and it straightens up cleanly. Tyre smoke and a tyre squeal while you slide',
