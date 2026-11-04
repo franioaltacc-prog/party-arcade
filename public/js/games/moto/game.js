@@ -506,7 +506,7 @@ function respawnNow() {
 
 const HAZARD_TEXT = {
   lava: ['🔥 TOO HOT! Into the lava', new THREE.Color('#ff7a2a')], water: ['💦 SPLASH!', new THREE.Color('#cfe8ff')],
-  ice: ['🥶 SPLASH! That water is freezing', new THREE.Color('#e4f4ff')], chasm: ['😱 DOWN THE CHASM!', null], gap: ['💥 CASED IT! Short of the landing', null],
+  ice: ['🥶 SPLASH! That water is freezing', new THREE.Color('#e4f4ff')], chasm: ['😱 DOWN THE CHASM!', null], gap: ['💥 TOO SHORT! You missed the landing', null],
   tar: ['🛢️ STUCK IN THE TAR PIT!', new THREE.Color('#3a3530')],
 };
 function onEvent(k, d) {

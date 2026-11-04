@@ -102,3 +102,15 @@ A world can have a motocross track carved into its hillside: `"mx"` in its file 
 - The track, the terraces and the road are drawn in finer detail than the rest of the ground (`detail` areas: the coarse ground is sunk out of sight under them).
 
 The race is the `jungle-mx` challenge (`"route": "mx", "laps": 2`): it starts on the start line two abreast, counts only the metres ridden on the track (cut across the hill and that bit doesn't count), with a checkpoint a third and two thirds of the way round. Its medal times come from a robot rider that finished two laps in 2:22 (careful) and 2:19 (faster, with two crashes). In the jungle (`"look": {"jungle": true}`) `wilds.mjs` grows palms between the lanes and a thick canopy round the track and terraces.
+
+## Downhill course (Slatefall Line)
+
+`"mx"` can also be a one-way course: `"closed": false` (`slatefall.json`, made by `tools/make_slatefall.py` from its corners and `tools/slatefall_features.json`). Its ends are not joined up, there is no start rotation, and the course stops at its last corner.
+
+- `smooth`: how far along (in metres, each way) the bench is smoothed (12 by default; a steep course wants less, so it can follow the hill).
+- Features can be placed by `s` (metres along the course) instead of `at`. Extra kinds: `gap` (a kicker curving up to its lip, a gap of `gap` metres, then a landing `land` metres high easing back down over `down`; `depth` digs a pit across it, `wide` metres past each edge, with slate walls), `drop` (a deck held level, `flat` 0..1, while the hill falls away, with a `kick` at its edge so you leave it nose-up) and `rocks` (slate bumps all across, `h` high, over `len` metres). `wood: true` gives a feature square timber sides; `downhill.mjs` draws planks over it.
+- A gap with `depth: 0` is a road gap: the road runs through it. Fall short of any gap and you crash: `hazard(x, z)` reports the pit, and in a challenge you're put back on its run-in (`retry`: `run` metres before the kicker, 60 by default). Spots on a jump or close to a gap (`busy`) are never used as the safe spot.
+- `downhill.mjs` draws the timber, course tape on posts down both sides (none down pits, on the road or on decks), banners down the finish chute, a finish arch and a start hut.
+- `"look"`: `slate` (a pine valley with grey slate boulders, `wilds.mjs`), `drizzle` (light rain with no lightning) and `snow: false` (an alpine world with no snow up high).
+
+The race is the `slatefall-line` challenge: 13 gates top to bottom. Its medal times come from a robot rider that rode it in 2:22 with no crashes. Every gap was checked with the robot holding a steady speed into it: the step-downs clear from about 36 to 43 km/h and the road gaps and canyon from about 50 to 58 km/h. The wooden drops clear at any speed.
