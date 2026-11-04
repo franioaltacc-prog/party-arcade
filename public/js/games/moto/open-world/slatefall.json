@@ -478,9 +478,10 @@
     "h": 1.2,
     "up": 6,
     "top": 12,
-    "down": 1.6,
+    "down": 0.8,
     "flat": 0.85,
-    "wood": true
+    "wood": true,
+    "kick": 0.9
    },
    {
     "kind": "rocks",
@@ -550,9 +551,10 @@
     "h": 1.0,
     "up": 5,
     "top": 14,
-    "down": 1.6,
+    "down": 0.8,
     "flat": 0.9,
-    "wood": true
+    "wood": true,
+    "kick": 0.9
    },
    {
     "kind": "table",
@@ -624,9 +626,10 @@
     "h": 1.2,
     "up": 5,
     "top": 10,
-    "down": 1.6,
+    "down": 0.8,
     "flat": 0.9,
-    "wood": true
+    "wood": true,
+    "kick": 0.9
    }
   ]
  }

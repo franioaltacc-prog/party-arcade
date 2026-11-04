@@ -123,7 +123,8 @@ export function mxGround(world,landAt){
    let v;
    if(f.kind==='drop'){   // (a deck: up onto it, held level (flat 0..1) while the hill falls away, then straight off the end)
     const keep=f.flat*(base[I(s0+f.up)]-base[I(s0+Math.min(a,f.up+f.top))]);
-    v=a<f.up?f.h*smooth(a/f.up):a<f.up+f.top?f.h+keep:(f.h+keep)*(1-smooth((a-f.up-f.top)/f.down));
+    const lip=(f.kick||0)*Math.pow(Math.max(0,Math.min(1,(a-f.up-f.top+3)/3)),2);   // (a little kick up at the edge, so you leave it nose-up and don't dive off it)
+    v=a<f.up?f.h*smooth(a/f.up):a<f.up+f.top?f.h+keep+lip:(f.h+keep+(f.kick||0))*(1-smooth((a-f.up-f.top)/f.down));
     if(f.wood&&a<f.up+f.top+f.down*.5)wood[i]=1;
    }else{
     v=SHAPES[f.kind](f,a);
