@@ -10,6 +10,7 @@
  *  4. mountain ranges rise around the edge of the world
  */
 import {mxLine,mxRoutePoints,mxGround} from './mx.mjs';
+import {cityLayout} from './city-layout.mjs';
 export const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
 const smooth = t => { t=clamp(t,0,1); return t*t*(3-2*t); };
 function hash(x,z,seed) { let n=Math.imul(x,374761393)^Math.imul(z,668265263)^seed; n=Math.imul(n^(n>>>13),1274126177); return ((n^(n>>>16))>>>0)/4294967295; }
@@ -34,6 +35,7 @@ export function routePoint(route,distance) {
 }
 export function buildTerrain(world) {
  const spec=world.terrain, cell=160, grid=new Map(), W=world.size[0], D=world.size[1], seed=world.seed, theme=world.theme;
+ const city=world.features?.city?cityLayout(world):null;   // (Driftvvd's city: flat, its streets paved, its buildings solid: city.mjs)
  const lake=spec.lake, river=spec.river;
  // a motocross track (mx.mjs): its route's points come from its corners
  if(world.mx){ const r=world.routes.find(r=>r.id===world.mx.route); if(r&&!r.points?.length) r.points=mxRoutePoints(mxLine(world.mx)); }
@@ -526,7 +528,9 @@ export function buildTerrain(world) {
   if(features.length){ const f=featureAt(x,z); if(f.flat>0) y+=(f.base-y)*f.flat+f.dy; }
   const w=wild(x,z); if(w>0) y+=landform(x,z)*w;
   if(mx) y=mx.shape(x,z,y);
-  return shore(x,z,y+cliffRise(x,z));
+  y+=cliffRise(x,z);
+  if(city){ const k=city.flat(x,z); if(k>0) y+=(world.baseHeight-y)*k; }
+  return shore(x,z,y);
  }
  // ---------------------------------------------------------------- the sea ("sea": { level, waves, swell })
  // A sea world is water up to level: the ground under it is the seabed (bedAt), heightAt is the calm surface (where
@@ -572,6 +576,7 @@ export function buildTerrain(world) {
   const y=heightAt(x,z); if(!railParks.length) return y; const r=railAt(x,z); return r&&r.y>y?r.y:y;
  }
  function surfaceAt(x,z) {
+  if(city&&city.flat(x,z)>=1) return {kind:'trail',grip:.98,roll:.01};   // (the city: tarmac and pavement)
   if(sea) return landAt(x,z)<sea.level-.12?{kind:'water',grip:.62,roll:.004}:{kind:'sand',grip:.55,roll:.24};   // (run aground and you grind to a stop)
   if(features.length&&featureAt(x,z).weight>.5) return {kind:'trail',grip:.96,roll:.01};   // (gap jumps are packed dirt, whatever's round them)
   if(mx){ const m=mx.surface(x,z); if(m) return m; }   // (rice paddies: mud)
@@ -610,7 +615,7 @@ export function buildTerrain(world) {
   return gates;
  }
  if(world.mx) mx=mxGround(world,landAt);
- return {world,mx,detail:mx?.areas||[],rawHeight,cliffRise,heightAt,bedAt:landAt,sea,waves:WAVES,waveAt,waveScale,waveTime,roadAt,rampAt,surfaceAt,normalAt,inBounds,nearestSafePad,gatesFor,wild,ramps,parks,mesas,routeDist,buildings,arches,obstacles,obstacleAt,obstaclesNear,
+ return {world,mx,city,detail:mx?.areas||[],rawHeight,cliffRise,heightAt,bedAt:landAt,sea,waves:WAVES,waveAt,waveScale,waveTime,roadAt,rampAt,surfaceAt,normalAt,inBounds,nearestSafePad,gatesFor,wild,ramps,parks,mesas,routeDist,buildings,arches,obstacles,obstacleAt,obstaclesNear,
   featureAt,hazardAt,boostAt,tintAt,gaps,pools,boosts,gauntlets,gauntletIn,parkList:parks2,railAt,rideAt,addSolids,forestTrees,forestReach,trailNearest,
   /** f(x, z): metres more water on top of the waves (null: none). */ setSeaExtra:f=>{seaExtra=f;}};
 }

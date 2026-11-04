@@ -3,6 +3,7 @@ import {Sky} from 'three/addons/objects/Sky.js';
 import {buildOpenWorld,autumnize} from './world.mjs';
 import {gauntletScenery,forestScenery} from './nature.mjs';
 import {slopeScenery} from './slope.mjs';
+import {cityScenery} from './city.mjs';
 import {createOcean} from './ocean.mjs';
 import {parkScenery} from './parks.mjs';
 import {terrainMaterial,seaLight} from './materials.mjs';
@@ -113,6 +114,7 @@ void main(){
   nature&&built.terrain.forestTrees.length?forestScenery(built.terrain,nature,scene,{shadows:shadows&&!dusk,snow:map.theme==='snow',near:24+16*quality,mid:70+40*quality,far:3000}):null;   // (a ski run's forest)
  const slope=map.look?.floodlights||map.features?.lodge?slopeScenery(built.terrain,scene,map):null;   // (floodlights down the run, the lodge)
  const mxs=map.mx?mxScenery(built.terrain,scene,map,{shadows}):null;   // (a motocross track: its start line, banners and flags; the road and village)
+ const city=map.features?.city?cityScenery(built.terrain,scene,map,{quality,night,dusk,shadows}):null;   // (Driftvvd's city: streets, buildings, lights, parked cars)
  const ocean=map.sea?createOcean(built.terrain,scene,map,{quality,dark:night||dusk||!!map.look?.storm}):null;   // (a sea world: the water, its buoys and piers)
  // ---------------------------------------------------------------- weather round the camera: rain or falling leaves
  const storm=!!map.look?.storm,leafFall=!!map.look?.autumn&&!!forest,hemi=scene.children.find(o=>o.isHemisphereLight);
@@ -317,7 +319,7 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
    breeze.uWindT.value=(breeze.uWindT.value+dt)%600;
    cloudU.uT.value=(cloudU.uT.value+dt)%2000;cloudLayer.position.x=camera.position.x;cloudLayer.position.z=camera.position.z;
    wilds?.update(camera.position,dt);
-   updatePatch(ahead);fx.update(dt,camera);parks.update(dt);built.update(camera.position);forest?.update(camera.position);slope?.update(camera.position);ocean?.update(camera.position,dt);weather(camera.position,dt);drawCoins(performance.now());drawHoops(performance.now());
+   updatePatch(ahead);fx.update(dt,camera);parks.update(dt);built.update(camera.position);forest?.update(camera.position);slope?.update(camera.position);city?.update(camera.position);ocean?.update(camera.position,dt);weather(camera.position,dt);drawCoins(performance.now());drawHoops(performance.now());
    sun.position.copy(point).addScaledVector(sunDir,220);sun.target.position.copy(point);
    if(!shadows){
     const y=built.terrain.heightAt(point.x,point.z),nn=built.terrain.normalAt(point.x,point.z);
@@ -327,7 +329,7 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
   /** The real plants (wilds.mjs), once they've grown: { count, solids, update, dispose } or null. */
   get wilds(){return wilds;},
   dispose(){
-   gone=true;wilds?.dispose();samples.clear();built.dispose();parks.dispose();forest?.dispose();slope?.dispose();ocean?.dispose();mxs?.dispose();geo.dispose();detail.dispose();shadowGeo.dispose();shadowMat.dispose();shadowTex.dispose();
+   gone=true;wilds?.dispose();samples.clear();built.dispose();parks.dispose();forest?.dispose();slope?.dispose();city?.dispose();ocean?.dispose();mxs?.dispose();geo.dispose();detail.dispose();shadowGeo.dispose();shadowMat.dispose();shadowTex.dispose();
    for(const k of coverKinds){k.im.dispose();k.geo.dispose();}for(const m of [props.propMat,props.leafMat,props.cactusMat,pebbleProps.propMat,pebbleProps.leafMat,pebbleProps.cactusMat])m.dispose();
    cloudLayer.geometry.dispose();cloudMat.dispose();if(drops){drops.mesh.geometry.dispose();drops.mesh.material.dispose();}if(flakes){for(const f of flakes){f.mesh.geometry.dispose();f.mesh.material.dispose();}flakeTex.dispose();}if(stars){stars.geometry.dispose();stars.material.dispose();}if(lamp){lamp.spot.dispose();lamp.glow.dispose();}coinMesh.dispose();coinGeo.dispose();coinMat.dispose();hoopMesh.dispose();hoopGeo.dispose();hoopMat.dispose();sky.geometry.dispose();sky.material.dispose();env?.dispose();
    const textures=new Set();fxRoot.traverse(o=>{o.geometry?.dispose();if(o.material){for(const u of Object.values(o.material.uniforms||{}))if(u.value?.isTexture)textures.add(u.value);if(o.material.map)textures.add(o.material.map);o.material.dispose();}});textures.forEach(t=>t.dispose());

@@ -428,6 +428,17 @@ with an import map), everything else is drawn and synthesised in code (no model,
   `speedFx` (how fast it feels for this vehicle, `R.fxK`) and the landing dip in `updateCamera`. Sounds without an
   engine: `createAudio({ kind })` in `sound.js` ('board', 'skate', 'wing'). Tests: `__moto.play(s, held)` draws real
   60 fps frames, unlike `advance`.
+  Driftvvd (`drift`): `drift.js`, its own top-down car physics (bicycle model, tyre curve, friction circle, handbrake
+  on Space/Q, auto counter-steer from the body slip and a drift assist past 45°; `b.drift = {angle, speed}`), drawn
+  with `makeCar` (`driftPaint()`), on Downtown (`city`, hidden, written by `tools/make_city.py`). The city is laid out
+  in the browser from `features.city` by `open-world/city-layout.mjs` (`cityLayout`: streets, boulevards, roundabouts,
+  the car-park plaza, lots, lamps, traffic lights, parked cars, cones; `hit()` is what the drift car bumps into and
+  `flat()` levels the ground in `terrain.mjs`) and drawn by `open-world/city.mjs` (`cityScenery`, added in
+  `ride-world.mjs`; lit lamps and pools of light at night). Models: `public/models/city/` (Kenney City Kit
+  Commercial, City Kit Roads and Car Kit, CC0). Scoring: `newDrift`/`driftStep`/`bankDrift`/`loseDrift` in `game.js`
+  (angle × speed × time, a combo that ends on a bump or after straightening too long; best per world in
+  `moto_drift_best_<world>`). Challenges of `kind: drift` (most points in the time; `TOP_SCORE` in
+  `games/moto/game.py`). Tyre squeal: `kind: 'drift'` in `sound.js`.
   Photo mode and replays: `studio.js` (the replay is the last minute of `R.rec`). Gear (`Coins.LAMP`, `Coins.CAM`) only
   changes the lamp and the first-person look, so it's allowed in challenges. Tests: `tests/chutebot.py`.
 

@@ -129,6 +129,10 @@
      "about": "90 seconds at the rail garden. Ride up onto a rail or box to grind it: the longer the grind, the more it scores."},
     {"id": "skate-bomb", "world": "skateplaza", "kind": "race", "name": "Bomb Hill", "emoji": "💨", "vehicle": "skate", "from": "hilltop", "to": "plaza", "limit": 120, "since": "3.22",
      "about": "From the top of the hill down the long road to the plaza. Tuck in and let it run (and push on the flat)."},
+    {"id": "drift-carpark", "world": "city", "kind": "drift", "name": "Car Park Drift", "emoji": "🏎️", "vehicle": "drift", "at": "carpark", "limit": 90, "since": "3.24",
+     "about": "90 seconds in the big car park. Get the car sideways round the cones and hold it: the longer, faster and more sideways the drift, the more points. Link drifts for up to ×5, and don't hit anything."},
+    {"id": "drift-downtown", "world": "city", "kind": "drift", "name": "Downtown Drift", "emoji": "🌆", "vehicle": "drift", "at": "downtown", "limit": 150, "since": "3.24",
+     "about": "Two and a half minutes on the streets. Slide the corners, the roundabouts and the boulevards. Hit a wall or a parked car and you lose the drift you're in."},
     {"id": "avalanche-escape", "world": "frostpeak", "kind": "race", "name": "Avalanche!", "emoji": "🌊", "from": "frost-falls", "to": "frost-lake", "limit": 300, "vehicle": "mtb", "board": true, "avalanche": true, "medals": [120, 138, 150],
      "about": "An avalanche breaks right behind you at the Frozen Falls, and it gets faster. Race it all the way down to the lake. If it catches you, you're buried."}
   ]

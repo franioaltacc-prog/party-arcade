@@ -6,6 +6,15 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.24.1', date: '2026-11-04', emoji: '🏎️', title: 'Driftvvd: a whole city to drift a car round', items: [
+      'A new mode, Driftvvd (on the Modes tab): a drift car in Downtown, a big new city. Streets in blocks, two wide boulevards, two roundabouts, a huge car park with cones, tall buildings, pavements, zebra crossings, traffic lights and parked cars',
+      'The car slides: pull the handbrake (Space, or the ✋ button on a phone) or floor it in a corner and the back steps out. Steer into the slide to hold it; let go and it straightens up cleanly. Tyre smoke and a tyre squeal while you slide',
+      'Drift points: the more sideways, the faster and the longer you slide, the more you score. Link drifts together for a combo up to ×5. Hit a wall or a parked car, or drive straight too long, and the combo ends. Your best drift is saved',
+      'Two drift challenges: Car Park Drift (90 seconds round the cones) and Downtown Drift (two and a half minutes on the streets). Play them on your own or with a whole room',
+      'At night the street lights come on all the way down every street and light up the road under them',
+      'Every other bike, board and car drives exactly as before',
+      'The buildings, cars, cones and street lights are from Kenney’s free (CC0) city and car kits',
+    ] },
     { v: '3.24.0', date: '2026-11-04', emoji: '🌴', title: 'Jungle Ridge MX: a red-dirt motocross track in the jungle', items: [
       'A new world: Jungle Ridge MX. A red-dirt motocross track cut into a jungle hillside, with five tight hairpins stacked up the hill and palm trees in the grass between the lanes',
       'Banked berms in every hairpin, whoops, rollers, tabletops and doubles on the straights, then a fast run back down the jungle straight to the finish',
