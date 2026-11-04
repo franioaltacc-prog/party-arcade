@@ -6,6 +6,11 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.24.6', date: '2026-11-04', emoji: '🎥', title: 'The camera stays out of the hills', items: [
+      'Riding across a steep hillside, the camera behind you no longer slips into the side of the hill (where you could see through it). It now stays clear of the slope and rises over a bump that would hide you',
+      'After a crash, the camera no longer flies through hills on its way back to you',
+      'On flat ground the camera is exactly as before',
+    ] },
     { v: '3.24.5', date: '2026-11-04', emoji: '🧹', title: 'Fewer modes, more focus', items: [
       'Sledvvd, Drivvd, Skyvvd, Grindvvd and Driftvvd are out of the game for now: they’re gone from the Modes tab, the garage, the career and the challenge lists',
       'Revvd, Unrevvd, Carvvd and Wavvd stay, and every career tier can still be cleared',
