@@ -88,7 +88,9 @@ const flat = C.build({ id: 'flat', name: 'Flat', course: ['flat 20', 'start', 'f
   {
     const D = C.build({ id: 'drop', name: 'Drop', course: ['flat 20', 'start', 'flat 40', 'kicker 6 1.6', 'flat 3', 'down 40 8', 'flat 80', 'finish', 'flat 40'] });
     let got = null; let raw = 0;
-    for (let stop = 0.8; stop < 3.4 && !got; stop += 0.15) {
+    // (stop leaning back a bit earlier each go, until one that turned well short of a whole turn lands clean as a backflip)
+    for (let stop = 0.8; stop < 3.4 && !(got && got.clean && got.turns === 1 && raw < 2 * Math.PI - 0.3); stop += 0.15) {
+      got = null;
       const c = C.newBike(D); let flipping = false; let rot = 0; let air = 0;
       for (let i = 0; i < 120 * 20 && !got && !c.crashed; i++) {
         const inp = C.robot(D, c);
@@ -100,6 +102,27 @@ const flat = C.build({ id: 'flat', name: 'Flat', course: ['flat 20', 'start', 'f
       }
     }
     check(got && got.clean && got.turns === 1 && got.back && raw < 2 * Math.PI - 0.3, `a backflip off a kicker onto a downslope counts as one, though the bike only turned ${(raw * 180 / Math.PI).toFixed(0)}° in the air`);
+  }
+  // off a lip with no lean held, the bike leaves at the ramp's angle and isn't thrown nose-down (it used to tip
+  // 30-50° over in the first 0.3 s, and on Jungle Ridge MX past straight down), then lands clean
+  {
+    let worst = 0; let bad = '';
+    for (const piece of ['kicker 4 0.8', 'kicker 6 1.6', 'table 8 1.8 8', 'double 8 2 10']) {
+      const K = C.build({ id: 'lip', name: 'Lip', course: ['flat 20', 'start', 'flat 50', piece, 'flat 120', 'finish', 'flat 40'] });
+      for (const gas of [0.3, 0.6, 1]) {
+        const c = C.newBike(K); let a0 = null; let t = 0; let dive = 0; let gone = false; let land = null;
+        for (let i = 0; i < 120 * 12 && !land && !c.crashed; i++) {
+          for (const [k, d] of C.step(K, c, { gas })) if (k === 'land' && d.air > 0.3) land = d;
+          const up = !(c.wh[0].ct || c.wh[1].ct);
+          if (up && a0 == null && c.x > 60) a0 = c.a;
+          if (a0 != null && !up) gone = true;
+          if (a0 != null && up && !gone && (t += C.DT) < 0.3) dive = Math.min(dive, c.a - a0);
+        }
+        if (dive < worst) worst = dive;
+        if (!(a0 > 0.1 && dive > -0.35 && land && land.clean && !c.crashed)) bad += ` ${piece} at gas ${gas}`;
+      }
+    }
+    check(!bad, `riding off a lip hands-off keeps the ramp's angle (at most ${(-worst * 180 / Math.PI).toFixed(0)}° nose-down in the first 0.3 s) and lands clean${bad ? ': not on' + bad : ''}`);
   }
   const s = C.newBike(flat); const n = C.newBike(flat); n.nitro = 1;
   for (let i = 0; i < 120 * 3; i++) { C.step(flat, s, { gas: 1, lean: 1 }); C.step(flat, n, { gas: 1, lean: 1, nitro: true }); }
