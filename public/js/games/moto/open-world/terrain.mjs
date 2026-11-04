@@ -60,14 +60,14 @@ export function buildTerrain(world) {
  }
  /** Mountain ranges round the edge: rideable foothills up to the edge of the world, then the real peaks rising
   * beyond it (where you can't ride, but can see), with ribs and gullies down their faces. */
- const B=world.boundary, rimWidth=B.cliffWidth||300, rimHeight=B.cliffHeight||520, rise=B.rise??1;   // (rise: how steeply the mountains beyond climb; under 1, gentler and further off)
+ const B=world.boundary, rimWidth=B.cliffWidth||300, rimHeight=B.cliffHeight||520, rise=B.rise??1, ribK=B.ribs??1;   // (rise: how steeply the mountains beyond climb; under 1, gentler and further off)
  function cliffRise(x,z) {
   const edge=Math.min(W/2-Math.abs(x),D/2-Math.abs(z)), t=1-edge/rimWidth;
   if(t<=0) return 0;
   const crest=ridged(x/520,z/520,seed+111,4), ribs=ridged(x/150,z/150,seed+131,2), inside=Math.min(t,1), beyond=Math.max(0,t-1);
   let y=rimHeight*.3*Math.pow(smooth(inside),1.6)*(.7+.6*crest);
   y+=(beyond*rimWidth*(.8+.5*crest)*smooth(beyond*2)+rimHeight*.9*crest*crest*smooth(beyond*.9))*rise;
-  y+=smooth(t*.9)*(28+40*smooth(beyond))*ribs+smooth(t*1.4)*12*fbm(x/60,z/60,seed+903);
+  y+=smooth(t*.9)*(28+40*smooth(beyond))*ribs*ribK+smooth(t*1.4)*12*fbm(x/60,z/60,seed+903);
   return y*(.2+.8*sampleMask(trailMask,x,z));   // (trails near the edge run up valleys instead of over the ridges)
  }
  function dryHeight(x,z) {

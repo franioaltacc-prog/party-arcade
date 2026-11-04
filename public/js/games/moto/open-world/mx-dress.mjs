@@ -9,6 +9,7 @@
  * Decoration only: the ground you ride on is unchanged. quality (0..1): how much grass and how many trees. */
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {soilTextures,LOOK} from '../look.js';
 
 const SPONSORS=[
  // [text, small line under it]
@@ -87,7 +88,7 @@ export function mxDress(terrain,scene,map,{quality=1,shadows=false}={}){
  const clump=k(mergeAll(parts));blade.dispose();parts.forEach(p=>p.dispose());
  // (the cards' normals point up-ish: grass is lit like the field it stands in, not like flat boards)
  {const n=clump.attributes.normal;for(let i=0;i<n.count;i++)n.setXYZ(i,n.getX(i)*.35,1,n.getZ(i)*.35);clump.normalizeNormals?.();}
- const gMat=k(new THREE.MeshStandardMaterial({map:gTex,alphaTest:.42,alphaToCoverage:true,side:THREE.DoubleSide,roughness:.92,color:'#f2f0c4'}));
+ const gMat=k(new THREE.MeshStandardMaterial({map:gTex,alphaTest:.42,alphaToCoverage:true,side:THREE.DoubleSide,roughness:.92,color:map.look?.dressGrass||'#f2f0c4'}));
  gMat.onBeforeCompile=sh=>{sh.uniforms.uT=wind.uT;
   sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform float uT;').replace('#include <begin_vertex>',`#include <begin_vertex>
 #ifdef USE_INSTANCING
@@ -112,21 +113,40 @@ export function mxDress(terrain,scene,map,{quality=1,shadows=false}={}){
   list.forEach(([x,y,z],i)=>{const s=.55+rnd()*.85;q.setFromAxisAngle(up,rnd()*6.283);im.setMatrixAt(i,m4.compose(v.set(x,y-.05,z),q,sc.set(s,s*(.7+rnd()*.7),s)));const t=.82+rnd()*.36;im.setColorAt(i,col.setRGB(t*(.95+rnd()*.15),t,t*.9));});
   im.receiveShadow=true;im.computeBoundingSphere();group.add(im);
  }
- // ------------------------------------------------------------- clods of dirt on the track
- // thrown-up lumps of soil, more toward the edges and on the berms (where the wheels throw them): small lumpy stones in
- // the soil's own colours. Only drawn (the bike rides over them as before)
- const clodGeo=k(new THREE.IcosahedronGeometry(1,2));
- {const p=clodGeo.attributes.position;for(let i=0;i<p.count;i++){const x=p.getX(i),y=p.getY(i),z=p.getZ(i),n=.75+.5*Math.abs(Math.sin(x*5.1+y*3.7)*Math.cos(z*4.3-x*2.2));p.setXYZ(i,x*n,y*n*.62,z*n);}clodGeo.deleteAttribute('normal');clodGeo.computeVertexNormals();}
- const clodMat=k(new THREE.MeshStandardMaterial({color:'#9a4a30',roughness:.96}));
- const clodN=Math.round((1800+6500*quality)*Math.min(1.6,N/1300)),clods=new THREE.InstancedMesh(clodGeo,clodMat,clodN);k(clods);
- {const soilCol=[[.86,.4,.26],[.74,.33,.22],[.95,.48,.32],[.64,.3,.2]];let n=0;
-  for(let i=0;i<clodN*3&&n<clodN;i++){
-   const s=Math.floor(rnd()*N),edge=rnd()<.6,u=(edge?(rnd()<.5?-1:1)*(mx.hw-rnd()*1.6):(rnd()*2-1)*mx.hw*.8),p=mx.point(s,u),x=p.x+(rnd()-.5),z=p.z+(rnd()-.5);
-   const sz=(.025+Math.pow(rnd(),3)*.1)*(edge?1.15:.8);
-   q.setFromEuler(new THREE.Euler(rnd()*.6,rnd()*6.28,rnd()*.6));clods.setMatrixAt(n,m4.compose(v.set(x,H(x,z)+sz*.18,z),q,sc.set(sz*(.8+rnd()*.5),sz,sz*(.8+rnd()*.5))));
-   const c=soilCol[Math.floor(rnd()*soilCol.length)],t=.85+rnd()*.3;clods.setColorAt(n,col.setRGB(c[0]*t,c[1]*t,c[2]*t));n++;}
-  clods.count=n;}
- clods.castShadow=shadows&&quality>.7;clods.receiveShadow=true;clods.computeBoundingSphere();group.add(clods);
+ // ------------------------------------------------------------- crumbs of soil on the track
+ // thousands of little crumbs and pebbles thrown up by the wheels, half sunk in the dirt: made of the very same scanned
+ // soil as the ground under them (its colour picked from where each one lies), so they read as the ground's own
+ // texture standing up in the sun, more of them toward the edges and the berms. Only drawn (the bike rides as before)
+ const soil=soilTextures(null,{hi:LOOK.hi}),soilTint=new THREE.Vector3(...(map.look?.soil?.tint||[1,1,1]));
+ const crumbGeo=k(new THREE.IcosahedronGeometry(1,0));
+ {const p=crumbGeo.attributes.position;for(let i=0;i<p.count;i++){const x=p.getX(i),y=p.getY(i),z=p.getZ(i),n=.8+.4*Math.abs(Math.sin(x*7.1+y*3.3+z*5.7));p.setXYZ(i,x*n,y*n*.7,z*n);}crumbGeo.computeVertexNormals();}
+ const crumbMat=k(new THREE.MeshStandardMaterial({color:'#a24e30',roughness:.95}));
+ crumbMat.onBeforeCompile=sh=>{
+  if(!soil.loaded)return;
+  Object.assign(sh.uniforms,{soilC:{value:soil.color},soilTint:{value:soilTint}});
+  sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vCrumbW;').replace('#include <begin_vertex>','#include <begin_vertex>\n#ifdef USE_INSTANCING\nvCrumbW=(modelMatrix*instanceMatrix*vec4(0.0,0.0,0.0,1.0)).xyz;\n#endif');
+  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vCrumbW;uniform sampler2D soilC;uniform vec3 soilTint;').replace('#include <color_fragment>',`#include <color_fragment>
+   // (the soil's colour where the crumb lies, a touch lighter on top: it's a lump of the same ground catching the light)
+   diffuseColor.rgb=pow(texture2D(soilC,vCrumbW.xz/2.4).rgb*soilTint,vec3(2.2))*vColor.rgb*1.3;`);
+ };
+ crumbMat.vertexColors=false;crumbMat.customProgramCacheKey=()=>'mx-crumb-'+soil.loaded;
+ if(!soil.loaded)soil.ready.then(()=>{crumbMat.needsUpdate=true;}).catch(()=>{});
+ const crumbPer=Math.round(8+22*quality),crumbBatches=[];   // (per metre of track; in short runs, each drawn only while it's on the
+ // detailed ground round the rider: further off the coarse ground is a few centimetres lower and they'd float)
+ for(let s0=0;s0<N;s0+=10){
+  const list=[];
+  for(let s=s0;s<Math.min(N,s0+10);s++)for(let j=0;j<crumbPer;j++){
+   const edge=rnd()<.55,u=edge?(rnd()<.5?-1:1)*(mx.hw-Math.pow(rnd(),1.5)*2.2):(rnd()*2-1)*mx.hw*.85,p=mx.point(s,u),x=p.x+(rnd()-.5),z=p.z+(rnd()-.5);
+   const sz=(.01+Math.pow(rnd(),3)*.036)*(edge?1.15:.85);list.push([x,z,sz]);
+  }
+  const im=k(new THREE.InstancedMesh(crumbGeo,crumbMat,list.length));
+  const keep=list.map(([x,z,sz])=>({x,z,sz,q:new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),rnd()*6.28).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),(rnd()-.5)*.5)),sx:sz*(.8+rnd()*.6),sy:sz*(.45+rnd()*.25),sz2:sz*(.8+rnd()*.6)}));
+  const seat=(hAt)=>{keep.forEach((c,i)=>im.setMatrixAt(i,m4.compose(v.set(c.x,hAt(c.x,c.z)-c.sy*.35,c.z),c.q,sc.set(c.sx,c.sy,c.sz2))));im.instanceMatrix.needsUpdate=true;};
+  seat(H);list.forEach((_,i)=>{const t=.82+rnd()*.3;im.setColorAt(i,col.setRGB(t,t,t));});
+  im.receiveShadow=true;im.computeBoundingSphere();im.visible=false;group.add(im);
+  let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const [x,z] of list){x0=Math.min(x0,x);x1=Math.max(x1,x);z0=Math.min(z0,z);z1=Math.max(z1,z);}
+  crumbBatches.push({im,x0,x1,z0,z1,seat,stamp:-1});
+ }
  // ------------------------------------------------------------- lone trees on the ridges
  let treesGone=false;const solids=[];
  const want=Math.round(16+34*quality),near=quality>.7;
@@ -151,7 +171,7 @@ export function mxDress(terrain,scene,map,{quality=1,shadows=false}={}){
   if(treesGone){const {gs,mats,tx}=release();gs.forEach(x=>x.dispose());mats.forEach(x=>x.dispose());tx.forEach(x=>x.dispose());return;}
   const bark=ms.oak0_bark.material,leaves=ms.oak0_leaves.material;
   for(const t of [bark.map,bark.normalMap])if(t){t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(1,6);}
-  leaves.side=THREE.DoubleSide;leaves.alphaTest=.45;leaves.transparent=false;leaves.color?.multiplyScalar(.95);
+  leaves.side=THREE.DoubleSide;leaves.alphaTest=.45;leaves.transparent=false;if(map.look?.canopyTint)leaves.color?.setRGB(...map.look.canopyTint);else leaves.color?.multiplyScalar(.95);
   // leaves sway (gusts, the crown's edge most)
   leaves.onBeforeCompile=sh=>{sh.uniforms.uT=wind.uT;sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform float uT;').replace('#include <begin_vertex>',`#include <begin_vertex>
 #ifdef USE_INSTANCING
@@ -168,8 +188,8 @@ export function mxDress(terrain,scene,map,{quality=1,shadows=false}={}){
     const im=k(new THREE.InstancedMesh(geo,mat,list.length));
     list.forEach((p,i)=>{
      // wide and low: an acacia's flat crown (the model a touch squashed and spread), each one its own size and turn
-     const s=(11+rnd()*6)/hgt,wide=1.45+rnd()*.35;
-     q.setFromAxisAngle(up,rnd()*6.283);im.setMatrixAt(i,m4.compose(v.set(p.x,p.y-.3,p.z),q,sc.set(s*wide,s*.82,s*wide)));
+     const s=(13+rnd()*6)/hgt,wide=1.3+rnd()*.3;
+     q.setFromAxisAngle(up,rnd()*6.283);im.setMatrixAt(i,m4.compose(v.set(p.x,p.y-.3,p.z),q,sc.set(s*wide,s*.95,s*wide)));
     });
     im.castShadow=shadows;im.receiveShadow=true;im.computeBoundingSphere();group.add(im);
    }
@@ -182,7 +202,11 @@ export function mxDress(terrain,scene,map,{quality=1,shadows=false}={}){
  },undefined,e=>console.warn('ridge trees',e));
  return {
   group,
-  update(dt){wind.uT.value=(wind.uT.value+dt)%600;},
+  /** px,pz: the centre of the detailed ground, reach: how far it's exact from there, hAt: the height of the ground as
+      drawn (the crumbs sit on that, not on the true height a little above the drawn one on a crest). */
+  update(dt,px,pz,reach=50,hAt=H){wind.uT.value=(wind.uT.value+dt)%600;
+   if(px===undefined||!Number.isFinite(px))return;const stamp=px*7919+pz;
+   for(const b of crumbBatches){b.im.visible=b.x0>px-reach&&b.x1<px+reach&&b.z0>pz-reach&&b.z1<pz+reach;if(b.im.visible&&b.stamp!==stamp){b.stamp=stamp;b.seat(hAt);}}},
   dispose(){treesGone=true;group.removeFromParent();for(const o of keep)o.dispose?.();}
  };
 }

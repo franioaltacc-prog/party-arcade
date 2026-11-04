@@ -7,9 +7,12 @@
 
   const CHANGELOG = [
     { v: '3.24.4', date: '2026-11-04', emoji: '📸', title: 'Revvd looks like a real camera: Jungle Ridge MX gets a pro-track makeover', items: [
-      'Jungle Ridge MX now looks like a real motocross track on TV: rich red scanned dirt with crumbs, stones and clods that stand up from the ground, long sponsor banner fences on yellow stakes along the track, thick yellow-green grass swaying on the banks, and lone wide trees up on the ridges',
+      'Jungle Ridge MX now looks like a real motocross track on TV: rich red scanned dirt with little crumbs of the same soil lying on it, long sponsor banner fences on yellow stakes along the track, dry yellow grass swaying on the banks, open grassy hills round the track with big lone trees up on the ridges, and the jungle further back',
+      'A clear, deep blue sky over Jungle Ridge, low rolling hills on the horizon instead of spiky mountains, and the haze only far away so the hills near you stay crisp',
+      'A lower, warmer sun at Jungle Ridge: long shadows, the sunny side of every jump and bank bright and the shady side cool and dark',
+      'Riders stand out: new players start as the MX Racer in a blue and white kit with white boots on a red bike, and every bike and rider gets a soft rim of sky light round its edges so it pops against the background',
       'A strong, clear sun with crisp shadows that reach much further: banks, berms, trees and the bike all cast them',
-      'Lit by a real sky: everything gets the soft blue light of a photographed sky on clear days, on every world and race track',
+      'Lit by a real sky: everything gets the soft blue light of a photographed sky on clear days, on every world and race track (Wildwood Bike Park keeps its old brightness)',
       'Hazy distance: far hills fade into the sky’s own colour, like real air, warmer in the desert and greener in the forest',
       'Soft shadows in every nook (under the bike, where grass meets dirt, in the ruts) on High graphics',
       'Camera blur: in photo mode, replays and the menus, what’s far from the rider goes soft like a real lens (and just a touch while riding on High)',

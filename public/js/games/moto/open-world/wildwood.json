@@ -24,6 +24,7 @@
     "accent": "#39d98a"
   },
   "look": {
+    "iblK": 3.5,
     "flora": [
       "pine",
       "broadleaf",

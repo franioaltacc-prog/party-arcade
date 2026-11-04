@@ -79,7 +79,7 @@ async function loadUnlocks() {
 }
 const myLivery = () => (Account.user && Account.user.look && Account.user.look.bike && unlocked.has(Account.user.look.bike) ? Account.user.look.bike : unlocked.has(prefs.livery) ? prefs.livery : 'factory');
 // your bike style, rider kit, helmet and race number (free to pick; only looks)
-prefs.style = Object.assign({ model: 'mx4', rider: 'biker', kit: 'match', helmet: 'match', number: null }, prefs.style);
+prefs.style = Object.assign({ model: 'mx4', rider: 'mx', kit: 'ocean', helmet: 'match', number: null }, prefs.style);   // (new riders start in a colourful MX kit: blue and white jersey, white boots, on the red bike)
 const myLook = () => ({ ...prefs.style, livery: myLivery() });
 const mtbRider = (id = prefs.mtbRider) => (MTB_RIDERS[id] ? id : 'bmx');
 const mtbLook = () => ({ ...myLook(), model: prefs.mtbModel, rider: mtbRider() });   // (Unrevvd: your mountain bike and rider)

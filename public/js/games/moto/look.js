@@ -43,6 +43,27 @@ export function useSkyEnv(scene, renderer, sunDir, intensity) {
   return () => { gone = true; };
 }
 
+const RIM = { value: new THREE.Color(0.5, 0.56, 0.66) };
+/** How strong the rim light is in this world (0 none .. 1): a soft sky-coloured edge on the bike and rider. */
+export function setRim(k) { RIM.value.setRGB(0.5 * k, 0.56 * k, 0.66 * k); }
+/** A subtle rim (back) light on bikes and riders: their edges glow a little with the sky's colour, so a rider in
+    the air stands out against it (like a film light behind them). Patches the materials once. */
+export function addRim(materials) {
+  for (const m of materials) {
+    if (!m?.isMeshStandardMaterial || m.userData.rim || m.transparent) continue;
+    m.userData.rim = true;
+    const before = m.onBeforeCompile, key = m.customProgramCacheKey;
+    m.onBeforeCompile = (sh, r) => {
+      before?.call(m, sh, r); sh.uniforms.uRim = RIM;
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 uRim;').replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        { float rimF = 1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0);
+          totalEmissiveRadiance += uRim * (pow(rimF, 3.0) * (0.35 + diffuseColor.rgb) * 0.9); }`);
+    };
+    m.customProgramCacheKey = () => (key ? key.call(m) : '') + '|rim';
+    m.needsUpdate = true;
+  }
+}
+
 const soils = new Map();
 /** The scanned soil's textures, shared: { color, normal, orh, ready (a promise) }. srgb: colour decoded to linear by
     the graphics card (else raw, for shaders that do it themselves). */
@@ -116,3 +137,16 @@ vec4 soilTri(vec3 wp, vec3 w, out float ao) {
   ao = o.r; return vec4(c.rgb * soilTint, o.b);
 }
 `;
+
+/** A clear blue sky from the physical sky: its own formula comes out a pale cyan-grey that the camera's curve turns
+    white, so it's dimmed a little and graded, deep blue overhead to a light blue at the horizon.
+    g: { k (brightness), zen [r,g,b] (overhead), hor [r,g,b] (the horizon) } */
+export function gradeSky(sky, g) {
+  const m = sky.material, U = m.uniforms;
+  U.uSkyK = { value: g.k ?? 0.7 };
+  U.uZen = { value: new THREE.Vector3(...(g.zen || [0.35, 0.6, 1.25])) };
+  U.uHor = { value: new THREE.Vector3(...(g.hor || [0.8, 0.93, 1.12])) };
+  m.fragmentShader = m.fragmentShader.replace('uniform vec3 up;', 'uniform vec3 up;\nuniform float uSkyK; uniform vec3 uZen, uHor;')
+    .replace('gl_FragColor = vec4( retColor, 1.0 );', 'gl_FragColor = vec4( retColor * uSkyK * mix( uHor, uZen, smoothstep( 0.0, 0.45, direction.y ) ), 1.0 );');
+  m.needsUpdate = true;
+}
