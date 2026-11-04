@@ -26,6 +26,7 @@
  "look": {
   "slate": true,
   "drizzle": true,
+  "snow": false,
   "pisteClear": 3,
   "treeLine": 700,
   "sky": {
@@ -36,7 +37,7 @@
    "turbidity": 9,
    "rayleigh": 2.4,
    "mie": 0.016,
-   "exposure": 0.95,
+   "exposure": 1.15,
    "fog": 1.5,
    "fogColor": "#8f9aa0",
    "sunColor": "#d8dde2",
@@ -49,26 +50,26 @@
   },
   "grass": [
    [
-    38,
-    62,
-    32
+    48,
+    76,
+    38
    ],
    [
-    86,
-    108,
-    58
+    104,
+    128,
+    68
    ]
   ],
   "dirt": [
    [
-    66,
-    56,
-    46
+    92,
+    74,
+    56
    ],
    [
-    112,
-    98,
-    82
+    142,
+    120,
+    94
    ]
   ],
   "rock": [

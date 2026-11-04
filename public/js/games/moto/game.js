@@ -1121,7 +1121,7 @@ function hud(now) {
       : k === 'air' ? `BEST AIR ${ch.score.toFixed(2)} S` : k === 'flips' ? `${ch.score} FLIP${ch.score === 1 ? '' : 'S'}` : k === 'tricks' ? `${ch.score} TRICK POINTS` : `TOP ${Math.round(ch.score)} KM/H`;
     $('#hud-left').textContent = ch.online && state.race ? `P${myPlace()} / ${Object.keys(state.race.runners).length} · ${k === 'race' ? 'FOLLOW THE GREEN BEAM' : k === 'tag' ? 'RIDE INTO SOMEONE TO TAG THEM' : k === 'relay' ? 'PASS THE LANTERN DOWN THE CHUTE' : 'TIME LEFT TOP RIGHT'}`
       : ch.aval ? `🌊 THE AVALANCHE IS ${Math.max(0, Math.round(ch.aval.gap))} M BEHIND YOU!` : ch.def.laps ? (ch.def.route ? 'RAIL THE BERMS' : 'ROUND THE TRACK · PUMP THE ROLLERS') : ch.def.park && k === 'race' ? 'UP TO THE CHEQUERED FLAG'
-      : k === 'race' ? 'RIDE TO THE GREEN BEAM · ANY LINE YOU LIKE' : k === 'lanterns' ? 'PICK UP THE LANTERNS · THE BOTTOM ENDS IT' : ch.def.about.toUpperCase();
+      : k === 'race' && R.T?.terrain?.mx?.open ? 'EVERY GATE · DOWN TO THE FINISH ARCH': k === 'race' ? 'RIDE TO THE GREEN BEAM · ANY LINE YOU LIKE' : k === 'lanterns' ? 'PICK UP THE LANTERNS · THE BOTTOM ENDS IT' : ch.def.about.toUpperCase();
   }
   // the waypoint you set on the big map: how far, on the line under the world's name
   const wp = R.mode === 'free' && !ch && !R.trial ? map.waypoint : null;
@@ -1222,7 +1222,7 @@ async function startFree(entry, opts = {}){
     R.camMode=ch?.cam||prefs.cam;   // (a challenge can be ridden in first person)
     R.trialMarker=null;R.finishMarker=finish?finishBeacon(finish):null;R.audio=createAudio({pedal:mtb||R.wing||R.skate,kind:R.wing?'wing':R.skate?'skate':R.board?'board':R.drift?'drift':null});R.driftS=R.drift?newDrift():null;driftHud();chuteExtras(ch);R.helmet=Coins.CAM.current();
     if(world.lamp&&mtb){const L=Coins.LAMP.current().lamp;Object.assign(world.lamp.spot,{intensity:L.i,angle:L.angle,distance:L.dist});}   // (your bike lamp, from the shop)
-    if(world.drizzle)R.audio?.rain(.45);if(world.storm){R.audio?.rain(1);world.onLightning=(far)=>{pulse($('#fx-flash'));R.audio?.thunder(far);};}$('.mx-nlab').textContent='TURBO · SPACE / SHIFT';for(const el of $$('.mx-nitro, .mx-nlab'))el.style.display=mtb||tow||R.wing||R.skate||R.drift?'none':'';$('#mx-trials').hidden=!!ch;{const nb=$('[data-k="nitro"]');if(nb){nb.textContent=R.drift?'✋':'N₂O';nb.setAttribute('aria-label',R.drift?'Handbrake':'Nitro');}}   // (a bicycle has no nitro; on a phone the drift car's nitro button is its handbrake)
+    if(world.drizzle)R.audio?.rain(.45);if(world.storm){R.audio?.rain(1);world.onLightning=(far)=>{pulse($('#fx-flash'));R.audio?.thunder(far);};}$('.mx-nlab').textContent=matchMedia('(pointer: coarse)').matches?'TURBO':'TURBO · SPACE / SHIFT';for(const el of $$('.mx-nitro, .mx-nlab'))el.style.display=mtb||tow||R.wing||R.skate||R.drift?'none':'';$('#mx-trials').hidden=!!ch;{const nb=$('[data-k="nitro"]');if(nb){nb.textContent=R.drift?'✋':'N₂O';nb.setAttribute('aria-label',R.drift?'Handbrake':'Nitro');}}   // (a bicycle has no nitro; on a phone the drift car's nitro button is its handbrake)
     $('#hud-track').textContent=ch?`${ch.emoji} ${ch.name}${R.cup?` · World Cup ${R.cup.i+1}/${Chutes.CUP.length}`:''}`:def.name;
     fill($('#hud-center'));resize();drawMapBase();coinHud(purse().wallet().coins,0);R.running=true;requestAnimationFrame(frame);
     const url=new URL(location.href);url.searchParams.delete('solo');url.searchParams.delete('track');

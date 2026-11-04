@@ -112,7 +112,7 @@ if(owHole.w>.5 && abs(owPosition.x-owHole.x)<owHole.z && abs(owPosition.z-owHole
 vec3 owWeights=pow(abs(normalize(owSurfaceNormal)),vec3(5.0));owWeights/=max(.001,dot(owWeights,vec3(1.0)));
 vec3 owP=owPosition*.12;
 float owCliff=smoothstep(.20,.65,1.0-abs(normalize(owSurfaceNormal).y));
-float owSnow=${map.theme==='snow'?'1.0':map.theme==='alpine'?'smoothstep(250.0,450.0,owPosition.y)':'0.0'};
+float owSnow=${map.theme==='snow'?'1.0':map.theme==='alpine'&&map.look?.snow!==false?'smoothstep(250.0,450.0,owPosition.y)':'0.0'};   // (look.snow false: an alpine world with no snow up high)
 vec4 owGround=owCliff>.25?owTri(${map.theme==='desert'?'owdirt':map.theme==='snow'?'owsnow':'owgrass'},owP,owWeights):owSample(${map.theme==='desert'?'owdirt':map.theme==='snow'?'owsnow':'owgrass'},owP.xz);
 ${map.theme==='alpine'?'if(owSnow>.01)owGround=mix(owGround,owSample(owsnow,owP.xz),owSnow);':''}
 // far away the fine pattern would show its repeats (and shimmer): it fades toward the texture's own average colour
