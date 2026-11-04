@@ -6,6 +6,7 @@
    Bike coordinates: +X forward, +Y up, +Z to the rider's right; the origin is the frame's centre of
    mass (MotoCore's frame), so wheel and rider positions from the physics drop straight in. */
 import * as THREE from 'three';
+import { addRim } from './look.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -905,6 +906,7 @@ export function makeBike(opts = {}) {
   if (fromFile) dress(m, fromFile, M, opts.ghost);
   const fileRider = RIDER_FILES[opts.rider] ? opts.rider : !RIDERS[opts.rider] ? 'biker' : null;   // (the MX Racer is drawn)
   if (fileRider) { if (riderSrcs[fileRider]) addRider(m, M, opts.ghost, fileRider); else preloadRider(fileRider); }
+  if (!opts.ghost) addRim(Object.values(M));   // (a soft sky-coloured edge light: the rider stands out against the sky)
   return m;
 }
 

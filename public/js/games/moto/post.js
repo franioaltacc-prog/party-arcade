@@ -71,11 +71,11 @@ class ScenePass extends Pass {
     this.whiteAO = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1); this.whiteAO.needsUpdate = true;
     this.mat = new THREE.ShaderMaterial({
       uniforms: { tDiffuse: { value: null }, tDepth: { value: this.depth }, tAO: { value: this.whiteAO }, uProjInv: { value: new THREE.Matrix4() }, uCamWorld: { value: new THREE.Matrix4() }, uNear: { value: 0.25 }, uFar: { value: 9000 },
-        uAO: { value: 0 }, uHaze: { value: 0 }, uHazeFall: { value: 1 / 380 }, uHazeBase: { value: 0 }, uHazeTint: { value: new THREE.Color(1, 1, 1) }, uHazeK: { value: 1 }, uSky: { value: 0 }, uFogColour: { value: new THREE.Color() }, uHazeFog: { value: 0.5 },
+        uAO: { value: 0 }, uHaze: { value: 0 }, uHazeFall: { value: 1 / 380 }, uHazeBase: { value: 0 }, uHazeTint: { value: new THREE.Color(1, 1, 1) }, uHazeK: { value: 1 }, uHazeStart: { value: 0 }, uSky: { value: 0 }, uFogColour: { value: new THREE.Color() }, uHazeFog: { value: 0.5 },
         uSunPos: { value: new THREE.Vector3(0, 1, 0) }, uRayleigh: { value: 1 }, uTurbidity: { value: 2 }, uMie: { value: 0.005 }, uMieG: { value: 0.8 } },
       vertexShader: QUAD_VS, depthTest: false, depthWrite: false,
       fragmentShader: VIEW_FN + SKY_FN + `
-        uniform sampler2D tDiffuse, tAO; uniform float uAO, uHaze, uHazeFall, uHazeBase, uHazeK, uSky, uHazeFog; uniform vec3 uHazeTint, uFogColour; varying vec2 vUv;
+        uniform sampler2D tDiffuse, tAO; uniform float uAO, uHaze, uHazeFall, uHazeBase, uHazeK, uHazeStart, uSky, uHazeFog; uniform vec3 uHazeTint, uFogColour; varying vec2 vUv;
         void main() {
           vec4 c = texture2D(tDiffuse, vUv); float d = texture2D(tDepth, vUv).x;
           if (d >= 0.99999) { gl_FragColor = c; return; }   // (the sky itself)
@@ -86,7 +86,7 @@ class ScenePass extends Pass {
           c.rgb *= mix(1.0, ao, uAO * (1.0 - smoothstep(60.0, 220.0, dist)));
           // the air: thicker low down (the haze integrated along the line of sight through air thinning with height)
           float h0 = (eye.y - uHazeBase) * uHazeFall, dy = rd.y * dist * uHazeFall;
-          float optical = uHaze * dist * exp(-max(h0, -4.0)) * (abs(dy) > 1e-3 ? (1.0 - exp(-dy)) / dy : 1.0 - 0.5 * dy);
+          float optical = uHaze * max(dist - uHazeStart, 0.0) * exp(-max(h0, -4.0)) * (abs(dy) > 1e-3 ? (1.0 - exp(-dy)) / dy : 1.0 - 0.5 * dy);
           float k = 1.0 - exp(-max(optical, 0.0));
           // (the sky's colour toward the horizon, mixed with the world's own air colour: warm in a desert, grey-green in a forest)
           vec3 air = uSky > 0.5 ? mix(skyColour(normalize(vec3(rd.x, max(rd.y, 0.0) * 0.35 + 0.035, rd.z))) * uHazeK * uHazeTint, uFogColour, uHazeFog) : uFogColour;
@@ -188,7 +188,7 @@ export function createPost(renderer) {
     u.uAO.value = scenePass.aoOn ? (L.ao ?? 0.6) : 0; u.uHazeFog.value = L.hazeFog ?? 0.55;
     const fog = scene.fog;
     u.uHaze.value = q.haze && fog && L.haze !== false ? (L.hazeD ?? (fog.density || 0) * 1.25) : 0;
-    u.uHazeFall.value = 1 / (L.hazeH ?? 380); u.uHazeBase.value = L.hazeBase ?? 0; u.uHazeK.value = L.hazeK ?? 1;
+    u.uHazeFall.value = 1 / (L.hazeH ?? 380); u.uHazeBase.value = L.hazeBase ?? 0; u.uHazeK.value = L.hazeK ?? 1; u.uHazeStart.value = L.hazeStart ?? 0;   // (hazeStart: clear air for that many metres, the haze only further off)
     if (L.hazeTint) u.uHazeTint.value.set(L.hazeTint); else u.uHazeTint.value.setRGB(1, 1, 1);
     u.uSky.value = sky && !L.night ? 1 : 0;
     if (fog) u.uFogColour.value.copy(fog.color);

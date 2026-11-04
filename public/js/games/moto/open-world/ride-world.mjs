@@ -11,7 +11,7 @@ import {growWilds} from './wilds.mjs';
 import {mxScenery} from './jungle.mjs';
 import {dhScenery} from './downhill.mjs';
 import {mxDress} from './mx-dress.mjs';
-import {useSkyEnv} from '../look.js';
+import {useSkyEnv,setRim,gradeSky} from '../look.js';
 import {renderPolicy} from './render-policy.mjs';
 import {gridHeight} from './grounding.mjs';
 import {routeLength,routePoint} from './terrain.mjs';
@@ -43,6 +43,7 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false,nature=
  // (the light never comes from lower than 14°, for sensible shadows, but the sky can show a real sunset)
  su.sunPosition.value.setFromSphericalCoords(1,THREE.MathUtils.degToRad(90-theme.sun[0]),THREE.MathUtils.degToRad(theme.sun[1]));
  if(night)scene.background=new THREE.Color(theme.fog);else scene.add(sky);
+ if(!night&&map.look?.skyGrade)gradeSky(sky,map.look.skyGrade);   // (a world can ask for a deeper blue sky)
  let env=null;
  if(renderer&&!night){
   const pm=new THREE.PMREMGenerator(renderer),skyScene=new THREE.Scene(),sky2=new Sky();sky2.scale.setScalar(1000);
@@ -56,6 +57,7 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false,nature=
  const clearDay=!night&&!dusk&&!map.look?.storm&&!map.look?.fogPulse&&!map.look?.drizzle&&map.theme!=='snow';
  scene.userData.sky=night?null:sky;
  scene.userData.look={night,hazeBase:map.baseHeight||0,hazeH:map.theme==='snow'?600:380,...(clearDay?{}:{haze:false}),...(map.look?.post||{})};   // (mist, storms, night and snow keep their own plain fog: gate markers stay easy to see through it)
+setRim(clearDay?1:night?.15:.5);
  const stopSkyEnv=renderer&&clearDay&&map.look?.ibl!==false?useSkyEnv(scene,renderer,sunDir,(theme.envI??.5)*(map.look?.iblK??2.6)):()=>{};
  const sun=new THREE.DirectionalLight(theme.sunColor,theme.sunI);
  if(shadows){
@@ -227,7 +229,7 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
 #endif`);};
  props.leafMat.customProgramCacheKey=()=>'ow-grass-wind';
  const coverKinds=[
-  map.theme!=='snow'&&{geo:map.look?.autumn?autumnize(props.PROPS.grass(),map.seed):props.PROPS.grass(),mat:props.leafMat,max:Math.round((map.theme==='desert'?2600:7000)*Math.min(1,quality+.15)),every:map.theme==='desert'?.3:.75,size:[.8,1.5],sink:.04},
+  map.theme!=='snow'&&!map.look?.dress&&{geo:map.look?.autumn?autumnize(props.PROPS.grass(),map.seed):props.PROPS.grass(),mat:props.leafMat,max:Math.round((map.theme==='desert'?2600:7000)*Math.min(1,quality+.15)),every:map.theme==='desert'?.3:.75,size:[.8,1.5],sink:.04},
   {geo:pebbleProps.PROPS.rock(),mat:props.propMat,max:Math.round(500*Math.min(1,quality+.2)),every:.05,size:[.12,.45],sink:.06},
   map.theme==='alpine'&&{drawn:'shrub',geo:map.look?.autumn?autumnize(props.PROPS.shrub(),map.seed):props.PROPS.shrub(),mat:props.propMat,max:Math.round(260*quality),every:.025,size:[.5,.9],sink:.05},
  ].filter(Boolean).map(k=>{const im=new THREE.InstancedMesh(k.geo,k.mat,k.max);im.count=0;im.receiveShadow=true;im.frustumCulled=false;scene.add(im);return {...k,im};});
@@ -333,7 +335,7 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
    breeze.uWindT.value=(breeze.uWindT.value+dt)%600;
    cloudU.uT.value=(cloudU.uT.value+dt)%2000;cloudLayer.position.x=camera.position.x;cloudLayer.position.z=camera.position.z;
    wilds?.update(camera.position,dt);
-   updatePatch(ahead);dress?.update(dt);fx.update(dt,camera);parks.update(dt);built.update(camera.position);forest?.update(camera.position);slope?.update(camera.position);city?.update(camera.position);ocean?.update(camera.position,dt);weather(camera.position,dt);drawCoins(performance.now());drawHoops(performance.now());
+   updatePatch(ahead);dress?.update(dt,cx,cz,inner-3,visibleHeight);fx.update(dt,camera);parks.update(dt);built.update(camera.position);forest?.update(camera.position);slope?.update(camera.position);city?.update(camera.position);ocean?.update(camera.position,dt);weather(camera.position,dt);drawCoins(performance.now());drawHoops(performance.now());
    sun.position.copy(point).addScaledVector(sunDir,300);sun.target.position.copy(point);
    if(!shadows){
     const y=built.terrain.heightAt(point.x,point.z),nn=built.terrain.normalAt(point.x,point.z);

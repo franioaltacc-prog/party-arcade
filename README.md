@@ -432,11 +432,14 @@ with an import map), everything else is drawn and synthesised in code (no model,
   shadows (high), aerial-perspective haze in the sky's own colour (Preetham's formula, `scene.userData.sky`; it stands
   in for most of the plain fog) and a depth-of-field pass (`post.focus(mode, distance)`: photo, menu or play; play
   only on high). A world tunes it with `look.post` (`hazeD`, `hazeH`, `hazeK`, `hazeTint`, `hazeFog`, `ao`, `sat`,
-  `con`, `warm`, `fogKeep`). `look.js`: the Poly Haven sky HDRI as image-based light on clear days (`useSkyEnv`, sun
+  `con`, `warm`, `fogKeep`, `hazeStart`: clear air for that many metres). `look.js`: the Poly Haven sky HDRI as image-based light on clear days (`useSkyEnv`, sun
   clipped, turned to the game's sun; `look.iblK` scales it) and the scanned red soil (`soilTextures`, `SOIL_GLSL`:
   two-scale height-blended sampling and steep parallax on high), used by `materials.mjs` when a world has
   `look.soil`. `open-world/mx-dress.mjs` (`look.dress`): banner fences with invented sponsors, swaying grass on the
-  banks, dirt clods and wide ridge trees round an `mx` track. Assets: `public/assets/moto-realism/SOURCES.md`.
+  banks (`look.dressGrass` tints it), soil crumbs (only drawn on the detailed ground round the rider, seated on its drawn
+  height) and lone ridge trees round an `mx` track; `look.canopyTint` tints the jungle and ridge trees, `look.skyGrade`
+  ({k, zen, hor}: `gradeSky`) deepens the physical sky's blue, `boundary.ribs` softens the far mountains' ribs, and
+  `setRim` / `addRim` give the bike and rider a soft rim of sky light. Assets: `public/assets/moto-realism/SOURCES.md`.
   Driftvvd (`drift`): `drift.js`, its own top-down car physics (bicycle model, tyre curve, friction circle, handbrake
   on Space/Q, auto counter-steer from the body slip and a drift assist past 45°; `b.drift = {angle, speed}`), drawn
   with `makeCar` (`driftPaint()`), on Downtown (`city`, hidden, written by `tools/make_city.py`). The city is laid out

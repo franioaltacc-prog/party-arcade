@@ -29,34 +29,34 @@
   "treeLine": 900,
   "sky": {
    "sun": [
-    40,
+    27,
     282
    ],
-   "turbidity": 3,
-   "rayleigh": 1.4,
-   "mie": 0.005,
+   "turbidity": 1.6,
+   "rayleigh": 2.6,
+   "mie": 0.003,
    "exposure": 1.45,
    "fog": 0.45,
    "fogColor": "#b9c9cc",
-   "sunColor": "#ffecc8",
-   "sunI": 4.6,
+   "sunColor": "#ffe0b0",
+   "sunI": 5.4,
    "envI": 0.44,
    "hemi": [
-    "#c9dbf0",
-    "#6b5a44",
-    0.38
+    "#a9c3ea",
+    "#5e4c3a",
+    0.3
    ]
   },
   "grass": [
    [
-    74,
-    94,
-    36
+    84,
+    90,
+    40
    ],
    [
-    160,
-    166,
-    78
+    182,
+    170,
+    92
    ]
   ],
   "dirt": [
@@ -96,20 +96,28 @@
    ]
   },
   "dress": true,
+  "dressGrass": "#efd99c",
+  "canopyTint": [0.82, 0.88, 0.52],
   "post": {
-   "hazeD": 0.00028,
+   "hazeD": 0.00034,
    "hazeH": 320,
-   "fogKeep": 0.12,
+   "fogKeep": 0.04,
    "hazeK": 0.8,
-   "hazeTint": "#d2e0ff",
+   "hazeTint": "#c8d8f4",
    "hazeFog": 0.15,
    "ao": 0.75,
    "sat": 1.1,
-   "con": 1.12,
-   "warm": 0.05
+   "con": 1.17,
+   "warm": 0.05,
+   "hazeStart": 140
+  },
+  "skyGrade": {
+   "k": 0.56,
+   "zen": [0.35, 0.6, 1.25],
+   "hor": [0.8, 0.93, 1.12]
   },
   "clouds": 0.06,
-  "iblK": 1.15
+  "iblK": 0.95
  },
  "terrain": {
   "noise": 5,
@@ -467,9 +475,10 @@
   "policy": "warn-and-respawn",
   "respawn": "last-safe-pad",
   "cliffWidth": 300,
-  "cliffHeight": 150,
+  "cliffHeight": 60,
   "sceneryApron": 1600,
-  "rise": 0.45
+  "rise": 0.1,
+  "ribs": 0.35
  },
  "spawnPads": [
   {

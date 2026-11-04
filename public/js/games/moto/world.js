@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { Sky } from 'three/addons/objects/Sky.js';
 import { raceDaylight, applyRaceSoil, addRaceClouds, upgradeRacePines } from './race-realism.js';
-import { useSkyEnv } from './look.js';
+import { useSkyEnv, setRim } from './look.js';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const C = window.MotoCore;
@@ -328,6 +328,7 @@ export function buildWorld(renderer, T, opts = {}) {
   scene.fog = new THREE.FogExp2(th.fog, th.fogD);
   // the real-camera look (look.js, post.js): a clear day lit by a photographed sky; the air's haze the sky's own colour
   scene.userData.sky = sky; scene.userData.look = { hazeBase: 0, hazeH: 420, hazeD: th.fogD * 0.55, hazeK: 0.62, fogKeep: 0.35 };
+  setRim(T.theme === 'snow' ? 0.6 : 1);
   const stopSkyEnv = T.theme !== 'snow' ? useSkyEnv(scene, renderer, sunDir, th.envI * 2.6) : () => {};
   const sun = new THREE.DirectionalLight(th.sunColor, th.sunI);
   sun.castShadow = true;
