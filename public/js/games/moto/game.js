@@ -830,6 +830,21 @@ function startReplay() {
 }
 
 /** The ground height under a point in the world (near the track). */
+/** How far to raise a chase camera at `c` so that it's 0.7 m above the highest ground within 1.2 m of it (its view
+    doesn't cut into a steep hillside beside it), and the hill doesn't hide the rider at `p` from it. */
+const CAM_RING = [[0, 0], [1.2, 0], [-1.2, 0], [0, 1.2], [0, -1.2], [0.85, 0.85], [-0.85, 0.85], [0.85, -0.85], [-0.85, -0.85]];
+function camClear(c, p, hint) {
+  let top = -Infinity;
+  for (const [dx, dz] of CAM_RING) top = Math.max(top, groundUnder(c.x + dx, c.z + dz, hint));
+  let lift = top + 0.7 - c.y;
+  // the line from the rider to the camera: a hump of hill over it (between half way and the camera) pushes the camera up
+  for (const u of [0.45, 0.6, 0.75, 0.9]) {
+    const x = p.x + (c.x - p.x) * u, z = p.z + (c.z - p.z) * u, y = p.y + 0.8 + (c.y + Math.max(0, lift) - p.y - 0.8) * u;
+    const need = groundUnder(x, z, hint) + 0.4 - y;
+    if (need > 0) lift = Math.max(lift, Math.max(0, lift) + need / u);
+  }
+  return Math.min(lift, 30);
+}
 function groundUnder(x, z, hint, T = R.T) { if(T.terrain)return T.terrain.heightAt(x,z); const L = C.locate(T, x, z, hint); return C.heightAt(T, L.s, L.u); }
 
 /** The dark edges at speed in first person (0..1). */
@@ -963,6 +978,10 @@ function updateCamera(s, dt, speed, place, model = R.model) {
   camera.position.y += cam.dip;
   const onGround = R.bike && !R.wing && (R.bike.wh[0].ct || R.bike.wh[1].ct);
   if (onGround && R.fxK > 0) { const tt = performance.now() / 1000, a = R.fxK * 0.035; camera.position.y += (Math.sin(tt * 37) + Math.sin(tt * 53.7) * 0.6) * a; camera.position.x += Math.sin(tt * 29.3) * a * 0.6; }
+  // keep the camera itself out of the hill: riding across a steep slope (or flying back after a crash) it lags behind,
+  // and the hillside beside it can be higher than the ground under it. Its view would cut into the hill and see through it
+  const lift = R.T.terrain ? camClear(camera.position, P, s.s) : 0;   // (the open worlds: a track race's ground is its own)
+  if (lift > 0) { camera.position.y += lift; cam.pos.y += lift; }
   camera.lookAt(fxD.copy(cam.look).setY(cam.look.y + cam.dip * 0.5));
   if (Math.abs(camera.fov - cam.fov) > 0.05) { camera.fov = cam.fov; camera.updateProjectionMatrix(); }
 }
