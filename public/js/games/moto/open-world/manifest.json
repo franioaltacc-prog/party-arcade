@@ -189,6 +189,15 @@
       "roomFree": true,
       "gaps": 0,
       "pools": 0
+    },
+    {
+      "id": "city",
+      "name": "Downtown",
+      "file": "city.json",
+      "areaKm2": 2.07,
+      "hidden": true,
+      "gaps": 0,
+      "pools": 0
     }
   ]
 }

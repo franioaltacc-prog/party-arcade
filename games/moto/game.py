@@ -64,7 +64,7 @@ def load_worlds():
 
 
 WORLDS = load_worlds()
-TOP_SCORE = {"air": 30.0, "flips": 80, "speed": 420.0, "tricks": 8000, "lanterns": 40, "surf": 6000}   # more than anyone can do with the stock engine
+TOP_SCORE = {"air": 30.0, "flips": 80, "speed": 420.0, "tricks": 8000, "lanterns": 40, "surf": 6000, "drift": 400000}   # more than anyone can do with the stock engine
 TAG_REACH = 4.5        # Forest Tag: how close (m) "it" has to be to tag someone (a little more than the browser asks for: lag)
 TAG_IMMUNE = 3.0       # ...and the seconds before the new "it" can tag anyone (no tagging straight back)
 PASS_REACH = 5.0       # Lantern Relay: how close (m) you have to be to hand the lantern to your teammate
@@ -79,7 +79,7 @@ def clean_style(st):
     """Someone's bike style, rider, rider kit, helmet and race number, tidied up (the browser draws whatever ids it knows)."""
     st = st if isinstance(st, dict) else {}
     out = {}
-    for k in ("model", "rider", "kit", "helmet", "car", "paint", "mtb", "mrider", "cgear"):   # (car and paint: the free-ride supercar; mtb, mrider: the mountain bike and its rider)
+    for k in ("model", "rider", "kit", "helmet", "car", "paint", "mtb", "mrider", "cgear", "drift"):   # (car and paint: the free-ride supercar; mtb, mrider: the mountain bike and its rider; drift: the drift car's paint)
         v = str(st.get(k) or "")[:12]
         if v.isalnum() and v.isascii():
             out[k] = v.lower()
@@ -303,7 +303,7 @@ class Moto(Game):
         v = num(msg.get("score"), -1)
         if v <= 0 or v > TOP_SCORE[kind]:   # (more than the stock engine can do: not believable)
             return
-        v = int(v) if kind in ("flips", "tricks", "lanterns", "surf") else round(v, 2)
+        v = int(v) if kind in ("flips", "tricks", "lanterns", "surf", "drift") else round(v, 2)
         if run["score"] is None or v > run["score"]:
             run["score"] = v
             if kind == "flips":

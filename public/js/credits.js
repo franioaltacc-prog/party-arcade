@@ -47,6 +47,7 @@
     ['🚙', '“Buggy” by Nick Slough (CC BY 3.0, via Poly Pizza)', 'the rally buggy in Drivvd (its wheels set on their own springs)'],
     ['🪂', '“Parachute” by Poly by Google (CC BY 3.0, via Poly Pizza)', 'the parachute in Skyvvd (smaller texture for the web)'],
     ['🛹', '“Skateboard” by Poly by Google (CC BY 3.0, via Poly Pizza)', 'the skateboard in Grindvvd (smaller texture for the web)'],
+    ['🏙️', 'City Kit (Commercial), City Kit (Roads) and Car Kit by Kenney (CC0, kenney.nl)', 'Driftvvd’s city: its buildings, street lights, traffic lights, parked cars and cones'],
     ['🚵', '“Low- Poly Bicycle # 5” by Sidra (CC BY 4.0, Sketchfab)', 'the Downhill Pro mountain bike in Unrevvd (split into moving parts)'],
     ['🌲', '“MTB Mongoose Tyax” by Saushkin (CC BY 4.0, Sketchfab)', 'the Trail Hardtail mountain bike in Unrevvd (split into moving parts, made lighter for the web)'],
     ['🌲', 'ez-tree by Daniel Greenheck (MIT)', 'the pine trees, spruces, aspens, oaks, ashes and bushes in the chutes and all over the open worlds (made with it, with its bark, needle and leaf textures)'],

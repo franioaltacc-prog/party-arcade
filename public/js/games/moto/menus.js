@@ -55,7 +55,7 @@ export function createMenus(ctx) {
         ctx.medalTimes(t).map((m, i) => h('span', {}, `${ctx.MEDALS[i][0]} ${fmt(m)}`))));
   }
 
-  const KIND = { race: '🏁 Race to the finish', air: '🚀 Longest jump', flips: '🤸 Most flips', speed: '⚡ Top speed', tricks: '🌟 Most trick points', surf: '🏄 Most surf points', lanterns: '🏮 Most lanterns', tag: '🏷️ Tag (rooms only)', relay: '🏮 Team relay (rooms only)' };
+  const KIND = { race: '🏁 Race to the finish', air: '🚀 Longest jump', flips: '🤸 Most flips', speed: '⚡ Top speed', tricks: '🌟 Most trick points', drift: '🏎️ Most drift points', surf: '🏄 Most surf points', lanterns: '🏮 Most lanterns', tag: '🏷️ Tag (rooms only)', relay: '🏮 Team relay (rooms only)' };
   /** A challenge to pick: what it is, where, the goal and (big) your best on this device. */
   const worldName = (c) => (c.daily ? 'A new gully every day' : (ctx.allWorlds.find((w) => w.id === c.world) || {}).name || c.world);
   function challengeChip(c, on, onClick, big) {
@@ -131,6 +131,10 @@ export function createMenus(ctx) {
       worlds: ['powderpeak', 'frostpeak', 'sheerwall'], colours: [['#ff4fa3', 'Flamingo'], ['#ff6a00', 'Blaze'], ['#ffd23a', 'Sun'], ['#2a7fff', 'Sky'], ['#7dff3a', 'Toxic'], ['#16181c', 'Night']],
       pref: 'wingColor', colour: () => ctx.wingColor(),
       how: 'You ride up in a jump plane over the highest point: W or Space jumps out (in a challenge you go at GO). W tips you into a dive (faster, steeper), S flares (flatter, slower: too slow and you stall), A / D bank and turn. Fly low over the ground at speed for proximity points and coins. Space pulls the parachute: steer it in and land. Touch the ground in the wingsuit and you crash. R: back up in the helicopter.' },
+    drift: { name: 'Driftvvd', logo: ['DRIFT', 'VV', 'D'], tag: 'Drift cars · a whole city · go sideways', emoji: '🏎️', cls: 'drift',
+      worlds: ['city'], colours: Object.entries(ctx.CAR_PAINTS).map(([k, p]) => [k, p.name, p.color]),
+      pref: 'driftPaint', colour: () => ctx.driftPaint(),
+      how: 'W is the gas, S brakes, A / D steer, Space (or Q) is the handbrake. Floor it in a turn or pull the handbrake and the back steps out: the front wheels steer into the slide by themselves, so hold the angle with A / D and the gas, and ease off to snap it straight. The more sideways and the faster, the more points: link drift after drift for up to ×5, and don’t hit anything or you lose the drift you’re in. Driftvvd shares Revvd’s coins.' },
     skate: { name: 'Grindvvd', logo: ['GRIN', 'VV', 'D'], tag: 'Skateboards · rails · halfpipe · tricks', emoji: '🛹', cls: 'grind',
       worlds: ['skateplaza', 'wildwood', 'frostpeak'], colours: [['#ff4fa3', 'Bubblegum'], ['#c8a27a', 'Maple'], ['#2a7fff', 'Ocean'], ['#7dff3a', 'Slime'], ['#ffd23a', 'Banana'], ['#16181c', 'Blackout']],
       pref: 'skateColor', colour: () => ctx.skateColor(),
@@ -140,7 +144,7 @@ export function createMenus(ctx) {
   const MODES = [['mtb', '🚵', 'Unrevvd', 'Mountain bikes · downhill chutes · a bike park'], ['snow', '🏂', 'Carvvd', 'Snowboards and skis · resorts · halfpipe'],
     ['water', '🌊', 'Wavvd', 'Jet skis · wakeboarding · surfing'], ['sled', '🛷', 'Sledvvd', 'Snowmobiles · climb anything', true],
     ['buggy', '🚙', 'Drivvd', 'Rally buggies · desert stages', true], ['wing', '🪂', 'Skyvvd', 'Wingsuits · rings in the sky · parachutes', true],
-    ['skate', '🛹', 'Grindvvd', 'Skateboards · rails · halfpipe', true]];
+    ['skate', '🛹', 'Grindvvd', 'Skateboards · rails · halfpipe', true], ['drift', '🏎️', 'Driftvvd', 'Drift cars · a whole city to slide round', true]];
   /** A newer mode's paint picker (in the garage). */
   const paintGlass = (mode, screen) => { const M = NEWER[mode]; return glass('Your paint', 'only looks', h('div', { class: 'mx-liveries' }, M.colours.map(([c, n, sw = c]) => h('button', {
         class: 'mx-livery' + (M.colour() === c ? ' on' : ''), type: 'button', style: { '--c1': sw, '--c2': sw }, title: n,
@@ -162,7 +166,7 @@ export function createMenus(ctx) {
         card2('orange', '🎯', 'Challenges', `${chs.length} to ride · medals and coins`, () => show(mode + 'challenges'), { sticker: 'NEW' })),
       ...worlds.slice(1).map((w, i) => card2(i ? 'green' : 'purple', (WORLD_LOOK[w.id] || [])[1] || '🗺️', w.name, `Free ride on ${w.name}`, () => ride(w), { wide: true })),
       go(`Ride ${worlds[0]?.name.split(' ')[0] || ''}`, M.name, () => ride(worlds[0])),
-      looksLink(mode, M.colour(), `Your ${M.name} paint`),
+      looksLink(mode, M.colours.find((c) => c[0] === M.colour())?.[2] || M.colour(), `Your ${M.name} paint`),   // (a car paint's swatch: its colour, not its name)
       skyGlass(mode),
       note(M.how));
   }
@@ -300,7 +304,7 @@ export function createMenus(ctx) {
       back = () => show('home');
       const rows = ctx.Career.career(ctx.challenges, { best: ctx.challengeBest, medal: ctx.Chutes.bestMedal, fmtScore: ctx.fmtScore, medalTimes: ctx.Chutes.medalTimes });
       const won = ctx.Career.claim(rows); if (won.length) setTimeout(() => ctx.careerReward(won), 60);
-      const mode = (c) => (c.water ? '🌊 Wavvd' : c.board ? '🏂 Carvvd' : c.vehicle === 'mtb' ? '🚵 Unrevvd' : c.vehicle === 'sled' ? '🛷 Sledvvd' : c.vehicle === 'buggy' ? '🚙 Drivvd' : c.vehicle === 'skate' ? '🛹 Grindvvd' : c.vehicle === 'wing' ? '🪂 Skyvvd' : '🏍️ Revvd');
+      const mode = (c) => (c.water ? '🌊 Wavvd' : c.board ? '🏂 Carvvd' : c.vehicle === 'mtb' ? '🚵 Unrevvd' : c.vehicle === 'sled' ? '🛷 Sledvvd' : c.vehicle === 'buggy' ? '🚙 Drivvd' : c.vehicle === 'skate' ? '🛹 Grindvvd' : c.vehicle === 'wing' ? '🪂 Skyvvd' : c.vehicle === 'drift' ? '🏎️ Driftvvd' : '🏍️ Revvd');
       const next = rows.find((r) => r.open && !r.cleared);
       primary = () => { const e = next?.events.find((x) => !x.done); if (e) ctx.startChallengeSolo(e.c); };
       return h('div', { class: 'mx-col wide' }, backBtn('Career'),
@@ -341,6 +345,8 @@ export function createMenus(ctx) {
     wingchallenges() { return challengesScreen('wing'); },
     skate() { return newerHub('skate'); },
     skatechallenges() { return challengesScreen('skate'); },
+    drift() { return newerHub('drift'); },
+    driftchallenges() { return challengesScreen('drift'); },
 
     /** Wavvd: jet skis on the sea. Free ride round Azure Bay, challenges, and your jet ski's colour. */
     water() {

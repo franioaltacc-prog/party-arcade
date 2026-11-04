@@ -126,6 +126,14 @@ export function createMap(ctx) {
         g.lineWidth = w; g.strokeStyle = col;
         for (const r of def.routes) { g.beginPath(); r.points.forEach(([x, z], k) => { const px = (x + def.size[0] / 2) * sx; const pz = (z + def.size[1] / 2) * sz; if (k) g.lineTo(px, pz); else g.moveTo(px, pz); }); g.stroke(); }
       }
+      const C = ground.city;
+      if (C) {   // (Driftvvd's city: the blocks of buildings dark, the streets, the car park and the roundabouts light)
+        const X = (x) => (x + def.size[0] / 2) * sx; const Z = (z) => (z + def.size[1] / 2) * sz; const road = 'rgb(206,209,214)';
+        g.fillStyle = 'rgb(58,62,70)'; for (const b of C.lots) g.fillRect(X(b.x - b.hw), Z(b.z - b.hd), b.hw * 2 * sx, b.hd * 2 * sz);
+        g.fillStyle = road; for (const l of C.lines) { g.fillRect(X(l.c - l.w / 2), Z(-C.lim), l.w * sx, C.lim * 2 * sz); g.fillRect(X(-C.lim), Z(l.c - l.w / 2), C.lim * 2 * sx, l.w * sz); }
+        const P = C.plaza; g.fillRect(X(P.x0), Z(P.z0), (P.x1 - P.x0) * sx, (P.z1 - P.z0) * sz);
+        for (const R of C.rounds) { g.fillStyle = road; g.beginPath(); g.arc(X(R.x), Z(R.z), R.outer * sx, 0, TAU); g.fill(); g.fillStyle = '#4f7a3a'; g.beginPath(); g.arc(X(R.x), Z(R.z), R.island * sx, 0, TAU); g.fill(); }
+      }
       baseJob = null;
     }
   }
