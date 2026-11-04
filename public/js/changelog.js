@@ -6,6 +6,12 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.24.7', date: '2026-11-04', emoji: '🛬', title: 'Revvd: no more nosedive off the jumps', items: [
+      'Your bike no longer tips nose-down the moment it leaves a jump: it leaves at the angle of the ramp and follows its flight, so quick landings on table tops and short hops don’t throw you over the bars any more',
+      'When you don’t lean in the air, your rider now turns the bike gently over the whole jump to match the landing, instead of snapping it level right off the lip',
+      'Sharp little kickers buck less: your rider soaks up the back wheel kicking up at the lip',
+      'Leaning in the air still flips you, and now it’s even both ways: backflips come round a little easier, front flips a touch slower (the old nosedive used to help them along)',
+    ] },
     { v: '3.24.6', date: '2026-11-04', emoji: '🎥', title: 'The camera stays out of the hills', items: [
       'Riding across a steep hillside, the camera behind you no longer slips into the side of the hill (where you could see through it). It now stays clear of the slope and rises over a bump that would hide you',
       'After a crash, the camera no longer flies through hills on its way back to you',

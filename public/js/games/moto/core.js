@@ -675,11 +675,19 @@
     let frontBrake = 1;
     if (flying && Math.sign(leanTq) === Math.sign(spin) && Math.abs(spin) > P.SPIN_MAX) leanTq = 0;
     if (flying && Math.sign(leanTq) === -Math.sign(spin)) leanTq *= 1.6;   // stopping a spin is easier than starting one
+    // the ground the bike's pitch is measured against: under its middle, but with only the back wheel down, under
+    // that (riding off a lip the middle is already over the flat top or the drop behind it while the back wheel is
+    // still on the steep face: measured from there the bike looks like it's wheelieing, and the instinct below threw
+    // its nose down at every takeoff). With neither wheel down (just off a lip, not flying yet) there's no wheelie.
+    const [fw, rw] = b.wh;
+    const ground = rw.ct && !fw.ct ? slope(G, rw.x) : slope(G, b.x);
+    const lifted = !fw.ct && !rw.ct;
     if (!flying && !inp.hold) {
       // the rider's instinct on a wheelie: weight forward and ease off before it loops (looking a moment
       // ahead, so a fast pop is caught too). Hold lean-back to keep a wheelie going, up to a point.
-      const rel = b.a - slope(G, b.x) + Math.max(0, b.w) * 0.22;
-      if (T.terrain && b.lean >= -0.3) {
+      const rel = b.a - ground + Math.max(0, b.w) * 0.22;
+      if (lifted) { /* (off the ground: nothing to wheelie on) */ }
+      else if (T.terrain && b.lean >= -0.3) {
         const [lift, ease] = P.FREE_WHEELIE;
         if (rel > lift) leanTq -= Math.min(4.5, (rel - lift) * 12) * P.LEAN_GROUND * 2.2;
         if (rel > ease) engine *= clamp(1 - (rel - ease) * 6, 0, 1);
@@ -696,18 +704,24 @@
         frontBrake *= clamp(1 - (-rel - stoppie) * 4, 0, 1);
         leanTq += Math.min(1, (-rel - stoppie) * 3) * P.LEAN_GROUND * 1.4;
       }
+      // ...and off a lip: the front's in the air while the back wheel is still on the face, its shock springing back
+      // and kicking the tail up. The rider soaks that up with their legs instead of letting it tip the bike's nose down.
+      if (rw.ct && !fw.ct && Math.abs(lean) < 0.05 && b.w < 0 && rel < (T.terrain ? P.FREE_WHEELIE[0] : 0.24)) leanTq += Math.min(1.5, -b.w * 1.5) * P.LEAN_GROUND * 2.2;
     }
     // a mountain bike: lean back on the ground for a wheelie, lifted to and balanced at a pitch that goes with how far back
-    if (T.mtb && !flying && !inp.hold && b.lean < -0.3) {
-      const rel = b.a - slope(G, b.x); const [lo, hi] = P.MTB.WHEELIE;
+    if (T.mtb && !flying && !inp.hold && b.lean < -0.3 && !lifted) {
+      const rel = b.a - ground; const [lo, hi] = P.MTB.WHEELIE;
       const want = lo + (hi - lo) * clamp((-b.lean - 0.3) / 0.7, 0, 1);
       leanTq += clamp((want - rel) * 5 - b.w * 1.2, -2.5, 2.5) * P.LEAN_GROUND * 3;
     }
     // no lean held in the air: the rider levels the bike for the landing
     if (flying && Math.abs(lean) < 0.05 && inp.assist !== false && !out) {
+      // (turning it steadily so it gets there a little before the wheels touch, not all at once off the lip: on a long
+      // jump the bike keeps the ramp's angle and tips over with its flight, on a quick one it levels in time)
       const L = predictLanding(T, b);
       const err = b.a - L.slope;
-      leanTq += -clamp(err * 3 + b.w * 0.9, -1, 1) * P.LEAN_AIR * P.ASSIST;
+      const soon = Math.max(0.3, L.t * 0.7);
+      leanTq += -clamp((err / soon + b.w) * 0.9, -1, 1) * P.LEAN_AIR * P.ASSIST;
     }
     // stopped with the brake held: paddle backwards (bikes have no reverse gear)
     const grounded = b.wh[0].ct || b.wh[1].ct;
