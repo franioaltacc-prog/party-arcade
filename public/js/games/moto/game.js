@@ -829,7 +829,6 @@ function startReplay() {
   if (!studio.startReplay(R.rec.take())) showMessage('Ride for a bit first, then watch it back', 'small', 1600);
 }
 
-/** The ground height under a point in the world (near the track). */
 /** How far to raise a chase camera at `c` so that it's 0.7 m above the highest ground within 1.2 m of it (its view
     doesn't cut into a steep hillside beside it), and the hill doesn't hide the rider at `p` from it. */
 const CAM_RING = [[0, 0], [1.2, 0], [-1.2, 0], [0, 1.2], [0, -1.2], [0.85, 0.85], [-0.85, 0.85], [0.85, -0.85], [-0.85, -0.85]];
@@ -845,6 +844,7 @@ function camClear(c, p, hint) {
   }
   return Math.min(lift, 30);
 }
+/** The ground height under a point in the world (near the track). */
 function groundUnder(x, z, hint, T = R.T) { if(T.terrain)return T.terrain.heightAt(x,z); const L = C.locate(T, x, z, hint); return C.heightAt(T, L.s, L.u); }
 
 /** The dark edges at speed in first person (0..1). */
