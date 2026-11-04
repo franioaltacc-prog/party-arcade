@@ -75,6 +75,8 @@
      "about": "Bomb down from the Frostpeak summit to the frozen lake on a mountain bike. Mind the ice!"},
     {"id": "hill-climb", "world": "sheerwall", "kind": "race", "name": "Hill Climb", "emoji": "⛰️", "park": "sheer-climb", "limit": 60, "medals": [10.5, 12.5, 16], "finishR": 10,
      "about": "Straight up the steepest hill in the desert to the chequered flag. Too much gas and you loop out backwards; too little and you stall."},
+    {"id": "jungle-mx", "world": "junglemx", "kind": "race", "name": "Jungle MX", "emoji": "🌴", "from": "paddock", "route": "mx", "laps": 2, "limit": 360, "medals": [125, 145, 175], "since": "3.24",
+     "about": "Two laps of the red-dirt motocross track on Jungle Ridge: five hairpins stacked up the hill, berms, whoops and doubles, then flat out down the jungle straight. Cut across and it doesn't count."},
     {"id": "freestyle-arena", "world": "canyonrun", "kind": "tricks", "name": "Freestyle Arena", "emoji": "🏟️", "park": "canyon-arena", "limit": 90, "judges": true,
      "about": "90 seconds in front of the crowd: two huge doubles and three judges. Big tricks score big, and the judges get bored of the same trick twice."},
     {"id": "pump-track", "world": "wildwood", "kind": "race", "name": "Pump Track", "emoji": "🌀", "park": "wild-pump", "laps": 3, "limit": 120, "vehicle": "mtb", "medals": [42, 52, 66],

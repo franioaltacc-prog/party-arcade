@@ -1104,7 +1104,7 @@ function hud(now) {
       : k === 'tag' ? tagLine() : k === 'relay' ? relayLine()
       : k === 'air' ? `BEST AIR ${ch.score.toFixed(2)} S` : k === 'flips' ? `${ch.score} FLIP${ch.score === 1 ? '' : 'S'}` : k === 'tricks' ? `${ch.score} TRICK POINTS` : `TOP ${Math.round(ch.score)} KM/H`;
     $('#hud-left').textContent = ch.online && state.race ? `P${myPlace()} / ${Object.keys(state.race.runners).length} · ${k === 'race' ? 'FOLLOW THE GREEN BEAM' : k === 'tag' ? 'RIDE INTO SOMEONE TO TAG THEM' : k === 'relay' ? 'PASS THE LANTERN DOWN THE CHUTE' : 'TIME LEFT TOP RIGHT'}`
-      : ch.aval ? `🌊 THE AVALANCHE IS ${Math.max(0, Math.round(ch.aval.gap))} M BEHIND YOU!` : ch.def.laps ? 'ROUND THE TRACK · PUMP THE ROLLERS' : ch.def.park && k === 'race' ? 'UP TO THE CHEQUERED FLAG'
+      : ch.aval ? `🌊 THE AVALANCHE IS ${Math.max(0, Math.round(ch.aval.gap))} M BEHIND YOU!` : ch.def.laps ? (ch.def.route ? 'RAIL THE BERMS' : 'ROUND THE TRACK · PUMP THE ROLLERS') : ch.def.park && k === 'race' ? 'UP TO THE CHEQUERED FLAG'
       : k === 'race' ? 'RIDE TO THE GREEN BEAM · ANY LINE YOU LIKE' : k === 'lanterns' ? 'PICK UP THE LANTERNS · THE BOTTOM ENDS IT' : ch.def.about.toUpperCase();
   }
   // the waypoint you set on the big map: how far, on the line under the world's name
@@ -1254,6 +1254,9 @@ function challengeStart(ch, ground, def, lane) {   // (lane may change for a rel
   const park = ch.park && ground.parkList ? ground.parkList.find((f) => f.id === ch.park) : null;
   if (park) {   // (a park: its start; a hill climb finishes at the top)
     pos = park.start.position; head = park.start.heading; if (park.park === 'climb') finish = park.top;
+  } else if (ch.route && ground.mx) {   // (a motocross track: on the start line, two abreast, the rows a bike length apart)
+    const p = ground.mx.at(0), k = Math.max(0, Math.round(Math.abs(lane) / 1.15) * 2 - (lane < 0 ? 1 : 0)); head = p.heading;
+    pos = [p.x - Math.sin(head) * Math.floor(k / 2) * 3.2, p.z - Math.cos(head) * Math.floor(k / 2) * 3.2]; lane = k % 2 ? -0.7 : 0.7;
   } else if (ch.kind === 'race' || ch.kind === 'relay' || ch.from) {   // (a race, or the Lantern Hunt: top to bottom too)
     const a = pads[ch.from]; finish = ch.to ? pads[ch.to].position : ch.gates.at(-1).slice(0, 2); pos = a.riderPosition || a.position;   // (a gate course without a finish pad ends at its last gate)
     const aim = ch.gates ? ch.gates[0] : finish; head = Math.atan2(aim[0] - pos[0], aim[1] - pos[1]);
@@ -1384,6 +1387,7 @@ function surfStep(ch, b) {
   } else ch.surfing = 0;
 }
 function lapStep(ch, b) {
+  if (ch.def.route) return trackLapStep(ch, b);
   const f = world.ground.parkList.find((p) => p.id === ch.def.park); if (!f) return true;
   const L = f.loop(b.px, b.pz);
   if (Math.abs(L.d) < f.tw / 2 + 1.5 && !b.crashed) {
@@ -1392,6 +1396,20 @@ function lapStep(ch, b) {
   } else ch.lapT = null;
   const lap = Math.floor(Math.max(0, ch.dist || 0) / f.loopLen);
   if (lap > (ch.lap || 0)) { ch.lap = lap; if (lap >= ch.def.laps) return false; showMessage(`LAP ${lap + 1} / ${ch.def.laps}`, 'cp', 1200); R.audio?.checkpoint(); }
+  return true;
+}
+/** Laps of a motocross track (a world's "mx"): only riding round it on the track counts (cut across and that bit isn't
+    counted), with a checkpoint a third and two thirds of the way round. Returns false once they're done. */
+function trackLapStep(ch, b) {
+  const m = world.ground.mx; if (!m) return true;
+  const at = m.near(b.px, b.pz);
+  if (at && Math.abs(at.u) < m.hw + 2.5 && !b.crashed) {
+    if (ch.lapT != null) { let d = at.s - ch.lapT; if (d < -m.length / 2) d += m.length; if (d > m.length / 2) d -= m.length; if (Math.abs(d) < 3) ch.dist = (ch.dist || 0) + d; }
+    ch.lapT = at.s;
+  } else ch.lapT = null;
+  const dist = Math.max(0, ch.dist || 0); const lap = Math.floor(dist / m.length); const cp = Math.floor(dist / m.length * 3);
+  if (lap > (ch.lap || 0)) { ch.lap = lap; ch.cp = cp; if (lap >= ch.def.laps) return false; showMessage(`LAP ${lap + 1} / ${ch.def.laps}`, 'cp', 1200); R.audio?.checkpoint(); }
+  else if (cp > (ch.cp || 0)) { ch.cp = cp; showMessage(`CHECKPOINT ${cp % 3} / 2`, 'cp', 900); R.audio?.chime?.(); }
   return true;
 }
 /** The Freestyle Arena's judges: what a landing is worth to them (the same trick again is worth less), and their cards. */

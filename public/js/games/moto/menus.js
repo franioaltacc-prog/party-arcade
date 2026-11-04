@@ -7,8 +7,8 @@ const { h, fill, Net, Sfx, UI, Account, Profile } = PA;
 const FX = PA.FX || {};
 // each free-ride world's card colour and emoji
 const WORLD_LOOK = { redrock: ['red', '🏜️'], pinecrest: ['green', '🌲'], frostpeak: ['blue', '❄️'], golddunes: ['orange', '🌅'], autumnridge: ['red', '🍁'], canyonrun: ['purple', '🏞️'], magmaisle: ['red', '🌋'], emeraldbay: ['blue', '🏝️'],
-  wildwood: ['green', '🚵'], sheerwall: ['orange', '🪂'] };
-const NEW_WORLDS = ['wildwood', 'sheerwall'];
+  wildwood: ['green', '🚵'], sheerwall: ['orange', '🪂'], junglemx: ['green', '🌴'] };
+const NEW_WORLDS = ['junglemx'];
 
 /** ctx: what the menus need from the game (see game.js). Returns { show, roomUpdate, refresh, onKey, screen }. */
 export function createMenus(ctx) {
@@ -178,7 +178,7 @@ export function createMenus(ctx) {
     primary = () => sel && start(sel);
     const C = mtb ? ctx.Coins.MTB : ctx.Coins; const wl = C.wallet(); const eng = C.current ? C.current(wl.engine) : C.engineOf(wl.engine);
     const bike = mtb ? ctx.MTB_MODELS[ctx.prefs.mtbModel] || Object.values(ctx.MTB_MODELS)[0] : null;
-    const what = (w) => [`${w.areaKm2.toFixed(1)} km²`, w.gaps ? `${w.gaps} gap jump${w.gaps === 1 ? '' : 's'}` : null, w.pools ? `${w.pools} pool${w.pools === 1 ? '' : 's'}` : null, w.bike ? 'bike park' : '4 mini races'].filter(Boolean).join(' · ');
+    const what = (w) => [`${w.areaKm2.toFixed(1)} km²`, w.gaps ? `${w.gaps} gap jump${w.gaps === 1 ? '' : 's'}` : null, w.pools ? `${w.pools} pool${w.pools === 1 ? '' : 's'}` : null, w.bike ? 'bike park' : w.mx ? 'motocross track' : '4 mini races'].filter(Boolean).join(' · ');
     return h('div', { class: 'mx-col wide' }, backBtn(mtb ? 'Unrevvd free ride' : 'Free ride'),
       h('div', { class: 'mx-ticket' }, h('div', { class: 'grow' }, h('span', { class: 'lab' }, mtb ? 'Your mountain bike' : 'Your free-ride bike'),
         h('div', { class: 'nm' }, h('small', {}, '🪙 ' + wl.coins.toLocaleString('en-US') + ' COINS'), h('b', {}, mtb ? `${bike.emoji} ${bike.name} · ${eng.emoji} ${eng.name}` : `${eng.emoji} ${eng.name}`)),

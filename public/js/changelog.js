@@ -6,6 +6,14 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.24.0', date: '2026-11-04', emoji: '🌴', title: 'Jungle Ridge MX: a red-dirt motocross track in the jungle', items: [
+      'A new world: Jungle Ridge MX. A red-dirt motocross track cut into a jungle hillside, with five tight hairpins stacked up the hill and palm trees in the grass between the lanes',
+      'Banked berms in every hairpin, whoops, rollers, tabletops and doubles on the straights, then a fast run back down the jungle straight to the finish',
+      'Race it: Challenges → Jungle MX. Two laps against the clock, with two checkpoints a lap, gold, silver and bronze times and its own leaderboard. Press “Challenge friends” to race it together in a room',
+      'No shortcuts: cutting across the hill doesn’t help, because only what you ride on the track counts towards a lap',
+      'Free ride it too (Free ride → Jungle Ridge MX), with a mini race round the track, a jungle trail loop, a valley road past a little village, and rice terraces stepping down the hill in green and gold',
+      'Thick jungle all round: coconut palms, banana plants, ferns and big leafy trees, with misty mountains on the horizon. Lower graphics settings grow fewer plants, so it stays smooth on phones',
+    ] },
     { v: '3.23.3', date: '2026-11-04', emoji: '🩹', title: 'The What’s new page works again', items: [
       'The What’s new page was blank after the last update; it shows every update again',
     ] },
