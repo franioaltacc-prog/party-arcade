@@ -54,8 +54,8 @@ export function mxScenery(terrain,scene,map,{shadows=false}={}){
   g.position.set(p.x,y-.1,p.z);g.rotation.y=p.heading+Math.PI/2;group.add(g);
  };
  const side=hw=>hw+5.2;
- for(let i=0;i<7;i++)banner(-60+i*24,(i%2?1:-1)*side(mx.hw),bannerMats[i%bannerMats.length]);   // (round the start line)
- for(const [n,frac] of [[1,1/3],[2,2/3]]){
+ if(!mx.open)for(let i=0;i<7;i++)banner(-60+i*24,(i%2?1:-1)*side(mx.hw),bannerMats[i%bannerMats.length]);   // (round the start line)
+ if(!mx.open)for(const [n,frac] of [[1,1/3],[2,2/3]]){
   const mat=keep(new THREE.MeshStandardMaterial({map:keep(textTexture('CHECKPOINT '+n,{bg:'#ffd21a',fg:'#16181c',stripe:'#16181c'})),roughness:.7}));
   for(const k of [-1,1])banner(Math.round(mx.length*frac),k*side(mx.hw),mat);
  }

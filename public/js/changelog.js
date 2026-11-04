@@ -6,6 +6,14 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.24.3', date: '2026-11-04', emoji: '🪨', title: 'Slatefall Line: a big-mountain downhill race for Unrevvd', items: [
+      'A new Unrevvd challenge: 🪨 Slatefall Line. One run from the top of a steep, wet slate valley to the bottom, about 2.3 km long and 550 m down, in light rain through the pines',
+      'Big jumps all the way down: two road gaps over the quarry road, a deep slate canyon to jump, two step-downs over pits, three wooden drops, wooden kickers, tabletops, whoops and bumpy slate rock gardens, then a steep, fast finish chute',
+      'Come up short on a gap and you crash into it: you get another go from a little way back up the run-in',
+      'Gates down the course, gold, silver and bronze times and its own leaderboard. You can race it with friends in a room too',
+      'Course tape down both sides, a timber start hut at the top and a finish arch at the bottom',
+      'On a phone the turbo label just says TURBO now, and the hint at the bottom left wraps onto two lines instead of running into it',
+    ] },
     { v: '3.24.2', date: '2026-11-04', emoji: '☀️', title: 'More natural motocross tracks', items: [
       'Desert Dunes and Forest Mud have scanned dirt materials: clods, stones, surface relief and finer tire grooves that follow the track',
       'Clearer daylight and shadows, a blue sky with broken clouds, and detailed pines on the forest race track at high graphics quality',

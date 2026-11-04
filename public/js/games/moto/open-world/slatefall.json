@@ -1,0 +1,637 @@
+{
+ "schemaVersion": 1,
+ "id": "slatefall",
+ "name": "Slatefall Valley",
+ "tagline": "Wet slate, big gaps, one way down.",
+ "theme": "alpine",
+ "seed": 9127,
+ "size": [
+  1400,
+  2400
+ ],
+ "baseHeight": 30,
+ "spawn": [
+  -60,
+  -1000
+ ],
+ "spawnHeading": 0.197396,
+ "palette": {
+  "sky": "#aeb8bd",
+  "low": "#2f4a2c",
+  "high": "#6d7f5a",
+  "trail": "#5a4a3c",
+  "water": "#4f6f78",
+  "accent": "#ffb21a"
+ },
+ "look": {
+  "slate": true,
+  "drizzle": true,
+  "snow": false,
+  "pisteClear": 3,
+  "treeLine": 700,
+  "sky": {
+   "sun": [
+    30,
+    160
+   ],
+   "turbidity": 9,
+   "rayleigh": 2.4,
+   "mie": 0.016,
+   "exposure": 1.15,
+   "fog": 1.5,
+   "fogColor": "#8f9aa0",
+   "sunColor": "#d8dde2",
+   "sunI": 1.0,
+   "hemi": [
+    "#9aa6b0",
+    "#2a3226",
+    0.62
+   ]
+  },
+  "grass": [
+   [
+    48,
+    76,
+    38
+   ],
+   [
+    104,
+    128,
+    68
+   ]
+  ],
+  "dirt": [
+   [
+    92,
+    74,
+    56
+   ],
+   [
+    142,
+    120,
+    94
+   ]
+  ],
+  "rock": [
+   [
+    58,
+    62,
+    68
+   ],
+   [
+    112,
+    118,
+    124
+   ]
+  ]
+ },
+ "terrain": {
+  "noise": 10,
+  "scale": 230,
+  "hills": [
+   [
+    0,
+    -1500,
+    600,
+    1000,
+    1900
+   ],
+   [
+    -640,
+    -200,
+    170,
+    280,
+    1500
+   ],
+   [
+    640,
+    -200,
+    170,
+    280,
+    1500
+   ],
+   [
+    0,
+    1100,
+    -20,
+    500,
+    300
+   ]
+  ],
+  "scarp": {
+   "z": 790,
+   "height": 48,
+   "edge": 150,
+   "amplitude": 12,
+   "wavelength": 420
+  }
+ },
+ "regions": [
+  {
+   "name": "Slatefall Top",
+   "position": [
+    -60,
+    -1000
+   ]
+  },
+  {
+   "name": "Slatefall Bottom",
+   "position": [
+    10,
+    935
+   ]
+  },
+  {
+   "name": "Quarry Road",
+   "position": [
+    0,
+    -560
+   ]
+  },
+  {
+   "name": "The Canyon",
+   "position": [
+    -100,
+    -180
+   ]
+  }
+ ],
+ "routes": [
+  {
+   "id": "dh",
+   "name": "Slatefall Line",
+   "points": [],
+   "width": 8,
+   "shoulder": 4,
+   "extras": false
+  },
+  {
+   "id": "road",
+   "name": "Quarry road",
+   "points": [
+    [
+     -560,
+     -640
+    ],
+    [
+     -250,
+     -560
+    ],
+    [
+     60,
+     -490
+    ],
+    [
+     380,
+     -430
+    ],
+    [
+     540,
+     -330
+    ],
+    [
+     300,
+     300
+    ],
+    [
+     60,
+     560
+    ],
+    [
+     -250,
+     620
+    ],
+    [
+     -560,
+     700
+    ]
+   ],
+   "width": 7,
+   "shoulder": 9,
+   "extras": false
+  }
+ ],
+ "spots": [
+  {
+   "id": "top",
+   "name": "Slatefall Top",
+   "position": [
+    -60,
+    -1000
+   ],
+   "kind": "lookout",
+   "radius": 20,
+   "about": "The start hut at the top of the Slatefall Line."
+  },
+  {
+   "id": "bottom",
+   "name": "Slatefall Bottom",
+   "position": [
+    10,
+    935
+   ],
+   "kind": "checkpoint",
+   "radius": 24,
+   "about": "The finish at the bottom of the valley."
+  }
+ ],
+ "races": [
+  {
+   "id": "slatefall-line",
+   "name": "Slatefall Line",
+   "route": "dh",
+   "type": "point",
+   "difficulty": "hard",
+   "laps": 1,
+   "players": [
+    1,
+    6
+   ],
+   "gateRadius": 16,
+   "countdown": 5,
+   "medalSeconds": null,
+   "description": "Top to bottom down the Slatefall Line."
+  }
+ ],
+ "interactions": [
+  {
+   "id": "board",
+   "name": "Start hut race board",
+   "position": [
+    -30,
+    -1010
+   ],
+   "kind": "race-board",
+   "radius": 18,
+   "event": "race.offer",
+   "about": "Choose a mini race and invite nearby friends.",
+   "cooldownSeconds": 10
+  }
+ ],
+ "ramps": [],
+ "surfaceZones": [],
+ "quests": [
+  {
+   "id": "slatefall-welcome",
+   "name": "Welcome to Slatefall",
+   "start": "top",
+   "players": [
+    1,
+    6
+   ],
+   "steps": [
+    {
+     "event": "zone.enter",
+     "target": "bottom",
+     "count": 1
+    }
+   ],
+   "reward": {
+    "type": "cosmetic-token",
+    "amount": 1
+   },
+   "repeatable": true
+  }
+ ],
+ "coordinateSystem": {
+  "units": "metres",
+  "horizontal": [
+   "x",
+   "z"
+  ],
+  "up": "y",
+  "heading": "radians: 0 points +z; positive rotates towards +x"
+ },
+ "status": "Made by hand for the Slatefall Line downhill course (mx.mjs builds it from the corners below).",
+ "boundary": {
+  "softMargin": 100,
+  "policy": "warn-and-respawn",
+  "respawn": "last-safe-pad",
+  "cliffWidth": 220,
+  "cliffHeight": 340,
+  "sceneryApron": 1600,
+  "rise": 1.0
+ },
+ "spawnPads": [
+  {
+   "id": "spawn-1",
+   "position": [
+    -62.9,
+    -999.4
+   ],
+   "heading": 0.197396
+  },
+  {
+   "id": "spawn-2",
+   "position": [
+    -60.0,
+    -1000.0
+   ],
+   "heading": 0.197396
+  },
+  {
+   "id": "spawn-3",
+   "position": [
+    -57.1,
+    -1000.6
+   ],
+   "heading": 0.197396
+  },
+  {
+   "id": "spawn-4",
+   "position": [
+    -63.7,
+    -1003.3
+   ],
+   "heading": 0.197396
+  },
+  {
+   "id": "spawn-5",
+   "position": [
+    -60.8,
+    -1003.9
+   ],
+   "heading": 0.197396
+  },
+  {
+   "id": "spawn-6",
+   "position": [
+    -57.8,
+    -1004.5
+   ],
+   "heading": 0.197396
+  }
+ ],
+ "safePads": [
+  {
+   "id": "top",
+   "position": [
+    -60,
+    -1000
+   ],
+   "radius": 10,
+   "riderPosition": [
+    -60,
+    -1000
+   ]
+  },
+  {
+   "id": "bottom",
+   "position": [
+    10,
+    935
+   ],
+   "radius": 24,
+   "riderPosition": [
+    10,
+    935
+   ]
+  }
+ ],
+ "features": {},
+ "jumpPark": false,
+ "hidden": true,
+ "buildings": false,
+ "mx": {
+  "route": "dh",
+  "closed": false,
+  "width": 8,
+  "shoulder": 4,
+  "berm": 1.5,
+  "smooth": 7,
+  "detailStep": 1.25,
+  "paved": "road",
+  "corners": [
+   [
+    -60,
+    -1000
+   ],
+   [
+    -40,
+    -900,
+    40
+   ],
+   [
+    -170,
+    -790,
+    34
+   ],
+   [
+    -120,
+    -650,
+    30
+   ],
+   [
+    70,
+    -560,
+    34
+   ],
+   [
+    50,
+    -400,
+    34
+   ],
+   [
+    -110,
+    -290,
+    30
+   ],
+   [
+    -90,
+    -110,
+    34
+   ],
+   [
+    80,
+    0,
+    34
+   ],
+   [
+    95,
+    210,
+    36
+   ],
+   [
+    -60,
+    360,
+    30
+   ],
+   [
+    -40,
+    560,
+    40
+   ],
+   [
+    10,
+    700,
+    60
+   ],
+   [
+    10,
+    935
+   ]
+  ],
+  "features": [
+   {
+    "id": "top-drop",
+    "kind": "drop",
+    "s": 110,
+    "h": 1.2,
+    "up": 6,
+    "top": 12,
+    "down": 0.8,
+    "flat": 0.85,
+    "wood": true,
+    "kick": 0.9
+   },
+   {
+    "kind": "rocks",
+    "s": 200,
+    "len": 45,
+    "h": 0.45
+   },
+   {
+    "id": "slate-step",
+    "kind": "gap",
+    "s": 300,
+    "up": 6,
+    "h": 1.8,
+    "gap": 9,
+    "depth": 4,
+    "wide": 3,
+    "land": 0,
+    "down": 8,
+    "v": 13
+   },
+   {
+    "kind": "table",
+    "s": 480,
+    "h": 1.6,
+    "up": 6,
+    "top": 6,
+    "down": 9
+   },
+   {
+    "id": "road-gap-1",
+    "kind": "gap",
+    "road": true,
+    "s": 666,
+    "up": 9,
+    "h": 2.6,
+    "gap": 16,
+    "depth": 0,
+    "land": 2.0,
+    "down": 14,
+    "wood": true,
+    "v": 15
+   },
+   {
+    "kind": "rocks",
+    "s": 820,
+    "len": 60,
+    "h": 0.5
+   },
+   {
+    "id": "canyon",
+    "kind": "gap",
+    "canyon": true,
+    "s": 1030,
+    "up": 8,
+    "h": 2.4,
+    "gap": 18,
+    "depth": 22,
+    "wide": 22,
+    "land": 1.5,
+    "down": 14,
+    "v": 16
+   },
+   {
+    "id": "mid-drop",
+    "kind": "drop",
+    "s": 1200,
+    "h": 1.0,
+    "up": 5,
+    "top": 14,
+    "down": 0.8,
+    "flat": 0.9,
+    "wood": true,
+    "kick": 0.9
+   },
+   {
+    "kind": "table",
+    "s": 1270,
+    "h": 1.7,
+    "up": 6,
+    "top": 7,
+    "down": 9
+   },
+   {
+    "id": "big-step",
+    "kind": "gap",
+    "s": 1400,
+    "up": 7,
+    "h": 2.2,
+    "gap": 12,
+    "depth": 6,
+    "wide": 6,
+    "land": 0,
+    "down": 10,
+    "v": 15
+   },
+   {
+    "kind": "rocks",
+    "s": 1470,
+    "len": 60,
+    "h": 0.55
+   },
+   {
+    "kind": "whoops",
+    "s": 1620,
+    "len": 50,
+    "gap": 8,
+    "h": 0.7
+   },
+   {
+    "kind": "table",
+    "s": 1700,
+    "h": 1.8,
+    "up": 6,
+    "top": 6,
+    "down": 10,
+    "wood": true
+   },
+   {
+    "kind": "rocks",
+    "s": 1830,
+    "len": 50,
+    "h": 0.5
+   },
+   {
+    "id": "road-gap-2",
+    "kind": "gap",
+    "road": true,
+    "s": 1965,
+    "up": 10,
+    "h": 3.0,
+    "gap": 16,
+    "depth": 0,
+    "land": 2.4,
+    "down": 16,
+    "wood": true,
+    "v": 16
+   },
+   {
+    "id": "low-drop",
+    "kind": "drop",
+    "s": 2060,
+    "h": 1.2,
+    "up": 5,
+    "top": 10,
+    "down": 0.8,
+    "flat": 0.9,
+    "wood": true,
+    "kick": 0.9
+   }
+  ]
+ }
+}

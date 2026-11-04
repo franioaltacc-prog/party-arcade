@@ -150,7 +150,7 @@ async function catalogue(map,terrain){
  }
  const P=nature.pines,oakLeaves=autumn?autumnal(oaks.mats.leaves):oaks.mats.leaves,bushLeaves=autumn?autumnal(M.leaves):M.leaves,fern=autumn?autumnal(M.fern):M.fern;
  const oakv=oaks.trees.map(t=>({near:[[{geo:t.bark},0],[{geo:t.leaves},1]],far:[[{geo:t.far.bark},0],[{geo:t.far.leaves},1]]}));
- return [
+ return slateValley(map,[
   {id:'oak',like:'broadleaf',tree:true,per:120,dense:9000,woods:'trees',mix:1,size:[.75,1.25],slope:.84,clear:8,line:380,solid:{r:.45,tall:9},card:true,autumn,mats:[oaks.mats.bark,oakLeaves],variants:oakv,winds:[{bend:.0011},{bend:.0011,flutter:.03,glow:.35}]},
   {id:'pine',like:'pine',tree:true,per:120,dense:12000,woods:'trees',mix:-1,size:[.8,1.7],slope:.8,clear:8,line:460,solid:{r:.42,tall:14},card:true,mats:[M.bark,M.needles],variants:P.map(p=>({near:[[{geo:p.bark},0],[{geo:p.leaves},1]],far:[[{geo:p.far.bark},0],[{geo:p.far.leaves},1]]})),winds:[{bend:.0006},{bend:.0006,flutter:.008,glow:.18}]},
   {id:'boulder',like:'rock',per:35,dense:700,woods:'rocks',size:[.7,2],slope:.55,clear:7,solid:{r:.9,tall:1.4,byBox:true},rock:true,variants:rockv(same),winds:[{bend:0}]},
@@ -162,7 +162,7 @@ async function catalogue(map,terrain){
   ...(dd?[{id:'flowers',like:'shrub',cover:true,per:28000,where:'open',size:[.9,1.4],slope:.75,near:40,variants:dd.map(r=>({near:[[r,0]]})),winds:[{bend:.3,flutter:.02,glow:.3}]}]:[]),
   {id:'stones',like:'rock',cover:true,per:3000,size:[.25,.7],slope:.6,near:70,rock:true,variants:rockv(same),winds:[{bend:0}]},
   {id:'logs',like:'log',cover:true,per:500,where:'woods',size:[.8,1.2],slope:.85,near:90,mats:[M.log],variants:[{near:[[{geo:nature.log},0]]}],winds:[{bend:0}]},
- ].map(k=>resolve(k));
+ ]).map(k=>resolve(k));
 }
 /** The jungle (a world's "look": {"jungle": true}): coconut palms and banana plants (palms.mjs), the oaks as a deep
     green canopy, ferns, bushes and weeds thick on the ground. fill(x, z): how likely a tree is to grow there (in place
@@ -192,6 +192,13 @@ async function jungle(map,terrain){
   {id:'weeds',like:'shrub',cover:true,per:60000,size:[.9,1.5],slope:.65,near:45,variants:[...sb,...nt].map(r=>({near:[[r,0]]})),winds:[{bend:.2,flutter:.02,glow:.3}]},
   {id:'stones',like:'rock',cover:true,per:1500,size:[.25,.6],slope:.6,near:60,rock:true,tint:[1.05,.86,.72],variants:rocks,winds:[{bend:0}]},
  ].map(k=>resolve(k));
+}
+/** A wet slate valley ("slate" in a world's look): dark pine forest nearly everywhere (the odd oak), slate-grey
+    boulders and stones strewn all over, no flowers. */
+function slateValley(map,kinds){
+ if(!map.look?.slate)return kinds;
+ const grey=[.66,.74,.84],more={pine:{per:600,dense:15000,mix:0,slope:.72},oak:{per:20,dense:1500},boulder:{per:400,dense:2600,slope:.45,tint:grey},stones:{per:9000,tint:grey},fern:{per:34000}};
+ return kinds.filter(k=>k.id!=='flowers').map(k=>more[k.id]?{...k,...more[k.id]}:k);
 }
 /** Fill in a kind's materials: each part [model ({geo, mat} or {geo} with the kind's mats[k]), k] becomes [geo, its
     material made to sway (winds[k], or the last of them)]. */

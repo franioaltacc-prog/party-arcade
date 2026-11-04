@@ -478,6 +478,7 @@
     .mx-wrong.on { opacity: 1; animation: mxBlink .8s steps(2) infinite; }
     @keyframes mxBlink { 50% { opacity: .35; } }
     @media (max-width: 600px) { .mx-tl { top: 58px; } .mx-tr { top: 58px; } }
+    @media (max-width: 760px) { .mx-left { max-width: calc(100vw - 230px); line-height: 1.25; } }   /* (the hint wraps before it runs under the speed and turbo on the right) */
     @media (max-width: 480px) {
       .mx-touch { padding: 0 8px; }
       .mx-touch .grp { gap: 6px; }

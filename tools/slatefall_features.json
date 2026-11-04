@@ -1,0 +1,162 @@
+[
+ {
+  "id": "top-drop",
+  "kind": "drop",
+  "s": 110,
+  "h": 1.2,
+  "up": 6,
+  "top": 12,
+  "down": 0.8,
+  "flat": 0.85,
+  "wood": true,
+  "kick": 0.9
+ },
+ {
+  "kind": "rocks",
+  "s": 200,
+  "len": 45,
+  "h": 0.45
+ },
+ {
+  "id": "slate-step",
+  "kind": "gap",
+  "s": 300,
+  "up": 6,
+  "h": 1.8,
+  "gap": 9,
+  "depth": 4,
+  "wide": 3,
+  "land": 0,
+  "down": 8,
+  "v": 13
+ },
+ {
+  "kind": "table",
+  "s": 480,
+  "h": 1.6,
+  "up": 6,
+  "top": 6,
+  "down": 9
+ },
+ {
+  "id": "road-gap-1",
+  "kind": "gap",
+  "road": true,
+  "s": 666,
+  "up": 9,
+  "h": 2.6,
+  "gap": 16,
+  "depth": 0,
+  "land": 2.0,
+  "down": 14,
+  "wood": true,
+  "v": 15
+ },
+ {
+  "kind": "rocks",
+  "s": 820,
+  "len": 60,
+  "h": 0.5
+ },
+ {
+  "id": "canyon",
+  "kind": "gap",
+  "canyon": true,
+  "s": 1030,
+  "up": 8,
+  "h": 2.4,
+  "gap": 18,
+  "depth": 22,
+  "wide": 22,
+  "land": 1.5,
+  "down": 14,
+  "v": 16
+ },
+ {
+  "id": "mid-drop",
+  "kind": "drop",
+  "s": 1200,
+  "h": 1.0,
+  "up": 5,
+  "top": 14,
+  "down": 0.8,
+  "flat": 0.9,
+  "wood": true,
+  "kick": 0.9
+ },
+ {
+  "kind": "table",
+  "s": 1270,
+  "h": 1.7,
+  "up": 6,
+  "top": 7,
+  "down": 9
+ },
+ {
+  "id": "big-step",
+  "kind": "gap",
+  "s": 1400,
+  "up": 7,
+  "h": 2.2,
+  "gap": 12,
+  "depth": 6,
+  "wide": 6,
+  "land": 0,
+  "down": 10,
+  "v": 15
+ },
+ {
+  "kind": "rocks",
+  "s": 1470,
+  "len": 60,
+  "h": 0.55
+ },
+ {
+  "kind": "whoops",
+  "s": 1620,
+  "len": 50,
+  "gap": 8,
+  "h": 0.7
+ },
+ {
+  "kind": "table",
+  "s": 1700,
+  "h": 1.8,
+  "up": 6,
+  "top": 6,
+  "down": 10,
+  "wood": true
+ },
+ {
+  "kind": "rocks",
+  "s": 1830,
+  "len": 50,
+  "h": 0.5
+ },
+ {
+  "id": "road-gap-2",
+  "kind": "gap",
+  "road": true,
+  "s": 1965,
+  "up": 10,
+  "h": 3.0,
+  "gap": 16,
+  "depth": 0,
+  "land": 2.4,
+  "down": 16,
+  "wood": true,
+  "v": 16
+ },
+ {
+  "id": "low-drop",
+  "kind": "drop",
+  "s": 2060,
+  "h": 1.2,
+  "up": 5,
+  "top": 10,
+  "down": 0.8,
+  "flat": 0.9,
+  "wood": true,
+  "kick": 0.9
+ }
+]

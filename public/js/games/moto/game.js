@@ -418,7 +418,8 @@ function physicsStep(now) {
     if(R.mode==='free'){R.trial=null;updateTrialMarker();}
     // in a challenge you go back to where you last were on your wheels (a safe pad could be a shortcut)
     let where;
-    if (R.challenge) { const sp = clearOfTrees(T, R.challenge.safe); R.V.place(T, b, { position: [sp.x, sp.z], heading: sp.h }); where = R.wing ? 'the plane' : 'where you were'; }
+    if (R.challenge && R.retry) { R.V.place(T, b, { position: R.retry.position, heading: R.retry.heading }); R.retry = null; where = 'the run-in: have another go!'; }   // (fell into a downhill course's gap)
+    else if (R.challenge) { const sp = clearOfTrees(T, R.challenge.safe); R.V.place(T, b, { position: [sp.x, sp.z], heading: sp.h }); where = R.wing ? 'the plane' : 'where you were'; }
     else if (R.mode === 'free') {
       // free ride: another go at the gap you fell into, else where you were riding a few seconds ago (R and the
       // world edge go to a safe pad)
@@ -505,7 +506,7 @@ function respawnNow() {
 
 const HAZARD_TEXT = {
   lava: ['🔥 TOO HOT! Into the lava', new THREE.Color('#ff7a2a')], water: ['💦 SPLASH!', new THREE.Color('#cfe8ff')],
-  ice: ['🥶 SPLASH! That water is freezing', new THREE.Color('#e4f4ff')], chasm: ['😱 DOWN THE CHASM!', null],
+  ice: ['🥶 SPLASH! That water is freezing', new THREE.Color('#e4f4ff')], chasm: ['😱 DOWN THE CHASM!', null], gap: ['💥 TOO SHORT! You missed the landing', null],
   tar: ['🛢️ STUCK IN THE TAR PIT!', new THREE.Color('#3a3530')],
 };
 function onEvent(k, d) {
@@ -1120,7 +1121,7 @@ function hud(now) {
       : k === 'air' ? `BEST AIR ${ch.score.toFixed(2)} S` : k === 'flips' ? `${ch.score} FLIP${ch.score === 1 ? '' : 'S'}` : k === 'tricks' ? `${ch.score} TRICK POINTS` : `TOP ${Math.round(ch.score)} KM/H`;
     $('#hud-left').textContent = ch.online && state.race ? `P${myPlace()} / ${Object.keys(state.race.runners).length} · ${k === 'race' ? 'FOLLOW THE GREEN BEAM' : k === 'tag' ? 'RIDE INTO SOMEONE TO TAG THEM' : k === 'relay' ? 'PASS THE LANTERN DOWN THE CHUTE' : 'TIME LEFT TOP RIGHT'}`
       : ch.aval ? `🌊 THE AVALANCHE IS ${Math.max(0, Math.round(ch.aval.gap))} M BEHIND YOU!` : ch.def.laps ? (ch.def.route ? 'RAIL THE BERMS' : 'ROUND THE TRACK · PUMP THE ROLLERS') : ch.def.park && k === 'race' ? 'UP TO THE CHEQUERED FLAG'
-      : k === 'race' ? 'RIDE TO THE GREEN BEAM · ANY LINE YOU LIKE' : k === 'lanterns' ? 'PICK UP THE LANTERNS · THE BOTTOM ENDS IT' : ch.def.about.toUpperCase();
+      : k === 'race' && R.T?.terrain?.mx?.open ? 'EVERY GATE · DOWN TO THE FINISH ARCH': k === 'race' ? 'RIDE TO THE GREEN BEAM · ANY LINE YOU LIKE' : k === 'lanterns' ? 'PICK UP THE LANTERNS · THE BOTTOM ENDS IT' : ch.def.about.toUpperCase();
   }
   // the waypoint you set on the big map: how far, on the line under the world's name
   const wp = R.mode === 'free' && !ch && !R.trial ? map.waypoint : null;
@@ -1221,7 +1222,7 @@ async function startFree(entry, opts = {}){
     R.camMode=ch?.cam||prefs.cam;   // (a challenge can be ridden in first person)
     R.trialMarker=null;R.finishMarker=finish?finishBeacon(finish):null;R.audio=createAudio({pedal:mtb||R.wing||R.skate,kind:R.wing?'wing':R.skate?'skate':R.board?'board':R.drift?'drift':null});R.driftS=R.drift?newDrift():null;driftHud();chuteExtras(ch);R.helmet=Coins.CAM.current();
     if(world.lamp&&mtb){const L=Coins.LAMP.current().lamp;Object.assign(world.lamp.spot,{intensity:L.i,angle:L.angle,distance:L.dist});}   // (your bike lamp, from the shop)
-    if(world.storm){R.audio?.rain(1);world.onLightning=(far)=>{pulse($('#fx-flash'));R.audio?.thunder(far);};}$('.mx-nlab').textContent='TURBO · SPACE / SHIFT';for(const el of $$('.mx-nitro, .mx-nlab'))el.style.display=mtb||tow||R.wing||R.skate||R.drift?'none':'';$('#mx-trials').hidden=!!ch;{const nb=$('[data-k="nitro"]');if(nb){nb.textContent=R.drift?'✋':'N₂O';nb.setAttribute('aria-label',R.drift?'Handbrake':'Nitro');}}   // (a bicycle has no nitro; on a phone the drift car's nitro button is its handbrake)
+    if(world.drizzle)R.audio?.rain(.45);if(world.storm){R.audio?.rain(1);world.onLightning=(far)=>{pulse($('#fx-flash'));R.audio?.thunder(far);};}$('.mx-nlab').textContent=matchMedia('(pointer: coarse)').matches?'TURBO':'TURBO · SPACE / SHIFT';for(const el of $$('.mx-nitro, .mx-nlab'))el.style.display=mtb||tow||R.wing||R.skate||R.drift?'none':'';$('#mx-trials').hidden=!!ch;{const nb=$('[data-k="nitro"]');if(nb){nb.textContent=R.drift?'✋':'N₂O';nb.setAttribute('aria-label',R.drift?'Handbrake':'Nitro');}}   // (a bicycle has no nitro; on a phone the drift car's nitro button is its handbrake)
     $('#hud-track').textContent=ch?`${ch.emoji} ${ch.name}${R.cup?` · World Cup ${R.cup.i+1}/${Chutes.CUP.length}`:''}`:def.name;
     fill($('#hud-center'));resize();drawMapBase();coinHud(purse().wallet().coins,0);R.running=true;requestAnimationFrame(frame);
     const url=new URL(location.href);url.searchParams.delete('solo');url.searchParams.delete('track');
@@ -1311,7 +1312,7 @@ function challengeStep(b, now) {
   const ch = R.challenge; if (ch.done) return;
   ch.elapsed += DT; const el = ch.elapsed;   // (riding time: a paused or background tab doesn't eat into it)
   const onWheels = b.wh[0].ct || b.wh[1].ct;
-  if (!b.crashed && onWheels && now - ch.safeAt > 500 && R.T.terrain.inBounds(b.px, b.pz, 60)) {
+  if (!b.crashed && onWheels && now - ch.safeAt > 500 && R.T.terrain.inBounds(b.px, b.pz, 60) && !R.T.terrain.mx?.busy?.(b.px, b.pz)) {   // (not on a downhill course's jumps)
     ch.safe = { x: b.px, z: b.pz, h: Math.PI / 2 - b.h }; ch.safeAt = now;   // (clearOfTrees moves it off the line of a tree)
   }
   const kind = ch.def.kind;
