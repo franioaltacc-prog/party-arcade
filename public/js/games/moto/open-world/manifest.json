@@ -138,6 +138,15 @@
       "pools": 0
     },
     {
+      "id": "slatefall",
+      "name": "Slatefall Valley",
+      "file": "slatefall.json",
+      "areaKm2": 3.36,
+      "hidden": true,
+      "gaps": 0,
+      "pools": 0
+    },
+    {
       "id": "tagwood",
       "name": "Tag Wood",
       "file": "tagwood.json",

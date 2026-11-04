@@ -58,7 +58,7 @@ export function buildRideWorld(map,quality=1,renderer=null,shadows=false,nature=
  // clouds: a layer high over the map (it follows the camera, the clouds stay put in the world and drift on the wind).
  // Where a cloud is thicker towards the sun it's shaded; lit edges catch the sun's colour (orange at sunset). A storm
  // is a heavy grey overcast, the desert's sky mostly clear. Far off they fade into the haze on the horizon.
- const stormy=!!map.look?.storm,overcast=!!map.look?.fogPulse;
+ const stormy=!!map.look?.storm,overcast=!!map.look?.fogPulse||!!map.look?.drizzle;
  const cloudU={uT:{value:0},uSun:{value:new THREE.Vector3().copy(sunDir)},uCover:{value:stormy?.78:overcast?.7:map.theme==='desert'?.32:map.theme==='snow'?.5:.46},
   uLit:{value:new THREE.Color(theme.sunColor).lerp(new THREE.Color('#ffffff'),map.look?.sky?.sun?.[0]<12?.45:.72).multiplyScalar(stormy?.42:dusk?.5:.98)},
   uShade:{value:new THREE.Color(stormy?'#3a4048':dusk?'#3c4258':'#b2bccb').lerp(new THREE.Color(theme.fog),.25)},uHaze:{value:new THREE.Color(theme.fog)},uSeed:{value:(map.seed%997)*.37}};
@@ -117,14 +117,14 @@ void main(){
  const city=map.features?.city?cityScenery(built.terrain,scene,map,{quality,night,dusk,shadows}):null;   // (Driftvvd's city: streets, buildings, lights, parked cars)
  const ocean=map.sea?createOcean(built.terrain,scene,map,{quality,dark:night||dusk||!!map.look?.storm}):null;   // (a sea world: the water, its buoys and piers)
  // ---------------------------------------------------------------- weather round the camera: rain or falling leaves
- const storm=!!map.look?.storm,leafFall=!!map.look?.autumn&&!!forest,hemi=scene.children.find(o=>o.isHemisphereLight);
- let drops=null;
- if(storm||leafFall){
-  const n=storm?Math.round(2600*Math.min(1,quality+.2)):500,box=storm?40:30,p=new Float32Array(n*(storm?6:3)),seed=[];
+ const storm=!!map.look?.storm,drizzle=!storm&&!!map.look?.drizzle,rain=storm||drizzle,leafFall=!!map.look?.autumn&&!!forest,hemi=scene.children.find(o=>o.isHemisphereLight);
+ let drops=null;   // ("drizzle": a light rain, no lightning)
+ if(rain||leafFall){
+  const n=rain?Math.round((drizzle?1100:2600)*Math.min(1,quality+.2)):500,box=rain?40:30,p=new Float32Array(n*(rain?6:3)),seed=[];
   let ss=map.seed*31;const r=()=>{ss=(Math.imul(ss,1664525)+1013904223)>>>0;return ss/4294967296;};
   for(let i=0;i<n;i++)seed.push([r()*box*2-box,r()*box,r()*box*2-box,.6+r()*.8,r()*6.28]);
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(p,3).setUsage(THREE.DynamicDrawUsage));
-  const mesh=storm?new THREE.LineSegments(g,new THREE.LineBasicMaterial({color:'#d2dcea',transparent:true,opacity:.6,depthWrite:false,fog:false})):
+  const mesh=rain?new THREE.LineSegments(g,new THREE.LineBasicMaterial({color:'#d2dcea',transparent:true,opacity:drizzle?.42:.6,depthWrite:false,fog:false})):
    new THREE.Points(g,new THREE.PointsMaterial({color:'#d9822b',size:.13,transparent:true,opacity:.9,depthWrite:false}));
   mesh.frustumCulled=false;scene.add(mesh);drops={mesh,n,box,seed,p,t:0};
  }
@@ -163,7 +163,7 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
    const d=drops;d.t+=dt;
    for(let i=0;i<d.n;i++){
     const q=d.seed[i];
-    if(storm){const y=((q[1]-d.t*22*q[3])%d.box+d.box)%d.box,x=eye.x+((q[0]-eye.x)%(d.box*2)+d.box*3)%(d.box*2)-d.box,z=eye.z+((q[2]-eye.z)%(d.box*2)+d.box*3)%(d.box*2)-d.box,top=eye.y-8+y;
+    if(rain){const y=((q[1]-d.t*22*q[3])%d.box+d.box)%d.box,x=eye.x+((q[0]-eye.x)%(d.box*2)+d.box*3)%(d.box*2)-d.box,z=eye.z+((q[2]-eye.z)%(d.box*2)+d.box*3)%(d.box*2)-d.box,top=eye.y-8+y;
      d.p.set([x,top,z,x+.15,top-.9,z],i*6);}
     else{const y=((q[1]-d.t*1.1*q[3])%d.box+d.box)%d.box,sway=Math.sin(d.t*1.7+q[4])*1.2;
      d.p.set([eye.x+((q[0]+sway-eye.x)%(d.box*2)+d.box*3)%(d.box*2)-d.box,eye.y-6+y,eye.z+((q[2]-eye.z)%(d.box*2)+d.box*3)%(d.box*2)-d.box],i*3);}
@@ -311,7 +311,7 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
  const shadowMat=new THREE.MeshBasicMaterial({map:shadowTex,transparent:true,depthWrite:false,opacity:.3,polygonOffset:true,polygonOffsetFactor:-2});
  const contact=new THREE.Mesh(shadowGeo,shadowMat);contact.visible=!shadows;scene.add(contact);const up=new THREE.Vector3(0,1,0),normal=new THREE.Vector3();
  return {
-  free:true,snowing:!!flakes,wind,parks,scene,theme,fx,gates:[],ground:built.terrain,definition:map,policy,sun,coins,collect,lamp,night,forest,storm,ocean,
+  free:true,snowing:!!flakes,wind,parks,scene,theme,fx,gates:[],ground:built.terrain,definition:map,policy,sun,coins,collect,lamp,night,forest,storm,drizzle,ocean,
   /** Called with each lightning flash in a storm (far: 0 close .. 1 far, for the thunder). */
   set onLightning(f){world.onLightning=f;},
   /** ahead: where to centre the detailed ground (a little ahead of a fast bike, so the ground it's riding into is ready). */

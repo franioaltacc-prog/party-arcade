@@ -38,7 +38,7 @@ export function buildTerrain(world) {
  const city=world.features?.city?cityLayout(world):null;   // (Driftvvd's city: flat, its streets paved, its buildings solid: city.mjs)
  const lake=spec.lake, river=spec.river;
  // a motocross track (mx.mjs): its route's points come from its corners
- if(world.mx){ const r=world.routes.find(r=>r.id===world.mx.route); if(r&&!r.points?.length) r.points=mxRoutePoints(mxLine(world.mx)); }
+ if(world.mx){ const r=world.routes.find(r=>r.id===world.mx.route); if(r&&!r.points?.length) r.points=mxRoutePoints(mxLine(world.mx),world.mx.closed!==false); }
  let mx=null;   // (its ground shaper, once the ground without it can be measured: see the end)
  const riverDist=(x,z)=>river?Math.abs(x-river.x-Math.sin(z/river.wavelength)*river.amplitude):Infinity;
  const lakeDist=(x,z)=>lake?Math.hypot((x-lake.position[0])/lake.radius[0],(z-lake.position[1])/lake.radius[1]):Infinity;
@@ -114,7 +114,7 @@ export function buildTerrain(world) {
   }
  }
  const parks=[];
- for(const pad of world.sea?[]:[pads[0],pads[Math.min(pads.length-1,2)]]) {   // (none on a sea: they'd be under the water)
+ for(const pad of world.sea||world.jumpPark===false?[]:[pads[0],pads[Math.min(pads.length-1,2)]]) {   // (none on a sea: they'd be under the water; none where the world says so)
   const [px,pz]=pad.position,toward=Math.atan2(-px,-pz);
   for(const k of [0,1,-1,2,-2,3,-3,4,-4,5,-5,6,-6]) {
    const h=toward+k*.32,sx=Math.sin(h),sz=Math.cos(h),line=[];
@@ -590,6 +590,7 @@ export function buildTerrain(world) {
      Lakes and rivers count too (deep water only: you can splash through the shallows). */
  function hazardAt(x,z) {
   if(features.length){ const h=featureAt(x,z).hazard; if(h) return h; }
+  if(mx){ const h=mx.hazard(x,z); if(h) return h; }   // (a downhill course's gaps)
   if(lake&&!lake.frozen&&lakeDist(x,z)<1) return {kind:lake.lava?'lava':'water',level:lake.lava?lake.level:lake.level-.9};
   if(river&&riverDist(x,z)<river.width*.45) return {kind:river.lava?'lava':'water',level:river.lava?river.level:river.level-.9};
   return null;
