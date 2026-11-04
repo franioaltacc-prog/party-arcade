@@ -47,7 +47,7 @@ export const seaClock={value:0};
 /** How bright the daylight is (1 day .. 0 night): the light rippling on the seabed and through the waves fades with it. */
 export const seaLight={value:1};
 export function terrainMaterial(map,sharedTextures=null,detailed=true){
- const textures=sharedTextures || Object.fromEntries(Object.keys(palettes).map(k=>[k,texture(k,map.theme,1024,map.look)]));
+ const textures=sharedTextures || Object.fromEntries(Object.keys(palettes).map(k=>[k,texture(k,map.theme,map.look?.photo?.[k]?2048:1024,map.look)]));
  const hole=new THREE.Vector4();
  const material=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.91,metalness:0});
  // a world with "look": {"soil": {...}}: its tracks (and the steep cut banks inside "area" [x, z, radius]) are scanned
@@ -153,6 +153,9 @@ ${S?`float owSoilK=0.0;Soil owS;float owSoilAO=1.0;
   float owIn=1.0-smoothstep(owSoilArea.z*.8,owSoilArea.z,length(owPosition.xz-owSoilArea.xy));
   if(owIn>0.0&&owCliff>.02){float a;vec4 owT=soilTri(owPosition,owWeights,a);float k=smoothstep(.05,.5,owCliff)*owIn;
    owGround=mix(owGround,vec4(owT.rgb,owT.a),k);owSoilAO=mix(1.0,a,k);}
+  // worn patches on the grassy slopes round the track: the red earth showing through the grass, ragged-edged
+  if(owIn>0.0){float e=smoothstep(.6,.74,owFbm(owPosition.xz*.055+1.7)+(owS.h-.5)*.3)*owIn*(1.0-owCliff)*.9*(1.0-owSoilK);
+   owGround=mix(owGround,vec4(owS.albedo*.92,owS.h),e);owSoilAO=mix(owSoilAO,owS.ao,e);}
   if(owSoilK>0.0){owGround=mix(owGround,vec4(owS.albedo,owS.h),owSoilK);owSoilAO=mix(owSoilAO,owS.ao,owSoilK);}
 }`:''}
 if(${S?'false&&':''}owTrail>.01){

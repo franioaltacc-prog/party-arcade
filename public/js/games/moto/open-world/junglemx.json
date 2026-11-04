@@ -29,7 +29,7 @@
   "treeLine": 900,
   "sky": {
    "sun": [
-    27,
+    33,
     282
    ],
    "turbidity": 1.6,
@@ -90,14 +90,17 @@
     190
    ],
    "tint": [
-    1.34,
-    0.96,
-    0.86
+    1.62,
+    1.3,
+    1.18
    ]
   },
   "dress": true,
+  "photo": {
+   "grass": ["/assets/moto-realism/grass-color.webp", "/assets/moto-realism/grass-height.webp"]
+  },
   "dressGrass": "#efd99c",
-  "canopyTint": [0.82, 0.88, 0.52],
+  "canopyTint": [0.66, 0.74, 0.44],
   "post": {
    "hazeD": 0.00034,
    "hazeH": 320,

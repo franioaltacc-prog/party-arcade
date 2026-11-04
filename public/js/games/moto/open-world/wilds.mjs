@@ -179,11 +179,14 @@ async function jungle(map,terrain){
  const rocks=nature.rocks.map((g,i)=>({near:[[{geo:g,mat:nature.rockMat[i]},0]]}));
  return [
   {id:'palm',like:'palm',tree:true,per:150,dense:2600,size:[.85,1.2],slope:.7,clear:3.5,solid:{r:.3,tall:9},card:true,variants:J.palms,winds:[{bend:.0005},{bend:.0007,flutter:.03,glow:.4}],
-   fill:(x,z)=>terrace(x,z,.8)?0:inTrack(x,z)?(map.look?.dress?.05:.9):terrace(x,z,1.25)||nearTrail(x,z,30)?.45:.06},
+   fill:(x,z)=>terrace(x,z,.8)?0:map.look?.dress&&inTrack(x,z,90)?0:inTrack(x,z)?.9:terrace(x,z,1.25)||nearTrail(x,z,30)?.45:.06},
   {id:'canopy',like:'broadleaf',tree:true,per:150,dense:9500,size:[1.05,1.7],slope:.7,clear:7,line:900,solid:{r:.5,tall:9},card:true,tint:map.look?.canopyTint||[.72,1.08,.62],mats:[oaks.mats.bark,oaks.mats.leaves],variants:oakv,winds:[{bend:.0009},{bend:.0009,flutter:.03,glow:.35}],
-   fill:(x,z)=>inTrack(x,z,map.look?.dress?110:0)||terrace(x,z,1.05)?0:map.look?.dress&&inTrack(x,z,200)?.35:.9},   // (a dressed pro track: open grassy hills round it, its own lone trees on the ridges)
+   fill:(x,z)=>inTrack(x,z,map.look?.dress?110:0)||terrace(x,z,1.05)?0:map.look?.dress&&inTrack(x,z,220)?.06:.9},   // (a dressed pro track: open grassy hills round it, its own lone trees on the ridges)
   {id:'boulder',like:'rock',per:20,dense:300,woods:'rocks',size:[.7,1.8],slope:.55,clear:7,solid:{r:.9,tall:1.4,byBox:true},rock:true,tint:[1.05,.86,.72],variants:rocks,winds:[{bend:0}],
    fill:(x,z)=>inTrack(x,z)||terrace(x,z)?0:.4},
+  // (a dressed pro track: dark leafy bushes dotted over the open grassy slopes round it, thicker in the hollows)
+  map.look?.dress&&{id:'scrub',like:'shrub',cover:true,hug:true,per:14000,size:[1.6,3.2],slope:.72,near:160,mats:[M.twigs,M.leaves],variants:nature.bushes.map(b=>({near:[[{geo:b.bark},0],[{geo:b.leaves},1]]})),winds:[{bend:.03},{bend:.03,flutter:.03,glow:.3}],
+   fill:(x,z)=>{if(!inTrack(x,z,110))return 0;const at=mx.near(x,z);return at&&Math.abs(at.u)<mx.hw+5?0:.5;}},
   {id:'banana',like:'shrub',cover:true,per:9000,where:'woods',size:[.8,1.3],slope:.7,near:85,variants:J.bananas,winds:[{bend:.05,flutter:.02,glow:.35}]},
   {id:'young',like:'palm',cover:true,per:900,size:[.22,.35],slope:.75,near:110,variants:J.palms.map(v=>({near:v.far})),winds:[{bend:.004},{bend:.004,flutter:.03,glow:.4}]},
   {id:'bush',like:'shrub',cover:true,per:9000,where:'woods',size:[.9,1.6],slope:.7,near:90,mats:[M.twigs,M.leaves],variants:nature.bushes.map(b=>({near:[[{geo:b.bark},0],[{geo:b.leaves},1]]})),winds:[{bend:.035},{bend:.035,flutter:.03,glow:.3}]},
@@ -191,7 +194,7 @@ async function jungle(map,terrain){
   {id:'fern',like:'shrub',cover:true,per:42000,where:'woods',size:[1,1.8],slope:.65,near:60,mats:[M.fern],variants:nature.ferns.map(g=>({near:[[{geo:g},0]]})),winds:[{bend:.08,flutter:.02,glow:.3}]},
   {id:'weeds',like:'shrub',cover:true,per:60000,size:[.9,1.5],slope:.65,near:45,variants:[...sb,...nt].map(r=>({near:[[r,0]]})),winds:[{bend:.2,flutter:.02,glow:.3}]},
   {id:'stones',like:'rock',cover:true,per:1500,size:[.25,.6],slope:.6,near:60,rock:true,tint:[1.05,.86,.72],variants:rocks,winds:[{bend:0}]},
- ].map(k=>resolve(k));
+ ].filter(Boolean).map(k=>resolve(k));
 }
 /** A wet slate valley ("slate" in a world's look): dark pine forest nearly everywhere (the odd oak), slate-grey
     boulders and stones strewn all over, no flowers. */
@@ -317,16 +320,17 @@ export async function growWilds(built,map,scene,{quality=1,renderer=null,shadows
  const cover=kinds.filter(k=>k.cover),CELL=32,cells=new Map(),todo=[],reach=Math.max(0,...cover.map(k=>k.near))*(.6+.4*q);
  for(const k of cover){const each=k.per*q*(k.where==='woods'?1.6:1)/k.variants.length;k.draws=k.variants.map(v=>({near:v.near.map(([g,m])=>drawOf(g,m,ring(k.near*(.6+.4*q),each),false))}));}
  function growCell(cx,cz){
-  const ok=new Uint8Array(64);
-  for(let j=0;j<8;j++)for(let i=0;i<8;i++){const x=cx*CELL+i*4+2,z=cz*CELL+j*4+2;ok[j*8+i]=built.plantable(x,z,{clear:2.5,slope:.7})?1:0;}
+  const ok=new Uint8Array(64),okNear=new Uint8Array(64),hug=cover.some(k=>k.hug);   // (hug: a kind that may grow right up to the trails)
+  for(let j=0;j<8;j++)for(let i=0;i<8;i++){const x=cx*CELL+i*4+2,z=cz*CELL+j*4+2;ok[j*8+i]=built.plantable(x,z,{clear:2.5,slope:.7})?1:0;if(hug)okNear[j*8+i]=ok[j*8+i]||built.plantable(x,z,{clear:2.5,slope:.7,piste:1.5})?1:0;}
   const list=[];
   for(const k of cover){
    const n=k.per*CELL*CELL/1e6*q*(k.where==='woods'?1.6:1);
    for(let i=0;i<n;i++){
     const h=hash(cx*7+i,cz*13-i,k.id.length*101+seed0),fx=hash(cx,cz+i*3,k.id.length+7),fz=hash(cx+i*5,cz,k.id.length+13);
-    if(!ok[Math.floor(fz*8)*8+Math.floor(fx*8)])continue;
+    if(!(k.hug?okNear:ok)[Math.floor(fz*8)*8+Math.floor(fx*8)])continue;
     const x=(cx+fx)*CELL,z=(cz+fz)*CELL;
     if(k.where){const f=woods(x,z),keep=k.where==='woods'?.12+.88*f:1-.75*f;if(h>keep)continue;}
+    if(k.fill&&h>k.fill(x,z))continue;   // (a cover kind can say where it grows too)
     if(terrain.obstacleAt(x,z))continue;
     const sz=k.size[0]+(k.size[1]-k.size[0])*hash(i,cz-cx,17);list.push(place(k,x,z,built.renderHeightAt(x,z),sz,hash(cx-i,cz+i,29)*6.283,Math.floor(hash(cz+i,cx,37)*k.variants.length*.999),hash(i,cx+cz,31)));
    }

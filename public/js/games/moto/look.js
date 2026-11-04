@@ -91,6 +91,11 @@ export const SOIL_GLSL = `
 uniform sampler2D soilC, soilN, soilO; uniform float soilPOM; uniform vec3 soilTint;
 struct Soil { vec3 albedo; vec3 n; float ao; float rough; float h; };
 vec2 soilRot(vec2 p) { return mat2(0.8, -0.6, 0.6, 0.8) * p; }
+// smooth value noise for the track's big shapes (lumps, hollows, dry and damp patches)
+float soilHash(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
+float soilNoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(soilHash(i), soilHash(i + vec2(1.0, 0.0)), f.x), mix(soilHash(i + vec2(0.0, 1.0)), soilHash(i + vec2(1.0, 1.0)), f.x), f.y); }
+float soilLumps(vec2 p) { return soilNoise(p * 0.45) * 0.62 + soilNoise(soilRot(p) * 1.25 + 4.1) * 0.38; }
 // steep parallax on the fine tile: march down the view ray through the height field (stones stand proud)
 vec2 soilParallax(vec2 uv, vec3 vts, float k) {
   if (k <= 0.001) return uv;
@@ -123,7 +128,18 @@ Soil soilAt(vec3 wp, vec3 nW, vec3 eye, float dist) {
   s.h = mix(oA.b, oB.b, hb);
   s.albedo *= mix(0.6, 1.08, smoothstep(0.02, 0.55, s.h));   // (crumbs and clods catch the light, the gaps between them are in shade)
   s.ao = mix(oA.r, oB.r, hb); s.rough = mix(oA.g, oB.g, hb);
-  vec3 nt = normalize(vec3(mix(nA.xy, nB.xy * 0.8, hb) * 1.7, 1.0));
+  // the big shapes: a ridden track is lumps and hollows a metre or two across (they tilt the light, so they read from any
+  // angle and any way the sun is), dry dusty patches paler than the damp packed ones, the hollows a little in shade
+  // (its slope across the ground from how it changes between neighbouring pixels: no extra samples)
+  float L0 = soilLumps(p);
+  vec2 dpx = dFdx(p), dpy = dFdy(p); float dlx = dFdx(L0), dly = dFdy(L0), det = dpx.x * dpy.y - dpx.y * dpy.x;
+  vec2 slope = abs(det) > 1e-7 ? vec2(dlx * dpy.y - dly * dpx.y, dly * dpx.x - dlx * dpy.x) / det : vec2(0.0);
+  slope = clamp(slope, -2.0, 2.0) * 0.55 * (1.0 - 0.5 * smoothstep(40.0, 120.0, dist));
+  float dry = smoothstep(0.35, 0.75, soilNoise(p * 0.11 + 9.3) * 0.7 + soilNoise(p * 0.37) * 0.3);
+  vec3 dusty = mix(vec3(dot(s.albedo, vec3(0.3, 0.59, 0.11))), s.albedo, 0.72) * vec3(1.16, 1.08, 1.0);
+  s.albedo = mix(s.albedo * 0.9, dusty * 1.12, dry) * mix(0.86, 1.06, L0);
+  s.ao *= mix(0.78, 1.0, smoothstep(0.2, 0.65, L0)); s.rough = mix(s.rough, 1.0, dry * 0.3);
+  vec3 nt = normalize(vec3(mix(nA.xy, nB.xy * 0.8, hb) * 1.7 - slope, 1.0));
   // tangent frame from the world: x along the texture's u, z along its v, kept on the surface
   vec3 T = normalize(vec3(1.0, 0.0, 0.0) - nW * nW.x), B = normalize(vec3(0.0, 0.0, 1.0) - nW * nW.z);
   s.n = normalize(T * nt.x + B * nt.y + nW * nt.z);

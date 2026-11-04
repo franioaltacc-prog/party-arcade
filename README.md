@@ -439,7 +439,10 @@ with an import map), everything else is drawn and synthesised in code (no model,
   banks (`look.dressGrass` tints it), soil crumbs (only drawn on the detailed ground round the rider, seated on its drawn
   height) and lone ridge trees round an `mx` track; `look.canopyTint` tints the jungle and ridge trees, `look.skyGrade`
   ({k, zen, hor}: `gradeSky`) deepens the physical sky's blue, `boundary.ribs` softens the far mountains' ribs, and
-  `setRim` / `addRim` give the bike and rider a soft rim of sky light. Assets: `public/assets/moto-realism/SOURCES.md`.
+  `setRim` / `addRim` give the bike and rider a soft rim of sky light. The banks' grass is real blade tufts (made in
+  `mx-dress.mjs`, thinned with distance, only drawn near the camera); cover kinds in `wilds.mjs` can take `fill` and
+  `hug` (grow right up to the trails: `plantable`'s `piste`); the soil shader adds lumps (slope from screen
+  derivatives) and dry/damp patches. Assets: `public/assets/moto-realism/SOURCES.md`.
   Driftvvd (`drift`): `drift.js`, its own top-down car physics (bicycle model, tyre curve, friction circle, handbrake
   on Space/Q, auto counter-steer from the body slip and a drift assist past 45°; `b.drift = {angle, speed}`), drawn
   with `makeCar` (`driftPaint()`), on Downtown (`city`, hidden, written by `tools/make_city.py`). The city is laid out

@@ -225,9 +225,9 @@ export function buildOpenWorld(map,{resolution=512,scenery=2400,chunkSegments=0,
  /** Whether a plant can grow at (x, z) by the same rules as the scenery above (off the trails by clear metres, off
      jumps, pads, spawns, gauntlets, water and cliffs, and no steeper than slope (the ground's up, 0..1); below a tree
      line, metres over the world's base, when one is given). wilds.mjs fills the worlds with real plants by it. */
- function plantable(x,z,{clear=7,slope=.8,line=0,rise=90}={}){
+ function plantable(x,z,{clear=7,slope=.8,line=0,rise=90,piste=null}={}){   // (piste: the gap kept to the trails, in place of the world's)
   if(!terrain.inBounds(x,z,8)||terrain.cliffRise(x,z)>rise)return false;
-  const road=terrain.roadAt(x,z);if(road&&road.distance<(map.look?.pisteClear??9)+clear)return false;
+  const road=terrain.roadAt(x,z);if(road&&road.distance<(piste??map.look?.pisteClear??9)+clear)return false;
   if(terrain.forestReach&&terrain.routeDist(x,z)<terrain.forestReach)return false;
   if(terrain.rampAt(x,z).weight>0||terrain.featureAt(x,z).flat>.02||terrain.gauntletIn(x,z,40))return false;
   if(keepOut.some(([p,r])=>Math.hypot(x-p[0],z-p[1])<r))return false;

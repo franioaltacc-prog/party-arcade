@@ -18,6 +18,14 @@ From the 2K JPG maps: soil-color (diffuse), soil-normal (OpenGL normal), and soi
 (R), roughness (G) and the displacement height (B) into one picture. Each at 2048 px (high quality) and 1024 px
 (-1k: medium and phones), WebP. Used for Jungle Ridge MX's track and cut banks (look.js, open-world/materials.mjs).
 
+## Grassy ground (grass-*.webp)
+
+Sparse Grass by Amal Kumar, Poly Haven. CC0.
+Source: https://polyhaven.com/a/sparse_grass
+From the 2K JPG maps: grass-color (diffuse, brought to a khaki-olive average and a touch less saturated) and
+grass-height (displacement), each scaled to 1024 px and tiled 2 x 2 into a 2048 px WebP. Used for the grassy ground
+of Jungle Ridge MX (its world file's look.photo.grass; open-world/materials.mjs).
+
 ## Sky light (sky-clear-1k.hdr)
 
 Kloofendal 43d Clear Pure Sky by Greg Zaal, Poly Haven. CC0.
