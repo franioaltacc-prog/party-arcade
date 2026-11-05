@@ -141,9 +141,7 @@ void main(){
  const dress=map.mx&&map.look?.dress?mxDress(built.terrain,scene,map,{quality,shadows,tufts:tuftK}):null;   // (and a pro track's banner fences, grass on the banks, trees on the ridges)
  const city=map.features?.city?cityScenery(built.terrain,scene,map,{quality,night,dusk,shadows}):null;   // (Driftvvd's city: streets, buildings, lights, parked cars)
  const ocean=map.sea?createOcean(built.terrain,scene,map,{quality,dark:night||dusk||!!map.look?.storm}):null;   // (a sea world: the water, its buoys and piers)
- // a world's own lake water and beach dressing (shore.mjs), each only when its json asks for it
- const lake=map.look?.lakeWater&&map.terrain.lake?lakeWater(built.terrain,scene,map,{quality}):null;
- const beach=map.look?.beach?beachDress(built.terrain,scene,map,{quality,shadows}):null;
+ const lakeW=map.look?.lakeWater&&map.terrain.lake&&!map.terrain.lake.frozen?lakeWater(built.terrain,scene,map,{quality,dark:night||dusk}):null,beach=map.look?.beach?beachDress(built.terrain,scene,map,{quality,shadows}):null;   // (look.lakeWater: a lake with the sea's water; look.beach: palms along the shore)
  // ---------------------------------------------------------------- weather round the camera: rain or falling leaves
  const storm=!!map.look?.storm,drizzle=!storm&&!!map.look?.drizzle,rain=storm||drizzle,leafFall=!!map.look?.autumn&&!!forest,hemi=scene.children.find(o=>o.isHemisphereLight);
  let drops=null;   // ("drizzle": a light rain, no lightning)
@@ -382,7 +380,7 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
     lawn.step(quality>.8?3000:1200);}   // (a little a frame: no hitches)
    cloudU.uT.value=(cloudU.uT.value+dt)%2000;cloudLayer.position.x=camera.position.x;cloudLayer.position.z=camera.position.z;
    wilds?.update(camera.position,dt);
-   updatePatch(ahead);dress?.update(dt,cx,cz,inner-3,visibleHeight,camera.position);fx.update(dt,camera);parks.update(dt);built.update(camera.position);forest?.update(camera.position);slope?.update(camera.position);city?.update(camera.position);ocean?.update(camera.position,dt);lake?.update(camera.position,dt);beach?.update?.(camera.position,dt);weather(camera.position,dt);drawCoins(performance.now());drawHoops(performance.now());
+   updatePatch(ahead);dress?.update(dt,cx,cz,inner-3,visibleHeight,camera.position);fx.update(dt,camera);parks.update(dt);built.update(camera.position);forest?.update(camera.position);slope?.update(camera.position);city?.update(camera.position);ocean?.update(camera.position,dt);lakeW?.update(camera.position,dt);beach?.update(camera.position,dt);weather(camera.position,dt);drawCoins(performance.now());drawHoops(performance.now());
    sun.position.copy(point).addScaledVector(sunDir,300);sun.target.position.copy(point);
    if(!shadows){
     const y=built.terrain.heightAt(point.x,point.z),nn=built.terrain.normalAt(point.x,point.z);
@@ -392,7 +390,7 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
   /** The real plants (wilds.mjs), once they've grown: { count, solids, update, dispose } or null. */
   get wilds(){return wilds;},
   dispose(){
-   gone=true;stopSkyEnv();tuftsRound?.dispose();tuftK?.dispose();lawn?.dispose();lawnK?.dispose();dress?.dispose();wilds?.dispose();samples.clear();built.dispose();parks.dispose();forest?.dispose();slope?.dispose();city?.dispose();ocean?.dispose();lake?.dispose();beach?.dispose();mxs?.dispose();dhs?.dispose();geo.dispose();detail.dispose();shadowGeo.dispose();shadowMat.dispose();shadowTex.dispose();
+   gone=true;stopSkyEnv();tuftsRound?.dispose();tuftK?.dispose();lawn?.dispose();lawnK?.dispose();dress?.dispose();lakeW?.dispose();beach?.dispose();wilds?.dispose();samples.clear();built.dispose();parks.dispose();forest?.dispose();slope?.dispose();city?.dispose();ocean?.dispose();mxs?.dispose();dhs?.dispose();geo.dispose();detail.dispose();shadowGeo.dispose();shadowMat.dispose();shadowTex.dispose();
    for(const k of coverKinds){k.im.dispose();k.geo.dispose();}for(const m of [props.propMat,props.leafMat,props.cactusMat,pebbleProps.propMat,pebbleProps.leafMat,pebbleProps.cactusMat])m.dispose();
    cloudLayer.geometry.dispose();cloudMat.dispose();if(drops){drops.mesh.geometry.dispose();drops.mesh.material.dispose();}if(flakes){for(const f of flakes){f.mesh.geometry.dispose();f.mesh.material.dispose();}flakeTex.dispose();}if(stars){stars.geometry.dispose();stars.material.dispose();}if(lamp){lamp.spot.dispose();lamp.glow.dispose();}coinMesh.dispose();coinGeo.dispose();coinMat.dispose();hoopMesh.dispose();hoopGeo.dispose();hoopMat.dispose();sky.geometry.dispose();sky.material.dispose();env?.dispose();
    const textures=new Set();fxRoot.traverse(o=>{o.geometry?.dispose();if(o.material){for(const u of Object.values(o.material.uniforms||{}))if(u.value?.isTexture)textures.add(u.value);if(o.material.map)textures.add(o.material.map);o.material.dispose();}});textures.forEach(t=>t.dispose());
