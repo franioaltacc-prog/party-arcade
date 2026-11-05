@@ -1,136 +1,31 @@
-/* Race-track rendering only. Does not change a map, collision mesh or vehicle.
-   Scanned soil: Poly Haven Brown Mud 02 (CC0); see assets/moto-realism/SOURCES.md. */
+/* Race-track light, colour finish and clouds. Rendering only: does not change a map, collision mesh or vehicle.
+   The ground, scenery and banners: race-look.js. */
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-/** More direct daylight, with enough sky fill to keep the rider readable. */
+/** Each track's light, with its own character (the THEMES entry in world.js is the fallback):
+    - Desert Dunes: a hard high midday sun, warm dusty air, deep short shadows;
+    - Forest Mud: a lower sun slanting through tall pines, cool green shade and a damp haze;
+    - Snow Ridge: a cold low sun at the end of the day, pink-gold light on the snow and blue shadows. */
+const LIGHT = {
+  desert: { sun: [58, 125], turbidity: 3.4, rayleigh: 1.25, mie: 0.004, mieG: 0.82, sunColor: '#fff0da', sunI: 3.9,
+    hemi: ['#c6daf2', '#b08b62', 0.42], envI: 0.42, exposure: 0.5, fog: '#ddcdb2', fogD: 0.00058 },
+  forest: { sun: [33, 212], turbidity: 5.5, rayleigh: 2.0, mie: 0.007, mieG: 0.84, sunColor: '#ffe8c4', sunI: 3.2,
+    hemi: ['#b7c9d4', '#4b4630', 0.8], envI: 0.62, exposure: 0.58, fog: '#a8b7ab', fogD: 0.00125 },
+  snow: { sun: [10, 248], turbidity: 4.2, rayleigh: 2.5, mie: 0.005, mieG: 0.8, sunColor: '#ffd3a6', sunI: 3.0,
+    hemi: ['#a9bde8', '#959cbc', 0.62], envI: 0.5, exposure: 0.47, fog: '#b9bfd8', fogD: 0.0009 },
+};
+/** The track's daylight: its own settings over the theme's. */
 export function raceDaylight(theme, original) {
-  if (theme === 'snow') return original;
-  return { ...original,
-    sun: theme === 'forest' ? [38, 210] : [42, 125],
-    turbidity: 2.8, rayleigh: 1.6, mie: 0.003, mieG: 0.8,
-    sunColor: '#fff3df', sunI: theme === 'forest' ? 3.1 : 3.4,
-    hemi: ['#c4d9ef', theme === 'forest' ? '#655544' : '#9b8065', theme === 'forest' ? 0.85 : 0.48],
-    envI: theme === 'forest' ? 0.65 : 0.45, exposure: theme === 'forest' ? 0.6 : 0.5,
-    fog: theme === 'forest' ? '#b5c6c2' : '#ced5d3',
-    fogD: theme === 'forest' ? 0.00085 : 0.00048,
-  };
+  return { ...original, ...(LIGHT[theme] || {}) };
 }
-
-/** Reuse the game's detailed tree asset at the existing race-tree positions.
-    These are independent resources; open-world material caches are untouched. */
-export function upgradeRacePines(scene, batches) {
-  let disposed = false;
-  if (!batches?.length) return () => {};
-  const release = root => {
-    const geometry = new Set(), materials = new Set(), textures = new Set();
-    root.traverse(o => { if (o.isMesh) { geometry.add(o.geometry); for (const m of (Array.isArray(o.material) ? o.material : [o.material])) { materials.add(m); for (const v of Object.values(m)) if (v?.isTexture) textures.add(v); } } });
-    geometry.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); textures.forEach(t => t.dispose());
-  };
-  new GLTFLoader().load('/models/nature/pines.glb', ({ scene: source }) => {
-    if (disposed) { release(source); return; }
-    source.updateMatrixWorld(true);
-    const variants = [0, 1, 2].map(i => ['bark', 'leaves'].map(part => source.getObjectByName('pine' + i + '_' + part)));
-    if (variants.some(v => v.some(m => !m?.isMesh))) { release(source); return; }
-    const used = new Set();
-    batches.forEach((old, index) => {
-      const pair = variants[index % variants.length];
-      const box = new THREE.Box3(); pair.forEach(m => box.union(new THREE.Box3().setFromObject(m)));
-      const scale = 8.5 / Math.max(1, box.max.y - box.min.y);
-      const fit = new THREE.Matrix4().makeScale(scale, scale, scale).multiply(new THREE.Matrix4().makeTranslation(0, -box.min.y, 0));
-      pair.forEach(model => {
-        const geometry = model.geometry.clone().applyMatrix4(model.matrixWorld);
-        const material = model.material.clone();
-        // Texture objects belong to this loaded asset and are released with the world.
-        for (const v of Object.values(material)) if (v?.isTexture) used.add(v);
-        if (model.name.endsWith('_leaves')) { material.side = THREE.DoubleSide; material.alphaTest = 0.4; material.transparent = false; material.alphaToCoverage = true; }
-        const trees = new THREE.InstancedMesh(geometry, material, old.count);
-        const matrix = new THREE.Matrix4();
-        for (let i = 0; i < old.count; i++) { old.getMatrixAt(i, matrix); trees.setMatrixAt(i, matrix.multiply(fit)); }
-        if (old.instanceColor) trees.instanceColor = old.instanceColor.clone();
-        trees.castShadow = true; trees.receiveShadow = true; trees.computeBoundingSphere(); scene.add(trees);
-      });
-      old.removeFromParent(); old.dispose();
-    });
-    // Original mesh buffers and unused far-LOD textures aren't needed by the replacements.
-    const geometry = new Set(), materials = new Set(), unused = new Set();
-    source.traverse(o => { if (o.isMesh) { geometry.add(o.geometry); materials.add(o.material); for (const v of Object.values(o.material)) if (v?.isTexture && !used.has(v)) unused.add(v); } });
-    geometry.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); unused.forEach(t => t.dispose());
-    new Set(batches.map(b => b.geometry)).forEach(g => g.dispose());
-  }, undefined, () => {});
-  return () => { disposed = true; };
-}
-
-/** Switch atomically from the existing procedural fallback to locally hosted PBR
-    maps. If a world is left during loading, its textures are still released. */
-export function applyRaceSoil(material, renderer, trackWidth) {
-  let disposed = false;
-  const textures = [];
-  const loader = new THREE.TextureLoader();
-  const load = (name, color = false) => new Promise((resolve, reject) => {
-    const t = loader.load('/assets/moto-realism/' + name + '.webp', resolve, undefined, reject);
-    t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-    if (color) t.colorSpace = THREE.SRGBColorSpace;
-    textures.push(t);
-  });
-  const fallbackMap = material.map;
-  const fallbackNormal = material.normalMap;
-  material.addEventListener('dispose', () => {
-    disposed = true;
-    textures.forEach(t => t.dispose());
-    fallbackMap.dispose(); fallbackNormal.dispose();
-  });
-  Promise.all([load('dirt-color', true), load('dirt-normal'), load('dirt-arm')]).then(([map, normal, arm]) => {
-    if (disposed) { textures.forEach(t => t.dispose()); return; }
-    material.map = map; material.normalMap = normal;
-    material.roughnessMap = arm; material.aoMap = arm;
-    material.roughness = 1; material.aoMapIntensity = 0.65;
-    material.normalScale.set(0.7, 0.7);
-    material.onBeforeCompile = shader => {
-      shader.uniforms.raceTrackWidth = { value: trackWidth };
-      shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nattribute vec2 raceCoord; varying vec2 vRaceCoord;');
-      shader.fragmentShader = shader.fragmentShader.replace('#include <common>', `#include <common>
-        varying vec2 vRaceCoord; uniform float raceTrackWidth;
-        float raceMask() { return 1.0 - smoothstep(raceTrackWidth - 0.7, raceTrackWidth + 0.3, abs(vRaceCoord.x)); }
-        float racePhase() { return (vRaceCoord.x + sin(vRaceCoord.y * 0.13) * 0.16 + sin(vRaceCoord.y * 0.043) * 0.25) * 10.5; }
-      `);
-      // Common world coordinates keep the near/far strips and chunk joins seamless.
-      // UV derivatives also give the normal map the correct tangent frame on bends.
-      shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', `
-        #include <uv_vertex>
-        vRaceCoord = raceCoord;
-        vec2 soilUv = (modelMatrix * vec4(position, 1.0)).xz / 3.0;
-        vMapUv = soilUv;
-        vNormalMapUv = soilUv;
-        vRoughnessMapUv = soilUv;
-        vAoMapUv = soilUv;
-      `);
-      shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
-        // Preserve the biome's vertex colours while retaining the scanned clods.
-        vec4 soil = texture2D(map, vMapUv);
-        float soilLuma = dot(soil.rgb, vec3(0.2126, 0.7152, 0.0722));
-        vec3 soilDetail = mix(vec3(soilLuma), soil.rgb, 0.35) * 4.8;
-        diffuseColor.rgb *= clamp(soilDetail, vec3(0.12), vec3(1.6));
-        float groove = pow(0.5 + 0.5 * sin(racePhase()), 10.0) * raceMask();
-        diffuseColor.rgb *= 1.0 - groove * 0.2;
-      `);
-      shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_maps>', `
-        #include <normal_fragment_maps>
-        // Fine parallel ruts follow the track around corners. They are shading
-        // detail, so the collision surface and bike physics stay identical.
-        float phase = racePhase();
-        float slope = 0.18 * cos(phase) * pow(0.5 + 0.5 * sin(phase), 7.0) * raceMask();
-        mat3 trackFrame = getTangentFrame(-vViewPosition, normal, vRaceCoord);
-        normal = normalize(trackFrame * normalize(vec3(-slope, 0.0, 1.0)));
-      `);
-    };
-    material.customProgramCacheKey = () => 'race-soil-world-pbr-v1';
-    material.needsUpdate = true;
-  }).catch(() => {
-    // A missing optional asset leaves the original track fully rideable.
-    textures.forEach(t => t.dispose());
-  });
+/** The colour finish and air for each track (scene.userData.look, read by post.js): saturation, contrast, warm
+    highlights, cool shadows, how far the haze reaches and its tint. */
+export function raceLook(theme, fogD) {
+  const base = { hazeBase: 0, hazeH: 420, hazeD: fogD * 0.55, hazeK: 0.62, fogKeep: 0.35 };
+  if (theme === 'desert') return { ...base, hazeD: fogD * 0.7, hazeH: 300, hazeTint: '#fff1dc', sat: 1.03, con: 1.11, warm: 0.05, cool: 0.012 };
+  if (theme === 'forest') return { ...base, hazeD: fogD * 0.85, hazeH: 260, hazeTint: '#e8f0e4', sat: 1.05, con: 1.08, warm: 0.02, cool: 0.024 };
+  if (theme === 'snow') return { ...base, hazeD: fogD * 0.6, hazeH: 500, hazeTint: '#f0e8f4', sat: 1.06, con: 1.06, warm: 0.035, cool: 0.03 };
+  return base;
 }
 
 /** A light broken cloud layer, separate from the physical sky and its lighting. */
@@ -149,9 +44,9 @@ export function addRaceClouds(scene, sunDirection) {
       }
       void main() {
         vec3 d = normalize(vDirection);
-        vec2 p = d.xz / max(0.12, d.y) * 2.3;
+        vec2 p = d.xz / (max(d.y, 0.0) + 0.1) * 1.25;   // (smooth all the way down: a clamp here drew streaks under the clouds)
         float n = noise(p) * 0.57 + noise(p * 2.1 + 13.0) * 0.28 + noise(p * 4.3 + 7.0) * 0.15;
-        float a = smoothstep(0.49, 0.69, n) * smoothstep(0.035, 0.2, d.y) * 0.82;
+        float a = smoothstep(0.49, 0.69, n) * smoothstep(0.04, 0.22, d.y) * 0.82;
         float light = smoothstep(0.48, 0.78, n);
         vec3 c = mix(vec3(0.78, 0.83, 0.89), vec3(1.65, 1.62, 1.55), light);
         c += pow(max(0.0, dot(d, sunDirection)), 12.0) * 0.18;

@@ -1,10 +1,12 @@
 /* Motocross: the 3D world around a track — sky, sun and fog, the ground (sculpted dirt jumps,
    banked berms, tyre ruts), scenery, the start gate, checkpoint and finish arches, and the dust,
-   mud and snow particles. Everything is made from code at load time (no image or model files).
+   mud and snow particles. Made from code at load time; on top of that race-look.js lays scanned ground textures, swaps
+   the plants for real models, and adds grass and sponsor banners (rendering only: the ground you ride is the same).
    A point on the track is (s = metres along it, y = height, u = metres to the right of its middle). */
 import * as THREE from 'three';
 import { Sky } from 'three/addons/objects/Sky.js';
-import { raceDaylight, applyRaceSoil, addRaceClouds, upgradeRacePines } from './race-realism.js';
+import { raceDaylight, raceLook, addRaceClouds } from './race-realism.js';
+import { raceGround, raceDress, dressDensity, DRESS_MORE } from './race-look.js';
 import { useSkyEnv, setRim } from './look.js';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
@@ -297,7 +299,7 @@ export function makeProps(theme, rand, detail = 2) {
   const cactusMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62 });
   const leafMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, side: THREE.DoubleSide });   // (open branch layers and grass blades are seen from both sides)
   const MATS = { pine: leafMat, snowpine: leafMat, grass: leafMat, cactus: cactusMat, barrel: cactusMat };
-  const NEAR = new Set(['snowbank', 'shrub', 'rock', 'grass', 'barrel']);
+  const NEAR = new Set(['snowbank', 'shrub', 'rock', 'grass', 'barrel', 'fern', 'stump', 'didelta']);
   return { PROPS, MATS, NEAR, propMat, leafMat, cactusMat };
 }
 
@@ -327,9 +329,9 @@ export function buildWorld(renderer, T, opts = {}) {
   pm.dispose();
   scene.fog = new THREE.FogExp2(th.fog, th.fogD);
   // the real-camera look (look.js, post.js): a clear day lit by a photographed sky; the air's haze the sky's own colour
-  scene.userData.sky = sky; scene.userData.look = { hazeBase: 0, hazeH: 420, hazeD: th.fogD * 0.55, hazeK: 0.62, fogKeep: 0.35 };
+  scene.userData.sky = sky; scene.userData.look = raceLook(T.theme, th.fogD);
   setRim(T.theme === 'snow' ? 0.6 : 1);
-  const stopSkyEnv = T.theme !== 'snow' ? useSkyEnv(scene, renderer, sunDir, th.envI * 2.6) : () => {};
+  const stopSkyEnv = useSkyEnv(scene, renderer, sunDir, th.envI * 2.6);
   const sun = new THREE.DirectionalLight(th.sunColor, th.sunI);
   sun.castShadow = true;
   const hiShadow = quality > 0.9, SR = hiShadow ? 40 : 26;   // (high quality: a sharper shadow map reaching further)
@@ -362,7 +364,7 @@ export function buildWorld(renderer, T, opts = {}) {
   const det = detailMaps(T.id === 'snow' ? 11 : T.id === 'forest' ? 5 : 2);
   det.map.repeat.set(1, 1); det.normal.repeat.set(1, 1);
   const groundMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: T.theme === 'snow' ? 0.72 : 0.96, metalness: 0, map: det.map, normalMap: det.normal, normalScale: new THREE.Vector2(0.8, 0.8) });
-  if (T.theme !== 'snow' && quality > 0.45) applyRaceSoil(groundMat, renderer, TW);
+  raceGround(groundMat, renderer, T.theme, th, TW, quality);   // (scanned ground, once its textures are in)
   const colorOf = (() => {
     const cols = th.ground.map((c) => new THREE.Color(c)); const side = new THREE.Color(th.side); const far = new THREE.Color(th.far); const trk = new THREE.Color(th.track); const rut = new THREE.Color(th.rut);
     const tmp = new THREE.Color(); const tmp2 = new THREE.Color();
@@ -462,8 +464,8 @@ export function buildWorld(renderer, T, opts = {}) {
   });
   rutTex.colorSpace = THREE.SRGBColorSpace; rutTex.wrapS = THREE.ClampToEdgeWrapping;
   const rutMat = new THREE.MeshStandardMaterial({ map: rutTex, transparent: true, roughness: T.theme === 'snow' ? 0.55 : 0.92, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, normalMap: det.normal });
-  // Let the scanned earth show through the older painted tyre overlay.
-  if (T.theme !== 'snow' && quality > 0.45) { rutMat.opacity = 0.22; rutMat.normalScale.set(0.35, 0.35); }
+  // Let the scanned ground show through the older painted tyre overlay.
+  rutMat.opacity = T.theme === 'snow' ? 0.3 : 0.2; rutMat.normalScale.set(0.35, 0.35);
   for (let s = T.x0; s < T.end; s += CH) {
     const g = ribbon([-TW - 0.4, -TW / 2, 0, TW / 2, TW + 0.4], 0.5, s, Math.min(T.end, s + CH), 1, -0.012);
     const uvA = g.attributes.uv;
@@ -473,7 +475,7 @@ export function buildWorld(renderer, T, opts = {}) {
   // mud puddles and icy patches: irregular shiny blobs on the riding surface
   const wetMat = T.theme === 'snow'
     ? new THREE.MeshPhysicalMaterial({ color: '#d4e6ff', roughness: 0.08, clearcoat: 1, transparent: true, opacity: 0.55, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 })
-    : new THREE.MeshPhysicalMaterial({ color: '#2a1d10', roughness: 0.16, clearcoat: 0.6, clearcoatRoughness: 0.1, envMapIntensity: 0.3, transparent: true, opacity: 0.9, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+    : new THREE.MeshPhysicalMaterial({ color: '#21170d', roughness: 0.3, specularIntensity: 0.4, clearcoat: 0.15, clearcoatRoughness: 0.25, transparent: true, opacity: 0.9, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
   const blobs = [];
   for (const f of T.features.filter((q) => q.kind === 'mud' || q.kind === 'ice')) {
     const n = Math.round((f.x1 - f.x0) / (f.kind === 'mud' ? 2.6 : 3.2));
@@ -496,12 +498,11 @@ export function buildWorld(renderer, T, opts = {}) {
 
   // ---------------------------------------------------------------- scenery
   const { PROPS, MATS, NEAR, propMat } = makeProps(T.theme, rand);
-  const instances = {};
+  const slots = {};   // (each kind's spots, chunk by chunk: race-look.js swaps in the real models there)
   const length = S1 - S0;
-  const tint = new THREE.Color();
-  for (const [kind, density] of th.trees) {
-    const geo = PROPS[kind]();
-    const count = Math.round(length / 10 * density * quality);
+  for (const [kind, density] of [...th.trees, ...(quality > 0.45 ? DRESS_MORE[T.theme] || [] : [])]) {
+    const geo = PROPS[kind]?.();   // (kinds only drawn as models have no procedural shape)
+    const count = Math.round(length / 10 * density * quality * (quality > 0.45 ? dressDensity(T.theme, kind, quality) : 1));
     const perChunk = {};
     for (let i = 0; i < count; i++) {
       const s = S0 + rand() * length;
@@ -515,20 +516,23 @@ export function buildWorld(renderer, T, opts = {}) {
       (perChunk[key] ||= []).push({ pp, s: (kind === 'pine' || kind === 'snowpine' || kind === 'broadleaf' ? 0.7 + rand() * 0.8 : 0.6 + rand() * 0.9), rot: rand() * 6.28, tilt: kind === 'rock' ? (rand() - 0.5) * 0.5 : (rand() - 0.5) * 0.08 });
     }
     for (const list of Object.values(perChunk)) {
-      const im = new THREE.InstancedMesh(geo, MATS[kind] || propMat, list.length);
-      const m4 = new THREE.Matrix4(); const q = new THREE.Quaternion(); const e = new THREE.Euler();
-      list.forEach((o, i) => {
+      const q = new THREE.Quaternion(); const e = new THREE.Euler();
+      const matrices = list.map((o) => {
         e.set(o.tilt, o.rot, o.tilt * 0.5); q.setFromEuler(e);
-        m4.compose(o.pp.clone().setY(o.pp.y - 0.05), q, new THREE.Vector3(o.s, o.s * (kind === 'rock' ? 0.8 + rand() * 0.6 : 1), o.s)); im.setMatrixAt(i, m4);
-        const k = 0.86 + rand() * 0.28; im.setColorAt(i, tint.setRGB(k * (0.96 + rand() * 0.08), k, k * (0.96 + rand() * 0.08)));   // no two quite alike
+        return new THREE.Matrix4().compose(o.pp.clone().setY(o.pp.y - 0.05), q, new THREE.Vector3(o.s, o.s * (kind === 'rock' ? 0.8 + rand() * 0.6 : 1), o.s));
       });
-      im.castShadow = kind !== 'snowbank' && kind !== 'grass'; im.receiveShadow = true;
-      im.computeBoundingSphere();
-      scene.add(im);
-      (instances[kind] ||= []).push(im);
+      const colors = list.map(() => { const k = 0.86 + rand() * 0.28; return new THREE.Color(k * (0.96 + rand() * 0.08), k, k * (0.96 + rand() * 0.08)); });   // no two quite alike
+      let im = null;
+      if (geo) {
+        im = new THREE.InstancedMesh(geo, MATS[kind] || propMat, list.length);
+        matrices.forEach((m4, i) => { im.setMatrixAt(i, m4); im.setColorAt(i, colors[i]); });
+        im.castShadow = kind !== 'snowbank' && kind !== 'grass'; im.receiveShadow = true;
+        im.computeBoundingSphere();
+        scene.add(im);
+      }
+      (slots[kind] ||= []).push({ matrices, colors, mesh: im });
     }
   }
-  const stopTreeUpgrade = T.theme === 'forest' && quality > 0.6 ? upgradeRacePines(scene, instances.pine) : () => {};
   // distant mountains, mesas or hills all around
   const mtnMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, flatShading: false });
   const mid = place((T.start + T.finish) / 2, 0, 0);
@@ -538,7 +542,7 @@ export function buildWorld(renderer, T, opts = {}) {
     if (th.mountains === 'mesa') {
       g = new THREE.CylinderGeometry(160 + rand() * 260, 260 + rand() * 300, 120 + rand() * 180, 22, 6);
       wobble(g, 30, 0.012, i); g.translate(0, 60, 0);
-      vc(g, '#b5683f', 0.1, (c, x, y) => { c.lerp(new THREE.Color(y > 100 ? '#c98a5a' : '#9a5534'), 0.4 + 0.3 * Math.sin(y * 0.08)); });
+      vc(g, '#b0704a', 0.1, (c, x, y) => { c.lerp(new THREE.Color(y > 100 ? '#cf9d72' : '#93583a'), 0.4 + 0.3 * Math.sin(y * 0.08)); });
     } else {
       const hgt = th.mountains === 'peaks' ? 500 + rand() * 700 : 180 + rand() * 260;
       g = new THREE.ConeGeometry(500 + rand() * 600, hgt, 28, 10); wobble(g, th.mountains === 'peaks' ? 90 : 60, 0.006, i); g.translate(0, hgt / 2 - 20, 0);
@@ -582,26 +586,8 @@ export function buildWorld(renderer, T, opts = {}) {
     const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), pts.length * 2, 0.012, 3, false);
     scene.add(new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: th.fence === '#ffffff' ? '#ff3b3b' : '#ffffff', roughness: 0.5 })));
   }
-  // banners on the fence
-  const bannerWords = ['PARTY ARCADE', 'SEND IT', 'MX', 'NITRO', 'FULL GAS', 'REVVD', 'HOLESHOT', 'BRAAAP'];
-  const bannerCols = [[th.arch, '#ffffff'], ['#16181c', '#ffd21a'], ['#ffffff', '#16181c'], ['#d61f2c', '#ffffff'], ['#1747c9', '#ffffff']];
-  const bannerMats = bannerWords.map((wd, i) => {
-    const [bg, fg] = bannerCols[i % bannerCols.length];
-    const t = canvasTex(512, 96, (g, w, h) => { g.fillStyle = bg; g.fillRect(0, 0, w, h); g.fillStyle = fg; g.font = 'italic 900 62px Kanit, Arial Black, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(wd, w / 2, h / 2 + 4); g.fillRect(0, h - 8, w, 8); }, false);
-    t.colorSpace = THREE.SRGBColorSpace;
-    return new THREE.MeshStandardMaterial({ map: t, roughness: 0.7, side: THREE.DoubleSide });
-  });
-  const bannerGeo = new THREE.PlaneGeometry(4.2, 0.8);
-  const bannerPost = new THREE.CylinderGeometry(0.035, 0.04, 1.35, 8).translate(0, 0.675, 0);
-  const bannerPostMat = new THREE.MeshStandardMaterial({ color: '#d9dde3', metalness: 0.8, roughness: 0.35 });
-  for (let s = T.start + 20, i = 0; s < T.finish; s += 34 + rand() * 30, i++) {
-    const side = i % 2 ? 1 : -1; const u = side * (TW + 2.4 + (bermAt(s) ? 1.2 : 0));
-    const g = new THREE.Group();
-    const b = new THREE.Mesh(bannerGeo, bannerMats[i % bannerMats.length]); b.position.y = 0.85; b.castShadow = true; g.add(b);
-    for (const x of [-2.12, 2.12]) { const post = new THREE.Mesh(bannerPost, bannerPostMat); post.position.set(x, -0.15, -0.03); post.castShadow = true; g.add(post); }   // (on two posts, like at a real track)
-    g.position.copy(place(s, height(s, u), u)); g.rotation.y = -headingAt(s) + (side > 0 ? Math.PI : 0);   // (facing the track)
-    scene.add(g);
-  }
+  // sponsor banner fences, and the real plants and grass (medium and high quality): race-look.js
+  const dress = raceDress({ scene, T, TW, place, height, bermAt, slots, quality, theme: T.theme });
   // hay bales and tyre stacks on the outside of corners and next to the jumps
   const strawTex = canvasTex(128, 128, (g, w, h) => { g.fillStyle = '#d8b75a'; g.fillRect(0, 0, w, h); for (let i = 0; i < 600; i++) { g.strokeStyle = Math.random() < 0.5 ? '#b8933e' : '#efd486'; g.lineWidth = 1; g.beginPath(); const x = Math.random() * w; const y = Math.random() * h; g.moveTo(x, y); g.lineTo(x + (Math.random() - 0.5) * 20, y + (Math.random() - 0.5) * 4); g.stroke(); } g.fillStyle = 'rgba(70,45,20,.6)'; for (const y of [0.3, 0.7]) g.fillRect(0, h * y, w, 3); });
   strawTex.colorSpace = THREE.SRGBColorSpace;
@@ -715,10 +701,11 @@ export function buildWorld(renderer, T, opts = {}) {
       sun.position.copy(focus).addScaledVector(sunDir, 120);
       sun.target.position.copy(focus);
       fx.update(dt, camera);
+      dress.update(focus, dt);
     },
     dispose() {
       stopSkyEnv();
-      stopTreeUpgrade();
+      dress.dispose();
       scene.traverse((o) => { if (o.isInstancedMesh) o.dispose(); if (o.geometry) o.geometry.dispose(); if (o.material) { const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach((m) => { for (const k of ['map', 'normalMap', 'roughnessMap', 'aoMap', 'alphaMap']) if (m[k]) m[k].dispose(); m.dispose(); }); } });
       env.dispose();
     },

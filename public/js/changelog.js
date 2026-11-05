@@ -6,6 +6,13 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.24.14', date: '2026-11-05', emoji: '🏁', title: 'Revvd: the three race tracks look real', items: [
+      'Desert Dunes, Forest Mud and Snow Ridge get real ground: gravel and sand in the desert, dark mud and fallen leaves in the forest, and packed snow on the ridge, with tyre ruts down the track',
+      'Real plants and rocks by the track: quiver trees, red boulders, spiky bushes and succulents in the desert; tall pines, oaks, bushes, ferns, mossy rocks and stumps in the forest; snowy spruces on the ridge',
+      'Grass by the track that sways in the wind, and long sponsor banners on stakes along the edges',
+      'Each track has its own light: a hard midday sun in the desert, light slanting through the pines in the forest, and a cold low sun at dusk on the ridge',
+      'The clouds no longer leave streaks hanging down to the horizon',
+    ] },
     { v: '3.24.13', date: '2026-11-05', emoji: '🏜️', title: 'Revvd: real ground and hard sunshine in eight more worlds', items: [
       'Redrock Frontier, Canyon Run and Sheerwall Mesa: real scanned red desert sand under your wheels, a hard sun with long shadows, and a warm desert haze',
       'Golden Dunes: real rippled sand glowing in the low sunset sun',
