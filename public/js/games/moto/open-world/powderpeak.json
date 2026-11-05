@@ -64,6 +64,17 @@
         0.95,
         1.1
       ]
+    },
+    "post": {
+      "haze": true,
+      "hazeD": 0.00022,
+      "hazeH": 700,
+      "hazeTint": "#d6e3f5",
+      "hazeStart": 250,
+      "hazeK": 0.8,
+      "sat": 1.06,
+      "con": 1.1,
+      "warm": 0
     }
   },
   "terrain": {
