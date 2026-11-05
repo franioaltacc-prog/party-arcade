@@ -264,7 +264,13 @@ with an import map), everything else is drawn and synthesised in code (no model,
   above into (s, u). Past the tape (u beyond 5.2 m) the ground is rough and slow; a barrier at 11.5 m stops shortcuts.
   Checkpoints (in order) and the finish go by s, and a WRONG WAY sign shows when you turn round.
 - **`bike.js`** builds the bike and rider from code and poses them from the physics every frame (fork, swingarm, shock,
-  spinning wheels, the rider's arms and legs reaching the bars and pegs). `makeBike({ livery, model, kit, helmet, number })`:
+  spinning wheels, the rider's arms and legs reaching the bars and pegs). The shaped parts are in **`mx-parts.js`**: curved
+  plastics (panels lofted between two edges and bent outward, mirrored for the left side with their graphics redrawn so
+  writing reads right), the twin-spar frame and tapered swingarm (swept rounded sections), wheels (shared by every bike)
+  with a see-through blur disc that `poseBike` fades in over the spokes as a wheel spins up, a chain whose link texture
+  scrolls with the rear wheel, and the MX Racer's kit (helmet, neck brace, jersey, pants, gloves, boots), painted on
+  canvases in the kit and helmet colours (`bike-art.js` has the Revvd wordmark and canvas helpers). The still parts of
+  each group are merged into one mesh per material (`mergeStatic`). `makeBike({ livery, model, kit, helmet, number })`:
   the paint job (`LIVERIES`, unlocked as rewards), the bike style (`MODELS`: Factory 450, 250 Two-Stroke, Enduro, Retro 70s,
   E-Moto), the rider kit (`KITS`), the helmet (`HELMETS`) and the race number. Styles, kits, helmets and numbers are free
   and only looks (the physics never sees them); they're kept in `moto_prefs` and sent to the room with `g:style`, so the
