@@ -457,6 +457,16 @@ with an import map), everything else is drawn and synthesised in code (no model,
   even carpet of short fine turf that follows the camera (17 m round on high, 11 on medium, none on low) right up to
   the track's edge; `look.grassMul` tints the world's grass (olive on Jungle Ridge). Assets:
   `public/assets/moto-realism/SOURCES.md`.
+  **Any world can switch the look on in its own json** (v3.24.12): `look.soil` = `{set, tint, scale, area, banks, worn,
+  cover}`: `set` picks the scan (`<set>-color/-normal/-orh.webp` in `moto-realism`, plus `-1k` ones; default `soil`,
+  the red dirt), `scale` its tile size (1 = 2.4 m), `area` `[x, z, radius]` where banks and worn patches get it (default
+  everywhere), `banks` / `worn` how much on steep ground and in worn patches, `cover` 0..1 the open ground itself (a
+  desert's sand, a forest floor). `look.tufts` = `true` or `{tips, root, tint, density, radius, lawn, lawnTips,
+  lawnRoot, lawnTint, lawnDensity}`: the grass field's and the lawn's blade colours and thickness (`lawn: false` for
+  none). Light and colour: `look.sky` (sun, sunI, sunColor, hemi, exposure…), `look.iblK`, `look.skyGrade`,
+  `look.post` (haze, AO, grade), `look.grassMul`, `look.photo` (a world's own photos for grass, dirt or rock).
+  `look.lakeWater` / `look.beach`: a water world's own lake water and beach dressing (`open-world/shore.mjs`,
+  `lakeWater` / `beachDress`, each `{update(eye, dt), dispose()}` or null).
   Driftvvd (`drift`): `drift.js`, its own top-down car physics (bicycle model, tyre curve, friction circle, handbrake
   on Space/Q, auto counter-steer from the body slip and a drift assist past 45°; `b.drift = {angle, speed}`), drawn
   with `makeCar` (`driftPaint()`), on Downtown (`city`, hidden, written by `tools/make_city.py`). The city is laid out

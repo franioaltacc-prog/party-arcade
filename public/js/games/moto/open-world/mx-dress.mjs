@@ -112,7 +112,7 @@ export function mxDress(terrain,scene,map,{quality=1,shadows=false,tufts=null}={
  // thousands of little crumbs and pebbles thrown up by the wheels, half sunk in the dirt: made of the very same scanned
  // soil as the ground under them (its colour picked from where each one lies), so they read as the ground's own
  // texture standing up in the sun, more of them toward the edges and the berms. Only drawn (the bike rides as before)
- const soil=soilTextures(null,{hi:LOOK.hi}),soilTint=new THREE.Vector3(...(map.look?.soil?.tint||[1,1,1]));
+ const soil=soilTextures(null,{hi:LOOK.hi,set:map.look?.soil?.set||'soil'}),soilTint=new THREE.Vector3(...(map.look?.soil?.tint||[1,1,1]));
  const crumbGeo=k(new THREE.IcosahedronGeometry(1,0));
  {const p=crumbGeo.attributes.position;for(let i=0;i<p.count;i++){const x=p.getX(i),y=p.getY(i),z=p.getZ(i),n=.8+.4*Math.abs(Math.sin(x*7.1+y*3.3+z*5.7));p.setXYZ(i,x*n,y*n*.7,z*n);}crumbGeo.computeVertexNormals();}
  const crumbMat=k(new THREE.MeshStandardMaterial({color:'#a24e30',roughness:.95}));
@@ -122,9 +122,9 @@ export function mxDress(terrain,scene,map,{quality=1,shadows=false,tufts=null}={
   sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vCrumbW;').replace('#include <begin_vertex>','#include <begin_vertex>\n#ifdef USE_INSTANCING\nvCrumbW=(modelMatrix*instanceMatrix*vec4(0.0,0.0,0.0,1.0)).xyz;\n#endif');
   sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vCrumbW;uniform sampler2D soilC;uniform vec3 soilTint;').replace('#include <color_fragment>',`#include <color_fragment>
    // (the soil's colour where the crumb lies, a touch lighter on top: it's a lump of the same ground catching the light)
-   diffuseColor.rgb=pow(texture2D(soilC,vCrumbW.xz/2.4).rgb*soilTint,vec3(2.2))*vColor.rgb*1.3;`);
+   diffuseColor.rgb=pow(texture2D(soilC,vCrumbW.xz/${(2.4*(map.look?.soil?.scale||1)).toFixed(3)}).rgb*soilTint,vec3(2.2))*vColor.rgb*1.3;`);
  };
- crumbMat.vertexColors=false;crumbMat.customProgramCacheKey=()=>'mx-crumb-'+soil.loaded;
+ crumbMat.vertexColors=false;crumbMat.customProgramCacheKey=()=>'mx-crumb-'+soil.loaded+(map.look?.soil?.scale||1);
  if(!soil.loaded)soil.ready.then(()=>{crumbMat.needsUpdate=true;}).catch(()=>{});
  const crumbPer=Math.round(8+22*quality),crumbBatches=[];   // (per metre of track; in short runs, each drawn only while it's on the
  // detailed ground round the rider: further off the coarse ground is a few centimetres lower and they'd float)

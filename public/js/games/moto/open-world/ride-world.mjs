@@ -5,6 +5,7 @@ import {gauntletScenery,forestScenery} from './nature.mjs';
 import {slopeScenery} from './slope.mjs';
 import {cityScenery} from './city.mjs';
 import {createOcean} from './ocean.mjs';
+import {lakeWater,beachDress} from './shore.mjs';
 import {parkScenery} from './parks.mjs';
 import {terrainMaterial,seaLight} from './materials.mjs';
 import {growWilds} from './wilds.mjs';
@@ -131,11 +132,16 @@ void main(){
  const mxs=map.mx?mxScenery(built.terrain,scene,map,{shadows}):null;   // (a motocross track: its start line, banners and flags; the road and village)
  const dhs=built.terrain.mx?.open?dhScenery(built.terrain,scene,map,{shadows}):null;   // (a downhill course: its timber, tape, arches and start hut)
  // grass tufts of real blades (look.tufts): along a dressed track's banks and in a field round the rider everywhere
- const tuftK=map.look?.tufts?tuftKit({quality,seed:map.seed}):null;
- const lawnK=tuftK&&quality>.5?tuftKit({quality,seed:map.seed+5,lawn:true}):null;   // (short fine turf close round the camera)
+ // "look": {"tufts": true or {...}}: real grass round the rider. "tips" / "root": the blades' colours (tuftKit); "tint":
+ // the field's colour multiplied; "lawn": false for no short turf close by; "lawnTips", "lawnRoot", "lawnTint" the same
+ // for the lawn; "radius": how far the field reaches (1 = the default); "density" / "lawnDensity": how thick (0..1)
+ const tuftSpec=map.look?.tufts===true?{}:map.look?.tufts||null;
+ const tuftK=tuftSpec?tuftKit({quality,seed:map.seed,tips:tuftSpec.tips,root:tuftSpec.root}):null;
+ const lawnK=tuftK&&quality>.5&&tuftSpec.lawn!==false?tuftKit({quality,seed:map.seed+5,lawn:true,tips:tuftSpec.lawnTips,root:tuftSpec.lawnRoot}):null;   // (short fine turf close round the camera)
  const dress=map.mx&&map.look?.dress?mxDress(built.terrain,scene,map,{quality,shadows,tufts:tuftK}):null;   // (and a pro track's banner fences, grass on the banks, trees on the ridges)
  const city=map.features?.city?cityScenery(built.terrain,scene,map,{quality,night,dusk,shadows}):null;   // (Driftvvd's city: streets, buildings, lights, parked cars)
  const ocean=map.sea?createOcean(built.terrain,scene,map,{quality,dark:night||dusk||!!map.look?.storm}):null;   // (a sea world: the water, its buoys and piers)
+ const lakeW=map.look?.lakeWater&&map.terrain.lake&&!map.terrain.lake.frozen?lakeWater(built.terrain,scene,map,{quality,dark:night||dusk}):null,beach=map.look?.beach?beachDress(built.terrain,scene,map,{quality,shadows}):null;   // (look.lakeWater: a lake with the sea's water; look.beach: palms along the shore)
  // ---------------------------------------------------------------- weather round the camera: rain or falling leaves
  const storm=!!map.look?.storm,drizzle=!storm&&!!map.look?.drizzle,rain=storm||drizzle,leafFall=!!map.look?.autumn&&!!forest,hemi=scene.children.find(o=>o.isHemisphereLight);
  let drops=null;   // ("drizzle": a light rain, no lightning)
@@ -265,7 +271,7 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
  // the field of tufts round the rider: not on trails, water, flat pads or steep banks (nor a dressed track's banks:
  // its own tufts are there), sitting on the ground as drawn
  const tuftMx=built.terrain.mx;
- const tuftsRound=tuftK?tuftField(scene,tuftK,{radius:quality>.8?42:28,spacing:quality>.8?.45:.7,tint:[.95,.92,.85],
+ const tuftsRound=tuftK?tuftField(scene,tuftK,{radius:(quality>.8?42:28)*(tuftSpec.radius||1),spacing:quality>.8?.45:.7,tint:tuftSpec.tint||[.95,.92,.85],density:tuftSpec.density??1,
   height:(x,z)=>gridHeight(pos.array,half*2,half*2,n,x-cx,z-cz),
   ok:(x,z)=>{
    if(Math.abs(x-cx)>inner-1||Math.abs(z-cz)>inner-1)return false;
@@ -283,7 +289,7 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
  // the lawn: an even carpet of short fine turf close round the camera, right up to the track's edge (so the grassy
  // banks read as grass, not sprigs on earth), moving with the camera
  const lawnAt=new THREE.Vector3();
- const lawn=lawnK?tuftField(scene,lawnK,{radius:quality>.8?17:11,spacing:quality>.8?.24:.34,tint:[1.02,1,.92],lawn:true,
+ const lawn=lawnK?tuftField(scene,lawnK,{radius:quality>.8?17:11,spacing:quality>.8?.24:.34,tint:tuftSpec.lawnTint||[1.02,1,.92],density:tuftSpec.lawnDensity??1,lawn:true,
   height:(x,z)=>gridHeight(pos.array,half*2,half*2,n,x-cx,z-cz),
   ok:(x,z)=>{
    if(Math.abs(x-cx)>inner-1||Math.abs(z-cz)>inner-1)return false;
@@ -374,7 +380,7 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
     lawn.step(quality>.8?3000:1200);}   // (a little a frame: no hitches)
    cloudU.uT.value=(cloudU.uT.value+dt)%2000;cloudLayer.position.x=camera.position.x;cloudLayer.position.z=camera.position.z;
    wilds?.update(camera.position,dt);
-   updatePatch(ahead);dress?.update(dt,cx,cz,inner-3,visibleHeight,camera.position);fx.update(dt,camera);parks.update(dt);built.update(camera.position);forest?.update(camera.position);slope?.update(camera.position);city?.update(camera.position);ocean?.update(camera.position,dt);weather(camera.position,dt);drawCoins(performance.now());drawHoops(performance.now());
+   updatePatch(ahead);dress?.update(dt,cx,cz,inner-3,visibleHeight,camera.position);fx.update(dt,camera);parks.update(dt);built.update(camera.position);forest?.update(camera.position);slope?.update(camera.position);city?.update(camera.position);ocean?.update(camera.position,dt);lakeW?.update(camera.position,dt);beach?.update(camera.position,dt);weather(camera.position,dt);drawCoins(performance.now());drawHoops(performance.now());
    sun.position.copy(point).addScaledVector(sunDir,300);sun.target.position.copy(point);
    if(!shadows){
     const y=built.terrain.heightAt(point.x,point.z),nn=built.terrain.normalAt(point.x,point.z);
@@ -384,7 +390,7 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
   /** The real plants (wilds.mjs), once they've grown: { count, solids, update, dispose } or null. */
   get wilds(){return wilds;},
   dispose(){
-   gone=true;stopSkyEnv();tuftsRound?.dispose();tuftK?.dispose();lawn?.dispose();lawnK?.dispose();dress?.dispose();wilds?.dispose();samples.clear();built.dispose();parks.dispose();forest?.dispose();slope?.dispose();city?.dispose();ocean?.dispose();mxs?.dispose();dhs?.dispose();geo.dispose();detail.dispose();shadowGeo.dispose();shadowMat.dispose();shadowTex.dispose();
+   gone=true;stopSkyEnv();tuftsRound?.dispose();tuftK?.dispose();lawn?.dispose();lawnK?.dispose();dress?.dispose();lakeW?.dispose();beach?.dispose();wilds?.dispose();samples.clear();built.dispose();parks.dispose();forest?.dispose();slope?.dispose();city?.dispose();ocean?.dispose();mxs?.dispose();dhs?.dispose();geo.dispose();detail.dispose();shadowGeo.dispose();shadowMat.dispose();shadowTex.dispose();
    for(const k of coverKinds){k.im.dispose();k.geo.dispose();}for(const m of [props.propMat,props.leafMat,props.cactusMat,pebbleProps.propMat,pebbleProps.leafMat,pebbleProps.cactusMat])m.dispose();
    cloudLayer.geometry.dispose();cloudMat.dispose();if(drops){drops.mesh.geometry.dispose();drops.mesh.material.dispose();}if(flakes){for(const f of flakes){f.mesh.geometry.dispose();f.mesh.material.dispose();}flakeTex.dispose();}if(stars){stars.geometry.dispose();stars.material.dispose();}if(lamp){lamp.spot.dispose();lamp.glow.dispose();}coinMesh.dispose();coinGeo.dispose();coinMat.dispose();hoopMesh.dispose();hoopGeo.dispose();hoopMat.dispose();sky.geometry.dispose();sky.material.dispose();env?.dispose();
    const textures=new Set();fxRoot.traverse(o=>{o.geometry?.dispose();if(o.material){for(const u of Object.values(o.material.uniforms||{}))if(u.value?.isTexture)textures.add(u.value);if(o.material.map)textures.add(o.material.map);o.material.dispose();}});textures.forEach(t=>t.dispose());

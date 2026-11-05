@@ -50,15 +50,19 @@ export function terrainMaterial(map,sharedTextures=null,detailed=true){
  const textures=sharedTextures || Object.fromEntries(Object.keys(palettes).map(k=>[k,texture(k,map.theme,map.look?.photo?.[k]?2048:1024,map.look)]));
  const hole=new THREE.Vector4();
  const material=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.91,metalness:0});
- // a world with "look": {"soil": {...}}: its tracks (and the steep cut banks inside "area" [x, z, radius]) are scanned
- // soil (look.js), swapped in once its pictures have loaded; "tint": its colour multiplied (r, g, b)
- const soilSpec=map.look?.soil,soil=soilSpec?soilTextures(null,{hi:LOOK.hi}):null,pom=detailed&&LOOK.pom;
+ // a world with "look": {"soil": {...}}: its trails and tracks are a scanned ground (look.js), swapped in once its
+ // pictures have loaded. "set": which scan (default "soil", the red dirt); "tint": its colour multiplied (r, g, b);
+ // "scale": its tile size (1 = 2.4 m); "area" [x, z, radius]: where the steep banks and worn patches get it too (default
+ // everywhere); "banks": how much of it on steep ground (0..1, default 1); "worn": the worn patches showing it through
+ // the grass (0..1, default .9); "cover": the open ground itself is this ground, 0..1 (a desert's sand, a forest floor)
+ const soilSpec=map.look?.soil,soil=soilSpec?soilTextures(null,{hi:LOOK.hi,set:soilSpec.set||'soil'}):null,pom=detailed&&LOOK.pom;
+ const soilF=(v,d)=>(+(v??d)).toFixed(3);
  if(soil&&!soil.loaded)soil.ready.then(()=>{material.needsUpdate=true;}).catch(e=>console.warn('soil',e));
  const soilOn=()=>!!soil?.loaded;
- material.customProgramCacheKey=()=> 'ow-terrain-lod-v11-'+map.theme+'-'+detailed+(map.look?.paved?'-paved':'')+(map.sea?'-sea'+map.sea.level:'')+(soilOn()?'-soil'+(pom?'p':''):'');
+ material.customProgramCacheKey=()=> 'ow-terrain-lod-v11-'+map.theme+'-'+detailed+(map.look?.paved?'-paved':'')+(map.sea?'-sea'+map.sea.level:'')+(soilOn()?'-soil'+(soilSpec.set||'')+(soilSpec.cover?'c':'')+(pom?'p':''):'');
  material.onBeforeCompile=shader=>{
   const S=soilOn();
-  if(S){const a=soilSpec.area||[0,0,0];Object.assign(shader.uniforms,{soilC:{value:soil.color},soilN:{value:soil.normal},soilO:{value:soil.orh},soilPOM:{value:pom?1:0},soilTint:{value:new THREE.Vector3(...(soilSpec.tint||[1,1,1]))},owSoilArea:{value:new THREE.Vector3(a[0],a[1],a[2])}});}
+  if(S){const a=soilSpec.area||[0,0,1e7];Object.assign(shader.uniforms,{soilC:{value:soil.color},soilN:{value:soil.normal},soilO:{value:soil.orh},soilPOM:{value:pom?1:0},soilScale:{value:soilSpec.scale||1},soilTint:{value:new THREE.Vector3(...(soilSpec.tint||[1,1,1]))},owSoilArea:{value:new THREE.Vector3(a[0],a[1],a[2])}});}
   for(const [key,value]of Object.entries(textures))shader.uniforms['ow'+key]={value};
   shader.uniforms.owHole={value:hole};
   shader.uniforms.owBiome={value:map.theme==='desert'?0:map.theme==='snow'?2:1};
@@ -152,10 +156,13 @@ ${S?`float owSoilK=0.0;Soil owS;float owSoilAO=1.0;
   owSoilK=smoothstep(.2,.7,owTrail+(owS.h-.4)*.45*smoothstep(0.0,.35,owTrail))*(1.0-owCliff*.25);
   // the cut banks round the track: steep earth, soil from all sides
   float owIn=1.0-smoothstep(owSoilArea.z*.8,owSoilArea.z,length(owPosition.xz-owSoilArea.xy));
-  if(owIn>0.0&&owCliff>.02){float a;vec4 owT=soilTri(owPosition,owWeights,a);float k=smoothstep(.05,.5,owCliff)*owIn;
+  if(owIn>0.0&&owCliff>.02){float a;vec4 owT=soilTri(owPosition,owWeights,a);float k=smoothstep(.05,.5,owCliff)*owIn*${soilF(soilSpec.banks,1)};
    owGround=mix(owGround,vec4(owT.rgb,owT.a),k);owSoilAO=mix(1.0,a,k);}
   // worn patches on the grassy slopes round the track: the red earth showing through the grass, ragged-edged
-  if(owIn>0.0){float e=smoothstep(.6,.74,owFbm(owPosition.xz*.055+1.7)+(owS.h-.5)*.3)*owIn*(1.0-owCliff)*.9*(1.0-owSoilK);
+  ${soilSpec.cover?`{ // the open ground is this ground (its lumps breaking up any grass edge)
+   float c=clamp(${soilF(soilSpec.cover,0)}+(owS.h-.5)*.3,0.0,1.0)*owIn*(1.0-smoothstep(.3,.7,owCliff));
+   owGround=mix(owGround,vec4(owS.albedo,owS.h),c);owSoilAO=mix(owSoilAO,owS.ao,c); }`:''}
+  if(owIn>0.0){float e=smoothstep(.6,.74,owFbm(owPosition.xz*.055+1.7)+(owS.h-.5)*.3)*owIn*(1.0-owCliff)*${soilF(soilSpec.worn,.9)}*(1.0-owSoilK);
    owGround=mix(owGround,vec4(owS.albedo*.92,owS.h),e);owSoilAO=mix(owSoilAO,owS.ao,e);}
   if(owSoilK>0.0){owGround=mix(owGround,vec4(owS.albedo,owS.h),owSoilK);owSoilAO=mix(owSoilAO,owS.ao,owSoilK);}
 }`:''}

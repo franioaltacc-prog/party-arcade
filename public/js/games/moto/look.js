@@ -65,10 +65,11 @@ export function addRim(materials) {
 }
 
 const soils = new Map();
-/** The scanned soil's textures, shared: { color, normal, orh, ready (a promise) }. srgb: colour decoded to linear by
-    the graphics card (else raw, for shaders that do it themselves). */
-export function soilTextures(renderer, { hi = true, srgb = false } = {}) {
-  const key = (hi ? 'hi' : 'lo') + (srgb ? '-srgb' : '');
+/** A scanned ground's textures, shared: { color, normal, orh, ready (a promise) }. srgb: colour decoded to linear by
+    the graphics card (else raw, for shaders that do it themselves). set: which scan (its files are
+    <set>-color, <set>-normal and <set>-orh .webp, plus -1k versions for medium and low; default 'soil', the red dirt). */
+export function soilTextures(renderer, { hi = true, srgb = false, set = 'soil' } = {}) {
+  const key = set + '-' + (hi ? 'hi' : 'lo') + (srgb ? '-srgb' : '');
   if (soils.has(key)) return soils.get(key);
   const loader = new THREE.TextureLoader(), suffix = hi ? '' : '-1k', aniso = Math.min(hi ? 16 : 8, (renderer || LOOK.renderer)?.capabilities.getMaxAnisotropy() || 4);
   const load = (name, colour) => new Promise((ok, no) => {
@@ -77,7 +78,7 @@ export function soilTextures(renderer, { hi = true, srgb = false } = {}) {
     t.minFilter = THREE.LinearMipmapLinearFilter;
   });
   const out = { color: null, normal: null, orh: null, loaded: false };
-  out.ready = Promise.all([load('soil-color', true), load('soil-normal'), load('soil-orh')]).then(([c, n, o]) => {
+  out.ready = Promise.all([load(set + '-color', true), load(set + '-normal'), load(set + '-orh')]).then(([c, n, o]) => {
     Object.assign(out, { color: c, normal: n, orh: o, loaded: true }); return out;
   }).catch((e) => { soils.delete(key); throw e; });
   soils.set(key, out);
@@ -88,7 +89,7 @@ export function soilTextures(renderer, { hi = true, srgb = false } = {}) {
     crisp under the wheels and never shows a repeat across a hillside), with steep-parallax relief close by (high
     quality: the clods and stones stand up from the surface as you move). Needs uniforms soilC, soilN, soilO, soilPOM. */
 export const SOIL_GLSL = `
-uniform sampler2D soilC, soilN, soilO; uniform float soilPOM; uniform vec3 soilTint;
+uniform sampler2D soilC, soilN, soilO; uniform float soilPOM, soilScale; uniform vec3 soilTint;
 struct Soil { vec3 albedo; vec3 n; float ao; float rough; float h; };
 vec2 soilRot(vec2 p) { return mat2(0.8, -0.6, 0.6, 0.8) * p; }
 // smooth value noise for the track's big shapes (lumps, hollows, dry and damp patches)
@@ -113,7 +114,7 @@ vec2 soilParallax(vec2 uv, vec3 vts, float k) {
 }
 Soil soilAt(vec3 wp, vec3 nW, vec3 eye, float dist) {
   vec2 p = wp.xz;
-  vec2 uvA = p / 2.4, uvB = soilRot(p) / 9.5 + vec2(0.37, 0.61);
+  vec2 uvA = p / (2.4 * soilScale), uvB = soilRot(p) / (9.5 * soilScale) + vec2(0.37, 0.61);   // (soilScale: a world's scan tiles bigger or smaller)
   // (the view in the fine tile's frame: x along world x, y along world z, z up the surface)
   vec3 V = normalize(eye - wp); vec3 vts = vec3(V.x, V.z, max(dot(V, nW), 0.05));
   uvA = soilParallax(uvA, vts, soilPOM * (1.0 - smoothstep(6.0, 16.0, dist)));
@@ -147,7 +148,7 @@ Soil soilAt(vec3 wp, vec3 nW, vec3 eye, float dist) {
 }
 // (on steep cut banks: the soil's colour, occlusion and height projected from all three sides)
 vec4 soilTri(vec3 wp, vec3 w, out float ao) {
-  vec3 p = wp / 2.4;
+  vec3 p = wp / (2.4 * soilScale);
   vec4 c = texture2D(soilC, p.zy) * w.x + texture2D(soilC, p.xz) * w.y + texture2D(soilC, p.xy) * w.z;
   vec4 o = texture2D(soilO, p.zy) * w.x + texture2D(soilO, p.xz) * w.y + texture2D(soilO, p.xy) * w.z;
   ao = o.r; return vec4(c.rgb * soilTint, o.b);
