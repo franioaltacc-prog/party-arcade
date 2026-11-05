@@ -6,6 +6,14 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.24.13', date: '2026-11-05', emoji: '🏜️', title: 'Revvd: real ground and hard sunshine in eight more worlds', items: [
+      'Redrock Frontier, Canyon Run and Sheerwall Mesa: real scanned red desert sand under your wheels, a hard sun with long shadows, and a warm desert haze',
+      'Golden Dunes: real rippled sand glowing in the low sunset sun',
+      'Magma Isle: volcanic ash ground and dark scanned rock',
+      'Pinecrest Highlands and Wildwood Bike Park: real forest-floor dirt on the trails and worn patches, and thick, natural-green grass close up',
+      'Autumn Ridge: fallen leaves on the ground and golden grass',
+      'Every one of them gets the stronger sunshine, deeper shade and clearer blue sky from Jungle Ridge',
+    ] },
     { v: '3.24.12', date: '2026-11-05', emoji: '🧰', title: 'Revvd: Jungle Ridge’s realistic look, ready for every world', items: [
       'Behind the scenes: the scanned ground, the thick grass and the sunlight from Jungle Ridge can now be switched on and tuned for any Revvd world (its own kind of ground, grass colours and light), so the other worlds can get the same look next',
       'Nothing changes on screen yet: Jungle Ridge looks exactly as before',

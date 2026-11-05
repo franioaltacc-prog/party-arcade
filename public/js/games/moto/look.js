@@ -118,10 +118,10 @@ Soil soilAt(vec3 wp, vec3 nW, vec3 eye, float dist) {
   // (the view in the fine tile's frame: x along world x, y along world z, z up the surface)
   vec3 V = normalize(eye - wp); vec3 vts = vec3(V.x, V.z, max(dot(V, nW), 0.05));
   uvA = soilParallax(uvA, vts, soilPOM * (1.0 - smoothstep(6.0, 16.0, dist)));
-  vec4 cA = texture2D(soilC, uvA), cB = texture2D(soilC, uvB);
-  vec4 oA = texture2D(soilO, uvA), oB = texture2D(soilO, uvB);
-  vec3 nA = texture2D(soilN, uvA).xyz * 2.0 - 1.0, nB = texture2D(soilN, uvB).xyz * 2.0 - 1.0;
   float far = smoothstep(7.0, 45.0, dist);
+  vec4 cB = texture2D(soilC, uvB), oB = texture2D(soilO, uvB); vec3 nB = texture2D(soilN, uvB).xyz * 2.0 - 1.0;
+  vec4 cA = cB, oA = oB; vec3 nA = nB;
+  if (far < 0.999) { cA = texture2D(soilC, uvA); oA = texture2D(soilO, uvA); nA = texture2D(soilN, uvA).xyz * 2.0 - 1.0; }   // (far off only the big tile: half the work)
   // the big tile's own height decides where its lumps show through the fine one (a height blend, not a cross-fade)
   float hb = clamp((oB.b - oA.b) * 2.0 + (far - 0.5) * 2.4 + 0.5, 0.0, 1.0);
   Soil s;
