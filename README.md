@@ -465,6 +465,8 @@ with an import map), everything else is drawn and synthesised in code (no model,
   lawnRoot, lawnTint, lawnDensity}`: the grass field's and the lawn's blade colours and thickness (`lawn: false` for
   none). Light and colour: `look.sky` (sun, sunI, sunColor, hemi, exposure…), `look.iblK`, `look.skyGrade`,
   `look.post` (haze, AO, grade), `look.grassMul`, `look.photo` (a world's own photos for grass, dirt or rock).
+  `look.lakeWater` / `look.beach`: a water world's own lake water and beach dressing (`open-world/shore.mjs`,
+  `lakeWater` / `beachDress`, each `{update(eye, dt), dispose()}` or null).
   Driftvvd (`drift`): `drift.js`, its own top-down car physics (bicycle model, tyre curve, friction circle, handbrake
   on Space/Q, auto counter-steer from the body slip and a drift assist past 45°; `b.drift = {angle, speed}`), drawn
   with `makeCar` (`driftPaint()`), on Downtown (`city`, hidden, written by `tools/make_city.py`). The city is laid out
