@@ -6,6 +6,10 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.24.12', date: '2026-11-05', emoji: '🧰', title: 'Revvd: Jungle Ridge’s realistic look, ready for every world', items: [
+      'Behind the scenes: the scanned ground, the thick grass and the sunlight from Jungle Ridge can now be switched on and tuned for any Revvd world (its own kind of ground, grass colours and light), so the other worlds can get the same look next',
+      'Nothing changes on screen yet: Jungle Ridge looks exactly as before',
+    ] },
     { v: '3.24.11', date: '2026-11-05', emoji: '🏍️', title: 'Revvd: a real-looking dirt bike and rider', items: [
       'Your dirt bike is rebuilt from scratch: curved glossy plastics with bold graphics, white number plates, a long front fender high over the tyre, a slim ribbed seat, an aluminium frame and swingarm, a bronze exhaust into a big silencer, wave brake discs and a chain that really runs round its sprockets',
       'The wheels have proper knobbly tyres and spokes, and at speed the spokes blur into a spinning disc',
