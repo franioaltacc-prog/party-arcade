@@ -645,8 +645,16 @@ Everyone gets the secret word except the impostor (who only sees the category, i
 one clue per clue round in the chat, then everyone discusses and votes. A caught impostor gets one guess at the word.
 3–10 players; extra people (and anyone joining mid-round) spectate with their own chat. Word picking, roles, clue checks
 (clues can't contain the word or its plural), votes and points all happen on the server.
+Modes (host picks): **Classic** (as above), **Undercover** (the impostor gets a close but different word and doesn't know
+they're the impostor until caught) and **Questions** (everyone answers a question at the same time; the impostor got a
+different one, and the real question is shown when the discussion starts; no last guess). Extra roles the host can switch
+on: the **Jester** (5+ players, knows the word, wins only if voted out) and the **Detective** (4+ players, gets one private
+"X is not the impostor" hint when the discussion starts). Everyone can give one ⭐ per round to a favourite clue (+25 each).
+The end of the game shows awards and a round-by-round score table. `tests/impostorbot.py` plays all three modes.
 Word lists live in `games/impostor/words.json`: add words to a category or add a new category
-(`"key": {"name": "…", "emoji": "…", "words": [...]}`). The file is re-read at the start of every game.
+(`"key": {"name": "…", "emoji": "…", "words": [...]}`). Undercover pairs are in `games/impostor/undercover.json`
+(grouped by the same category keys, `["Word A", "Word B"]`) and Question-mode pairs in `games/impostor/questions.json`.
+All three files are re-read at the start of every game.
 
 ## Family Life: adding events and actions
 Everything lives in `games/life/data/*.json`. The files are re-read at the start of every game, so you don't need to restart.

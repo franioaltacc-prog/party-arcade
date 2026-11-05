@@ -2,8 +2,19 @@
 the category (or nothing). Players give one clue each, discuss, then vote.
 A caught impostor gets one guess at the word to steal the win.
 
+Modes (host picks):
+  classic     the impostor gets no word (maybe the category)
+  undercover  the impostor gets a close but different word (pizza vs burger) and doesn't know
+              they're the impostor until the reveal
+  questions   everyone answers a question at the same time; the impostor secretly got a
+              different one. The real question is shown when the discussion starts.
+Extra roles (host toggles): the Jester wins if they get voted out; the Detective gets one
+private hint ("X is not the impostor") when the discussion starts.
+During the discussion and the vote everyone can give one ⭐ to their favourite clue (points).
+
 Everything secret stays on the server: the impostor's client never receives the word.
-Words live in words.json (re-read at the start of every game).
+Words live in words.json, Undercover pairs in undercover.json, questions in questions.json
+(all re-read at the start of every game).
 """
 import json
 import random
@@ -15,12 +26,19 @@ from pathlib import Path
 from ..base import Game, num
 
 WORDS_FILE = Path(__file__).with_name("words.json")
+PAIRS_FILE = Path(__file__).with_name("undercover.json")
+QUESTIONS_FILE = Path(__file__).with_name("questions.json")
 MIN_PLAYERS = 3
 MAX_SEATS = 10
 ROLE_TIME = 5
+QUESTION_ROLE_TIME = 7     # a question takes longer to read than a word
+ANSWER_EXTRA = 10          # answer time = clue timer + this
 GUESS_TIME = 30
-REVEAL_TIME = 10
+REVEAL_TIME = 13
 CANCEL_TIME = 4
+JESTER_MIN = 5             # the extra roles need enough plain crew left over
+DETECTIVE_MIN = 4
+MODES = ("classic", "undercover", "questions")
 
 CHOICES = {
     "rounds": (3, 5, 8, 10),
@@ -29,9 +47,12 @@ CHOICES = {
     "discussTime": (30, 60, 90, 120),
     "voteTime": (20, 30, 45, 60),
 }
-POINTS = {"correct_vote": 100, "crew_win": 50, "impostor_survive": 250, "impostor_guess": 200}
+POINTS = {"correct_vote": 100, "crew_win": 50, "impostor_survive": 250, "impostor_guess": 200,
+          "jester_win": 300, "impostor_jester": 100, "star": 25}
 
 _words_cache = {}
+_pairs_cache = {}
+_questions_cache = []
 
 
 def load_words():
@@ -52,6 +73,42 @@ def load_words():
         print("⚠️  Problem in games/impostor/words.json:")
         traceback.print_exc()
     return _words_cache
+
+
+def load_pairs():
+    """Undercover pairs: {category key: [(word a, word b), ...]}."""
+    global _pairs_cache
+    try:
+        data = json.loads(PAIRS_FILE.read_text(encoding="utf-8"))
+        pairs = {}
+        for key, rows in data.items():
+            if key.startswith("_") or not isinstance(rows, list):
+                continue
+            good = [(str(a).strip(), str(b).strip()) for row in rows if isinstance(row, list) and len(row) == 2
+                    for a, b in [row] if str(a).strip() and str(b).strip() and norm(a) != norm(b)]
+            if good:
+                pairs[key] = good
+        if pairs:
+            _pairs_cache = pairs
+    except Exception:
+        print("⚠️  Problem in games/impostor/undercover.json:")
+        traceback.print_exc()
+    return _pairs_cache
+
+
+def load_questions():
+    """Question pairs: [(question a, question b), ...]."""
+    global _questions_cache
+    try:
+        data = json.loads(QUESTIONS_FILE.read_text(encoding="utf-8"))
+        good = [(str(a).strip(), str(b).strip()) for row in data.get("questions", []) if isinstance(row, list) and len(row) == 2
+                for a, b in [row] if str(a).strip() and str(b).strip()]
+        if good:
+            _questions_cache = good
+    except Exception:
+        print("⚠️  Problem in games/impostor/questions.json:")
+        traceback.print_exc()
+    return _questions_cache
 
 
 def norm(text):
@@ -98,7 +155,8 @@ class Impostor(Game):
         super().__init__(room)
         self.cats = load_words()
         self.settings = {"rounds": 5, "clueRounds": 2, "clueTime": 30, "discussTime": 60, "voteTime": 30,
-                         "categories": {k: True for k in self.cats}, "twoImpostors": False, "impostorCategory": True}
+                         "categories": {k: True for k in self.cats}, "twoImpostors": False, "impostorCategory": True,
+                         "mode": "classic", "jester": False, "detective": False}
         self.players = []         # seats in the current game
         self.names = {}           # uid -> (name, avatar, color) so leavers still show in results
         self.points = {}
@@ -110,6 +168,8 @@ class Impostor(Game):
         self.final = None
         self.round_stats = {}
         self.used = set()
+        self.history = []         # one row per finished round (the scoreboard across rounds)
+        self.results = None       # end-of-game breakdown + awards
 
     # ------------------------------------------------------------------ helpers
     def listed(self):
@@ -166,20 +226,52 @@ class Impostor(Game):
             "players": [self.pinfo(u) for u in self.players] if in_game or self.final else [],
             "spectator": in_game and uid not in self.players,
             "left": round(max(0.0, self.ends - time.time()), 2) if self.ends else None, "total": self.total,
-            "final": self.final, "r": None,
+            "final": self.final, "results": self.results, "r": None,
+            "history": self.history if in_game else [],
         }
         if not r or not in_game:
             return st
         reveal = self.phase == "reveal"
+        mode = r["mode"]
         imp = uid in r["impostors"]
         seated = uid in r["order"]
-        role = "impostor" if imp else "crew" if seated else "spectator"
-        show_cat = not imp or self.settings["impostorCategory"] or reveal
+        spectator = not seated
+        role = ("impostor" if imp else "jester" if uid == r["jester"] else "detective" if uid == r["detective"]
+                else "crew" if seated else "spectator")
+        # in Undercover and Question mode the impostor doesn't know until they're caught (or the reveal)
+        knows = mode == "classic" or reveal or (self.phase == "guess" and uid == r["out"])
+        if imp and not knows:
+            role = "crew"
+        show_cat = not imp or mode != "classic" or self.settings["impostorCategory"] or reveal
+        if mode == "classic":
+            word = r["word"] if (not imp or reveal) else None
+        elif mode == "undercover":
+            word = r["imp_word"] if (imp and not reveal) else r["word"]
+        else:
+            word = None
+        question = None
+        if mode == "questions":
+            question = r["imp_question"] if (imp and not reveal) else r["question"]
+        public_q = mode == "questions" and self.phase in ("discuss", "vote", "guess", "reveal")
+        answering = mode == "questions" and self.phase in ("role", "answer")
+        clues = r["clues"]
+        if answering:   # answers stay secret until everyone has answered
+            clues = {u: (c if u == uid or spectator else ["…" for _ in c]) for u, c in clues.items()}
+        detective_view = uid == r["detective"] or reveal
         st["r"] = {
-            "n": r["n"], "order": r["order"], "turn": self.turn(), "clueRound": r["clue_round"],
-            "clueRounds": r["clue_rounds"], "clues": r["clues"], "role": role, "impCount": len(r["impostors"]),
-            "word": r["word"] if (not imp or reveal) else None,
-            "category": {"name": r["cat_name"], "emoji": r["cat_emoji"]} if show_cat else None,
+            "n": r["n"], "mode": mode, "order": r["order"], "turn": self.turn(), "clueRound": r["clue_round"],
+            "clueRounds": r["clue_rounds"], "clues": clues, "role": role, "impCount": len(r["impostors"]),
+            "word": word, "question": question,
+            "realQuestion": r["question"] if public_q else None,
+            "impWord": r["imp_word"] if (reveal or spectator) and mode == "undercover" else None,
+            "impQuestion": r["imp_question"] if (reveal or spectator) and mode == "questions" else None,
+            "answered": [u for u, c in r["clues"].items() if c] if answering else None,
+            "extras": {"jester": bool(r["jester"]), "detective": bool(r["detective"])},
+            "jester": r["jester"] if (reveal or uid == r["jester"]) else None,
+            "detective": r["detective"] if detective_view else None,
+            "hint": r["hint"] if detective_view else None,
+            "stars": self.star_counts(), "myStar": r["stars"].get(uid),
+            "category": {"name": r["cat_name"], "emoji": r["cat_emoji"]} if show_cat and r["cat_name"] else None,
             "voted": list(r["votes"]) if self.phase == "vote" else None,
             "myVote": r["votes"].get(uid),
             "votes": r["votes"] if self.phase in ("guess", "reveal") else None,
@@ -188,9 +280,16 @@ class Impostor(Game):
             "impostors": r["impostors"] if reveal else None,
             "guess": r["guess"] if reveal else None, "guessOk": r["guess_ok"] if reveal else None,
             "winner": r["winner"] if reveal else None, "gained": r["gained"] if reveal else None,
+            "why": r.get("why") if reveal else None,
             "cancelled": r.get("cancelled", False),
         }
         return st
+
+    def star_counts(self):
+        out = {}
+        for target in self.r["stars"].values():
+            out[target] = out.get(target, 0) + 1
+        return out
 
     def push(self):
         for mm in list(self.room.members.values()):
@@ -207,6 +306,10 @@ class Impostor(Game):
             self.finish()
         elif t == "clue" and self.phase == "clue" and self.turn() == m.uid:
             self.submit_clue(m, msg.get("text"))
+        elif t == "answer" and self.phase == "answer":
+            self.submit_answer(m, msg.get("text"))
+        elif t == "star" and self.phase in ("discuss", "vote"):
+            self.give_star(m, msg.get("target"))
         elif t == "vote" and self.phase == "vote":
             self.vote(m, msg.get("target"))
         elif t == "guess" and self.phase == "guess" and self.r and self.r["out"] == m.uid:
@@ -222,9 +325,11 @@ class Impostor(Game):
                 v = int(num(msg.get(key), s[key]))
                 if v in options:
                     s[key] = v
-        for key in ("twoImpostors", "impostorCategory"):
+        for key in ("twoImpostors", "impostorCategory", "jester", "detective"):
             if key in msg:
                 s[key] = bool(msg[key])
+        if msg.get("mode") in MODES:
+            s["mode"] = msg["mode"]
         cats = msg.get("categories")
         if isinstance(cats, dict):
             new = dict(s["categories"])
@@ -246,9 +351,11 @@ class Impostor(Game):
                 if mm.uid not in self.players or (self.r and mm.uid not in self.r["order"]):
                     mm.send("chat", **entry)
             return True
-        if self.phase in ("role", "clue"):
+        if self.phase in ("role", "clue", "answer"):
             if self.phase == "clue" and self.turn() == m.uid:
                 self.submit_clue(m, entry["text"])
+            elif self.phase == "answer" and not self.r["clues"].get(m.uid):
+                self.submit_answer(m, entry["text"])
             else:
                 m.send("g:toast", text="🤫 Chat is off while clues are given — wait for the discussion!", bad=True)
             return True
@@ -264,9 +371,13 @@ class Impostor(Game):
             m.send("error", msg=f"Impostor needs at least {MIN_PLAYERS} players! Invite more friends 🕵️")
             return
         self.cats = load_words()
+        self.pairs = load_pairs()
+        self.questions = load_questions()
         for k in self.cats:
             self.settings["categories"].setdefault(k, True)
         self.tainted = False
+        self.history = []
+        self.results = None
         self.players = online[:MAX_SEATS]
         self.points = {u: 0 for u in self.players}
         self.round_stats = {}
@@ -292,27 +403,64 @@ class Impostor(Game):
             self.room.system(f"😢 Not enough players left (need {MIN_PLAYERS}).")
             self.finish()
             return
+        mode = self.settings["mode"]
+        if mode == "undercover" and not getattr(self, "pairs", None):
+            mode = "classic"
+        if mode == "questions" and not getattr(self, "questions", None):
+            mode = "classic"
+        word = imp_word = question = imp_question = None
+        cat_name, cat_emoji = "", ""
         enabled = [k for k in self.cats if self.settings["categories"].get(k, True)] or list(self.cats)
-        cat_key = random.choice(enabled)
-        cat = self.cats[cat_key]
-        pool = [w for w in cat["words"] if (cat_key, w) not in self.used] or cat["words"]
-        word = random.choice(pool)
-        self.used.add((cat_key, word))
+        if mode == "classic":
+            cat_key = random.choice(enabled)
+            cat = self.cats[cat_key]
+            pool = [w for w in cat["words"] if (cat_key, w) not in self.used] or cat["words"]
+            word = random.choice(pool)
+            self.used.add((cat_key, word))
+            cat_name, cat_emoji = cat["name"], cat["emoji"]
+        elif mode == "undercover":
+            keys = [k for k in enabled if k in self.pairs] or list(self.pairs)
+            cat_key = random.choice(keys)
+            pool = [p for p in self.pairs[cat_key] if (cat_key, p) not in self.used] or self.pairs[cat_key]
+            pair = random.choice(pool)
+            self.used.add((cat_key, pair))
+            word, imp_word = pair if random.random() < 0.5 else pair[::-1]
+            cat = self.cats.get(cat_key)
+            cat_name, cat_emoji = (cat["name"], cat["emoji"]) if cat else (cat_key.title(), "🎲")
+        else:
+            pool = [q for q in self.questions if ("q", q) not in self.used] or self.questions
+            pair = random.choice(pool)
+            self.used.add(("q", pair))
+            question, imp_question = pair if random.random() < 0.5 else pair[::-1]
         count = 2 if self.settings["twoImpostors"] and len(seated) >= 7 else 1
         order = seated[:]
         random.shuffle(order)
-        self.r = {"n": self.round, "word": word, "cat_name": cat["name"], "cat_emoji": cat["emoji"],
-                  "impostors": random.sample(seated, count), "order": order, "turn": 0, "clue_round": 1,
-                  "clue_rounds": self.settings["clueRounds"], "clues": {u: [] for u in order}, "votes": {},
+        impostors = random.sample(seated, count)
+        others = [u for u in order if u not in impostors]
+        jester = random.choice(others) if self.settings["jester"] and len(seated) >= JESTER_MIN else None
+        crew = [u for u in others if u != jester]
+        detective = random.choice(crew) if self.settings["detective"] and len(seated) >= DETECTIVE_MIN and len(crew) >= 2 else None
+        self.r = {"n": self.round, "mode": mode, "word": word, "imp_word": imp_word, "question": question,
+                  "imp_question": imp_question, "cat_name": cat_name, "cat_emoji": cat_emoji,
+                  "impostors": impostors, "jester": jester, "detective": detective, "hint": None,
+                  "order": order, "turn": 0, "clue_round": 1,
+                  "clue_rounds": 1 if mode == "questions" else self.settings["clueRounds"],
+                  "clues": {u: [] for u in order}, "votes": {}, "stars": {},
                   "tally": {}, "out": None, "guess": None, "guess_ok": None, "winner": None, "gained": {}}
-        for u in self.r["impostors"]:
+        for u in impostors:
             self.stat(u, "imp_rounds")
         self.phase = "role"
-        self.set_timer(ROLE_TIME, self.start_clues)
+        self.set_timer(QUESTION_ROLE_TIME if mode == "questions" else ROLE_TIME, self.start_clues)
         self.push()
 
     def start_clues(self):
         if self.phase != "role":
+            return
+        if self.r["mode"] == "questions":
+            self.phase = "answer"
+            self.room.system(f"❓ Round {self.round}: answer your question! Everyone answers at the same time.")
+            self.set_timer(self.settings["clueTime"] + ANSWER_EXTRA, self.answer_timeout)
+            self.push()
             return
         self.phase = "clue"
         self.r["turn"] = 0
@@ -333,12 +481,47 @@ class Impostor(Game):
         clue = " ".join(str(text or "").split())[:30]
         if not clue:
             return
-        if m.uid not in r["impostors"] and leaks(clue, r["word"]):
+        own = r["imp_word"] if m.uid in r["impostors"] else r["word"]
+        if own and (r["mode"] == "undercover" or m.uid not in r["impostors"]) and leaks(clue, own):
             m.send("g:toast", text="🚫 Your clue can't contain the secret word! Try something sneakier.", bad=True)
             return
         r["clues"][m.uid].append(clue)
         self.room.broadcast("chat", **{"from": m.info(), "text": clue, "clue": True, "ts": int(time.time() * 1000)})
         self.advance()
+
+    def submit_answer(self, m, text):
+        r = self.r
+        if m.uid not in r["order"] or r["clues"].get(m.uid):
+            return
+        answer = " ".join(str(text or "").split())[:30]
+        if not answer:
+            return
+        r["clues"][m.uid] = [answer]
+        m.send("g:toast", text="✅ Answer locked in! Waiting for the others…")
+        if all(r["clues"].get(u) for u in r["order"] if self.online(u)):
+            self.set_timer(0.8, self.answer_timeout)
+        self.push()
+
+    def answer_timeout(self):
+        if self.phase != "answer":
+            return
+        r = self.r
+        for u in r["order"]:
+            if not r["clues"].get(u):
+                r["clues"][u] = [None]
+        self.start_discuss()
+
+    def give_star(self, m, target):
+        r = self.r
+        if m.uid not in r["order"] or target == m.uid:
+            return
+        if target is None or target == r["stars"].get(m.uid):
+            r["stars"].pop(m.uid, None)          # tap again to take it back
+        elif target in r["order"] and any(r["clues"].get(target) or []):
+            r["stars"][m.uid] = target
+        else:
+            return
+        self.push()
 
     def clue_timeout(self):
         if self.phase != "clue":
@@ -363,8 +546,18 @@ class Impostor(Game):
         self.begin_turn()
 
     def start_discuss(self):
+        r = self.r
         self.phase = "discuss"
-        self.room.system("💬 Discussion time! Who's the impostor? 🕵️")
+        if r["mode"] == "questions":
+            self.room.system(f"❓ The question was: “{r['question']}” — whose answer doesn't fit?")
+        if r["detective"]:
+            innocent = [u for u in r["order"] if u not in r["impostors"] and u != r["detective"]]
+            if innocent:
+                r["hint"] = random.choice(innocent)
+                mm = self.member(r["detective"])
+                if mm:
+                    mm.send("g:toast", text=f"🔎 Detective hint: {self.pinfo(r['hint'])['name']} is NOT the impostor!")
+        self.room.system("💬 Discussion time! Who's the impostor? 🕵️ Tap ⭐ on your favourite clue.")
         self.set_timer(self.settings["discussTime"], self.start_vote)
         self.push()
 
@@ -405,7 +598,7 @@ class Impostor(Game):
             if len(leaders) == 1 and leaders[0] != "skip":
                 out = leaders[0]
         r["out"] = out
-        if out and out in r["impostors"]:
+        if out and out in r["impostors"] and r["mode"] != "questions":
             self.phase = "guess"
             self.set_timer(GUESS_TIME if self.online(out) else 6, self.guess_timeout)
             self.room.system(f"🎯 {self.pinfo(out)['name']} was voted out… and they ARE an impostor! One last guess at the word…")
@@ -430,28 +623,61 @@ class Impostor(Game):
     def end_round(self):
         r = self.r
         caught = r["out"] in r["impostors"]
-        r["winner"] = "impostor" if (not caught or r["guess_ok"]) else "crew"
-        gained = {}
+        if r["jester"] and r["out"] == r["jester"]:
+            r["winner"] = "jester"
+        else:
+            r["winner"] = "impostor" if (not caught or r["guess_ok"]) else "crew"
+        stars = self.star_counts()
+        gained, why = {}, {}
         for uid in r["order"]:
-            pts = 0
+            pts, parts = 0, []
             if uid in r["impostors"]:
                 if r["winner"] == "impostor":
-                    pts = POINTS["impostor_guess"] if uid == r["out"] else POINTS["impostor_survive"]
+                    got = POINTS["impostor_guess"] if uid == r["out"] else POINTS["impostor_survive"]
+                    pts += got
+                    parts.append(["🎯 stole the win" if uid == r["out"] else "🕵️ not caught", got])
                     self.stat(uid, "imp_wins")
+                elif r["winner"] == "jester":
+                    pts += POINTS["impostor_jester"]
+                    parts.append(["🃏 slipped away", POINTS["impostor_jester"]])
                 if uid != r["out"]:
                     self.stat(uid, "survived")
             else:
                 if r["votes"].get(uid) in r["impostors"]:
                     pts += POINTS["correct_vote"]
+                    parts.append(["🗳️ right vote", POINTS["correct_vote"]])
                     self.stat(uid, "correct_votes")
-                if r["winner"] == "crew":
+                if r["winner"] == "crew" and uid != r["jester"]:
                     pts += POINTS["crew_win"]
+                    parts.append(["🎉 crew win", POINTS["crew_win"]])
+                if r["winner"] == "jester" and uid == r["jester"]:
+                    pts += POINTS["jester_win"]
+                    parts.append(["🃏 fooled you all", POINTS["jester_win"]])
+                    self.stat(uid, "jester_wins")
+            if stars.get(uid):
+                pts += POINTS["star"] * stars[uid]
+                parts.append([f"⭐×{stars[uid]} best clue", POINTS["star"] * stars[uid]])
+                self.stat(uid, "clue_stars", stars[uid])
             gained[uid] = pts
+            why[uid] = parts
             self.points[uid] = self.points.get(uid, 0) + pts
         r["gained"] = gained
+        r["why"] = why
         names = " & ".join(self.pinfo(u)["name"] for u in r["impostors"])
-        verdict = "🎉 The crew caught the impostor!" if r["winner"] == "crew" else "🕵️ The impostor wins this round!"
-        self.room.system(f"{verdict} The impostor was {names} · the word was “{r['word']}”.")
+        verdict = {"crew": "🎉 The crew caught the impostor!", "impostor": "🕵️ The impostor wins this round!",
+                   "jester": f"🃏 The crew voted out {self.pinfo(r['jester'])['name'] if r['jester'] else ''}, the JESTER! The Jester wins!"}[r["winner"]]
+        if r["mode"] == "undercover":
+            secret = f"the crew's word was “{r['word']}”, the impostor's was “{r['imp_word']}”"
+        elif r["mode"] == "questions":
+            secret = f"the impostor's question was “{r['imp_question']}”"
+        else:
+            secret = f"the word was “{r['word']}”"
+        self.room.system(f"{verdict} The impostor was {names} · {secret}.")
+        self.history.append({
+            "n": r["n"], "mode": r["mode"], "word": r["word"], "impWord": r["imp_word"], "question": r["question"],
+            "impQuestion": r["imp_question"], "impostors": r["impostors"], "jester": r["jester"],
+            "detective": r["detective"], "out": r["out"], "winner": r["winner"], "gained": gained,
+        })
         self.phase = "reveal"
         self.set_timer(REVEAL_TIME, self.next_round)
         self.push()
@@ -469,11 +695,31 @@ class Impostor(Game):
         self.phase = "over"
         ranking = [self.pinfo(u) for u in sorted(self.points, key=lambda u: -self.points[u])]
         self.final = ranking
+        self.results = self.make_results(ranking)
         self.r = None
         self.broadcast("final", ranking=ranking)
         self.push()
         extra = {uid: {f"impostor.{k}": ("add", n) for k, n in s.items()} for uid, s in self.round_stats.items()}
         self.record_ranking(ranking, "impostor", extra=extra)
+
+    def make_results(self, ranking):
+        """End-of-game breakdown: per-player numbers, fun awards and the points of every round."""
+        rows = []
+        for p in ranking:
+            s = self.round_stats.get(p["id"], {})
+            rows.append({"id": p["id"], "points": p["points"], "correctVotes": s.get("correct_votes", 0),
+                         "stars": s.get("clue_stars", 0), "impRounds": s.get("imp_rounds", 0),
+                         "impWins": s.get("imp_wins", 0), "jesterWins": s.get("jester_wins", 0)})
+        awards = []
+        for key, emoji, title, unit in (("correctVotes", "🔍", "Sharpest eye", "right votes"),
+                                        ("stars", "⭐", "Best clue-giver", "stars"),
+                                        ("impWins", "🎭", "Master of disguise", "wins as impostor"),
+                                        ("jesterWins", "🃏", "Chief clown", "Jester wins")):
+            best = max((r[key] for r in rows), default=0)
+            if best > 0:
+                ids = [r["id"] for r in rows if r[key] == best]
+                awards.append({"emoji": emoji, "title": title, "ids": ids, "n": best, "unit": unit})
+        return {"rows": rows, "awards": awards, "history": list(self.history)}
 
     # ------------------------------------------------------------------ people coming and going
     def on_join(self, m, rejoin):
@@ -486,6 +732,8 @@ class Impostor(Game):
             self.set_timer(min(6, max(1, self.ends - time.time())), self.clue_timeout)
         elif self.phase == "vote" and self.r and all(u in self.r["votes"] for u in self.voters()) and self.r["votes"]:
             self.set_timer(0.8, self.reveal_votes)
+        elif self.phase == "answer" and self.r and all(self.r["clues"].get(u) for u in self.r["order"] if self.online(u)):
+            self.set_timer(0.8, self.answer_timeout)
         self.push()
 
     def on_leave(self, m):
@@ -511,9 +759,16 @@ class Impostor(Game):
         live = self.phase not in ("lobby", "over") and r
         if action == "reveal" and live:
             names = " & ".join(self.pinfo(u)["name"] for u in r["impostors"])
-            return f"🔎 Impostor: {names} · Word: {r['word'].upper()} ({r['cat_name']})"
+            if r["mode"] == "undercover":
+                secret = f"Crew word: {r['word'].upper()} · Impostor word: {r['imp_word'].upper()} ({r['cat_name']})"
+            elif r["mode"] == "questions":
+                secret = f"Crew question: {r['question']} · Impostor question: {r['imp_question']}"
+            else:
+                secret = f"Word: {r['word'].upper()} ({r['cat_name']})"
+            extra = "".join(f" · {label}: {self.pinfo(r[k])['name']}" for k, label in (("jester", "Jester"), ("detective", "Detective")) if r[k])
+            return f"🔎 Impostor: {names} · {secret}{extra}"
         if action == "skip" and live:
-            step = {"role": self.start_clues, "clue": self.clue_timeout, "discuss": self.start_vote,
+            step = {"role": self.start_clues, "clue": self.clue_timeout, "answer": self.answer_timeout, "discuss": self.start_vote,
                     "vote": self.reveal_votes, "guess": self.guess_timeout, "reveal": self.next_round}.get(self.phase)
             if step:
                 step()

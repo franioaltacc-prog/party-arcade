@@ -6,6 +6,16 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.24.10', date: '2026-11-05', emoji: '🕵️', title: 'Impostor’s big update: new modes, new roles, twice the words', items: [
+      'Way more words: 941 instead of about 350, with 10 new categories: School, Holidays & seasons, Music instruments, Vehicles, Superpowers, Fantasy, Kitchen, Clothing, Feelings and Hobbies (and more words in all the old ones)',
+      'New mode, 🎭 Undercover: the impostor gets a close but different word (pizza vs burger) and doesn’t even know they’re the impostor! Caught? Guess the crew’s word to steal the win',
+      'New mode, ❓ Questions: everyone answers the same question at the same time, but the impostor secretly got a different one. When the discussion starts, everyone sees the real question… whose answer doesn’t fit?',
+      'New extra roles the host can switch on: 🃏 the Jester knows the word but only wins if you vote them out (5+ players), and 🔎 the Detective gets a secret hint: one player who is NOT the impostor (4+ players)',
+      'Give a ⭐ to your favourite clue during the discussion: every star is +25 points',
+      'A much better reveal: the cards spin and flip over to show the impostor, with a drumroll, and you can see why everyone got their points',
+      'The points panel now keeps a list of every round so far, and the end of the game shows awards (Sharpest eye, Best clue-giver, Master of disguise, Chief clown) and a round-by-round score table',
+      'New sounds for your role card, the reveal, stars, the Detective’s hint and the Jester',
+    ] },
     { v: '3.24.9', date: '2026-11-05', emoji: '🌳', title: 'Revvd: umbrella trees, thick grass and hard sunshine at Jungle Ridge', items: [
       'Real flat-topped umbrella trees now stand alone along the high ridges round Jungle Ridge MX, against the sky, with their trunks and spreading branches showing (simpler versions far away, so it stays smooth)',
       'The grassy banks up close look like a thick lawn instead of separate tufts: lots of short, fine blades right up to the track’s edge, on greener ground',
