@@ -24,7 +24,7 @@
     ['Billiards', '🎱', '#10b981', [['Games', 'pool.games'], ['Wins', 'pool.wins'], ['Losses', 'pool.losses'], ['Frames won', 'pool.frames'], ['Run-outs', 'pool.runs'],
       ['Speed clear best', 'poolspeed.best', secs], ['Wins vs CPU', 'poolcpu.wins']]],
     ['Impostor', '🕵️', '#f43f5e', [['Games', 'impostor.games'], ['Wins', 'impostor.wins'], ['Rounds as impostor', 'impostor.imp_rounds'],
-      ['Won as impostor', 'impostor.imp_wins'], ['Survived as impostor', 'impostor.survived'], ['Correct votes', 'impostor.correct_votes']]],
+      ['Won as impostor', 'impostor.imp_wins'], ['Survived as impostor', 'impostor.survived'], ['Correct votes', 'impostor.correct_votes'], ['Clue stars', 'impostor.clue_stars'], ['Jester wins', 'impostor.jester_wins']]],
     ['Minesweeper', '💣', '#6366f1', [['Games', 'mines.games'], ['Wins', 'mines.wins'], ['Race boards cleared', 'mines.cleared'], ['Best battle', 'mines.best'],
       ['Solo Easy', 'mines_easy.best', secs], ['Solo Medium', 'mines_medium.best', secs], ['Solo Hard', 'mines_hard.best', secs]]],
     ['Front Wars', '🌍', '#22c55e', [['Games', 'front.games'], ['Wins', 'front.wins'], ['Team wins', 'front.team_wins'], ['Most land', 'front.best', (v) => `${v}%`],

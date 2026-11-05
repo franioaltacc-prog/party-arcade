@@ -92,8 +92,85 @@
     .cat-chip { border: 1px solid var(--border); background: var(--panel); color: var(--muted); padding: 7px 11px; border-radius: 999px; cursor: pointer; font-weight: 600; }
     .cat-chip.on { background: rgba(34,197,94,.2); border-color: rgba(34,197,94,.55); color: var(--text); }
     .cat-chip:disabled { cursor: default; }
+
+    /* modes, extra roles, stars, reveal, results (3.24.9) */
+    .mode-tag { font-size: .78rem; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--panel-2); color: var(--muted); white-space: nowrap; }
+    .mode-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .mode-card { display: grid; justify-items: center; gap: 4px; padding: 12px 10px; border-radius: 18px; border: 2px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; text-align: center; transition: transform .12s, border-color .2s, background .2s; }
+    .mode-card:hover:not(:disabled) { transform: translateY(-2px); background: var(--panel-2); }
+    .mode-card:disabled { cursor: default; }
+    .mode-card.on { border-color: var(--pink); background: color-mix(in srgb, var(--pink) 16%, transparent); box-shadow: 0 0 22px -8px var(--pink); }
+    .mode-card .mc-emoji { font-size: 1.8rem; }
+    .mode-card .mc-name { font-family: var(--font-display); font-size: 1.05rem; }
+    .mode-card .mc-text { font-size: .78rem; color: var(--muted); line-height: 1.3; }
+    .role-toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .role-toggle { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 16px; border: 2px solid var(--border); background: var(--panel); cursor: pointer; line-height: 1.3; }
+    .role-toggle.on { border-color: rgba(251,146,60,.7); background: rgba(251,146,60,.12); }
+    .role-toggle input { margin-top: 4px; accent-color: var(--orange); }
+    .role-toggle .rt-emoji { font-size: 1.5rem; }
+    .role-card.jester { --rc: #fb923c; }
+    .role-card.detective { --rc: #60a5fa; }
+    .role-card.jester .rc-big { color: #fed7aa; text-shadow: 0 0 24px rgba(251,146,60,.7); }
+    .role-card.detective .rc-big { color: #bfdbfe; text-shadow: 0 0 24px rgba(96,165,250,.7); }
+    .role-card .rc-big.q { font-family: inherit; font-weight: 700; font-size: clamp(1.2rem, 3vw, 1.75rem); line-height: 1.25; text-transform: none; }
+    .real-q { padding: 10px 16px; border-radius: 16px; background: rgba(250,204,21,.1); border: 1px solid rgba(250,204,21,.45); max-width: 560px; }
+    .real-q .rq { font-weight: 700; font-size: 1.1rem; color: #fde68a; }
+    .locked-ans { font-family: var(--font-display); font-size: 1.4rem; padding: 6px 16px; border-radius: 14px; background: rgba(34,211,238,.16); border: 1px solid rgba(34,211,238,.4); }
+    .clue-chip.hidden-ans { background: rgba(255,255,255,.06); border-style: dashed; color: var(--muted); }
+    .hint-box { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 14px; background: rgba(96,165,250,.16); border: 1px solid rgba(96,165,250,.55); }
+    .hint-box .hb-emoji { font-size: 1.3rem; }
+    .vote-btn.cleared { opacity: .6; }
+    .star-btn { flex: none; display: inline-flex; align-items: center; gap: 3px; border: 1px solid var(--border); background: transparent; color: var(--muted); border-radius: 999px; padding: 3px 9px; font-weight: 700; font-size: .95rem; cursor: pointer; transition: transform .12s, background .2s; }
+    .star-btn:hover:not(.static) { transform: scale(1.1); background: rgba(250,204,21,.12); }
+    .star-btn.on, .star-btn.static { color: var(--yellow); border-color: rgba(250,204,21,.6); background: rgba(250,204,21,.14); }
+    .star-btn.static { cursor: default; }
+    .star-btn span { font-size: .8rem; }
+    .clue-row.jest { border-color: rgba(251,146,60,.6); background: rgba(251,146,60,.1); }
+    .reveal-lead { letter-spacing: .12em; }
+    .flip-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; perspective: 900px; }
+    .flip { width: 130px; height: 150px; }
+    .flip-in { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transform: rotateY(180deg); }
+    .flip-face { position: absolute; inset: 0; border-radius: 18px; display: grid; place-items: center; align-content: center; gap: 6px; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+    .flip-face.back { font-size: 3rem; background: repeating-linear-gradient(45deg, #2a1f5c 0 12px, #231a4d 12px 24px); border: 2px solid var(--purple); box-shadow: 0 0 24px -8px var(--purple); }
+    .flip-face.front { transform: rotateY(180deg); background: linear-gradient(160deg, rgba(244,63,94,.35), #120e2e 80%); border: 2px solid #f43f5e; box-shadow: 0 0 30px -6px #f43f5e; font-weight: 700; }
+    .flip-face .fname { max-width: 118px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .reveal .after { display: grid; gap: 10px; justify-items: center; width: 100%; }
+    .result-head.jest { color: #fed7aa; }
+    .word-pair { display: flex; gap: 12px; align-items: center; justify-content: center; flex-wrap: wrap; }
+    .q-pair { display: grid; gap: 8px; width: 100%; max-width: 560px; }
+    .wp { display: grid; gap: 2px; padding: 8px 16px; border-radius: 14px; }
+    .wp b { font-family: var(--font-display); font-size: 1.35rem; font-weight: 400; }
+    .q-pair .wp b { font-family: inherit; font-size: 1rem; font-weight: 700; }
+    .wp.crew { background: rgba(34,211,238,.14); border: 1px solid rgba(34,211,238,.45); }
+    .wp.crew b { color: #a5f3fc; }
+    .wp.imp { background: rgba(244,63,94,.14); border: 1px solid rgba(244,63,94,.45); }
+    .wp.imp b { color: #fda4af; }
+    .wp-vs { font-family: var(--font-display); color: var(--faint); }
+    .gains .gw { margin-left: 4px; }
+    .hist-row { display: flex; align-items: center; gap: 6px; font-size: .8rem; padding: 5px 8px; border-radius: 10px; background: rgba(255,255,255,.03); margin-bottom: 4px; }
+    .hist-row .hn { font-weight: 700; color: var(--muted); }
+    .hist-row .hi { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .hist-row .hs { margin-left: auto; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 45%; }
+    .awards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 14px 0; }
+    .award { text-align: center; padding: 10px; border-radius: 16px; background: var(--panel-2); border: 1px solid var(--border); }
+    .award .aw-emoji { font-size: 1.8rem; }
+    .award .aw-title { font-weight: 700; color: var(--muted); font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; }
+    .award .aw-who { font-family: var(--font-display); font-size: 1.05rem; }
+    .res-wrap { overflow-x: auto; }
+    .res-table { width: 100%; border-collapse: separate; border-spacing: 0 4px; font-size: .88rem; }
+    .res-table th { color: var(--muted); font-weight: 700; padding: 4px 6px; text-align: center; white-space: nowrap; }
+    .res-table td { padding: 6px; text-align: center; background: rgba(255,255,255,.04); font-variant-numeric: tabular-nums; }
+    .res-table td:first-child { border-radius: 12px 0 0 12px; }
+    .res-table td:last-child { border-radius: 0 12px 12px 0; }
+    .res-table .l { text-align: left; }
+    .res-table td.l { display: flex; align-items: center; gap: 8px; font-weight: 700; white-space: nowrap; }
+    .res-table tr.me td { background: rgba(250,204,21,.1); }
+    .res-table td.rc.imp { background: rgba(244,63,94,.22); }
+    .res-table td.rc.jest { background: rgba(251,146,60,.22); }
+    .res-table td.rc.det { background: rgba(96,165,250,.2); }
+    .res-table td.tot { font-weight: 700; color: var(--yellow); }
     @media (max-width: 1100px) { .imp-grid { grid-template-columns: minmax(0, 1fr) 300px; } .imp-grid .imp-scores { grid-column: 1 / -1; order: 3; } }
-    @media (max-width: 760px) { .imp-grid { grid-template-columns: 1fr; } #play-chat { height: 360px; } .imp-set { grid-template-columns: 1fr; } .clue-row .cn { width: 80px; } }
+    @media (max-width: 760px) { .mode-cards, .role-toggles { grid-template-columns: 1fr; } .imp-grid { grid-template-columns: 1fr; } #play-chat { height: 360px; } .imp-set { grid-template-columns: 1fr; } .clue-row .cn { width: 80px; } }
   </style>
 </head>
 <body>
@@ -108,10 +185,10 @@
       <div class="panel chat-panel" id="room-chat"></div>
     </section>
     <section id="play" class="hidden imp-grid">
-      <aside class="panel imp-scores"><div class="panel-title">🏆 Points</div><div id="scores"></div><div id="spec-note"></div></aside>
+      <aside class="panel imp-scores"><div class="panel-title">🏆 Points</div><div id="scores"></div><div id="history"></div><div id="spec-note"></div></aside>
       <div class="imp-main">
         <div class="panel imp-bar">
-          <div class="imp-bar-top"><span id="round"></span><span id="phase-label"></span><span class="clock" id="clock">--</span></div>
+          <div class="imp-bar-top"><span id="round"></span><span class="mode-tag" id="mode-tag"></span><span id="phase-label"></span><span class="clock" id="clock">--</span></div>
           <div class="tbar" id="tbar-wrap"><i id="tbar"></i></div>
         </div>
         <div class="role-wrap" id="role"></div>
