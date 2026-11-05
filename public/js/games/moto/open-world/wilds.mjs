@@ -181,7 +181,7 @@ async function jungle(map,terrain){
   {id:'palm',like:'palm',tree:true,per:150,dense:2600,size:[.85,1.2],slope:.7,clear:3.5,solid:{r:.3,tall:9},card:true,variants:J.palms,winds:[{bend:.0005},{bend:.0007,flutter:.03,glow:.4}],
    fill:(x,z)=>terrace(x,z,.8)?0:map.look?.dress&&inTrack(x,z,90)?0:inTrack(x,z)?.9:terrace(x,z,1.25)||nearTrail(x,z,30)?.45:.06},
   {id:'canopy',like:'broadleaf',tree:true,per:150,dense:9500,size:[1.05,1.7],slope:.7,clear:7,line:900,solid:{r:.5,tall:9},card:true,tint:map.look?.canopyTint||[.72,1.08,.62],mats:[oaks.mats.bark,oaks.mats.leaves],variants:oakv,winds:[{bend:.0009},{bend:.0009,flutter:.03,glow:.35}],
-   fill:(x,z)=>inTrack(x,z,map.look?.dress?110:0)||terrace(x,z,1.05)?0:map.look?.dress&&inTrack(x,z,220)?.06:.9},   // (a dressed pro track: open grassy hills round it, its own lone trees on the ridges)
+   fill:(x,z)=>inTrack(x,z,map.look?.dress?110:0)||terrace(x,z,1.05)?0:map.look?.dress&&inTrack(x,z,420)?0:.9},   // (a dressed pro track: open grassy hills round it, its own lone trees on the ridges)
   {id:'boulder',like:'rock',per:20,dense:300,woods:'rocks',size:[.7,1.8],slope:.55,clear:7,solid:{r:.9,tall:1.4,byBox:true},rock:true,tint:[1.05,.86,.72],variants:rocks,winds:[{bend:0}],
    fill:(x,z)=>inTrack(x,z)||terrace(x,z)?0:.4},
   // (a dressed pro track: dark leafy bushes dotted over the open grassy slopes round it, thicker in the hollows)

@@ -11,14 +11,27 @@ And aspens (ez-tree's Aspen Medium: birch bark, aspen leaves; meshes aspen<k>[_f
     python3 tools/pack_trees.py aspens.json eztree-assets/ public/models/nature/aspens.glb 0.26 512 aspen
 And the open worlds' leafy trees (ez-tree's Oak Medium, Oak Large and Ash Medium, all with oak bark and leaves; meshes
 oak<k>[_far]_bark / _leaves; tools/eztree_gen.html makes the JSON):
-    python3 tools/pack_trees.py oaks.json eztree-assets/ public/models/nature/oaks.glb 0.16 512 oak"""
+    python3 tools/pack_trees.py oaks.json eztree-assets/ public/models/nature/oaks.glb 0.16 512 oak
+And Jungle Ridge's lone acacia-style umbrella trees (ez-tree's Oak Large reshaped: a tall bare trunk, a few long limbs
+rising in a V, flat spreading branches with leaves only out at the tips; oak bark and leaves; meshes
+acacia<k>[_far]_bark / _leaves). Made with ez-tree 1.1.0's 'Oak Large' preset, seeds 3, 7 and 12, these settings
+on top, and the branches' sections cut to 70% and segments to 75% (far versions: 35% and 45%, half the leaves at 1.8 times the
+size, single-sided):
+    {"branch": {"levels": 3, "angle": {"1": 44, "2": 80, "3": 55}, "children": {"0": 4, "1": 6, "2": 5},
+     "force": {"direction": {"x": 0, "y": 1, "z": 0}, "strength": -0.05},
+     "gnarliness": {"0": 0.08, "1": 0.22, "2": 0.15, "3": 0.12}, "length": {"0": 30, "1": 34, "2": 18, "3": 7},
+     "radius": {"0": 2.4, "1": 0.8, "2": 0.7, "3": 1}, "start": {"1": 0.6, "2": 0.5, "3": 0.3},
+     "taper": {"0": 0.7, "1": 0.55, "2": 0.7, "3": 0.75}, "twist": {"0": 0.15, "1": 0.2, "2": 0, "3": 0}},
+     "leaves": {"start": 0.45, "count": 24, "size": 3.1, "sizeVariance": 0.5, "angle": 8, "type": "oak"}}
+    python3 tools/pack_trees.py acacias.json eztree-assets/ public/models/nature/acacias.glb 0.18 512 acacia"""
 import json, os, struct, subprocess, sys, tempfile
 from array import array
 
 src, assets, dst, scale, MAX = sys.argv[1], sys.argv[2], sys.argv[3], float(sys.argv[4]), int(sys.argv[5])
 KIND = sys.argv[6] if len(sys.argv) > 6 else 'pine'
 TEX = {'pine': ('pine_color_1k.jpg', 'pine_normal_1k.jpg', 'pine_color.png'), 'bush': ('oak_color_1k.jpg', 'oak_normal_1k.jpg', 'ash_color.png'),
-       'aspen': ('birch_color_1k.jpg', 'birch_normal_1k.jpg', 'aspen_color.png'), 'oak': ('oak_color_1k.jpg', 'oak_normal_1k.jpg', 'oak_color.png')}[KIND]
+       'aspen': ('birch_color_1k.jpg', 'birch_normal_1k.jpg', 'aspen_color.png'), 'oak': ('oak_color_1k.jpg', 'oak_normal_1k.jpg', 'oak_color.png'),
+       'acacia': ('oak_color_1k.jpg', 'oak_normal_1k.jpg', 'oak_color.png')}[KIND]
 trees = json.load(open(src))
 images = {}
 with tempfile.TemporaryDirectory() as tmp:

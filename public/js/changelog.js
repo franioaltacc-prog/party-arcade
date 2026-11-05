@@ -6,6 +6,12 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.24.9', date: '2026-11-05', emoji: '🌳', title: 'Revvd: umbrella trees, thick grass and hard sunshine at Jungle Ridge', items: [
+      'Real flat-topped umbrella trees now stand alone along the high ridges round Jungle Ridge MX, against the sky, with their trunks and spreading branches showing (simpler versions far away, so it stays smooth)',
+      'The grassy banks up close look like a thick lawn instead of separate tufts: lots of short, fine blades right up to the track’s edge, on greener ground',
+      'Harder, warmer sunshine: lower in the sky, so the shadows are longer and the shaded sides of the hills are deeper, and the hills are a more natural olive green instead of gold',
+      'The jungle is pushed further back, so the open hillsides with the stacked lanes of the track behind you stand out',
+    ] },
     { v: '3.24.8', date: '2026-11-04', emoji: '🌿', title: 'Revvd: natural grass and plants all over Jungle Ridge', items: [
       'Grass now grows everywhere round you at Jungle Ridge, not just along the track: a carpet of short green turf with taller dry grass in patches, swaying in the wind, so trees, bushes and plants come up out of the grass instead of standing on bare ground',
       'The banana plants look real: clumps of several stems of different heights, darker green leaves (the old ones drooping and yellowing), dead brown leaves hanging down the stems, and no more shiny pale leaves',

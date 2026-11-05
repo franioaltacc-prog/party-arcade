@@ -50,7 +50,7 @@
     ['🏙️', 'City Kit (Commercial), City Kit (Roads) and Car Kit by Kenney (CC0, kenney.nl)', 'Driftvvd’s city: its buildings, street lights, traffic lights, parked cars and cones'],
     ['🚵', '“Low- Poly Bicycle # 5” by Sidra (CC BY 4.0, Sketchfab)', 'the Downhill Pro mountain bike in Unrevvd (split into moving parts)'],
     ['🌲', '“MTB Mongoose Tyax” by Saushkin (CC BY 4.0, Sketchfab)', 'the Trail Hardtail mountain bike in Unrevvd (split into moving parts, made lighter for the web)'],
-    ['🌲', 'ez-tree by Daniel Greenheck (MIT)', 'the pine trees, spruces, aspens, oaks, ashes and bushes in the chutes and all over the open worlds (made with it, with its bark, needle and leaf textures)'],
+    ['🌲', 'ez-tree by Daniel Greenheck (MIT)', 'the pine trees, spruces, aspens, oaks, ashes and bushes in the chutes and all over the open worlds, and the acacia-style umbrella trees on the ridges of Jungle Ridge MX (made with it, with its bark, needle and leaf textures)'],
     ['🌵', '“Quiver Tree 01” and “Dead Quiver Trunk” by James Ray Cock, Dario Barresi and Rico Cilliers, “Quiver Tree 02” by Dario Barresi and Rico Cilliers, “Wild Rooibos Bush” by James Ray Cock and Jenelle van Heerden (CC0, Poly Haven)', 'the quiver trees and dry bushes in the deserts (made lighter for the web)'],
     ['🪨', '“Namaqualand Boulder 02” by Greg Zaal and Rico Cilliers, “04” by Jenelle van Heerden, “05” by Jenelle van Heerden and Dario Barresi, “Boulder 01” by Rico Cilliers (CC0, Poly Haven)', 'the boulders in the open worlds'],
     ['🌿', '“Shrub 02” and “Shrub 03” by Rico Cilliers, “Nettle Plant” and “Dandelion 01” by Rob Tuytel and Rico Cilliers (CC0, Poly Haven)', 'the shrubs, weeds and dandelions on the green worlds'],
