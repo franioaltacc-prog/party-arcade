@@ -275,10 +275,15 @@ with an import map), everything else is drawn and synthesised in code (no model,
   E-Moto), the rider kit (`KITS`), the helmet (`HELMETS`) and the race number. Styles, kits, helmets and numbers are free
   and only looks (the physics never sees them); they're kept in `moto_prefs` and sent to the room with `g:style`, so the
   others see them in the start gate and on their ghosts. **`world.js`** builds the world around a track:
-  a Sky shader per theme (desert midday, forest overcast, snow dusk), sun shadows, fog, terrain with sculpted jumps and
+  a Sky shader per theme (desert midday, forest afternoon, snow dusk), sun shadows, fog, terrain with sculpted jumps and
   banked berms, ruts, puddles, scenery (boulders, pines, leafy trees, saguaro and barrel cacti, bushes, grass, dead trees,
   logs and snowbanks, each made from shapes that are lumped, cut and coloured per vertex, then instanced with a random
-  tint), tyre stacks, banners, the start gate with its pen and billboard, the arches, and particles. **`sound.js`** synthesises the engine
+  tint), tyre stacks, the start gate with its pen and billboard, the arches, and particles. On top of it
+  **`race-look.js`** gives each track its real-camera look: scanned ground (two textures blended by distance from the
+  track's middle), the plants swapped for scanned and ez-tree models where they stand (quiver trees and boulders, tall
+  pines and oaks, snowy spruces; near and far versions), grass tufts and sponsor banner fences; **`race-realism.js`**
+  sets each track's light (hard midday desert sun, slanting forest light, low cold sun on the ridge), colour finish
+  and clouds (Low quality keeps the procedural scenery). **`sound.js`** synthesises the engine
   from the revs. **`game.js`** is the page: the 3D scene behind the menus (your bike, or everyone's in a room, parked in
   the start gate under a slowly drifting camera), controls (keyboard, touch buttons, gamepads), the chase/side/close
   cameras, the HUD, solo time trials and online races. **`menus.js`** draws the menus inside the game window, like

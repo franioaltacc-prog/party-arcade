@@ -3,12 +3,23 @@
 Every file here is hosted on this site; the game makes no requests to Poly Haven. All are CC0 (public domain):
 https://polyhaven.com/license
 
-## Race soil (dirt-*.webp)
+## Race track ground (race/*.jpg)
 
-Brown Mud 02 by Rob Tuytel, Poly Haven. CC0.
-Source: https://polyhaven.com/a/brown_mud_02
-1K diffuse, OpenGL normal and ARM (ambient occlusion / roughness / metalness) maps, converted to WebP. Colour is
-sRGB; normal and ARM are linear data. Used on the Desert Dunes and Forest Mud race tracks (race-realism.js).
+All CC0, from Poly Haven's 1K JPG maps: the colour (diffuse, sRGB) at 1024 px, and the OpenGL normal and ARM (ambient
+occlusion / roughness / metalness) maps scaled to 512 px (linear data). Used for the race tracks' ground
+(race-look.js), blended by distance from the track's middle:
+- Sand 01 by Rob Tuytel: https://polyhaven.com/a/sand_01 (Desert Dunes, off the track)
+- Gravelly Sand by Dario Barresi: https://polyhaven.com/a/gravelly_sand (Desert Dunes, the riding surface)
+- Forest Leaves 02 by Rob Tuytel: https://polyhaven.com/a/forest_leaves_02 (Forest Mud, off the track)
+- Mud Forest by eye-candy.xyz: https://polyhaven.com/a/mud_forest (Forest Mud, the riding surface)
+- Snow 02 by Rob Tuytel: https://polyhaven.com/a/snow_02 (Snow Ridge, both: packed finer and bluer on the track)
+
+## Race track plants (public/models/nature/didelta.glb, succulents.glb)
+
+Didelta Spinosa by Jenelle van Heerden (https://polyhaven.com/a/didelta_spinosa) and Cheiridopsis Succulent by James
+Ray Cock and Jenelle van Heerden (https://polyhaven.com/a/cheiridopsis_succulent), Poly Haven, CC0. The 1K glTF
+models packed by tools/pack_nature.py (made much lighter; the succulent's flowers left out). Used on Desert Dunes with
+the open worlds' quiver trees, boulders and rooibos (models/nature/wild).
 
 ## Red soil (soil-*.webp)
 

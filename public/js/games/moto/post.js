@@ -193,8 +193,8 @@ export function createPost(renderer) {
     u.uSky.value = sky && !L.night ? 1 : 0;
     if (fog) u.uFogColour.value.copy(fog.color);
     if (sky) { const su = sky.material.uniforms; u.uSunPos.value.copy(su.sunPosition.value); u.uRayleigh.value = su.rayleigh.value; u.uTurbidity.value = su.turbidity.value; u.uMie.value = su.mieCoefficient.value; u.uMieG.value = su.mieDirectionalG.value; }
-    // (a world can set its own colour finish: "sat", "con" (contrast), "warm")
-    const g = grade.uniforms; if (L.sat) g.uSat.value = L.sat; if (L.con) g.uCon.value = L.con; if (L.warm !== undefined) g.uWarm.value = L.warm;
+    // (a world can set its own colour finish: "sat", "con" (contrast), "warm" (highlights), "cool" (shadows))
+    const g = grade.uniforms; if (L.sat) g.uSat.value = L.sat; if (L.con) g.uCon.value = L.con; if (L.warm !== undefined) g.uWarm.value = L.warm; if (L.cool !== undefined) g.uCool.value = L.cool;
     const still = dofMode !== 'play';
     dof.enabled = !!q.dof && L.dof !== false && (still || q.dofPlay);
     const d = dof.uniforms; d.uFocus.value = focusDist;
