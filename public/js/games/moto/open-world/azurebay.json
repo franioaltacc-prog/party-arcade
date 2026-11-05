@@ -36,7 +36,14 @@
       "fog": 0.2,
       "fogColor": "#bcd6ea"
     },
-    "forest": 1.4
+    "forest": 1.4,
+    "beach": {
+      "band": [
+        0.5,
+        6
+      ],
+      "chance": 0.34
+    }
   },
   "terrain": {
     "noise": 7,
@@ -517,9 +524,9 @@
       1500,
       1.9
     ],
-    "shallow": "#3fd6c6",
-    "deep": "#073a5c",
-    "clear": 0.12,
+    "shallow": "#46e3d0",
+    "deep": "#08507a",
+    "clear": 0.17,
     "waves": [
       [
         64,
@@ -551,6 +558,9 @@
         0.03,
         12
       ]
-    ]
+    ],
+    "whitecaps": 0.6,
+    "swash": 0.35,
+    "scatter": 0.14
   }
 }

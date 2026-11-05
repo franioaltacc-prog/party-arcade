@@ -5,7 +5,12 @@
  * does), the sun glinting off it, small ripples moving over the waves, light glowing through the crests, foam where
  * a crest breaks, along the beaches and in every jet ski's wake (wakes: a picture of the foam round you, redrawn
  * each frame from where the jet skis have been). Also the buoys, piers and the lighthouse ("features": { buoys,
- * piers, lighthouse }), bobbing on the same waves. */
+ * piers, lighthouse }), bobbing on the same waves.
+ * 3.25: the foam is lace (the bubbly cells real foam makes, drawn here), whitecaps break on the crests where the wind
+ * blows them ("sea": {"whitecaps": 0..1}), breakers roll in over the shallows as lines of foam, the water washes up
+ * and back down the beach ("swash": metres), and the colour runs turquoise over sand, through a green-blue, to deep
+ * blue. A wooden pier has planks, rails and posts. Lakes use the same water (lakeWater in shore.mjs): calm wind chop,
+ * clipped to the lake's shore. */
 import * as THREE from 'three';
 import {seaClock, seaLight} from './materials.mjs';
 
@@ -22,23 +27,46 @@ function rippleTexture() {
   }
   g.putImageData(img, 0, 0); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.NoColorSpace; return t;
 }
-/** A tileable foam pattern (white bubbly streaks) for the crests, the beaches and the wakes. */
+/** Tileable foam: R the lace (the bright walls between bubbles of all sizes, as real foam on water looks), G big soft
+    patches (where foam gathers and where it's thin). Drawn here from cells (Worley noise), no picture files. */
 function foamTexture() {
-  const N = 256, c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d');
-  g.fillStyle = '#000'; g.fillRect(0, 0, N, N);
+  const N = 256, c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d'), img = g.createImageData(N, N);
   let s = 41; const r = () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
-  for (let i = 0; i < 900; i++) {
-    const x = r() * N, y = r() * N, rad = 1 + r() * r() * 9, a = .25 + r() * .6;
-    for (const ox of [-N, 0, N]) for (const oy of [-N, 0, N]) { g.beginPath(); g.arc(x + ox, y + oy, rad, 0, 6.2832); g.strokeStyle = `rgba(255,255,255,${a})`; g.lineWidth = .8 + r() * 1.6; g.stroke(); }
+  const layer = (n) => { const pts = []; for (let i = 0; i < n; i++) pts.push([r(), r(), .6 + r() * .4]); return pts; };
+  const fine = layer(220), mid = layer(70), big = layer(9);
+  const cell = (pts, u, v) => { let d1 = 9, d2 = 9; for (const [x, y, w] of pts) { let dx = Math.abs(u - x), dy = Math.abs(v - y); dx = Math.min(dx, 1 - dx); dy = Math.min(dy, 1 - dy); const d = Math.hypot(dx, dy) / w; if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) d2 = d; } return [d1, d2]; };
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const u = x / N, v = y / N, [a1, a2] = cell(fine, u, v), [b1, b2] = cell(mid, u, v), [c1] = cell(big, u, v);
+    const wallF = Math.max(0, 1 - (a2 - a1) * 38), wallM = Math.max(0, 1 - (b2 - b1) * 16);
+    const lace = Math.min(1, wallF * .75 + wallM * .8 + Math.max(0, .5 - b1 * 7) * .5);
+    const patch = Math.min(1, Math.max(0, 1.25 - c1 * 4.2));
+    const i = (y * N + x) * 4; img.data[i] = lace * 255; img.data[i + 1] = patch * 255; img.data[i + 2] = 0; img.data[i + 3] = 255;
   }
-  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.NoColorSpace; return t;
+  g.putImageData(img, 0, 0); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.NoColorSpace; return t;
+}
+/** Planks for a pier's deck: boards across, weathered grey-brown, dark gaps between (tiles along the pier). */
+function plankTexture() {
+  const W = 128, H = 256, c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+  let s = 9; const r = () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
+  for (let y = 0; y < H; y += 16) {
+    const k = .78 + r() * .3; g.fillStyle = `rgb(${Math.round(132 * k)},${Math.round(108 * k)},${Math.round(82 * k)})`; g.fillRect(0, y, W, 16);
+    for (let i = 0; i < 60; i++) { g.fillStyle = r() < .5 ? 'rgba(60,45,30,.18)' : 'rgba(220,210,190,.12)'; g.fillRect(r() * W, y + 1 + r() * 14, 8 + r() * 40, 1); }
+    g.fillStyle = 'rgba(25,18,12,.85)'; g.fillRect(0, y + 14.5, W, 1.5);
+    for (const nx of [10, W - 12]) { g.fillStyle = 'rgba(40,40,40,.7)'; g.fillRect(nx, y + 6, 2, 2); }
+  }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
 }
 
-export function createOcean(terrain, scene, map, { quality = 1, dark = false } = {}) {
-  const sea = terrain.sea, W = map.size[0], D = map.size[1], disposables = [], group = new THREE.Group(); scene.add(group);
-  // ---------------------------------------------------------------- how deep it is: a picture of the seabed
-  const BN = 512, bed = new Float32Array(BN * BN), half = new Uint16Array(BN * BN);
-  for (let j = 0; j < BN; j++) for (let i = 0; i < BN; i++) bed[j * BN + i] = terrain.bedAt(-W / 2 + W * (i + .5) / BN, -D / 2 + D * (j + .5) / BN);
+/** lake: { level, position [x, z], radius [rx, rz], waves [[wavelength m, height m, direction °]…], shallow, deep,
+    clear, whitecaps, swash }: a lake's water instead of the sea (calm, its own clock, only inside the lake's shore). */
+export function createOcean(terrain, scene, map, { quality = 1, dark = false, lake = null } = {}) {
+  const sea = lake || terrain.sea, W = map.size[0], D = map.size[1], disposables = [], group = new THREE.Group(); scene.add(group);
+  // ---------------------------------------------------------------- how deep it is: a picture of the seabed (or lake bed)
+  const BN = lake ? 384 : 512, bed = new Float32Array(BN * BN), half = new Uint16Array(BN * BN);
+  const BX = lake ? lake.position[0] - lake.radius[0] * 1.4 : -W / 2, BZ = lake ? lake.position[1] - lake.radius[1] * 1.4 : -D / 2;
+  const BW = lake ? lake.radius[0] * 2.8 : W, BD = lake ? lake.radius[1] * 2.8 : D;
+  const bedAt = lake ? (x, z) => terrain.heightAt(x, z) : (x, z) => terrain.bedAt(x, z);
+  for (let j = 0; j < BN; j++) for (let i = 0; i < BN; i++) bed[j * BN + i] = bedAt(BX + BW * (i + .5) / BN, BZ + BD * (j + .5) / BN);
   for (let k = 0; k < bed.length; k++) half[k] = THREE.DataUtils.toHalfFloat(bed[k]);
   const bedTex = new THREE.DataTexture(half, BN, BN, THREE.RedFormat, THREE.HalfFloatType); bedTex.magFilter = bedTex.minFilter = THREE.LinearFilter; bedTex.needsUpdate = true; disposables.push(bedTex);
   // ---------------------------------------------------------------- the wakes: foam drawn round you each frame
@@ -56,15 +84,27 @@ export function createOcean(terrain, scene, map, { quality = 1, dark = false } =
   for (let r = 1; r < rings; r++) for (let s2 = 0; s2 < segs; s2++) { const a = 1 + (r - 1) * segs + s2, b = 1 + (r - 1) * segs + (s2 + 1) % segs, c = a + segs, d = b + segs; idx.push(a, b, c, b, d, c); }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); geo.setIndex(idx); disposables.push(geo);
   const ripple = rippleTexture(), foam = foamTexture(); ripple.anisotropy = foam.anisotropy = 8; disposables.push(ripple, foam);
-  const waves = terrain.waves.slice(0, MAXW);
+  let waves = terrain.waves || [];
+  if (lake) {   // (a lake's wind chop: short, low waves, the same kind as the sea's)
+    waves = (lake.waves || [[11, .035, 30], [6.5, .022, -25], [4.2, .012, 75]]).map(([L, A, deg]) => { const k = 2 * Math.PI / L, a = deg * Math.PI / 180; return { k, A, dx: Math.cos(a), dz: Math.sin(a), w: Math.sqrt(9.81 * k) }; });
+    for (const w of waves) w.Q = .6 / (w.k * w.A * waves.length);
+  }
+  waves = waves.slice(0, MAXW);
+  const amp = waves.reduce((a, w) => a + w.A, 0);
   const u = {
     uTime: seaClock, uCenter: { value: new THREE.Vector2() }, uLevel: { value: sea.level },
     uWaveA: { value: Array.from({ length: MAXW }, (_, i) => waves[i] ? new THREE.Vector4(waves[i].dx, waves[i].dz, waves[i].k, waves[i].A) : new THREE.Vector4()) },
     uWaveB: { value: Array.from({ length: MAXW }, (_, i) => waves[i] ? new THREE.Vector2(waves[i].Q, waves[i].w) : new THREE.Vector2()) },
-    uBed: { value: bedTex }, uBox: { value: new THREE.Vector4(-W / 2, -D / 2, W, D) },
+    uBed: { value: bedTex }, uBox: { value: new THREE.Vector4(BX, BZ, BW, BD) },
+    uAmp: { value: Math.max(.05, amp) }, uWhite: { value: sea.whitecaps ?? (lake ? .15 : .55) }, uSwash: { value: sea.swash ?? (lake ? .12 : .32) }, uEdge: { value: lake ? .15 : .3 }, uFlat: { value: sea.flat ?? (lake ? .9 : .3) }, uScatter: { value: sea.scatter ?? .1 }, uDetail: { value: sea.detail ?? (lake ? .35 : 1) },
+    uClip: { value: lake ? new THREE.Vector4(lake.position[0], lake.position[1], lake.radius[0] * 1.12, lake.radius[1] * 1.12) : new THREE.Vector4() },
     uSwell: { value: new THREE.Vector3(...(sea.swell || [0, 1, 1])) },
     uRipple: { value: ripple }, uFoam: { value: foam }, uWake: { value: wakeTex }, uWakeBox: { value: new THREE.Vector3(0, 0, WS) },
     uLight: seaLight, uShallow: { value: new THREE.Color(sea.shallow || '#35c2b8') }, uDeep: { value: new THREE.Color(sea.deep || '#0a3550') }, uClear: { value: sea.clear ?? .28 },
+    // the far shore mirrored in the water: reflections leaving lower than shoreRefl.angle (radians above the
+    // horizontal) hit the hills round a lake instead of the sky: { color, angle, k }
+    uShoreC: { value: new THREE.Color(sea.shoreRefl?.color || '#33452f') }, uShoreA: { value: new THREE.Vector2(sea.shoreRefl?.angle ?? .1, sea.shoreRefl?.k ?? (lake ? .85 : 0)) },
+    uMid: { value: new THREE.Color(sea.mid || new THREE.Color(sea.shallow || '#35c2b8').lerp(new THREE.Color(sea.deep || '#0a3550'), .42).offsetHSL(-.02, .12, .02)) },
   };
   const mat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: .06, metalness: 0, transparent: true, envMapIntensity: .95 });
   disposables.push(mat);
@@ -72,8 +112,11 @@ export function createOcean(terrain, scene, map, { quality = 1, dark = false } =
     Object.assign(sh.uniforms, u);
     const common = `
 uniform float uTime; uniform vec2 uCenter; uniform float uLevel; uniform vec4 uWaveA[${MAXW}]; uniform vec2 uWaveB[${MAXW}];
-uniform sampler2D uBed; uniform vec4 uBox; uniform vec3 uSwell;
+uniform sampler2D uBed; uniform vec4 uBox; uniform vec3 uSwell; uniform float uAmp, uWhite, uSwash, uEdge; uniform vec4 uClip;
 varying vec3 vSeaPos; varying vec2 vSeaGrid; varying float vSeaH;
+// the water running up the beach and back: a slow surge, its timing changing along the shore
+float seaSwash(vec2 p, float depth) { float k = 1.0 - smoothstep(-.6, 2.2, depth);
+  return k * uSwash * (sin(uTime * .85 + p.x * .021 + p.y * .017 + sin(p.x * .013 - p.y * .009) * 2.0) * .6 + .4); }
 float seaBed(vec2 p) { return texture2D(uBed, (p - uBox.xy) / uBox.zw).r; }
 float seaScale(vec2 p, float bed) { float depth = uLevel - bed; float s = smoothstep(.3, 3.5, depth);
   return s * (1.0 + (uSwell.z - 1.0) * smoothstep(uSwell.x, uSwell.y, p.y)); }`;
@@ -94,11 +137,11 @@ vec3 objectNormal = normalize(seaN);
 vec3 objectTangent = vec3(1.0, 0.0, 0.0);
 #endif`)
       .replace('#include <begin_vertex>', `
-vec3 transformed = vec3(seaP.x + seaD.x, uLevel + seaD.y, seaP.y + seaD.z);
+vec3 transformed = vec3(seaP.x + seaD.x, uLevel + seaD.y + seaSwash(seaP, uLevel - seaB), seaP.y + seaD.z);
 vSeaPos = transformed; vSeaGrid = seaP; vSeaH = seaD.y;`);
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>' + common + `
 uniform sampler2D uRipple; uniform sampler2D uFoam; uniform sampler2D uWake; uniform vec3 uWakeBox;
-uniform vec3 uShallow; uniform vec3 uDeep; uniform float uClear, uLight;
+uniform vec3 uShallow; uniform vec3 uDeep; uniform vec3 uMid; uniform float uClear, uLight; uniform vec3 uShoreC; uniform vec2 uShoreA; uniform float uScatter, uDetail, uFlat;
 float seaFoam = 0.0; float seaJ = 1.0; float seaHt = 0.0; float seaFp = 1.0;
 const vec4 SEA_DETAIL[10] = vec4[10](vec4(-0.447, 0.894, 1.963, 4.389), vec4(0.583, 0.812, 2.442, 4.894), vec4(-0.583, -0.812, 3.036, 5.458), vec4(0.898, 0.440, 3.776, 6.086), vec4(-0.975, -0.224, 4.695, 6.787), vec4(-0.665, 0.747, 5.839, 7.568), vec4(0.934, 0.356, 7.261, 8.440), vec4(-0.999, -0.047, 9.029, 9.411), vec4(0.972, 0.233, 11.228, 10.495), vec4(-0.914, 0.405, 13.963, 11.704)); vec3 seaNW = vec3(0.0, 1.0, 0.0);
 // the waves' slope and how folded they are (seaJ: under ~.3 a crest is breaking), worked out for every pixel from the
@@ -117,7 +160,7 @@ void seaShade(vec2 g) {
   // out where it'd be smaller than a few pixels
   for (int i = 0; i < 10; i++) {
     vec4 d = SEA_DETAIL[i]; float L = 6.2832 / d.z;
-    float s = .06 * smoothstep(2.0 * fp, 6.0 * fp, L) * (1.0 - .4 * float(i) / 9.0);
+    float s = .06 * uDetail * smoothstep(2.0 * fp, 6.0 * fp, L) * (1.0 - .4 * float(i) / 9.0);
     float c = cos(d.z * dot(d.xy, g) - d.w * uTime + float(i) * 1.7);
     n -= vec3(d.x * s * c, 0.0, d.y * s * c);
   }
@@ -127,16 +170,34 @@ void seaShade(vec2 g) {
 seaShade(vSeaGrid);
 vec3 seaSurf = vec3(vSeaPos.x, uLevel + seaHt, vSeaPos.z);   // (the smooth surface here, not the mesh's flat facets: at a glancing angle they'd show)
 vec3 seaEye = cameraPosition - seaSurf; float seaDist = length(seaEye); vec3 seaV = seaEye / seaDist;
-float seaBedHere = seaBed(vSeaPos.xz); float seaDepth = max(0.0, seaSurf.y - seaBedHere);
+float seaBedHere = seaBed(vSeaPos.xz); float seaDepth = max(0.0, seaSurf.y + seaSwash(vSeaGrid, uLevel - seaBedHere) - seaBedHere);
 // light through water: the further it goes (down and back up at this angle), the more of the shallow colour turns deep
 float seaPath = seaDepth / max(.18, seaV.y) * uClear;
 float seaThick = 1.0 - exp(-seaPath);
-diffuseColor.rgb = mix(uShallow, uDeep, smoothstep(0.0, 1.0, seaThick * 1.25));
+if (uClip.z > 0.0 && length((vSeaPos.xz - uClip.xy) / uClip.zw) > 1.0) discard;   // (a lake: only inside its shore)
+// turquoise over the sand, through a green-blue, to deep blue (and the deep colour richer straight down than across)
+float seaK = smoothstep(0.0, 1.0, seaThick * 1.25);
+diffuseColor.rgb = mix(mix(uShallow, uMid, smoothstep(0.0, .55, seaK)), uDeep, smoothstep(.45, 1.0, seaK));
+diffuseColor.rgb *= mix(1.0, .82, smoothstep(.6, 1.0, seaK) * seaV.y);
 diffuseColor.a = mix(.03, .96, smoothstep(0.0, 1.1, seaThick)) * smoothstep(0.0, .25, seaDepth + .05);
 // foam: where a crest folds over, along the beaches, and in the wakes
-float seaF1 = texture2D(uFoam, vSeaGrid * .11 + vec2(uTime * .013, uTime * .007)).r, seaF2 = texture2D(uFoam, vSeaGrid * .043 - vec2(uTime * .006, uTime * .011)).r;
-float seaCrest = smoothstep(.5, .18, seaJ) * smoothstep(.25, .75, seaF1 + seaF2 * .5);
-float seaShore = smoothstep(.75, .0, seaDepth) * smoothstep(-.4, .3, sin(uTime * .9 + vSeaPos.x * .07 + vSeaPos.z * .05 + seaF2 * 3.0) + seaDepth * 1.5) * (seaF1 + seaF2 * .6);
+vec2 seaWind = uWaveA[0].xy;   // (the foam streaks along the main swell's way)
+vec2 seaFG = vec2(dot(vSeaGrid, seaWind), dot(vSeaGrid, vec2(-seaWind.y, seaWind.x)));
+vec4 seaT1 = texture2D(uFoam, seaFG * vec2(.07, .13) + vec2(uTime * .011, uTime * .004)), seaT2 = texture2D(uFoam, vSeaGrid * .031 - vec2(uTime * .006, uTime * .009));
+float seaF1 = seaT1.r, seaF2 = seaT2.r, seaPatch = seaT1.g * .6 + seaT2.g * .6;
+float seaFar = smoothstep(.02, .3, seaFp);   // (far off the lace is finer than a pixel: show it as a soft white)
+float seaLace = mix(clamp(seaF1 * 1.1 + seaF2 * .45, 0.0, 1.0), .45, seaFar);
+// whitecaps: the wind tears the top off the highest crests (the waves' height against their biggest)
+float seaTop = seaHt / (uAmp * seaScale(vSeaGrid, seaBed(vSeaGrid)) + .02);
+// (and where a crest is pinched sharp, about to tip over)
+float seaCap = smoothstep(.2, .5, seaTop) * smoothstep(.74, .46, seaJ) * smoothstep(.3, .7, seaPatch) * uWhite;
+float seaCrest = max(smoothstep(.5, .18, seaJ) * seaLace, smoothstep(.2, .5, seaCap * 1.6 * seaLace) * .9);   // (crisp torn lace, not a milky film)
+// breakers: lines of foam rolling in over the shallows (each depth contour moving shorewards), then the wash at the
+// water's edge and the fizz left behind as it runs back
+float seaBand = fract(seaDepth * .55 - uTime * .12 + seaT2.g * .35);
+float seaBreak = smoothstep(.0, .04, seaBand) * smoothstep(.2, .04, seaBand) * smoothstep(3.4, 1.2, seaDepth) * smoothstep(.05, .5, seaDepth);
+float seaEdge = smoothstep(uEdge, .02, seaDepth);
+float seaShore = max(seaBreak * (.55 + seaPatch * .6), seaEdge) * seaLace * 1.25;
 vec2 seaWuv = (vSeaPos.xz - uWakeBox.xy) / uWakeBox.z + .5; float seaWake = 0.0;
 if (seaWuv.x > 0.0 && seaWuv.x < 1.0 && seaWuv.y > 0.0 && seaWuv.y < 1.0) seaWake = texture2D(uWake, seaWuv).r * (seaF1 * .8 + .45);
 seaFoam = clamp(max(max(seaCrest, seaShore), seaWake), 0.0, 1.0);
@@ -149,13 +210,24 @@ diffuseColor.a = max(diffuseColor.a, seaFoam * .95);`)
   float fp = seaFp;
   vec2 rp = r2 * .025 * smoothstep(.12, .03, fp) * (1.0 - seaFoam * .7);   // (a whisper of the finest sparkle, right by you)   // (each fading where it'd only shimmer)
   vec3 nW = normalize(seaNW + vec3(rp.x, 0.0, rp.y));
+  // (far off, the ripples average out: the water mirrors more smoothly there, instead of in flickering stripes)
+  nW = normalize(mix(nW, vec3(0.0, 1.0, 0.0), max(smoothstep(10.0, 140.0, seaDist), smoothstep(.15, 1.0, seaFp)) * uFlat));
   normal = normalize((viewMatrix * vec4(nW, 0.0)).xyz);
+}`)
+      .replace('#include <lights_fragment_maps>', `#include <lights_fragment_maps>
+if (uShoreA.y > 0.0) { // the hills round the water mirrored in it, wavy with the ripples (each bit of shore a little different)
+  vec3 nW = inverseTransformDirection(normal, viewMatrix), R = reflect(-seaV, nW);
+  float az = atan(R.z, R.x), ridge = uShoreA.x * (.65 + .35 * sin(az * 3.0 + 1.3) * sin(az * 7.0 - .4) + .2 * sin(az * 13.0));
+  float occ = 1.0 - smoothstep(ridge * .2, ridge * 1.25, R.y);
+  radiance = mix(radiance, uShoreC * (.35 + .65 * uLight) * (.8 + .4 * sin(az * 23.0)), occ * uShoreA.y);
 }`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
 roughnessFactor = mix(roughnessFactor, .75, seaFoam);`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
 // light through the tops of the waves (green-blue), strongest looking towards the light
-totalEmissiveRadiance += uShallow * .22 * uLight * smoothstep(-.2, 1.2, seaHt) * (1.0 - seaFoam);`)
+totalEmissiveRadiance += uShallow * .22 * uLight * smoothstep(-.2, 1.2, seaHt) * (1.0 - seaFoam);
+// (sunlight scattered inside the water: the clear turquoise glow of a sunny sea)
+totalEmissiveRadiance += uMid * uScatter * uLight * (1.0 - seaFoam) * smoothstep(.0, .25, seaThick) * (1.0 - .6 * smoothstep(.7, 1.0, seaThick));`)
       .replace('#include <opaque_fragment>', `#include <opaque_fragment>
 { // a real water surface mirrors more the flatter you look across it, see-through or not
   vec3 nW = inverseTransformDirection(normal, viewMatrix);
@@ -163,19 +235,29 @@ totalEmissiveRadiance += uShallow * .22 * uLight * smoothstep(-.2, 1.2, seaHt) *
   gl_FragColor.a = clamp(max(gl_FragColor.a, f * .9), 0.0, 1.0);
 }`);
   };
-  mat.customProgramCacheKey = () => 'sea-v2';
+  mat.customProgramCacheKey = () => 'sea-v3' + (lake ? '-lake' : '');
   const water = new THREE.Mesh(geo, mat); water.frustumCulled = false; water.renderOrder = 2; group.add(water);
   // ---------------------------------------------------------------- buoys, piers and the lighthouse
-  const F = map.features || {}, things = [];
+  const F = lake ? {} : map.features || {}, things = [];   // (a lake has none of the sea's things)
   const buoyGeo = new THREE.CylinderGeometry(.42, .55, 1.1, 14).translate(0, .25, 0), capGeo = new THREE.ConeGeometry(.3, .55, 12).translate(0, 1.05, 0); disposables.push(buoyGeo, capGeo);
   const buoyMats = {}; const buoyMat = (c) => buoyMats[c] || (buoyMats[c] = (disposables.push(new THREE.MeshStandardMaterial({ color: c, roughness: .45 })), disposables.at(-1)));
   const buoys = (F.buoys || []).map(([x, z, color = '#ff6a10']) => { const g = new THREE.Group(); g.add(new THREE.Mesh(buoyGeo, buoyMat(color)), new THREE.Mesh(capGeo, buoyMat('#f4f4f4'))); g.children.forEach((m) => { m.castShadow = true; }); group.add(g); return { g, x, z, ph: x * .37 + z * .21 }; });
-  const wood = new THREE.MeshStandardMaterial({ color: '#7a5a3c', roughness: .9 }); disposables.push(wood);
+  const planks = plankTexture(), wood = new THREE.MeshStandardMaterial({ map: planks, roughness: .88 }), post = new THREE.MeshStandardMaterial({ color: '#5a4430', roughness: .95 });
+  disposables.push(planks, wood, post);
   for (const [x, z, heading, len, width = 4] of F.piers || []) {
     const pier = new THREE.Group(); pier.position.set(x, sea.level, z); pier.rotation.y = heading; group.add(pier);
-    const deck = new THREE.Mesh(new THREE.BoxGeometry(width, .25, len).translate(0, 1.5, len / 2), wood); deck.castShadow = deck.receiveShadow = true; pier.add(deck); disposables.push(deck.geometry);
-    const post = new THREE.CylinderGeometry(.16, .18, 6, 8).translate(0, -1.4, 0); disposables.push(post);
-    for (let d = 0; d <= len; d += 4) for (const k of [-1, 1]) { const m = new THREE.Mesh(post, wood); m.position.set(k * (width / 2 - .2), 0, d); pier.add(m); }
+    const deckGeo = new THREE.BoxGeometry(width, .22, len).translate(0, 1.5, len / 2), uv = deckGeo.attributes.uv, pos = deckGeo.attributes.position;
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, (pos.getX(i) / width + .5) * width / 4, pos.getZ(i) / 4);   // (a 4 m tile of planks across the deck)
+    const deck = new THREE.Mesh(deckGeo, wood); deck.castShadow = deck.receiveShadow = true; pier.add(deck); disposables.push(deckGeo);
+    const pile = new THREE.CylinderGeometry(.17, .2, 6.4, 10).translate(0, -1.6, 0), beamG = new THREE.BoxGeometry(width + .3, .22, .22).translate(0, 1.27, 0);
+    const railPost = new THREE.BoxGeometry(.12, 1.05, .12).translate(0, 2.13, 0), rail = new THREE.BoxGeometry(.1, .1, len).translate(0, 2.6, len / 2), mid = new THREE.BoxGeometry(.06, .07, len).translate(0, 2.1, len / 2);
+    disposables.push(pile, beamG, railPost, rail, mid);
+    for (let d = 0; d <= len; d += 4) {
+      for (const k of [-1, 1]) { const m = new THREE.Mesh(pile, post); m.position.set(k * (width / 2 - .2), 0, d); m.castShadow = true; pier.add(m); }
+      const b = new THREE.Mesh(beamG, post); b.position.z = d; pier.add(b);
+      for (const k of [-1, 1]) { const m = new THREE.Mesh(railPost, post); m.position.set(k * (width / 2 - .08), 0, d); m.castShadow = true; pier.add(m); }
+    }
+    for (const k of [-1, 1]) for (const g of [rail, mid]) { const m = new THREE.Mesh(g, post); m.position.x = k * (width / 2 - .08); pier.add(m); }
     things.push(pier);
   }
   let beam = null;
