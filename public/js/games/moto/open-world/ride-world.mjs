@@ -371,7 +371,7 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
    breeze.uWindT.value=(breeze.uWindT.value+dt)%600;if(tuftK){tuftK.time.value=breeze.uWindT.value;tuftsRound.step(quality>.8?6000:3500);}
    if(lawn){lawnK.time.value=breeze.uWindT.value;lawnAt.set(camera.position.x+(point.x-camera.position.x)*.6,0,camera.position.z+(point.z-camera.position.z)*.6);   // (centred a little ahead of the camera)
     const c=lawn.centre;if(Number.isFinite(cx)&&!lawn.busy&&(!c||Math.hypot(c.x-lawnAt.x,c.z-lawnAt.z)>(quality>.8?4:3)))lawn.rebuild(lawnAt.x,lawnAt.z);
-    lawn.step(quality>.8?7000:3000);}
+    lawn.step(quality>.8?3000:1200);}   // (a little a frame: no hitches)
    cloudU.uT.value=(cloudU.uT.value+dt)%2000;cloudLayer.position.x=camera.position.x;cloudLayer.position.z=camera.position.z;
    wilds?.update(camera.position,dt);
    updatePatch(ahead);dress?.update(dt,cx,cz,inner-3,visibleHeight,camera.position);fx.update(dt,camera);parks.update(dt);built.update(camera.position);forest?.update(camera.position);slope?.update(camera.position);city?.update(camera.position);ocean?.update(camera.position,dt);weather(camera.position,dt);drawCoins(performance.now());drawHoops(performance.now());
