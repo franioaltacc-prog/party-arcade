@@ -5,7 +5,7 @@ import {gauntletScenery,forestScenery} from './nature.mjs';
 import {slopeScenery} from './slope.mjs';
 import {cityScenery} from './city.mjs';
 import {createOcean} from './ocean.mjs';
-import {lakeWater,beachDress} from './shore.mjs';
+import {lakeWater,beachDress} from './shore.mjs';import {snowLook} from './snow-look.mjs';
 import {parkScenery} from './parks.mjs';
 import {terrainMaterial,seaLight} from './materials.mjs';
 import {growWilds} from './wilds.mjs';
@@ -213,7 +213,7 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
  const geo=new THREE.PlaneGeometry(half*2,half*2,n,n);geo.rotateX(-Math.PI/2);
  const pos=geo.attributes.position,local=pos.array.slice(),color=new Float32Array(pos.count*3).fill(1),trail=new Float32Array(pos.count);
  geo.setAttribute('color',new THREE.BufferAttribute(color,3));geo.setAttribute('trailWeight',new THREE.BufferAttribute(trail,1));
- const detail=terrainMaterial(map,built.layered.textures,true),patch=new THREE.Mesh(geo,detail.material);patch.receiveShadow=true;patch.castShadow=!!shadows&&!night;scene.add(patch);   // (the ground near you casts shadows too: a bank or a berm shades the dirt behind it)
+ const detail=terrainMaterial(map,built.layered.textures,true),patch=new THREE.Mesh(geo,detail.material);if(map.look?.snowLook){snowLook(built.ground.material,map,{near:false,quality});snowLook(detail.material,map,{near:true,quality});}patch.receiveShadow=true;patch.castShadow=!!shadows&&!night;scene.add(patch);   // (the ground near you casts shadows too: a bank or a berm shades the dirt behind it)
  let cx=Infinity,cz=Infinity,job=null;const samples=new Map();
  const backPos=new Float32Array(pos.array.length),backColor=new Float32Array(color.length),backTrail=new Float32Array(trail.length);
  const coarse=built.renderHeightAt;
