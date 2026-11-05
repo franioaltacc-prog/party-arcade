@@ -19,7 +19,12 @@ w={
  "palette":{"sky":"#aeb8bd","low":"#2f4a2c","high":"#6d7f5a","trail":"#5a4a3c","water":"#4f6f78","accent":"#ffb21a"},
  "look":{"slate":True,"drizzle":True,"snow":False,"pisteClear":3,"treeLine":700,
    "sky":{"sun":[30,160],"turbidity":9,"rayleigh":2.4,"mie":0.016,"exposure":1.15,"fog":1.5,"fogColor":"#8f9aa0","sunColor":"#d8dde2","sunI":1.0,"hemi":["#9aa6b0","#2a3226",0.62]},
-   "grass":[[48,76,38],[104,128,68]],"dirt":[[92,74,56],[142,120,94]],"rock":[[58,62,68],[112,118,124]]},
+   "grass":[[48,76,38],[104,128,68]],"dirt":[[92,74,56],[142,120,94]],"rock":[[58,62,68],[112,118,124]],
+   "soil":{'set': 'slate', 'cover': 0.35, 'scale': 1.4, 'worn': 0.8, 'banks': 1.0, 'tint': [1.1, 1.1, 1.12]},
+   "tufts":{'tips': [[0.46, 0.54, 0.24], [0.58, 0.6, 0.3], [0.74, 0.7, 0.44]], 'tint': [0.86, 0.94, 0.84], 'lawnTips': [[0.42, 0.58, 0.2], [0.56, 0.64, 0.26], [0.76, 0.74, 0.42]], 'lawnTint': [0.8, 0.86, 0.76], 'radius': 0.7, 'density': 0.85, 'lawn': False},
+   "post":{'ao': 0.8, 'con': 1.1, 'sat': 0.98},
+   "grassMul":[0.74, 0.84, 0.68],
+   "oldGrass":False},
  "terrain":{"noise":10,"scale":230,"hills":[[0,-1500,600,1000,1900],[-640,-200,170,280,1500],[640,-200,170,280,1500],[0,1100,-20,500,300]],"scarp":{"z":790,"height":48,"edge":150,"amplitude":12,"wavelength":420}},
  "regions":[{"name":"Slatefall Top","position":start},{"name":"Slatefall Bottom","position":finish},{"name":"Quarry Road","position":[0,-560]},{"name":"The Canyon","position":[-100,-180]}],
  "routes":[

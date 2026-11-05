@@ -470,6 +470,8 @@ with an import map), everything else is drawn and synthesised in code (no model,
   lawnRoot, lawnTint, lawnDensity}`: the grass field's and the lawn's blade colours and thickness (`lawn: false` for
   none). Light and colour: `look.sky` (sun, sunI, sunColor, hemi, exposure…), `look.iblK`, `look.skyGrade`,
   `look.post` (haze, AO, grade), `look.grassMul`, `look.photo` (a world's own photos for grass, dirt or rock).
+  `look.oldGrass: false` leaves out the old drawn grass clumps (for a world that has `look.tufts` instead: the chutes,
+  Slatefall).
   `look.lakeWater` / `look.beach`: a water world's own lake water and beach dressing (`open-world/shore.mjs`,
   `lakeWater` / `beachDress`, each `{update(eye, dt), dispose()}` or null).
   Driftvvd (`drift`): `drift.js`, its own top-down car physics (bicycle model, tyre curve, friction circle, handbrake

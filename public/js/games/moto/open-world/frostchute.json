@@ -44,6 +44,11 @@
         "/models/nature/snow-ground-height.jpg",
         245
       ]
+    },
+    "post": {
+      "ao": 0.7,
+      "con": 1.08,
+      "sat": 1.04
     }
   },
   "terrain": {

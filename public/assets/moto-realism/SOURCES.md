@@ -52,15 +52,21 @@ rising in a V, leaves only out at the tips), a detailed and a simple far version
 tools/pack_trees.py (the settings are in its notes). Used for the lone trees on the ridges of Jungle Ridge MX
 (open-world/mx-dress.mjs).
 
-## The other worlds' ground (redsand-, sand-, pineground-, leafground-, autumnleaves-, ash-, darkrock-*.webp)
+## The other worlds' ground (redsand-, sand-, pineground-, leafground-, autumnleaves-, ash-, darkrock-, muddy-, slate-*.webp)
 
 All from Poly Haven, CC0, from the 2K JPG maps, packed like the red soil above (colour, OpenGL normal, and orh =
 ambient occlusion / roughness / displacement height; 2048 px and -1k 1024 px, WebP), by a small Pillow script:
 - redsand: "Red Sand" by Rohit Seervi (https://polyhaven.com/a/red_sand): Redrock Frontier, Canyon Run, Sheerwall Mesa.
 - sand: "Dense Sand" by Dimitrios Savva (https://polyhaven.com/a/dense_sand): Golden Dunes.
-- pineground: "Forest Ground 04" by Rob Tuytel and Rico Cilliers (https://polyhaven.com/a/forest_ground_04): Pinecrest.
+- pineground: "Forest Ground 04" by Rob Tuytel and Rico Cilliers (https://polyhaven.com/a/forest_ground_04): Pinecrest,
+  and the Timber, Fog and Midnight Chutes' forest floor.
 - leafground: "Forest Leaves 02" by Rob Tuytel (https://polyhaven.com/a/forest_leaves_02): Wildwood and Tag Wood.
-- autumnleaves: "Forest Leaves 04" by Rob Tuytel (https://polyhaven.com/a/forest_leaves_04): Autumn Ridge.
+- autumnleaves: "Forest Leaves 04" by Rob Tuytel (https://polyhaven.com/a/forest_leaves_04): Autumn Ridge and the
+  Autumn Chute.
+- muddy: "Muddy Tracks" by Amal Kumar (https://polyhaven.com/a/muddy_tracks): the Storm Chute (packed the same way, in
+  headless Chrome's WebP encoder).
+- slate: "Rock Ground 02" by Rob Tuytel (https://polyhaven.com/a/rock_ground_02): Slatefall's line and rocky banks
+  (packed the same way).
 - ash: "Burned Ground 01" by Rob Tuytel (https://polyhaven.com/a/burned_ground_01): Magma Isle.
 - darkrock (colour and a grey height picture only, 2048 px): "Dark Rock" by Amal Kumar (https://polyhaven.com/a/dark_rock):
   Magma Isle's rock (its look.photo.rock).
