@@ -6,6 +6,16 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.24.15', date: '2026-11-05', emoji: '🌊', title: 'Revvd: real-looking sea, lake and snow', items: [
+      'Azure Bay’s sea is a deep blue with white foam tearing off the biggest waves, clear turquoise water over the sand near the beach, and lines of foam rolling in to the shore',
+      'Coconut palms line the beaches, leaning out over the water and swaying in the sea breeze (crash into one and you’ll know they’re solid)',
+      'The pier is made of real wooden planks, posts and rails',
+      'Emerald Bay’s lake is real water now: clear turquoise by the shore, deep green-blue further out, with the hills mirrored in it and little waves lapping at the edge',
+      'Frost Peak and Powder Peak: bright white snow under a deep blue sky, cool blue shadows, and snow grains that sparkle when you ride towards the sun',
+      'The wind has packed some of the snow into hard, smooth crust with long ridges, next to soft fluffy powder',
+      'A light blue haze over the far mountains, and Powder Peak’s brownish cloud band is now white cloud',
+      'Twilight Slope gets the wind-packed snow too, and keeps its cosy dusk light',
+    ] },
     { v: '3.24.14', date: '2026-11-05', emoji: '🏁', title: 'Revvd: the three race tracks look real', items: [
       'Desert Dunes, Forest Mud and Snow Ridge get real ground: gravel and sand in the desert, dark mud and fallen leaves in the forest, and packed snow on the ridge, with tyre ruts down the track',
       'Real plants and rocks by the track: quiver trees, red boulders, spiky bushes and succulents in the desert; tall pines, oaks, bushes, ferns, mossy rocks and stumps in the forest; snowy spruces on the ridge',

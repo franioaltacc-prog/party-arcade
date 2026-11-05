@@ -52,7 +52,21 @@
     "floodlights": {
       "every": 50
     },
-    "corridor": 45
+    "corridor": 45,
+    "snowLook": {
+      "wind": 120,
+      "packed": 0.45,
+      "shade": [
+        0.92,
+        0.96,
+        1.05
+      ],
+      "sun": [
+        1,
+        1,
+        1
+      ]
+    }
   },
   "terrain": {
     "noise": 3,
