@@ -151,18 +151,20 @@ ${map.look?.paved?`if(owCliff<.5){ // concrete: slabs 4 m square, each a touch l
 ${map.look?.grassMul?`owGround.rgb*=mix(vec3(1.0),vec3(${map.look.grassMul.map(v=>(+v).toFixed(3)).join(',')}),1.0-owCliff);   // (look.grassMul: this world's grass a touch greener or drier)`:''}
 ${S?`float owSoilK=0.0;Soil owS;float owSoilAO=1.0;
 { float owDist=length(cameraPosition-owPosition);vec3 owNW=normalize(owSurfaceNormal);
-  owS=soilAt(owPosition,owNW,cameraPosition,owDist);
+  float owIn=1.0-smoothstep(owSoilArea.z*.8,owSoilArea.z,length(owPosition.xz-owSoilArea.xy)),owWF=owFbm(owPosition.xz*.055+1.7);
+  // (the scan is only worked out where it shows: trails, a world's open ground, the worn patches)
+  owS.albedo=vec3(.5);owS.n=owNW;owS.ao=1.0;owS.rough=1.0;owS.h=.5;
+  if(owTrail>.01${soilSpec.cover?'||owIn>0.0':''}||(owIn>0.0&&owWF>.44&&${soilF(soilSpec.worn,.9)}>0.0))owS=soilAt(owPosition,owNW,cameraPosition,owDist);
   // the track: soil, its edge broken up by the soil's own lumps (grass wins on the low bits)
   owSoilK=smoothstep(.2,.7,owTrail+(owS.h-.4)*.45*smoothstep(0.0,.35,owTrail))*(1.0-owCliff*.25);
   // the cut banks round the track: steep earth, soil from all sides
-  float owIn=1.0-smoothstep(owSoilArea.z*.8,owSoilArea.z,length(owPosition.xz-owSoilArea.xy));
   if(owIn>0.0&&owCliff>.02){float a;vec4 owT=soilTri(owPosition,owWeights,a);float k=smoothstep(.05,.5,owCliff)*owIn*${soilF(soilSpec.banks,1)};
    owGround=mix(owGround,vec4(owT.rgb,owT.a),k);owSoilAO=mix(1.0,a,k);}
   // worn patches on the grassy slopes round the track: the red earth showing through the grass, ragged-edged
   ${soilSpec.cover?`{ // the open ground is this ground (its lumps breaking up any grass edge)
    float c=clamp(${soilF(soilSpec.cover,0)}+(owS.h-.5)*.3,0.0,1.0)*owIn*(1.0-smoothstep(.3,.7,owCliff));
    owGround=mix(owGround,vec4(owS.albedo,owS.h),c);owSoilAO=mix(owSoilAO,owS.ao,c); }`:''}
-  if(owIn>0.0){float e=smoothstep(.6,.74,owFbm(owPosition.xz*.055+1.7)+(owS.h-.5)*.3)*owIn*(1.0-owCliff)*${soilF(soilSpec.worn,.9)}*(1.0-owSoilK);
+  if(owIn>0.0){float e=smoothstep(.6,.74,owWF+(owS.h-.5)*.3)*owIn*(1.0-owCliff)*${soilF(soilSpec.worn,.9)}*(1.0-owSoilK);
    owGround=mix(owGround,vec4(owS.albedo*.92,owS.h),e);owSoilAO=mix(owSoilAO,owS.ao,e);}
   if(owSoilK>0.0){owGround=mix(owGround,vec4(owS.albedo,owS.h),owSoilK);owSoilAO=mix(owSoilAO,owS.ao,owSoilK);}
 }`:''}

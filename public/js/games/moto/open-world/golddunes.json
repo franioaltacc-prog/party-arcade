@@ -24,44 +24,13 @@
     "accent": "#ffb347"
   },
   "look": {
-    "sky": {
-      "sun": [
-        6,
-        250
-      ],
-      "turbidity": 12,
-      "rayleigh": 4,
-      "mie": 0.02,
-      "mieG": 0.93,
-      "exposure": 1.05,
-      "fog": 0.5,
-      "fogColor": "#f0a76a",
-      "sunColor": "#ffb57d"
-    },
-    "dirt": [
-      [
-        200,
-        140,
-        66
-      ],
-      [
-        252,
-        214,
-        146
-      ]
-    ],
-    "rock": [
-      [
-        170,
-        100,
-        50
-      ],
-      [
-        236,
-        170,
-        104
-      ]
-    ]
+    "sky": {"sun": [6, 250], "turbidity": 12, "rayleigh": 4, "mie": 0.02, "mieG": 0.93, "exposure": 1.05, "fog": 0.5, "fogColor": "#f0a76a", "sunColor": "#ffb57d", "sunI": 4.4, "hemi": ["#f2c49a", "#6b4a32", 0.3]},
+    "dirt": [[200, 140, 66], [252, 214, 146]],
+    "rock": [[170, 100, 50], [236, 170, 104]],
+    "soil": {"set": "sand", "cover": 1, "scale": 1.4, "tint": [1.45, 1.26, 1.02], "worn": 0, "banks": 0.5},
+    "tufts": {"tips": [[0.82, 0.72, 0.44], [0.62, 0.6, 0.34], [0.9, 0.84, 0.62]], "tint": [1.0, 0.92, 0.78], "density": 0.12, "radius": 0.7, "lawn": false},
+    "iblK": 0.9,
+    "post": {"ao": 0.7, "con": 1.12, "warm": 0.06, "hazeStart": 120}
   },
   "terrain": {
     "noise": 11,
