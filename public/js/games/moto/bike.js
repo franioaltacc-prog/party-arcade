@@ -1,4 +1,4 @@
-/* Motocross: the 3D bike and rider, built from code. Every moving part follows the physics: the fork
+/* Motocross: the 3D bike and rider, built from code (their shaped parts and kit paint are in mx-parts.js). Every moving part follows the physics: the fork
    slides, the swingarm swings, the shock squashes, the wheels spin, and the rider's body (hips from the
    physics, arms and legs worked out to reach the bars and the pegs) moves with it. Two bikes are 3D
    model files instead (/models/moto, both CC BY 4.0): they're fitted onto the same frame so their
@@ -12,6 +12,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DecalGeometry } from 'three/addons/geometries/DecalGeometry.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+import { canvasTex, roundRect, REVVD_HOT, inkOn, revvdLogo } from './bike-art.js';
+import { wheelGeos, blurMaterial, ringUV, chainGeo, chainMaterial, mxBodywork, frontFender, plateGeo, shroudTex, sideTex, plateTex, seatTex, kitMaterials, riderParts, sweep, boxy, limbGeo } from './mx-parts.js';
 
 // paint jobs; the ids match the "bikes" rewards in /data/unlocks.json
 export const LIVERIES = {
@@ -84,7 +86,7 @@ export const HELMETS = {
 };
 export const RIDERS = {
   biker: { name: 'Mystery Biker', emoji: '🧥', about: 'Leather jacket, jeans and a black visor (model by thomasdonovan26, CC BY)' },
-  mx: { name: 'MX Racer', emoji: '🏁', about: 'Classic motocross kit in your rider kit and helmet colours' },
+  mx: { name: 'MX Racer', emoji: '🏁', about: 'Full motocross kit: helmet with peak and goggles, jersey, pants, gloves and tall boots, in your kit and helmet colours' },
 };
 /** Unrevvd's riders (on mountain bikes) and Carvvd's snowboarder: Quaternius's CC0 characters. */
 export const MTB_RIDERS = {
@@ -95,6 +97,26 @@ export const MTB_RIDERS = {
 
 const V = (x, y, z = 0) => new THREE.Vector3(x, y, z);
 const UP = V(0, 1, 0);
+const lerp = (a, b, t) => a + (b - a) * t;
+
+/** Join a group's still parts into one mesh for each material (a bike is then a few dozen draws, not hundreds):
+    each child mesh is baked where it sits. keep: meshes left as they are (they move or blink). */
+function mergeStatic(group, keep = new Set()) {
+  const byMat = new Map();
+  for (const c of [...group.children]) {
+    if (!c.isMesh || keep.has(c) || c.children.length || Array.isArray(c.material) || !c.visible) continue;
+    c.updateMatrix();
+    const g = (c.userData.sharedGeo ? c.geometry.clone() : c.geometry).applyMatrix4(c.matrix);
+    if (!byMat.has(c.material)) byMat.set(c.material, []);
+    byMat.get(c.material).push(g);
+    group.remove(c);
+  }
+  for (const [mat, list] of byMat) {
+    const g = list.length > 1 ? mergeAll(list) : list[0];
+    if (list.length > 1) list.forEach((x) => x.dispose());
+    const o = new THREE.Mesh(g, mat); o.castShadow = true; group.add(o);
+  }
+}
 
 /** Merge geometries of any kind (indexed or not) that share position/normal/uv (and colour if all have it). */
 function mergeAll(list) {
@@ -113,77 +135,7 @@ function mergeAll(list) {
 function std(color, o = {}) { return new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0, ...o }); }
 function paint(color, o = {}) { return new THREE.MeshPhysicalMaterial({ color, roughness: 0.32, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.12, ...o }); }
 
-function canvasTex(w, h, draw) {
-  const c = document.createElement('canvas'); c.width = w; c.height = h;
-  draw(c.getContext('2d'), w, h);
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
-  return t;
-}
-
-/** The graphics on the side panels: stripes, a number and the Revvd logo. */
-function graphics(lv) {
-  return canvasTex(1024, 512, (g, w, h) => {
-    g.fillStyle = lv.plastic; g.fillRect(0, 0, w, h);
-    if (lv.camo) {
-      for (let i = 0; i < 70; i++) {
-        g.fillStyle = ['#8f7146', '#5b4630', '#d4b783'][i % 3];
-        g.beginPath(); g.ellipse(Math.random() * w, Math.random() * h, 30 + Math.random() * 70, 18 + Math.random() * 40, Math.random() * 3, 0, 7); g.fill();
-      }
-    }
-    g.save(); g.translate(w * 0.5, h * 0.5); g.rotate(-0.35);
-    g.fillStyle = lv.accent; g.fillRect(-w, -h * 0.02, w * 2, h * 0.12);
-    g.fillStyle = lv.dark; g.fillRect(-w, h * 0.14, w * 2, h * 0.05);
-    g.restore();
-    // number box
-    g.fillStyle = lv.accent; roundRect(g, w * 0.55, h * 0.12, w * 0.36, h * 0.6, 40); g.fill();
-    g.fillStyle = lv.accent === '#ffffff' || lv.accent === '#ffd21a' || lv.accent === '#39ff88' || lv.accent === '#b6d330' ? lv.dark : '#ffffff';
-    g.font = `italic 900 ${h * 0.5}px Kanit, Arial Black, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText(String(lv.number), w * 0.73, h * 0.43);
-    // the logo where the radiator shroud shows it (the panels take this picture 1:1 in metres, so it's drawn twice as wide)
-    g.save(); g.translate(w * 0.06, h * 0.62); g.scale(2, 1); revvdLogo(g, 0, 0, h * 0.1, ...inkOn(lv.plastic)); g.restore();
-  });
-}
-/** The rear side panels: a number plate with the logo over the number. */
-function sidePlate(lv) {
-  return canvasTex(512, 256, (g, w, h) => {
-    const bg = lv.accent === '#ffffff' ? lv.plastic : '#ffffff';
-    g.fillStyle = lv.plastic; g.fillRect(0, 0, w, h);
-    g.fillStyle = bg; roundRect(g, w * 0.17, h * 0.2, w * 0.58, h * 0.54, 34); g.fill();
-    revvdLogo(g, w * 0.46, h * 0.36, h * 0.13, ...inkOn(bg), true);
-    g.fillStyle = lv.accent === '#ffffff' ? '#ffffff' : lv.dark;
-    g.font = `italic 900 ${h * 0.34}px Kanit, Arial Black, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
-    g.fillText(String(lv.number), w * 0.46, h * 0.68);
-  });
-}
-/** A copy of a panel material whose picture is placed by u = x * a + b, v = y * c + d (x, y in metres on the panel). */
-function placed(mat, a, b, c = 1, d = 0) {
-  const m = mat.clone(); m.map = mat.map.clone(); m.map.repeat.set(a, c); m.map.offset.set(b, d); m.map.needsUpdate = true;
-  return m;
-}
-function roundRect(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
-
 // ------------------------------------------------------------------ Revvd branding
-const REVVD_HOT = '#ff7a1a';
-const lum = (c) => { const n = parseInt(c.slice(1), 16); return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255; };
-/** [letters, outline] that stand out on a background colour. */
-const inkOn = (bg) => (lum(bg) > 0.55 ? ['#16181c', '#ffffff'] : ['#ffffff', '#16181c']);
-/** The Revvd wordmark: italic REVVD (the two Vs in Revvd orange) over a slanted orange speed bar, outlined so it reads
-    on any paint. (x, y) is the left end of the baseline (its middle when center); h is the font size. Returns its width. */
-function revvdLogo(g, x, y, h, ink = '#ffffff', edge = '#16181c', center = false) {
-  g.save();
-  g.font = `italic 900 ${h}px Kanit, Arial Black, sans-serif`; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
-  const bits = [['RE', ink], ['VV', REVVD_HOT], ['D', ink]];
-  const w = bits.reduce((s, [t]) => s + g.measureText(t).width, 0);
-  if (center) x -= w / 2;
-  g.lineJoin = 'round'; g.lineWidth = h * 0.1; g.strokeStyle = edge;
-  const bar = () => { g.beginPath(); g.moveTo(x + h * 0.02, y + h * 0.06); g.lineTo(x + w + h * 0.08, y + h * 0.06); g.lineTo(x + w - h * 0.02, y + h * 0.19); g.lineTo(x - h * 0.08, y + h * 0.19); g.closePath(); };
-  bar(); g.stroke(); g.fillStyle = REVVD_HOT; g.fill();
-  let cx = x; for (const [t] of bits) { g.strokeText(t, cx, y); cx += g.measureText(t).width; }
-  cx = x; for (const [t, c] of bits) { g.fillStyle = c; g.fillText(t, cx, y); cx += g.measureText(t).width; }
-  g.restore();
-  return w;
-}
 /** A see-through sticker: just the logo (for the model-file bikes and the rider's jacket). */
 let stickerMat = null;
 function revvdSticker() {
@@ -208,28 +160,6 @@ function revvdPatch() {
   }
   return patchMat;
 }
-/** The rider's helmet shell: its colour with the logo on each side (a sphere's texture wraps round it: the
-    rider's right side is a quarter of the way across, the left three quarters; both sit a little to the back). */
-function helmetTex(lv) {
-  return canvasTex(1024, 512, (g, w, h) => {
-    g.fillStyle = lv.helmet; g.fillRect(0, 0, w, h);
-    for (const u of [0.14, 0.86]) revvdLogo(g, w * u, h * 0.6, h * 0.085, ...inkOn(lv.helmet), true);
-  });
-}
-/** The jersey: the logo on the chest, and REVVD over the rider's number on the back. */
-function crestTex(lv) {
-  return canvasTex(256, 128, (g, w, h) => revvdLogo(g, w / 2, h * 0.66, h * 0.5, ...inkOn(lv.jersey2), true));
-}
-function backTex(lv) {
-  return canvasTex(384, 256, (g, w, h) => {
-    const [ink, edge] = inkOn(lv.jersey);
-    revvdLogo(g, w / 2, h * 0.27, h * 0.24, ink, edge, true);
-    g.font = `italic 900 ${h * 0.62}px Kanit, Arial Black, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
-    g.lineJoin = 'round'; g.lineWidth = h * 0.05; g.strokeStyle = edge; g.strokeText(String(lv.number), w / 2, h * 0.9);
-    g.fillStyle = ink; g.fillText(String(lv.number), w / 2, h * 0.9);
-  });
-}
-
 function numberPlate(lv) {
   return canvasTex(256, 256, (g, w, h) => {
     const bg = lv.accent === '#ffffff' ? lv.plastic : '#ffffff';
@@ -250,22 +180,23 @@ function materials(lv, ghost) {
   const plastic = lv.chrome ? new THREE.MeshPhysicalMaterial({ color: lv.plastic, metalness: 1, roughness: 0.08, clearcoat: 1 })
     : lv.metal ? new THREE.MeshPhysicalMaterial({ color: lv.plastic, metalness: 0.85, roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.1 })
       : paint(lv.plastic, lv.glow ? { emissive: lv.plastic, emissiveIntensity: 0.15 } : {});
-  const gfx = graphics(lv);
-  const graphicsR = lv.chrome || lv.metal ? Object.assign(plastic.clone(), { color: new THREE.Color('#ffffff'), map: gfx }) : paint('#ffffff', { map: gfx });
-  // the side panels: the right side reads front to back as x grows, the left side (seen from the other way) mirrored
-  const side = paint('#ffffff', { map: sidePlate(lv) });
+  // the plastics' graphics (a chrome or gold bike keeps its metal under them)
+  const skin = (map) => (lv.chrome || lv.metal ? Object.assign(plastic.clone(), { color: new THREE.Color('#ffffff'), map }) : paint('#ffffff', { map, clearcoatRoughness: 0.06 }));
+  const shroudR = skin(shroudTex(lv)); const sideR = skin(sideTex(lv)); const shroudL = skin(shroudTex(lv, true)); const sideL = skin(sideTex(lv, true));
+  const shell = plastic.clone(); shell.side = THREE.DoubleSide;
   return {
-    plastic,
-    graphics: graphicsR,
-    graphicsL: placed(graphicsR, -1, 0.48),
-    sideR: placed(side, 1 / 0.6, 0.86 / 0.6, 1 / 0.25, -0.2 / 0.25),
-    sideL: placed(side, -1 / 0.6, -0.26 / 0.6, 1 / 0.25, -0.2 / 0.25),
+    plastic, shell,
+    shroudR, shroudL, sideR, sideL,
+    plate2: new THREE.MeshPhysicalMaterial({ map: plateTex(lv), alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.35, clearcoat: 0.8, clearcoatRoughness: 0.1 }),
     accent: paint(lv.accent),
     plate: std('#ffffff', { map: numberPlate(lv), roughness: 0.45 }),
     dark: std(lv.dark, { roughness: 0.55 }),
     black: std('#111214', { roughness: 0.5 }),
-    seat: std(lv.seat, { roughness: 0.85 }),
-    rubber: std('#161617', { roughness: 0.95 }),
+    seat: std('#ffffff', { map: seatTex(lv.seat), roughness: 0.85 }),
+    rubber: std('#1a1a1b', { roughness: 0.93 }),
+    blur: blurMaterial('#9da2aa'), blur2: blurMaterial('#9da2aa'),
+    hose: std('#141416', { roughness: 0.7 }),
+    titan: new THREE.MeshPhysicalMaterial({ color: '#b8a690', metalness: 1, roughness: 0.32, iridescence: 0.3, iridescenceIOR: 1.4, iridescenceThicknessRange: [250, 420] }),
     alu: std('#c9ced6', { metalness: 1, roughness: 0.32 }),
     frame: lv.frame === '#b9bec6' || lv.frame === '#cfd6df' ? std(lv.frame, { metalness: 1, roughness: 0.3 }) : paint(lv.frame, { metalness: 0.4 }),
     chrome: std('#eef1f5', { metalness: 1, roughness: 0.08 }),
@@ -277,22 +208,13 @@ function materials(lv, ghost) {
     silencer: std('#d8dce2', { metalness: 1, roughness: 0.22 }),
     carbon: std('#1a1b1e', { roughness: 0.35, metalness: 0.2 }),
     spring: paint(lv.accent === '#ffffff' ? lv.plastic : lv.accent),
-    jersey: std(lv.jersey, { roughness: 0.82 }),
-    jersey2: std(lv.jersey2, { roughness: 0.82 }),
-    pants: std(lv.pants, { roughness: 0.8 }),
-    boots: std(lv.boots, { roughness: 0.55 }),
-    helmet: paint(lv.helmet),
-    helmet2: paint(lv.helmet2),
-    helmetLogo: paint('#ffffff', { map: helmetTex(lv) }),
-    crest: std('#ffffff', { map: crestTex(lv), transparent: true, alphaTest: 0.3, roughness: 0.82 }),
-    back: std('#ffffff', { map: backTex(lv), transparent: true, alphaTest: 0.3, roughness: 0.82 }),
     lens: new THREE.MeshPhysicalMaterial({ color: lv.lens || '#ffb02e', metalness: 1, roughness: 0.05, iridescence: 1 }),
     glow: new THREE.MeshStandardMaterial({ color: lv.plastic, emissive: lv.plastic, emissiveIntensity: 1.6 }),
     light: new THREE.MeshStandardMaterial({ color: '#fffbe8', emissive: '#fff1c2', emissiveIntensity: 1.3 }),
     tail: std('#ff2a2a', { emissive: '#ff1a1a', emissiveIntensity: 0.9 }),
     cable: std('#ff7a1a', { roughness: 0.5 }),
     leather: std('#4a2f1e', { roughness: 0.7 }),
-    skin: std('#e8b996', { roughness: 0.7 }),
+    ...kitMaterials(lv),
   };
 }
 
@@ -315,12 +237,6 @@ function extrudeSide(pts, depth, bevel = 0.012, curveSeg = 6) {
 function mesh(geo, mat, x = 0, y = 0, z = 0) {
   const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; return m;
 }
-/** A capsule from a to b (kept as one mesh you move every frame). */
-function limb(r, len, mat) {
-  const g = new THREE.CapsuleGeometry(r, Math.max(0.01, len - 2 * r), 6, 14);
-  const m = new THREE.Mesh(g, mat); m.castShadow = true; m.userData.len = len;
-  return m;
-}
 const tmpDir = new THREE.Vector3();
 function placeLimb(m, a, b) {
   m.position.copy(a).add(b).multiplyScalar(0.5);
@@ -342,49 +258,18 @@ function ik(a, b, l1, l2, pole, out) {
 }
 
 // ------------------------------------------------------------------ wheels
-const wheelGeo = {};
-function wheel(R, front, M) {
-  const g = new THREE.Group();
-  const key = R + (front ? 'f' : 'r');
-  if (!wheelGeo[key]) {
-    const tyreR = front ? 0.052 : 0.06;
-    const ring = R - tyreR;
-    const tyre = new THREE.TorusGeometry(ring, tyreR, 14, 56);
-    // knobbly tread: two staggered rows of knobs plus a centre row
-    const knobs = [];
-    const n = 44;
-    for (let i = 0; i < n; i++) {
-      for (const side of [-1, 0, 1]) {
-        if (side === 0 && i % 2) continue;
-        const ang = (i + (side ? 0.5 * (side > 0) : 0)) / n * Math.PI * 2;
-        const k = new RoundedBoxGeometry(0.026, 0.022, side ? 0.03 : 0.036, 1, 0.006);
-        const rr = ring + tyreR * (side ? 0.82 : 0.98);
-        k.rotateZ(ang + Math.PI / 2);
-        k.translate(Math.cos(ang) * rr, Math.sin(ang) * rr, side * tyreR * 0.55);
-        knobs.push(k);
-      }
-    }
-    const rimR = ring - tyreR * 0.8;
-    const rim = new THREE.TorusGeometry(rimR, 0.016, 8, 48);
-    rim.scale(1, 1, 1.6);
-    const spokes = [];
-    for (let i = 0; i < 36; i++) {
-      const ang = i / 36 * Math.PI * 2; const side = i % 2 ? 1 : -1;
-      const hubA = ang + side * 0.35;
-      const a = V(Math.cos(hubA) * 0.045, Math.sin(hubA) * 0.045, side * 0.045);
-      const b = V(Math.cos(ang) * (rimR - 0.012), Math.sin(ang) * (rimR - 0.012), side * 0.008);
-      const c = new THREE.CylinderGeometry(0.0022, 0.0022, a.distanceTo(b), 4);
-      const q = new THREE.Quaternion().setFromUnitVectors(UP, b.clone().sub(a).normalize());
-      c.applyQuaternion(q); c.translate((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
-      spokes.push(c);
-    }
-    const hub = new THREE.CylinderGeometry(0.045, 0.045, 0.13, 20); hub.rotateX(Math.PI / 2);
-    const disc = new THREE.CylinderGeometry(front ? 0.135 : 0.12, front ? 0.135 : 0.12, 0.005, 36, 1);
-    disc.rotateX(Math.PI / 2); disc.translate(0, 0, front ? -0.075 : 0.075);
-    wheelGeo[key] = { tyre: mergeAll([tyre, ...knobs]), rim, spokes: mergeAll(spokes), hub, disc };
+/** A wheel (its parts' shapes are shared by every bike, see mx-parts.js): knobbly tyre, rim, spokes, hub and disc, and a
+    see-through blur disc over the spokes that shows as it spins up (poseBike). */
+function wheel(R, front, M, ghost) {
+  const g = new THREE.Group(); const G = wheelGeos(R, front);
+  const sh = (o) => { o.userData.sharedGeo = true; return o; };
+  g.add(sh(mesh(G.tyre, M.rubber)), sh(mesh(G.rim, M.rim)), sh(mesh(G.hub, M.alu)), sh(mesh(G.disc, M.chrome)));
+  const spokes = sh(mesh(G.spokes, M.chrome)); spokes.castShadow = false; g.add(spokes);
+  g.userData.spokes = spokes;
+  if (!ghost) {
+    if (!G.blurUV) { ringUV(G.blur, 0.05, G.rimR - 0.014); G.blurUV = true; }
+    const blur = sh(new THREE.Mesh(G.blur, M.blur)); blur.visible = false; blur.renderOrder = 1; g.add(blur); g.userData.blur = blur;
   }
-  const G = wheelGeo[key];
-  g.add(mesh(G.tyre, M.rubber), mesh(G.rim, M.rim), mesh(G.spokes, M.chrome), mesh(G.hub, M.alu), mesh(G.disc, M.chrome));
   return g;
 }
 
@@ -753,23 +638,33 @@ export function makeBike(opts = {}) {
   const root = new THREE.Group(); root.rotation.order = 'YZX';
   const body = new THREE.Group(); root.add(body);
 
-  // frame: twin aluminium spars, a downtube cradle and the subframe
-  for (const z of [-0.1, 0.1]) {
-    body.add(mesh(tube([V(0.42, 0.5, z * 0.4), V(0.22, 0.44, z), V(-0.02, 0.3, z * 1.1), V(-0.16, 0.12, z * 1.1), PIVOT.clone().setZ(z * 1.05)], 0.026), M.frame));
-    body.add(mesh(tube([V(-0.12, 0.3, z * 0.9), V(-0.45, 0.36, z * 0.8), V(-0.78, 0.42, z * 0.5)], 0.013), M.frame));
-    body.add(mesh(tube([V(-0.16, 0.0, z * 0.9), V(-0.45, 0.2, z * 0.8), V(-0.7, 0.36, z * 0.6)], 0.011), M.frame));
-    body.add(mesh(tube([V(0.36, 0.32, z * 0.3), V(0.28, 0.0, z * 0.7), V(0.16, -0.26, z * 0.7), V(-0.12, -0.26, z * 0.7), V(-0.17, -0.1, z * 0.9)], 0.014), M.frame));
+  // frame: twin aluminium spars from the steering head down to the swingarm pivot, a single downtube splitting into
+  // the cradle under the engine, and the subframe out under the seat
+  for (const z of [-1, 1]) {
+    body.add(mesh(sweep([V(0.42, 0.5, z * 0.035), V(0.25, 0.45, z * 0.085), V(0.03, 0.32, z * 0.112), V(-0.13, 0.13, z * 0.112), V(-0.17, -0.06, z * 0.105)], 24, 12, boxy(0.034, 0.016, 0.55)), M.frame));
+    body.add(mesh(tube([V(-0.1, 0.33, z * 0.09), V(-0.45, 0.4, z * 0.075), V(-0.8, 0.44, z * 0.05)], 0.012, 16, 8), M.frame));
+    body.add(mesh(tube([V(-0.15, 0.08, z * 0.09), V(-0.45, 0.25, z * 0.08), V(-0.72, 0.4, z * 0.06)], 0.01, 16, 8), M.frame));
+    body.add(mesh(tube([V(0.3, 0.1, z * 0.03), V(0.26, -0.12, z * 0.07), V(0.12, -0.25, z * 0.07), V(-0.12, -0.25, z * 0.07), V(-0.17, -0.1, z * 0.09)], 0.014, 20, 8), M.frame));
   }
+  body.add(mesh(sweep([V(0.43, 0.45), V(0.36, 0.26), V(0.3, 0.1, 0)], 12, 12, boxy(0.026, 0.022, 0.6)), M.frame));
   const stem = mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.2, 16), M.frame); stem.position.copy(onFork(0.86)); stem.rotation.z = FORK_ANGLE; body.add(stem);
   if (!electric) {
-    // engine: cylinder and head tilted forward (a two-stroke's is smaller and finned all the way), crankcase, clutch and ignition covers
+    // engine: the cylinder and head tilted forward (finned on the air-cooled retro), the cam cover, the crankcase with
+    // its clutch and ignition covers, and the hoses from the head to the radiators
     const tilt = two ? -0.18 : -0.32;
     const head = mesh(new RoundedBoxGeometry(two ? 0.15 : 0.17, two ? 0.2 : 0.24, two ? 0.15 : 0.17, 3, 0.03), M.engine, 0.14, two ? 0.06 : 0.08, 0); head.rotation.z = tilt; body.add(head);
-    const fins = two || retro ? 8 : 5;
-    for (let i = 0; i < fins; i++) { const fin = mesh(new THREE.BoxGeometry(two ? 0.19 : 0.2, 0.008, two ? 0.19 : 0.2), retro ? M.chrome : M.mag, 0.14 + i * (two ? 0.006 : 0.012), (two ? -0.03 : 0) + i * (two ? 0.024 : 0.035), 0); fin.rotation.z = tilt; body.add(fin); }
+    if (retro) for (let i = 0; i < 8; i++) { const fin = mesh(new THREE.BoxGeometry(0.2, 0.008, 0.2), M.chrome, 0.14 + i * 0.012, i * 0.035, 0); fin.rotation.z = tilt; body.add(fin); }
+    else {
+      const cam = mesh(new RoundedBoxGeometry(two ? 0.1 : 0.15, 0.05, two ? 0.12 : 0.15, 3, 0.02), two ? M.engine : M.mag, two ? 0.17 : 0.2, two ? 0.17 : 0.2, 0); cam.rotation.z = tilt; body.add(cam);
+      for (const z of [-1, 1]) {
+        body.add(mesh(tube([V(0.2, 0.2, z * 0.05), V(0.27, 0.24, z * 0.08), V(0.32, 0.22, z * 0.1)], 0.013, 10, 8), M.hose));
+        body.add(mesh(tube([V(0.12, -0.04, z * 0.08), V(0.24, 0.02, z * 0.1), V(0.31, 0.1, z * 0.11)], 0.012, 10, 8), M.hose));
+      }
+    }
     body.add(mesh(new RoundedBoxGeometry(0.36, 0.2, 0.24, 3, 0.05), retro ? M.alu : M.engine, -0.01, -0.13, 0));
-    const clutch = mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.04, 28), retro ? M.chrome : M.mag, -0.02, -0.11, 0.13); clutch.rotation.x = Math.PI / 2; body.add(clutch);
-    const ign = mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.04, 24), retro ? M.chrome : M.mag, 0.06, -0.12, -0.13); ign.rotation.x = Math.PI / 2; body.add(ign);
+    const clutch = mesh(new THREE.CylinderGeometry(0.1, 0.104, 0.045, 32), retro ? M.chrome : M.mag, -0.02, -0.11, 0.13); clutch.rotation.x = Math.PI / 2; body.add(clutch);
+    const pump = mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.03, 20), M.mag, 0.09, -0.16, 0.135); pump.rotation.x = Math.PI / 2; body.add(pump);
+    const ign = mesh(new THREE.CylinderGeometry(0.075, 0.078, 0.045, 28), retro ? M.chrome : M.mag, 0.06, -0.12, -0.13); ign.rotation.x = Math.PI / 2; body.add(ign);
   } else {
     // a battery pack where the engine would be, with a glowing strip, and the motor by the swingarm
     body.add(mesh(new RoundedBoxGeometry(0.46, 0.36, 0.25, 4, 0.05), M.engine, 0.02, -0.04, 0));
@@ -778,66 +673,70 @@ export function makeBike(opts = {}) {
     body.add(mesh(tube([V(0.1, 0.12, 0.13), V(-0.05, 0.05, 0.15), V(-0.13, -0.1, 0.09)], 0.012, 12, 6), M.cable));
     tip = { x: -0.86, y: 0.36, z: 0, a: Math.PI / 2 - 0.12 };
   }
+  const front = mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.022, 18), M.alu, -0.1, -0.08, -0.082); front.rotation.x = Math.PI / 2; body.add(front);   // (the gearbox sprocket)
   body.add(mesh(new RoundedBoxGeometry(enduro ? 0.48 : 0.42, enduro ? 0.04 : 0.03, 0.2, 2, 0.01), enduro ? M.alu : M.black, 0.0, -0.25, 0));   // skid plate (a big bash plate on the enduro)
-  // radiators behind the shrouds (not on the air-cooled retro or the electric), and the tank
-  if (!retro && !electric) for (const z of [-0.13, 0.13]) body.add(mesh(new RoundedBoxGeometry(0.16, 0.24, 0.035, 2, 0.01), M.black, 0.28, 0.22, z));
+  // radiators behind the shrouds (not on the air-cooled retro or the electric), the tank and the airbox
+  if (!retro && !electric) for (const z of [-1, 1]) { const rad = mesh(new RoundedBoxGeometry(0.05, 0.3, 0.1, 2, 0.01), M.black, 0.34, 0.27, z * 0.118); rad.rotation.z = -0.42; body.add(rad); }
   if (retro) {
     const tank = mesh(new THREE.SphereGeometry(0.2, 28, 18), M.plastic, 0.12, 0.45, 0); tank.scale.set(1.25, 0.62, 0.72); body.add(tank);
     body.add(mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.02, 18), M.chrome, 0.14, 0.575, 0));
-  } else body.add(mesh(new RoundedBoxGeometry(enduro ? 0.4 : 0.34, enduro ? 0.2 : 0.16, enduro ? 0.31 : 0.26, 4, 0.07), electric ? M.dark : M.plastic, 0.12, enduro ? 0.43 : 0.42, 0));
+  } else {
+    body.add(mesh(new RoundedBoxGeometry(enduro ? 0.36 : 0.3, 0.13, enduro ? 0.26 : 0.22, 4, 0.05), electric ? M.dark : M.plastic, 0.16, 0.44, 0));
+    body.add(mesh(new RoundedBoxGeometry(0.42, 0.2, 0.18, 3, 0.05), M.black, -0.42, 0.33, 0));
+  }
   // exhaust
   if (two) {
     // a two-stroke's fat expansion chamber round the front and under, then a skinny silencer
     body.add(mesh(tube([V(0.18, 0.02, 0.05), V(0.33, -0.08, 0.09), V(0.3, -0.24, 0.14), V(0.08, -0.27, 0.18), V(-0.16, -0.1, 0.19), V(-0.3, 0.12, 0.17)], 0.05, 48, 16), M.pipe));
-    const sil = mesh(new THREE.CylinderGeometry(0.038, 0.034, 0.4, 20), M.silencer, -0.5, 0.27, 0.165); sil.rotation.z = Math.PI / 2 - 0.25; body.add(sil);
-    tip = { x: -0.7, y: 0.32, z: 0.165, a: Math.PI / 2 - 0.25 };
+    body.add(mesh(sweep([V(-0.3, 0.13, 0.165), V(-0.5, 0.2, 0.165), V(-0.72, 0.27, 0.165)], 16, 18, boxy(0.036, 0.032, 0.8, 0.04)), M.silencer));
+    tip = { x: -0.73, y: 0.27, z: 0.165, a: Math.PI / 2 - 0.3 };
   } else if (retro) {
     // a chrome high pipe along the side
     body.add(mesh(tube([V(0.22, 0.08, 0.05), V(0.31, 0.02, 0.12), V(0.22, 0.26, 0.2), V(-0.1, 0.36, 0.21), V(-0.46, 0.4, 0.2)], 0.024, 40), M.chrome));
     const sil = mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.42, 24), M.chrome, -0.66, 0.415, 0.2); sil.rotation.z = Math.PI / 2 - 0.06; body.add(sil);
     tip = { x: -0.88, y: 0.43, z: 0.2, a: Math.PI / 2 - 0.06 };
   } else if (!electric) {
-    // header round the front of the engine, then up to the silencer on the right
-    body.add(mesh(tube([V(0.22, 0.06, 0.04), V(0.3, -0.02, 0.07), V(0.24, -0.16, 0.12), V(0.04, -0.12, 0.16), V(-0.18, 0.08, 0.17), V(-0.36, 0.26, 0.16)], 0.022, 40), M.pipe));
-    const sil = mesh(new THREE.CylinderGeometry(enduro ? 0.058 : 0.052, 0.048, 0.42, 24), M.silencer, -0.56, 0.33, 0.165); sil.rotation.z = Math.PI / 2 - 0.2; body.add(sil);
-    const cap = mesh(new THREE.CylinderGeometry(0.045, 0.052, 0.05, 24), M.carbon, -0.78, 0.38, 0.165); cap.rotation.z = Math.PI / 2 - 0.2; body.add(cap);
+    // a titanium header round the front of the engine and back up the right side, into a big oval silencer with a carbon end cap
+    body.add(mesh(tube([V(0.22, 0.12, 0.04), V(0.32, 0.03, 0.07), V(0.3, -0.1, 0.12), V(0.12, -0.11, 0.16), V(-0.12, 0.03, 0.17), V(-0.34, 0.2, 0.165)], 0.023, 48, 12), M.titan));
+    body.add(mesh(sweep([V(-0.32, 0.19, 0.165), V(-0.6, 0.28, 0.165), V(-0.86, 0.36, 0.165)], 18, 20, boxy(enduro ? 0.058 : 0.052, 0.044, 0.75, 0.035)), M.silencer));
+    const cap = mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.05, 20), M.carbon, -0.86, 0.36, 0.165); cap.rotation.z = Math.PI / 2 - 0.3; cap.scale.set(1, 1, 0.85); body.add(cap);
+    tip = { x: -0.9, y: 0.37, z: 0.165, a: Math.PI / 2 - 0.3 };
   }
-  // plastics: shrouds and side panels (oval number plates on the retro), seat, fenders, number plates
-  if (!retro) {
-    for (const side of [-1, 1]) {
-      body.add(mesh(extrudeSide([[0.44, 0.44], [0.2, 0.56, 0.02, 0.5], [-0.06, 0.36], [0.02, 0.16, 0.14, 0.14], [0.38, 0.18], [0.46, 0.3]], 0.012), side > 0 ? M.graphics : M.graphicsL, 0, 0, side * 0.16));
-      body.add(mesh(extrudeSide([[-0.26, 0.4], [-0.84, 0.45], [-0.86, 0.34], [-0.6, 0.2, -0.34, 0.2]], 0.012), side > 0 ? M.sideR : M.sideL, 0, 0, side * 0.115));
-    }
-  } else {
+  // the plastics: shrouds, side number plates, the seat and the rear fender (oval plates and a leather seat on the retro)
+  if (!retro) for (const [g, key] of mxBodywork()) body.add(mesh(g, M[key]));
+  else {
     for (const side of [-1, 1]) { const ov = mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.012, 32), M.plate, -0.42, 0.3, side * 0.12); ov.rotation.x = Math.PI / 2; ov.scale.set(1.25, 1, 0.9); body.add(ov); }
+    body.add(mesh(extrudeSide([[0.04, 0.49], [-0.3, 0.5, -0.82, 0.48], [-0.84, 0.43], [-0.3, 0.43, 0.02, 0.43]], 0.2, 0.03), M.leather, 0, 0, 0));
+    body.add(mesh(extrudeSide([[-0.6, 0.44], [-0.9, 0.47, -1.08, 0.55], [-1.09, 0.52], [-0.9, 0.42, -0.62, 0.39]], 0.15, 0.015), M.chrome, 0, 0, 0));
   }
-  if (retro) body.add(mesh(extrudeSide([[0.04, 0.49], [-0.3, 0.5, -0.82, 0.48], [-0.84, 0.43], [-0.3, 0.43, 0.02, 0.43]], 0.2, 0.03), M.leather, 0, 0, 0));
-  else body.add(mesh(extrudeSide([[0.06, 0.5], [-0.3, 0.5, -0.82, 0.46], [-0.84, 0.41], [-0.3, 0.41, 0.0, 0.42]], 0.17, 0.03), M.seat, 0, 0, 0));
-  body.add(mesh(extrudeSide([[-0.6, 0.44], [-0.9, 0.47, -1.08, 0.55], [-1.09, 0.52], [-0.9, 0.42, -0.62, 0.39]], 0.15, 0.015), retro ? M.chrome : M.plastic, 0, 0, 0));
-  // the front end that steers (bars, triple clamps, fork tubes, number plate) turns on the fork axis through FORK_0
+  // the front end that steers (bars, triple clamps, fork tubes, number plate, fender) turns on the fork axis through FORK_0
   const bars = new THREE.Group(); bars.position.copy(FORK_0); root.add(bars);
   const toBars = (o) => { o.position.sub(FORK_0); bars.add(o); return o; };
-  toBars(mesh(extrudeSide([[0.52, 0.2], [0.78, 0.27, 1.16, 0.16], [1.15, 0.13], [0.8, 0.22, 0.53, 0.16]], 0.13, 0.015), retro ? M.chrome : M.plastic, 0, 0, 0));   // front mudguard
-  const plate = mesh(retro ? new THREE.CylinderGeometry(0.13, 0.13, 0.02, 32) : new RoundedBoxGeometry(0.02, 0.24, 0.27, 2, 0.008), M.plate);
-  plate.position.copy(onFork(0.86)).add(V(FORK_U.y, -FORK_U.x).multiplyScalar(0.1)); plate.rotation.z = FORK_ANGLE + (retro ? Math.PI / 2 : 0); toBars(plate);
+  if (retro) toBars(mesh(extrudeSide([[0.52, 0.2], [0.78, 0.27, 1.16, 0.16], [1.15, 0.13], [0.8, 0.22, 0.53, 0.16]], 0.13, 0.015), M.chrome, 0, 0, 0));
+  else toBars(mesh(frontFender(), M.shell));
+  const fwd = V(FORK_U.y, -FORK_U.x);   // (straight out in front of the fork)
+  if (retro) { const plate = mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.02, 32), M.plate); plate.position.copy(onFork(0.86)).addScaledVector(fwd, 0.1); plate.rotation.z = FORK_ANGLE + Math.PI / 2; toBars(plate); }
+  else { const plate = mesh(plateGeo(), M.plate2); plate.position.copy(onFork(0.86)).addScaledVector(fwd, 0.085); plate.rotation.z = FORK_ANGLE; toBars(plate); }
   if (enduro) {
     // a headlight in the front plate, a tail light and a little licence plate
-    const lamp = mesh(new THREE.CylinderGeometry(0.055, 0.06, 0.03, 24), M.light); lamp.position.copy(onFork(0.82)).add(V(FORK_U.y, -FORK_U.x).multiplyScalar(0.12)); lamp.rotation.z = FORK_ANGLE + Math.PI / 2; toBars(lamp);
-    body.add(mesh(new RoundedBoxGeometry(0.04, 0.03, 0.08, 1, 0.01), M.tail, -1.06, 0.53, 0));
-    body.add(mesh(new THREE.BoxGeometry(0.01, 0.1, 0.16), M.dark, -1.0, 0.43, 0));
+    const lamp = mesh(new THREE.CylinderGeometry(0.055, 0.06, 0.03, 24), M.light); lamp.position.copy(onFork(0.8)).addScaledVector(fwd, 0.1); lamp.rotation.z = FORK_ANGLE + Math.PI / 2; toBars(lamp);
+    body.add(mesh(new RoundedBoxGeometry(0.04, 0.03, 0.08, 1, 0.01), M.tail, -1.12, 0.56, 0));
+    body.add(mesh(new THREE.BoxGeometry(0.01, 0.1, 0.16), M.dark, -1.04, 0.45, 0));
   }
-  if (electric) { const led = mesh(new THREE.BoxGeometry(0.025, 0.02, 0.2), M.glow); led.position.copy(onFork(0.74)).add(V(FORK_U.y, -FORK_U.x).multiplyScalar(0.12)); led.rotation.z = FORK_ANGLE; toBars(led); }
-  // triple clamps and the fork's outer tubes, on the same axis the physics uses
-  for (const t of [0.97, 0.8]) { const cl = mesh(new RoundedBoxGeometry(0.08, 0.035, 0.3, 2, 0.012), M.alu); cl.position.copy(onFork(t)); cl.rotation.z = FORK_ANGLE; toBars(cl); }
+  if (electric) { const led = mesh(new THREE.BoxGeometry(0.025, 0.02, 0.2), M.glow); led.position.copy(onFork(0.74)).addScaledVector(fwd, 0.12); led.rotation.z = FORK_ANGLE; toBars(led); }
+  // triple clamps and the fork's fat upper tubes (upside-down forks: the thin shiny tubes slide up into them)
+  for (const t of [0.98, 0.8]) { const cl = mesh(new RoundedBoxGeometry(0.09, 0.04, 0.31, 2, 0.014), M.alu); cl.position.copy(onFork(t)); cl.rotation.z = FORK_ANGLE; toBars(cl); }
   for (const z of [-0.11, 0.11]) {
-    const outer = mesh(new THREE.CylinderGeometry(0.031, 0.031, 0.58, 18), M.gold);
-    outer.position.copy(onFork(0.71)).setZ(z); outer.rotation.z = FORK_ANGLE; toBars(outer);
+    const outer = mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.58, 20), M.gold); outer.position.copy(onFork(0.71)).setZ(z); outer.rotation.z = FORK_ANGLE; toBars(outer);
+    const cap = mesh(new THREE.CylinderGeometry(0.03, 0.032, 0.03, 16), M.black); cap.position.copy(onFork(1.01)).setZ(z); cap.rotation.z = FORK_ANGLE; toBars(cap);
+    const seal = mesh(new THREE.CylinderGeometry(0.038, 0.038, 0.022, 20), M.black); seal.position.copy(onFork(0.43)).setZ(z); seal.rotation.z = FORK_ANGLE; toBars(seal);
   }
-  toBars(mesh(tube([V(0.3, 0.73, -0.39), V(0.33, 0.7, -0.2), V(0.38, 0.62, 0), V(0.33, 0.7, 0.2), V(0.3, 0.73, 0.39)], 0.012, 30), M.alu));
-  toBars(mesh(new RoundedBoxGeometry(0.05, 0.03, 0.2, 2, 0.01), M.black, 0.38, 0.66, 0));
+  toBars(mesh(tube([V(0.3, 0.735, -0.4), V(0.33, 0.705, -0.2), V(0.375, 0.66, 0), V(0.33, 0.705, 0.2), V(0.3, 0.735, 0.4)], 0.013, 30, 10), M.alu));
+  toBars(mesh(new RoundedBoxGeometry(0.06, 0.04, 0.17, 2, 0.015), M.accent, 0.385, 0.675, 0));   // (the bar pad)
   for (const z of [-1, 1]) {
-    const grip = mesh(new THREE.CylinderGeometry(0.019, 0.019, 0.13, 14), M.black, GRIPS.x, GRIPS.y, z * 0.38); grip.rotation.x = Math.PI / 2; toBars(grip);
-    const lever = mesh(tube([V(0.31, 0.73, z * 0.3), V(0.37, 0.72, z * 0.34), V(0.4, 0.7, z * 0.42)], 0.006, 8, 6), M.alu); toBars(lever);
+    const grip = mesh(new THREE.CylinderGeometry(0.02, 0.019, 0.13, 14), M.black, GRIPS.x, GRIPS.y, z * 0.38); grip.rotation.x = Math.PI / 2; toBars(grip);
+    toBars(mesh(tube([V(0.31, 0.73, z * 0.3), V(0.37, 0.72, z * 0.34), V(0.4, 0.7, z * 0.42)], 0.006, 8, 6), M.alu));
+    toBars(mesh(new RoundedBoxGeometry(0.035, 0.03, 0.045, 1, 0.008), M.black, 0.32, 0.745, z * 0.25));   // (the brake and clutch levers' perches)
     body.add(mesh(new RoundedBoxGeometry(0.06, 0.02, 0.05, 1, 0.006), M.alu, PEGS.x, PEGS.y, z * 0.17));
     if (enduro) toBars(mesh(tube([V(0.29, 0.71, z * 0.22), V(0.4, 0.745, z * 0.3), V(0.43, 0.73, z * 0.38), V(0.33, 0.72, z * 0.44)], 0.022, 16, 8), M.plastic));   // hand guards
   }
@@ -845,20 +744,28 @@ export function makeBike(opts = {}) {
   // the moving parts
   const forkLower = new THREE.Group(); root.add(forkLower);   // at the front axle
   for (const z of [-0.11, 0.11]) {
-    const inner = mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.5, 16), M.chrome); inner.position.copy(FORK_U).multiplyScalar(0.3).setZ(z); inner.quaternion.setFromUnitVectors(UP, FORK_U); forkLower.add(inner);
+    const inner = mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.5, 16), M.chrome); inner.position.copy(FORK_U).multiplyScalar(0.3).setZ(z); inner.quaternion.setFromUnitVectors(UP, FORK_U); forkLower.add(inner);
+    forkLower.add(mesh(new RoundedBoxGeometry(0.075, 0.1, 0.05, 2, 0.012), M.alu, 0, 0.02, z));   // (the axle lug)
     if (retro) { const gaiter = mesh(new THREE.CylinderGeometry(0.037, 0.037, 0.2, 14, 1), M.rubber); gaiter.position.copy(FORK_U).multiplyScalar(0.44).setZ(z); gaiter.quaternion.setFromUnitVectors(UP, FORK_U); forkLower.add(gaiter); continue; }   // rubber fork boots
-    const guard = mesh(new RoundedBoxGeometry(0.06, 0.24, 0.04, 2, 0.015), M.plastic); guard.position.copy(FORK_U).multiplyScalar(0.1).setZ(z * 1.15); guard.quaternion.setFromUnitVectors(UP, FORK_U); forkLower.add(guard);
+    // a fork guard over the front of the tube
+    forkLower.add(mesh(sweep([FORK_U.clone().multiplyScalar(0.04).setZ(z), FORK_U.clone().multiplyScalar(0.33).setZ(z)], 6, 10, (s, q) => {
+      const a = q * Math.PI; return [-0.036 * Math.sin(a) - 0.006, 0.036 * Math.cos(a) * (1 - 0.15 * s)];
+    }), M.shell));
   }
   const caliper = mesh(new RoundedBoxGeometry(0.07, 0.05, 0.03, 1, 0.01), M.alu, -0.08, 0.1, -0.09); forkLower.add(caliper);
-  const frontWheel = wheel(0.35, true, M); root.add(frontWheel);
-  const rearWheel = wheel(0.34, false, M); root.add(rearWheel);
-  const sprocket = mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.008, 40), M.alu, 0, 0, -0.08); sprocket.rotation.x = Math.PI / 2; rearWheel.add(sprocket);
-  const swing = new THREE.Group(); swing.position.copy(PIVOT); root.add(swing);   // points along +X to the rear axle
-  for (const z of [-0.09, 0.09]) swing.add(mesh(extrudeSide([[0, 0.04], [0.56, 0.03], [0.6, 0], [0.56, -0.03], [0, -0.05]], 0.03, 0.008), M.alu, 0, 0, z));
+  const frontWheel = wheel(0.35, true, M, opts.ghost); root.add(frontWheel);
+  const rearWheel = wheel(0.34, false, { ...M, blur: M.blur2 || M.blur }, opts.ghost); root.add(rearWheel);
+  const sprocket = mesh(wheelGeos(0.34, false).sprocket, M.alu); sprocket.userData.sharedGeo = true; rearWheel.add(sprocket);
+  const swing = new THREE.Group(); swing.position.copy(PIVOT); root.add(swing);   // points along +X to the rear axle (its +y is down)
+  for (const z of [-0.095, 0.095]) swing.add(mesh(sweep([V(0.02, 0, z), V(0.3, 0, z), V(0.6, 0, z)], 16, 12, boxy((s) => lerp(0.047, 0.027, s), 0.017, 0.55)), M.alu));
   swing.add(mesh(new RoundedBoxGeometry(0.08, 0.06, 0.2, 2, 0.015), M.alu, 0.05, -0.02, 0));
-  const chain = mesh(tube([V(0.05, 0.08, -0.1), V(0.3, 0.1, -0.1), V(0.6, 0.11, -0.1)], 0.008, 10, 5), M.black); swing.add(chain);
+  swing.add(mesh(new RoundedBoxGeometry(0.05, 0.045, 0.03, 1, 0.01), M.alu, 0.55, 0.09, 0.075));   // (the rear caliper)
+  const CH = chainGeo(0.67);
+  const chainMat = opts.ghost ? M.dark : chainMaterial(CH.links);
+  const chain = mesh(CH.geo, chainMat, -0.07, 0, -0.082); chain.castShadow = false; swing.add(chain);
+  swing.add(mesh(sweep([V(0.0, 0, -0.082), V(0.3, 0, -0.082)], 4, 10, boxy(0.05, 0.012, 0.5)), M.black));   // (the chain slider)
   const shockTop = V(-0.1, 0.33);
-  const spring = mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(Array.from({ length: 60 }, (_, i) => V(Math.cos(i * 0.9) * 0.034, i / 59, Math.sin(i * 0.9) * 0.034))), 120, 0.006, 6), M.spring);
+  const spring = mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(Array.from({ length: 60 }, (_, i) => V(Math.cos(i * 0.9) * 0.037, i / 59, Math.sin(i * 0.9) * 0.037))), 120, 0.007, 6), M.spring);
   const shockBody = mesh(new THREE.CylinderGeometry(0.022, 0.022, 1, 14), M.gold);
   const reservoir = mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.14, 14), M.black, -0.06, 0.38, 0.06); body.add(reservoir);
   root.add(spring, shockBody);
@@ -867,42 +774,15 @@ export function makeBike(opts = {}) {
   flame.rotation.z = tip.a; flame.position.set(tip.x, tip.y, tip.z); flame.visible = false; body.add(flame);
   const flame2 = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.25, 12, 1, true), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
   flame2.rotation.copy(flame.rotation); flame2.position.set(tip.x + 0.07, tip.y - 0.02, tip.z); flame2.visible = false; body.add(flame2);
+  mergeStatic(body, new Set([flame, flame2])); mergeStatic(bars); mergeStatic(forkLower); mergeStatic(swing, new Set([chain]));
 
-  // ------------------------------------------------------------ the rider
+  // ------------------------------------------------------------ the rider: in MX kit (mx-parts.js), posed by poseBike
   const R = new THREE.Group(); root.add(R);
-  const parts = {
-    pelvis: mesh(new THREE.SphereGeometry(0.135, 20, 14), M.pants),
-    torso: limb(0.15, 0.56, M.jersey),
-    chest: mesh(new RoundedBoxGeometry(0.2, 0.28, 0.34, 3, 0.07), M.jersey2),
-    neck: limb(0.055, 0.1, M.jersey2),
-    helmet: new THREE.Group(),
-    upperArm: [limb(0.052, 0.3, M.jersey), limb(0.052, 0.3, M.jersey)],
-    foreArm: [limb(0.046, 0.3, M.jersey2), limb(0.046, 0.3, M.jersey2)],
-    hand: [mesh(new RoundedBoxGeometry(0.08, 0.06, 0.08, 2, 0.02), M.jersey2), mesh(new RoundedBoxGeometry(0.08, 0.06, 0.08, 2, 0.02), M.jersey2)],
-    thigh: [limb(0.075, 0.45, M.pants), limb(0.075, 0.45, M.pants)],
-    shin: [limb(0.07, 0.44, M.boots), limb(0.07, 0.44, M.boots)],
-    boot: [mesh(new RoundedBoxGeometry(0.28, 0.1, 0.12, 2, 0.03), M.boots), mesh(new RoundedBoxGeometry(0.28, 0.1, 0.12, 2, 0.03), M.boots)],
-    knee: [mesh(new RoundedBoxGeometry(0.1, 0.14, 0.1, 2, 0.03), M.black), mesh(new RoundedBoxGeometry(0.1, 0.14, 0.1, 2, 0.03), M.black)],
-  };
-  parts.chest.scale.set(1, 1, 1);
-  const hel = parts.helmet;
-  const shell = mesh(new THREE.SphereGeometry(0.135, 32, 22), M.helmetLogo); shell.scale.set(1.18, 1.02, 0.94); hel.add(shell);
-  const stripe = mesh(new THREE.SphereGeometry(0.137, 32, 22, 0, Math.PI * 2, 0, 0.75), M.helmet2); stripe.scale.set(1.18, 1.02, 0.42); stripe.rotation.z = -0.25; hel.add(stripe);
-  // MX helmet: a long chin bar sticking forward, a peak over the eyes, goggles
-  const chinBar = mesh(extrudeSide([[0.04, -0.02], [0.2, -0.04, 0.21, -0.12], [0.16, -0.15], [0.06, -0.15, 0.0, -0.12]], 0.15, 0.03), M.helmet2); hel.add(chinBar);
-  const peak = mesh(extrudeSide([[0.02, 0.1], [0.16, 0.12, 0.25, 0.06], [0.24, 0.04], [0.12, 0.08, 0.02, 0.07]], 0.19, 0.008), M.helmet2); hel.add(peak);
-  const lens = mesh(new RoundedBoxGeometry(0.06, 0.06, 0.2, 2, 0.02), M.lens, 0.135, 0.015, 0); hel.add(lens);
-  const strap = mesh(new THREE.TorusGeometry(0.135, 0.011, 6, 36), M.dark); strap.rotation.y = Math.PI / 2; strap.position.y = 0.015; strap.scale.set(1.0, 1.0, 1.2); hel.add(strap);
-  R.add(parts.pelvis, parts.torso, parts.chest, parts.neck, hel, ...parts.upperArm, ...parts.foreArm, ...parts.hand, ...parts.thigh, ...parts.shin, ...parts.boot, ...parts.knee);
-  hel.traverse((o) => { o.castShadow = true; });
-  if (!opts.ghost) {
-    // team kit: the logo on the chest, and REVVD over the number across the back (a strip of cylinder hugging the torso)
-    const crest = mesh(new THREE.PlaneGeometry(0.19, 0.095), M.crest, 0.102, 0.015, 0); crest.rotation.y = Math.PI / 2; parts.chest.add(crest);
-    const back = mesh(new THREE.CylinderGeometry(0.154, 0.154, 0.19, 16, 1, true, Math.PI * 1.5 - 0.85, 1.7), M.back, 0, 0.03, 0); parts.torso.add(back);
-  }
+  const parts = riderParts(M, M);
+  R.add(parts.pelvis, parts.torso, parts.chest, parts.neck, parts.helmet, ...parts.upperArm, ...parts.foreArm, ...parts.hand, ...parts.thigh, ...parts.shin, ...parts.boot, ...parts.knee);
 
   if (opts.ghost) root.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.renderOrder = 2; } });
-  const m = { root, body, bars, steers: true, forkLower, frontWheel, rearWheel, swing, spring, shockBody, flame, flame2, rider: R, parts, livery: lv, ghost: !!opts.ghost, materials: M, grips: GRIPS, pegs: PEGS };
+  const m = { root, body, bars, steers: true, forkLower, frontWheel, rearWheel, swing, spring, shockBody, flame, flame2, rider: R, parts, livery: lv, ghost: !!opts.ghost, materials: M, grips: GRIPS, pegs: PEGS, chain: opts.ghost ? null : { map: chainMat.map, k: 0.108 / CH.length * CH.links } };
   if (fromFile) dress(m, fromFile, M, opts.ghost);
   const fileRider = RIDER_FILES[opts.rider] ? opts.rider : !RIDERS[opts.rider] ? 'biker' : null;   // (the MX Racer is drawn)
   if (fileRider) { if (riderSrcs[fileRider]) addRider(m, M, opts.ghost, fileRider); else preloadRider(fileRider); }
@@ -1128,6 +1008,26 @@ export function poseBoard(m) {
   m.grips.set(0.2, y + 1.0, 0);
 }
 
+/** Spokes blur as a wheel spins up: a see-through streaky disc fades in over them and, flat out, takes their place.
+    How fast each wheel turns is measured from frame to frame (in the air too), or from the speed when it can't be. */
+function spinBlur(m, s, t) {
+  const fb = m.frontWheel.userData.blur; const rb = m.rearWheel.userData.blur;
+  if (!fb && !rb) return;
+  const sp = m.spin || (m.spin = { t: null, f: s.wf[2], r: s.wr[2], wf: 0, wr: 0 });
+  const dt = sp.t == null ? 0 : t - sp.t;
+  if (dt > 0.002 && dt < 0.25) {
+    const k = Math.min(1, dt * 10);
+    sp.wf += (Math.abs(s.wf[2] - sp.f) / dt - sp.wf) * k; sp.wr += (Math.abs(s.wr[2] - sp.r) / dt - sp.wr) * k;
+  } else if (dt !== 0) { sp.wf = Math.abs(s.v || 0) / 0.35; sp.wr = Math.abs(s.v || 0) / 0.34; }
+  sp.t = t; sp.f = s.wf[2]; sp.r = s.wr[2];
+  for (const [w, o] of [[sp.wf, m.frontWheel], [sp.wr, m.rearWheel]]) {
+    const blur = o.userData.blur; if (!blur) continue;
+    const k = Math.max(0, Math.min(1, (w - 12) / 30));
+    blur.visible = k > 0.02; blur.material.opacity = k * 0.7;
+    o.userData.spokes.visible = k < 0.92;
+  }
+}
+
 export function poseBike(m, s, place, heading, t) {
   const root = m.root;
   place(s.x, s.y, root.position);
@@ -1154,6 +1054,8 @@ export function poseBike(m, s, place, heading, t) {
   m.frontWheel.quaternion.copy(qSteer).multiply(qSpin.setFromAxisAngle(Z_AXIS, -s.wf[2]));
   m.forkLower.quaternion.copy(qSteer); m.bars.quaternion.copy(qSteer);
   local(s.wr[0], s.wr[1], m.rearWheel.position); m.rearWheel.rotation.z = -s.wr[2];
+  spinBlur(m, s, t);
+  if (m.chain) m.chain.map.offset.x = (s.wr[2] * m.chain.k) % 1;   // (the chain runs round with the rear wheel)
   m.forkLower.position.copy(m.frontWheel.position);
   // swingarm from the pivot to the rear axle
   tA.copy(m.rearWheel.position).sub(PIVOT);
@@ -1424,6 +1326,10 @@ function poseTorso(P, hip, shoulder, head, lean) {
 /** Free a bike's GPU memory (geometry shared between bikes is kept). */
 export function disposeBike(m) {
   if (m.cover) m.cover.dispose();   // (its own snowy and muddy copies of the materials)
-  m.root.traverse((o) => { if (o.isMesh && o.material && !o.userData.shared) { const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach((x) => { if (x.map) x.map.dispose(); x.dispose(); }); } });
+  m.root.traverse((o) => {
+    if (!o.isMesh || o.userData.shared) return;
+    if (o.material) { const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach((x) => { if (x.map && !x.map.userData?.shared) x.map.dispose(); x.dispose(); }); }
+    if (o.geometry && !o.userData.sharedGeo && !o.geometry.userData.shared) o.geometry.dispose();
+  });
   if (m.root.parent) m.root.parent.remove(m.root);
 }

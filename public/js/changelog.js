@@ -6,6 +6,13 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.24.11', date: '2026-11-05', emoji: '🏍️', title: 'Revvd: a real-looking dirt bike and rider', items: [
+      'Your dirt bike is rebuilt from scratch: curved glossy plastics with bold graphics, white number plates, a long front fender high over the tyre, a slim ribbed seat, an aluminium frame and swingarm, a bronze exhaust into a big silencer, wave brake discs and a chain that really runs round its sprockets',
+      'The wheels have proper knobbly tyres and spokes, and at speed the spokes blur into a spinning disc',
+      'Your rider wears real motocross kit: a glossy helmet with a peak, a chin bar and goggles, a neck brace, a loose jersey with your number on the back, baggy pants, gloves and tall buckled boots, all in your kit and helmet colours',
+      'The plastics and helmet shine with the sky around you, while the jersey and pants look like soft matte fabric',
+      'Every bike style in the garage gets the new wheels, frame and rider',
+    ] },
     { v: '3.24.10', date: '2026-11-05', emoji: '🕵️', title: 'Impostor’s big update: new modes, new roles, twice the words', items: [
       'Way more words: 941 instead of about 350, with 10 new categories: School, Holidays & seasons, Music instruments, Vehicles, Superpowers, Fantasy, Kitchen, Clothing, Feelings and Hobbies (and more words in all the old ones)',
       'New mode, 🎭 Undercover: the impostor gets a close but different word (pizza vs burger) and doesn’t even know they’re the impostor! Caught? Guess the crew’s word to steal the win',
