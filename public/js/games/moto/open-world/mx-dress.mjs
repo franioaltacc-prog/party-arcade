@@ -9,7 +9,7 @@
  * Decoration only: the ground you ride on is unchanged. quality (0..1): how much grass and how many trees. */
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {soilTextures,LOOK} from '../look.js';
+import {soilTextures,LOOK,addRim} from '../look.js';
 import {tuftKit,tuftPatch} from './tufts.mjs';
 
 const SPONSORS=[
@@ -99,7 +99,7 @@ export function mxDress(terrain,scene,map,{quality=1,shadows=false,tufts=null}={
    const im=k(new THREE.InstancedMesh(tuftGeos[vi],gMat,list.length));im.userData.all=list.length;
    list.forEach(([x,y,z,d],i)=>{
     x0=Math.min(x0,x);x1=Math.max(x1,x);z0=Math.min(z0,z);z1=Math.max(z1,z);
-    const tall=.2+.5*Math.pow(d,1.4)*(.6+rnd()*.8),wide=.8+rnd()*.6;   // (taller, thicker grass where the patch is lush)
+    const tall=.16+.42*Math.pow(d,1.4)*(.6+rnd()*.8),wide=.8+rnd()*.6;   // (taller, thicker grass where the patch is lush)
     q.setFromAxisAngle(up,rnd()*6.283);im.setMatrixAt(i,m4.compose(v.set(x,y-.03,z),q,sc.set(wide*(.7+tall),tall,wide*(.7+tall))));
     const t=.8+rnd()*.32,g=.92+rnd()*.16;im.setColorAt(i,col.setRGB(t,t*g,t*(.85+rnd()*.15)).multiply(bankTint));
    });
@@ -144,62 +144,77 @@ export function mxDress(terrain,scene,map,{quality=1,shadows=false,tufts=null}={
  }
  // ------------------------------------------------------------- lone trees on the ridges
  let treesGone=false;const solids=[];
- const want=Math.round(16+34*quality),near=quality>.7;
+ const want=Math.round(14+16*quality);   // (lone trees: a few, well apart)
  const spots=[];
  {
   // high ground near the track: a spot scores by how far it stands above the ground round it
-  const cands=[];
+  const cands=[];let top=-Infinity;for(let j=0;j<N;j+=5)top=Math.max(top,H(mx.line[j].x,mx.line[j].z));
   for(let i=0;i<1400;i++){
-   const s=Math.floor(rnd()*N),side=rnd()<.5?-1:1,u=side*(mx.hw+18+rnd()*150),p=mx.point(s,u);
+   const s=Math.floor(rnd()*N),side=rnd()<.5?-1:1,u=side*(mx.hw+18+rnd()*230),p=mx.point(s,u);
    if(mx.near(p.x,p.z))continue;if(terrain.roadAt(p.x,p.z)?.distance<10)continue;
    let dmin=Infinity;for(let j=0;j<N;j+=3){const L=mx.line[j];dmin=Math.min(dmin,(L.x-p.x)**2+(L.z-p.z)**2);}if(dmin<26*26)continue;   // (up on the ridge, not between the lanes)
    const y=H(p.x,p.z);let ring=0;for(let a=0;a<6;a++){ring+=H(p.x+Math.cos(a)*24,p.z+Math.sin(a)*24);}
    const nn=terrain.normalAt(p.x,p.z);if(nn.y<.8)continue;
-   cands.push({x:p.x,z:p.z,y,score:y-ring/6+rnd()*2});
+   cands.push({x:p.x,z:p.z,y,score:y-ring/6+Math.max(0,y-top)*.12+rnd()*2});   // (crests, and the higher the better: against the sky)
   }
   cands.sort((a,b)=>b.score-a.score);
-  for(const c of cands){if(spots.length>=want)break;if(spots.some(o=>Math.hypot(o.x-c.x,o.z-c.z)<28))continue;spots.push(c);}
+  for(const c of cands){if(spots.length>=want)break;if(spots.some(o=>Math.hypot(o.x-c.x,o.z-c.z)<42))continue;spots.push(c);}
  }
- new GLTFLoader().load('/models/nature/oaks.glb',({scene:src})=>{
+ // the trees: acacia-style umbrella trees (acacias.glb), a detailed and a simple version of each of three; each tree
+ // shows its detailed one within lodD of the camera, the simple one further off (the lists are sorted out as the
+ // camera moves: update())
+ const lodD=quality>.8?150:quality>.4?90:0,trees=[],lod={near:[],far:[],at:{x:Infinity,z:Infinity}};
+ new GLTFLoader().load('/models/nature/acacias.glb',({scene:src})=>{
   const ms={};src.traverse(o=>{if(o.isMesh)ms[o.name]=o;});
   const release=()=>{const gs=new Set(),mats=new Set(),tx=new Set();src.traverse(o=>{if(o.isMesh){gs.add(o.geometry);mats.add(o.material);for(const vv of Object.values(o.material))if(vv?.isTexture)tx.add(vv);}});return {gs,mats,tx};};
   if(treesGone){const {gs,mats,tx}=release();gs.forEach(x=>x.dispose());mats.forEach(x=>x.dispose());tx.forEach(x=>x.dispose());return;}
-  const bark=ms.oak0_bark.material,leaves=ms.oak0_leaves.material;
+  const bark=ms.acacia0_bark.material,leaves=ms.acacia0_leaves.material;
   for(const t of [bark.map,bark.normalMap])if(t){t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(1,6);}
   leaves.side=THREE.DoubleSide;leaves.alphaTest=.45;leaves.transparent=false;if(map.look?.canopyTint)leaves.color?.setRGB(...map.look.canopyTint);else leaves.color?.multiplyScalar(.95);
   // leaves sway (gusts, the crown's edge most)
   leaves.onBeforeCompile=sh=>{sh.uniforms.uT=wind.uT;sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform float uT;').replace('#include <begin_vertex>',`#include <begin_vertex>
 #ifdef USE_INSTANCING
-{ vec3 r=instanceMatrix[3].xyz;float g=.6+.4*sin(uT*.6-r.x*.02);transformed.xz+=vec2(.7,.4)*sin(uT*1.3+r.x*.1+transformed.y*.3)*g*.06*max(0.0,transformed.y-2.0); }
+{ vec3 r=instanceMatrix[3].xyz;float g=.6+.4*sin(uT*.6-r.x*.02);transformed.xz+=vec2(.7,.4)*sin(uT*1.3+r.x*.1+transformed.y*.3)*g*.05*max(0.0,transformed.y-4.0); }
 #endif`);};
   leaves.customProgramCacheKey=()=>'mx-acacia-leaves';
-  const variants=[0,1,2].map(i=>[ms['oak'+i+(near?'':'_far')+'_bark'],ms['oak'+i+(near?'':'_far')+'_leaves']]);
+  addRim([bark]);
   const per3=[[],[],[]];spots.forEach((p,i)=>per3[i%3].push(p));
-  variants.forEach(([b,l],vi)=>{
-   const list=per3[vi];if(!list.length||!b||!l)return;
-   const box=new THREE.Box3().setFromObject(l).union(new THREE.Box3().setFromObject(b)),hgt=box.max.y-box.min.y;
-   for(const [mesh,mat] of [[b,bark],[l,leaves]]){
-    const geo=mesh.geometry.clone().applyMatrix4(mesh.matrixWorld);k(geo);
-    const im=k(new THREE.InstancedMesh(geo,mat,list.length));
-    list.forEach((p,i)=>{
-     // wide and low: an acacia's flat crown (the model a touch squashed and spread), each one its own size and turn
-     const s=(13+rnd()*6)/hgt,wide=1.3+rnd()*.3;
-     q.setFromAxisAngle(up,rnd()*6.283);im.setMatrixAt(i,m4.compose(v.set(p.x,p.y-.3,p.z),q,sc.set(s*wide,s*.95,s*wide)));
-    });
-    im.castShadow=shadows;im.receiveShadow=true;im.computeBoundingSphere();group.add(im);
+  for(let vi=0;vi<3;vi++){
+   const list=per3[vi];if(!list.length)continue;
+   const sizes=list.map(()=>({h:12+rnd()*5,wide:1+rnd()*.18,turn:rnd()*6.283}));
+   for(const [kind,key] of [['near',''],['far','_far']]){
+    const b=ms['acacia'+vi+key+'_bark'],l=ms['acacia'+vi+key+'_leaves'];if(!b||!l)continue;
+    const box=new THREE.Box3().setFromObject(l).union(new THREE.Box3().setFromObject(b)),hgt=box.max.y-box.min.y;
+    const mats=list.map((p,i)=>{const z=sizes[i],s=z.h/hgt;q.setFromAxisAngle(up,z.turn);return m4.compose(v.set(p.x,p.y-.3,p.z),q,sc.set(s*z.wide,s,s*z.wide)).clone();});
+    for(const [mesh,mat] of [[b,bark],[l,leaves]]){
+     const geo=mesh.geometry.clone().applyMatrix4(mesh.matrixWorld);k(geo);
+     const im=k(new THREE.InstancedMesh(geo,mat,list.length));im.count=0;
+     im.castShadow=shadows;im.receiveShadow=true;im.frustumCulled=false;group.add(im);
+     lod[kind].push({im,list,mats});
+    }
    }
    for(const p of list)solids.push({x:p.x,z:p.z,r:.7,tall:9});
-  });
+  }
+  lod.at.x=Infinity;   // (sort them out on the next update)
   terrain.addSolids(solids);keep.push(bark,leaves);
   // (the source file's other meshes aren't used: their buffers can go; the textures used are kept with the materials)
   const used=new Set([bark.map,bark.normalMap,leaves.map,leaves.normalMap,leaves.alphaMap].filter(Boolean));
   const {gs,mats,tx}=release();gs.forEach(x=>x.dispose());mats.forEach(m=>{if(m!==bark&&m!==leaves)m.dispose();});tx.forEach(t=>{if(used.has(t))keep.push(t);else t.dispose();});
  },undefined,e=>console.warn('ridge trees',e));
+ const sortTrees=cam=>{
+  if(Math.hypot(cam.x-lod.at.x,cam.z-lod.at.z)<4)return;lod.at.x=cam.x;lod.at.z=cam.z;
+  for(const kind of ['near','far'])for(const d of lod[kind]){
+   d.im.count=0;
+   d.list.forEach((p,i)=>{const close=Math.hypot(p.x-cam.x,p.z-cam.z)<lodD;if(close===(kind==='near'))d.im.setMatrixAt(d.im.count++,d.mats[i]);});
+   d.im.instanceMatrix.needsUpdate=true;
+  }
+ };
  return {
   group,
   /** px,pz: the centre of the detailed ground, reach: how far it's exact from there, hAt: the height of the ground as
       drawn (the crumbs sit on that, not on the true height a little above the drawn one on a crest). */
   update(dt,px,pz,reach=50,hAt=H,cam=null){wind.uT.value=(wind.uT.value+dt)%600;if(!tufts)kit.time.value=wind.uT.value;
+   if(cam)sortTrees(cam);
    if(cam)for(const b of grassBatches){const dx=Math.max(b.x0-cam.x,0,cam.x-b.x1),dz=Math.max(b.z0-cam.z,0,cam.z-b.z1),on=dx*dx+dz*dz<grassReach*grassReach;for(const im of b.ims){im.visible=on;if(on){const d=Math.sqrt(dx*dx+dz*dz);im.count=Math.max(1,Math.round(im.userData.all*Math.min(1,Math.max(.25,1-(d-25)/70))));}}}   // (further off, fewer tufts: each is a few pixels there)
    if(px===undefined||!Number.isFinite(px))return;const stamp=px*7919+pz;
    for(const b of crumbBatches){b.im.visible=b.x0>px-reach&&b.x1<px+reach&&b.z0>pz-reach&&b.z1<pz+reach;if(b.im.visible&&b.stamp!==stamp){b.stamp=stamp;b.seat(hAt);}}},

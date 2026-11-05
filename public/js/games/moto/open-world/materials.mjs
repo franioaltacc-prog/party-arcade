@@ -144,6 +144,7 @@ ${map.look?.paved?`if(owCliff<.5){ // concrete: slabs 4 m square, each a touch l
  vec3 owTint=${map.theme==='desert'?'mix(vec3(.88,.84,.84),vec3(1.1,1.05,.95),owM1)':map.theme==='snow'?'mix(vec3(.95,.97,1.03),vec3(1.03,1.02,1.0),owM1)':'mix(mix(vec3(.66,.8,.7),vec3(.86,.96,.8),smoothstep(.15,.45,owM2)),vec3(1.18,1.08,.74),smoothstep(.35,.7,owM1))'};
  ${map.theme==='alpine'?'owGround.rgb=mix(vec3(dot(owGround.rgb,vec3(.3,.59,.11))),owGround.rgb,.82);':''}
  owGround.rgb*=mix(vec3(1.0),owTint*(${map.theme==='snow'?'.96+.08':'.88+.24'}*owM2),(1.0-owCliff)*(1.0-owSnow*${map.theme==='snow'?'0.0':'1.0'})); }`}
+${map.look?.grassMul?`owGround.rgb*=mix(vec3(1.0),vec3(${map.look.grassMul.map(v=>(+v).toFixed(3)).join(',')}),1.0-owCliff);   // (look.grassMul: this world's grass a touch greener or drier)`:''}
 ${S?`float owSoilK=0.0;Soil owS;float owSoilAO=1.0;
 { float owDist=length(cameraPosition-owPosition);vec3 owNW=normalize(owSurfaceNormal);
   owS=soilAt(owPosition,owNW,cameraPosition,owDist);

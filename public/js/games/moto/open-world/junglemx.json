@@ -28,23 +28,20 @@
   "pisteClear": 16,
   "treeLine": 900,
   "sky": {
-   "sun": [
-    33,
-    282
-   ],
+   "sun": [27, 282],
    "turbidity": 1.6,
    "rayleigh": 2.6,
    "mie": 0.003,
    "exposure": 1.45,
    "fog": 0.45,
    "fogColor": "#b9c9cc",
-   "sunColor": "#ffe0b0",
-   "sunI": 5.4,
+   "sunColor": "#ffd9a6",
+   "sunI": 6.3,
    "envI": 0.44,
    "hemi": [
     "#a9c3ea",
     "#5e4c3a",
-    0.3
+    0.2
    ]
   },
   "grass": [
@@ -100,7 +97,8 @@
   "photo": {
    "grass": ["/assets/moto-realism/grass-color.webp", "/assets/moto-realism/grass-height.webp"]
   },
-  "dressGrass": "#efd99c",
+  "dressGrass": "#dcd8a2",
+  "grassMul": [0.84, 0.98, 0.74],
   "canopyTint": [0.66, 0.74, 0.44],
   "post": {
    "hazeD": 0.00034,
@@ -111,7 +109,7 @@
    "hazeFog": 0.15,
    "ao": 0.75,
    "sat": 1.1,
-   "con": 1.17,
+   "con": 1.2,
    "warm": 0.05,
    "hazeStart": 140
   },
@@ -121,7 +119,7 @@
    "hor": [0.8, 0.93, 1.12]
   },
   "clouds": 0.06,
-  "iblK": 0.95
+  "iblK": 0.72
  },
  "terrain": {
   "noise": 5,

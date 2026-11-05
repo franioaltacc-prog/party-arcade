@@ -32,3 +32,11 @@ Kloofendal 43d Clear Pure Sky by Greg Zaal, Poly Haven. CC0.
 Source: https://polyhaven.com/a/kloofendal_43d_clear_puresky
 The 1K Radiance HDR file, unchanged. The game clips its sun out when it loads it and uses the rest as the soft light
 of a blue sky on clear days (look.js).
+
+## Ridge trees (public/models/nature/acacias.glb)
+
+Made with ez-tree by Daniel Greenheck (MIT, https://github.com/dgreenheck/ez-tree), with its own oak bark and oak leaf
+textures: its 'Oak Large' preset reshaped into flat-topped, acacia-style umbrella trees (a tall bare trunk, long limbs
+rising in a V, leaves only out at the tips), a detailed and a simple far version of three trees, packed by
+tools/pack_trees.py (the settings are in its notes). Used for the lone trees on the ridges of Jungle Ridge MX
+(open-world/mx-dress.mjs).

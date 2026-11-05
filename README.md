@@ -444,7 +444,13 @@ with an import map), everything else is drawn and synthesised in code (no model,
   `hug` (grow right up to the trails: `plantable`'s `piste`); the soil shader adds lumps (slope from screen
   derivatives) and dry/damp patches. `tufts.mjs` (`look.tufts`): the shared tuft kit and a field of tufts round the rider
   (`tuftField`, rebuilt a few thousand a frame when the detailed patch moves); `wilds.setGround(visibleHeight)` seats
-  the wild plants on the drawn ground. Assets: `public/assets/moto-realism/SOURCES.md`.
+  the wild plants on the drawn ground. The ridge trees are acacia-style umbrella trees (`public/models/nature/acacias.glb`,
+  made with ez-tree, `tools/pack_trees.py ... acacia`), placed on the high crests round the track (higher scores
+  better, so they stand against the sky), a detailed and a simple version each, swapped by distance (`sortTrees`;
+  150 m on high, 90 on medium, simple only on low). `tuftKit({lawn: true})` / `tuftField({lawn: true})`: the lawn, an
+  even carpet of short fine turf that follows the camera (17 m round on high, 11 on medium, none on low) right up to
+  the track's edge; `look.grassMul` tints the world's grass (olive on Jungle Ridge). Assets:
+  `public/assets/moto-realism/SOURCES.md`.
   Driftvvd (`drift`): `drift.js`, its own top-down car physics (bicycle model, tyre curve, friction circle, handbrake
   on Space/Q, auto counter-steer from the body slip and a drift assist past 45°; `b.drift = {angle, speed}`), drawn
   with `makeCar` (`driftPaint()`), on Downtown (`city`, hidden, written by `tools/make_city.py`). The city is laid out

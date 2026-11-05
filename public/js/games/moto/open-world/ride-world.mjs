@@ -132,6 +132,7 @@ void main(){
  const dhs=built.terrain.mx?.open?dhScenery(built.terrain,scene,map,{shadows}):null;   // (a downhill course: its timber, tape, arches and start hut)
  // grass tufts of real blades (look.tufts): along a dressed track's banks and in a field round the rider everywhere
  const tuftK=map.look?.tufts?tuftKit({quality,seed:map.seed}):null;
+ const lawnK=tuftK&&quality>.5?tuftKit({quality,seed:map.seed+5,lawn:true}):null;   // (short fine turf close round the camera)
  const dress=map.mx&&map.look?.dress?mxDress(built.terrain,scene,map,{quality,shadows,tufts:tuftK}):null;   // (and a pro track's banner fences, grass on the banks, trees on the ridges)
  const city=map.features?.city?cityScenery(built.terrain,scene,map,{quality,night,dusk,shadows}):null;   // (Driftvvd's city: streets, buildings, lights, parked cars)
  const ocean=map.sea?createOcean(built.terrain,scene,map,{quality,dark:night||dusk||!!map.look?.storm}):null;   // (a sea world: the water, its buoys and piers)
@@ -279,6 +280,20 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
    const h=(a,b)=>gridHeight(pos.array,half*2,half*2,n,a-cx,b-cz),sl=Math.hypot(h(x+.6,z)-h(x-.6,z),h(x,z+.6)-h(x,z-.6))/1.2;
    return sl<.75;   // (bare earth on the steep cut banks)
   }}):null;
+ // the lawn: an even carpet of short fine turf close round the camera, right up to the track's edge (so the grassy
+ // banks read as grass, not sprigs on earth), moving with the camera
+ const lawnAt=new THREE.Vector3();
+ const lawn=lawnK?tuftField(scene,lawnK,{radius:quality>.8?17:11,spacing:quality>.8?.24:.34,tint:[1.02,1,.92],lawn:true,
+  height:(x,z)=>gridHeight(pos.array,half*2,half*2,n,x-cx,z-cz),
+  ok:(x,z)=>{
+   if(Math.abs(x-cx)>inner-1||Math.abs(z-cz)>inner-1)return false;
+   const sample=samples.get(Math.round(x/policy.patchStep)*policy.patchStep+','+Math.round(z/policy.patchStep)*policy.patchStep);
+   if(!sample||sample.trail>.12)return false;
+   if(tuftMx){const at=tuftMx.near(x,z);if(at&&Math.abs(at.u)<tuftMx.hw+.9)return false;}
+   if(built.terrain.featureAt(x,z).flat>.02)return false;
+   const h=(a,b)=>gridHeight(pos.array,half*2,half*2,n,a-cx,b-cz),sl=Math.hypot(h(x+.5,z)-h(x-.5,z),h(x,z+.5)-h(x,z-.5));
+   return sl<.8;
+  }}):null;
  function updatePatch(point){
   const x=Math.round(point.x/policy.stride)*policy.stride,z=Math.round(point.z/policy.stride)*policy.stride;
   const teleport=!Number.isFinite(cx)||Math.hypot(point.x-cx,point.z-cz)>half*1.5;
@@ -302,7 +317,7 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
   // trees and rocks that were on the old patch go back to the coarse ground; those on the new one sit on it
   if(Number.isFinite(old.x0))built.syncScenery(visibleHeight,old);
   built.syncScenery(visibleHeight,{x0:cx-half-2,x1:cx+half+2,z0:cz-half-2,z1:cz+half+2});
-  scatterCover();tuftsRound?.rebuild(cx,cz);wilds?.setGround?.(visibleHeight);   // (the plants on the new patch sit on it)
+  scatterCover();tuftsRound?.rebuild(cx,cz);lawn?.rebuild(lawnAt.x,lawnAt.z);wilds?.setGround?.(visibleHeight);   // (the plants on the new patch sit on it)
   if(samples.size>45000)for(const [key,p]of samples)if(Math.abs(p.x-cx)>half+32||Math.abs(p.z-cz)>half+32)samples.delete(key);
  }
  // ---------------------------------------------------------------- gold coins to collect
@@ -354,6 +369,9 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
   /** ahead: where to centre the detailed ground (a little ahead of a fast bike, so the ground it's riding into is ready). */
   update(point,dt,camera,ahead=point){
    breeze.uWindT.value=(breeze.uWindT.value+dt)%600;if(tuftK){tuftK.time.value=breeze.uWindT.value;tuftsRound.step(quality>.8?6000:3500);}
+   if(lawn){lawnK.time.value=breeze.uWindT.value;lawnAt.set(camera.position.x+(point.x-camera.position.x)*.6,0,camera.position.z+(point.z-camera.position.z)*.6);   // (centred a little ahead of the camera)
+    const c=lawn.centre;if(Number.isFinite(cx)&&!lawn.busy&&(!c||Math.hypot(c.x-lawnAt.x,c.z-lawnAt.z)>(quality>.8?4:3)))lawn.rebuild(lawnAt.x,lawnAt.z);
+    lawn.step(quality>.8?3000:1200);}   // (a little a frame: no hitches)
    cloudU.uT.value=(cloudU.uT.value+dt)%2000;cloudLayer.position.x=camera.position.x;cloudLayer.position.z=camera.position.z;
    wilds?.update(camera.position,dt);
    updatePatch(ahead);dress?.update(dt,cx,cz,inner-3,visibleHeight,camera.position);fx.update(dt,camera);parks.update(dt);built.update(camera.position);forest?.update(camera.position);slope?.update(camera.position);city?.update(camera.position);ocean?.update(camera.position,dt);weather(camera.position,dt);drawCoins(performance.now());drawHoops(performance.now());
@@ -366,7 +384,7 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
   /** The real plants (wilds.mjs), once they've grown: { count, solids, update, dispose } or null. */
   get wilds(){return wilds;},
   dispose(){
-   gone=true;stopSkyEnv();tuftsRound?.dispose();tuftK?.dispose();dress?.dispose();wilds?.dispose();samples.clear();built.dispose();parks.dispose();forest?.dispose();slope?.dispose();city?.dispose();ocean?.dispose();mxs?.dispose();dhs?.dispose();geo.dispose();detail.dispose();shadowGeo.dispose();shadowMat.dispose();shadowTex.dispose();
+   gone=true;stopSkyEnv();tuftsRound?.dispose();tuftK?.dispose();lawn?.dispose();lawnK?.dispose();dress?.dispose();wilds?.dispose();samples.clear();built.dispose();parks.dispose();forest?.dispose();slope?.dispose();city?.dispose();ocean?.dispose();mxs?.dispose();dhs?.dispose();geo.dispose();detail.dispose();shadowGeo.dispose();shadowMat.dispose();shadowTex.dispose();
    for(const k of coverKinds){k.im.dispose();k.geo.dispose();}for(const m of [props.propMat,props.leafMat,props.cactusMat,pebbleProps.propMat,pebbleProps.leafMat,pebbleProps.cactusMat])m.dispose();
    cloudLayer.geometry.dispose();cloudMat.dispose();if(drops){drops.mesh.geometry.dispose();drops.mesh.material.dispose();}if(flakes){for(const f of flakes){f.mesh.geometry.dispose();f.mesh.material.dispose();}flakeTex.dispose();}if(stars){stars.geometry.dispose();stars.material.dispose();}if(lamp){lamp.spot.dispose();lamp.glow.dispose();}coinMesh.dispose();coinGeo.dispose();coinMat.dispose();hoopMesh.dispose();hoopGeo.dispose();hoopMat.dispose();sky.geometry.dispose();sky.material.dispose();env?.dispose();
    const textures=new Set();fxRoot.traverse(o=>{o.geometry?.dispose();if(o.material){for(const u of Object.values(o.material.uniforms||{}))if(u.value?.isTexture)textures.add(u.value);if(o.material.map)textures.add(o.material.map);o.material.dispose();}});textures.forEach(t=>t.dispose());
