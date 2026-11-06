@@ -29,11 +29,13 @@
     "grass": [[52, 92, 40], [112, 146, 70]],
     "dirt": [[96, 70, 48], [150, 116, 82]],
     "soil": {"set": "leafground", "cover": 0, "scale": 1.25, "worn": 0.45, "banks": 0.8},
-    "tufts": {"tips": [[0.52, 0.62, 0.26], [0.64, 0.66, 0.3], [0.84, 0.8, 0.5]], "tint": [0.95, 1.0, 0.88], "lawnTips": [[0.42, 0.58, 0.2], [0.56, 0.64, 0.26], [0.76, 0.74, 0.42]], "lawnTint": [0.98, 1.0, 0.9], "radius": 0.7},
-    "grassMul": [0.8, 0.9, 0.68],
+    "tufts": {"tips": [[0.52, 0.62, 0.26], [0.64, 0.66, 0.3], [0.84, 0.8, 0.5]], "tint": [0.95, 1.0, 0.88], "lawnTips": [[0.42, 0.58, 0.2], [0.56, 0.64, 0.26], [0.76, 0.74, 0.42]], "lawnTint": [0.98, 1.0, 0.9], "radius": 1.1},
+    "grassMul": [0.8, 1.12, 0.62],
     "iblK": 0.8,
     "skyGrade": {"k": 0.56, "zen": [0.35, 0.6, 1.25], "hor": [0.8, 0.93, 1.12]},
-    "post": {"ao": 0.8, "con": 1.16, "sat": 1.06, "warm": 0.03, "hazeStart": 150}
+    "post": {"ao": 0.8, "con": 1.16, "sat": 1.06, "warm": 0.03, "hazeStart": 150},
+    "oldGrass": false,
+    "photo": {"grass": ["/assets/moto-realism/grass-color.webp", "/assets/moto-realism/grass-height.webp"]}
   },
   "terrain": {
     "noise": 2,

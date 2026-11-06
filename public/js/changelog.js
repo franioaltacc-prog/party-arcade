@@ -6,6 +6,10 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.24.17', date: '2026-11-06', emoji: '🌱', title: 'Revvd: natural meadows in the green worlds', items: [
+      'Pinecrest Highlands, Wildwood Bike Park, Autumn Ridge and Tag Wood: the old cartoon grass sprigs are gone, so the meadows are just the new swaying blade grass',
+      'Pinecrest, Wildwood and Tag Wood: the ground itself is now real photographed grass (a fresh green), so the meadows look natural all the way into the distance, and the blade grass reaches further from you',
+    ] },
     { v: '3.24.16', date: '2026-11-06', emoji: '🌲', title: 'Unrevvd: real forest floors in the chutes', items: [
       'The Timber, Fog and Midnight Chutes get a real pine forest floor of needles, earth and stones, and the Autumn Chute a carpet of fallen leaves',
       'The Storm Chute is real churned-up mud with tyre tracks, and the Slatefall Line wet grey rock',
