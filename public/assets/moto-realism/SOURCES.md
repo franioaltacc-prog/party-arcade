@@ -35,7 +35,8 @@ Sparse Grass by Amal Kumar, Poly Haven. CC0.
 Source: https://polyhaven.com/a/sparse_grass
 From the 2K JPG maps: grass-color (diffuse, brought to a khaki-olive average and a touch less saturated) and
 grass-height (displacement), each scaled to 1024 px and tiled 2 x 2 into a 2048 px WebP. Used for the grassy ground
-of Jungle Ridge MX (its world file's look.photo.grass; open-world/materials.mjs).
+of Jungle Ridge MX, Pinecrest Highlands, Wildwood Bike Park and Tag Wood (their world files' look.photo.grass, tinted
+by look.grassMul; open-world/materials.mjs).
 
 ## Sky light (sky-clear-1k.hdr)
 
