@@ -62,6 +62,7 @@
     ['🟥', '“Red Laterite Soil Stones” by Amal Kumar (CC0, Poly Haven)', 'the red dirt of Jungle Ridge MX: its colour, relief, stones and clods (made smaller for the web)'],
     ['🌾', '“Sparse Grass” by Amal Kumar (CC0, Poly Haven)', 'the grassy ground round Jungle Ridge MX (recoloured a little and made smaller for the web)'],
     ['🏜️', '“Red Sand” by Rohit Seervi, “Dense Sand” by Dimitrios Savva, “Forest Ground 04” by Rob Tuytel and Rico Cilliers, “Forest Leaves 02”, “Forest Leaves 04” and “Burned Ground 01” by Rob Tuytel, “Dark Rock” by Amal Kumar (CC0, Poly Haven)', 'the scanned ground of the other Revvd worlds: red desert sand, golden dunes, pine and leafy forest floors, autumn leaves, volcanic ash and dark rock (made smaller for the web)'],
+    ['🪨', '“Muddy Tracks” by Amal Kumar, “Rock Ground 02” by Rob Tuytel (CC0, Poly Haven)', 'the muddy ground of the Storm Chute and the wet rock of the Slatefall Line (made smaller for the web)'],
     ['🏜️', '“Sand 01” and “Forest Leaves 02” by Rob Tuytel, “Gravelly Sand” by Dario Barresi, “Mud Forest” by eye-candy.xyz (CC0, Poly Haven)', 'the ground of the Desert Dunes and Forest Mud race tracks: sand, gravel, leaves and mud (made smaller for the web)'],
     ['☀️', '“Kloofendal 43d Clear Pure Sky” by Greg Zaal (CC0, Poly Haven)', 'the sky light on clear days in Revvd: the soft light from a real blue sky on everything (its sun left out)'],
     ['🟢', 'GSAP by GreenSock', 'animations'],

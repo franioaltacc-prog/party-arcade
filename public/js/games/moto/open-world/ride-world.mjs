@@ -239,7 +239,7 @@ vec3 transformed=vec3(uEye.x+mod(position.x+uWind.x*uT+sin(uT*1.3+fl.y)*.45-uEye
 #endif`);};
  props.leafMat.customProgramCacheKey=()=>'ow-grass-wind';
  const coverKinds=[
-  map.theme!=='snow'&&!map.look?.dress&&{geo:map.look?.autumn?autumnize(props.PROPS.grass(),map.seed):props.PROPS.grass(),mat:props.leafMat,max:Math.round((map.theme==='desert'?2600:7000)*Math.min(1,quality+.15)),every:map.theme==='desert'?.3:.75,size:[.8,1.5],sink:.04},
+  map.theme!=='snow'&&!map.look?.dress&&map.look?.oldGrass!==false&&{geo:map.look?.autumn?autumnize(props.PROPS.grass(),map.seed):props.PROPS.grass(),mat:props.leafMat,max:Math.round((map.theme==='desert'?2600:7000)*Math.min(1,quality+.15)),every:map.theme==='desert'?.3:.75,size:[.8,1.5],sink:.04},
   {geo:pebbleProps.PROPS.rock(),mat:props.propMat,max:Math.round(500*Math.min(1,quality+.2)),every:.05,size:[.12,.45],sink:.06},
   map.theme==='alpine'&&{drawn:'shrub',geo:map.look?.autumn?autumnize(props.PROPS.shrub(),map.seed):props.PROPS.shrub(),mat:props.propMat,max:Math.round(260*quality),every:.025,size:[.5,.9],sink:.05},
  ].filter(Boolean).map(k=>{const im=new THREE.InstancedMesh(k.geo,k.mat,k.max);im.count=0;im.receiveShadow=true;im.frustumCulled=false;scene.add(im);return {...k,im};});

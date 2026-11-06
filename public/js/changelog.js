@@ -6,6 +6,12 @@
   const FX = PA.FX || {};
 
   const CHANGELOG = [
+    { v: '3.24.16', date: '2026-11-06', emoji: '🌲', title: 'Unrevvd: real forest floors in the chutes', items: [
+      'The Timber, Fog and Midnight Chutes get a real pine forest floor of needles, earth and stones, and the Autumn Chute a carpet of fallen leaves',
+      'The Storm Chute is real churned-up mud with tyre tracks, and the Slatefall Line wet grey rock',
+      'Real grass that sways in the wind instead of the old cartoon clumps',
+      'Softer, more natural light and colour in each chute, keeping its own weather: sun, fog, night, storm or snow',
+    ] },
     { v: '3.24.15', date: '2026-11-05', emoji: '🌊', title: 'Revvd: real-looking sea, lake and snow', items: [
       'Azure Bay’s sea is a deep blue with white foam tearing off the biggest waves, clear turquoise water over the sand near the beach, and lines of foam rolling in to the shore',
       'Coconut palms line the beaches, leaning out over the water and swaying in the sea breeze (crash into one and you’ll know they’re solid)',
